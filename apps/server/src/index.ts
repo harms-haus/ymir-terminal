@@ -1,3 +1,5 @@
+import { startServer } from './server';
+
 interface ParsedArgs {
   password: string | null;
   port: number;
@@ -31,12 +33,4 @@ if (!args.password) {
   process.exit(1);
 }
 
-console.log(`Ymir server starting on ${args.host}:${args.port}...`);
-
-Bun.serve({
-  port: args.port,
-  hostname: args.host,
-  fetch() {
-    return new Response('Ymir server running');
-  },
-});
+startServer({ password: args.password, port: args.port, host: args.host });
