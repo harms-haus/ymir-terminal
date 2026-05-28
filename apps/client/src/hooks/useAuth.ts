@@ -55,8 +55,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (password: string): Promise<void> => {
     // Connect if not already connected
-    if (wsClient.getStatus() === 'disconnected') {
+    const status = wsClient.getStatus();
+    if (status === 'disconnected') {
       wsClient.connect(getWsUrl());
+    }
+
+    // Wait for connection to open
+    if (wsClient.getStatus() !== 'connected') {
+      await new Promise<void>((resolve, reject) => {
+        let unsub: (() => void) | null = null;
+
+        const timeout = setTimeout(() => {
+          unsub?.();
+          reject(new Error('Connection timed out'));
+        }, 5000);
+
+        unsub = wsClient.onStatusChange((s) => {
+          if (s === 'connected') {
+            clearTimeout(timeout);
+            unsub?.();
+            resolve();
+          }
+        });
+      });
     }
 
     const requestId = crypto.randomUUID();
@@ -65,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       v: PROTOCOL_VERSION,
       type: 'request',
       id: requestId,
+      channel: 'auth',
       payload: { password },
     };
 

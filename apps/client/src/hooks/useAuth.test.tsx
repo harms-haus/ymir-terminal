@@ -36,7 +36,11 @@ mock.module('../lib/ws-client', () => ({
       messageHandler = handler;
       return mockOnMessage();
     },
-    onStatusChange: mockOnStatusChange,
+    onStatusChange: (handler: (status: string) => void) => {
+      // Immediately notify connected so the login flow proceeds
+      handler('connected');
+      return mockOnStatusChange();
+    },
     getStatus: () => 'disconnected' as const,
   },
 }));
@@ -168,6 +172,8 @@ describe('useAuth', () => {
     // Perform login
     await act(async () => {
       const loginPromise = result.current.login('mypassword');
+      // Yield to allow login's internal await (wait-for-connected) to resolve
+      await new Promise((r) => setTimeout(r, 0));
       const envelope = mockSend.mock.calls[0][0] as MessageEnvelope;
       messageHandler!({
         v: PROTOCOL_VERSION,
@@ -206,6 +212,8 @@ describe('useAuth', () => {
 
     await act(async () => {
       const loginPromise = result.current.login('wrong-password');
+      // Yield to allow login's internal await (wait-for-connected) to resolve
+      await new Promise((r) => setTimeout(r, 0));
       const envelope = mockSend.mock.calls[0][0] as MessageEnvelope;
       messageHandler!({
         v: PROTOCOL_VERSION,
