@@ -2,16 +2,25 @@
   "name": "@ymir/client",
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.9.0",
-    "@testing-library/react": "^16.3.2"
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^6.0.2",
+    "vite": "^8.0.14"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.14",
+    "@tanstack/react-router": "^1.170.8",
+    "@tanstack/react-start": "^1.168.14",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "react-resizable-panels": "^4.11.2"
   }
 }
