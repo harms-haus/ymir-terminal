@@ -7,7 +7,7 @@ try {
 }
 
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
@@ -43,14 +43,30 @@ mock.module('../hooks/useTabs', () => ({
 // Mock useTerminal
 // ---------------------------------------------------------------------------
 
+let mockSendData: (data: string) => void;
+let mockOnOutput: (handler: (data: string) => void) => () => void;
+let mockCreateTerminalFn: (workspaceId: string) => Promise<string>;
+let mockCloseTerminal: () => Promise<void>;
+let mockResizeTerminal: (cols: number, rows: number) => void;
+
 mock.module('../hooks/useTerminal', () => ({
   useTerminal: () => ({
-    sendData: mock(() => {}),
-    onOutput: mock(() => () => {}),
-    createTerminal: mock(() => Promise.resolve('term-1')),
-    closeTerminal: mock(() => Promise.resolve()),
-    resizeTerminal: mock(() => {}),
+    sendData: mockSendData,
+    onOutput: mockOnOutput,
+    createTerminal: mockCreateTerminalFn,
+    closeTerminal: mockCloseTerminal,
+    resizeTerminal: mockResizeTerminal,
   }),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock sendRequest
+// ---------------------------------------------------------------------------
+
+let mockSendRequest: (channel: string, payload: unknown) => Promise<unknown>;
+
+mock.module('../lib/send-request', () => ({
+  sendRequest: (...args: [string, unknown]) => mockSendRequest(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -58,7 +74,7 @@ mock.module('../hooks/useTerminal', () => ({
 // ---------------------------------------------------------------------------
 
 mock.module('./Terminal', () => ({
-  Terminal: ({ terminalId }: { terminalId: string }) =>
+  Terminal: ({ terminalId }: { terminalId: string; onReady?: (t: unknown) => void; onResize?: (c: number, r: number) => void }) =>
     React.createElement('div', { 'data-testid': `terminal-instance-${terminalId}` }, `Terminal: ${terminalId}`),
 }));
 
@@ -100,6 +116,13 @@ describe('BottomPanel', () => {
     mockActivateTab = mock((tabId: string) => {
       mockActiveTabId = tabId;
     });
+
+    mockSendData = mock(() => {});
+    mockOnOutput = mock(() => () => {});
+    mockCreateTerminalFn = mock(() => Promise.resolve('term-1'));
+    mockCloseTerminal = mock(() => Promise.resolve());
+    mockResizeTerminal = mock(() => {});
+    mockSendRequest = mock(() => Promise.resolve(undefined));
   });
 
   afterEach(() => {
@@ -122,22 +145,26 @@ describe('BottomPanel', () => {
   // -----------------------------------------------------------------------
   // 2. 'Add terminal' button creates a new terminal tab
   // -----------------------------------------------------------------------
-  test("'Add terminal' button creates a new terminal tab", () => {
+  test("'Add terminal' button creates a new terminal tab", async () => {
     const { getByTestId } = renderBottomPanel();
 
     const addBtn = getByTestId('add-bottom-terminal');
     fireEvent.click(addBtn);
 
-    expect(mockCreateTab).toHaveBeenCalledTimes(1);
-    expect(mockCreateTab).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'terminal', title: 'Terminal 1' })
-    );
+    await waitFor(() => {
+      expect(mockCreateTerminalFn).toHaveBeenCalledTimes(1);
+      expect(mockCreateTerminalFn).toHaveBeenCalledWith('ws-1');
+      expect(mockCreateTab).toHaveBeenCalledTimes(1);
+      expect(mockCreateTab).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' })
+      );
+    });
   });
 
   // -----------------------------------------------------------------------
-  // 3. Closing a tab switches to previous
+  // 3. Closing a tab sends PTY close request and switches to previous
   // -----------------------------------------------------------------------
-  test('closing a tab switches to previous', () => {
+  test('closing a tab sends PTY close request and switches to previous', () => {
     // Simulate two tabs
     mockTabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
@@ -154,6 +181,7 @@ describe('BottomPanel', () => {
     fireEvent.click(closeBtn!);
 
     expect(mockCloseTab).toHaveBeenCalledWith('tab-2');
+    expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
   });
 
   // -----------------------------------------------------------------------
@@ -170,9 +198,54 @@ describe('BottomPanel', () => {
     // Terminal component should be rendered with the active tab's terminalId
     expect(getByTestId('terminal-instance-t1')).toBeTruthy();
   });
+
+  // -----------------------------------------------------------------------
+  // 5. Rapid duplicate clicks are prevented by the creating guard
+  // -----------------------------------------------------------------------
+  test('rapid duplicate clicks are prevented by the creating guard', async () => {
+    let resolveCreate: (id: string) => void;
+    mockCreateTerminalFn = mock(() => new Promise<string>((resolve) => { resolveCreate = resolve; }));
+
+    const { getByTestId } = renderBottomPanel();
+
+    const addBtn = getByTestId('add-bottom-terminal');
+    // First click starts creation
+    fireEvent.click(addBtn);
+    // Second click while still creating should be ignored
+    fireEvent.click(addBtn);
+
+    // Only one call should have been made
+    expect(mockCreateTerminalFn).toHaveBeenCalledTimes(1);
+
+    // Resolve the pending creation
+    resolveCreate!('term-guarded');
+
+    await waitFor(() => {
+      expect(mockCreateTab).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 6. Failed terminal creation does not create a tab
+  // -----------------------------------------------------------------------
+  test('failed terminal creation does not create a tab', async () => {
+    mockCreateTerminalFn = mock(() => Promise.reject(new Error('creation failed')));
+
+    const { getByTestId } = renderBottomPanel();
+
+    const addBtn = getByTestId('add-bottom-terminal');
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(mockCreateTerminalFn).toHaveBeenCalledTimes(1);
+    });
+
+    // createTab should never have been called
+    expect(mockCreateTab).not.toHaveBeenCalled();
+  });
 });
 
-// Helper to query by test id from container (since we need it in test 3)
+// Helper to query by test id from container (since we need it in some tests)
 function getByTestId(container: HTMLElement | Document, testId: string): HTMLElement {
   const el = (container instanceof Document ? container : container.ownerDocument).querySelector(`[data-testid="${testId}"]`);
   if (!el) throw new Error(`Could not find element with data-testid="${testId}"`);

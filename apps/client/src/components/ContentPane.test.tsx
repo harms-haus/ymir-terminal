@@ -61,6 +61,16 @@ mock.module('../hooks/useTerminal', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock sendRequest
+// ---------------------------------------------------------------------------
+
+const mockSendRequest = mock(() => Promise.resolve({}));
+
+mock.module('../lib/send-request', () => ({
+  sendRequest: mockSendRequest,
+}));
+
+// ---------------------------------------------------------------------------
 // Mock Terminal component
 // ---------------------------------------------------------------------------
 
@@ -97,6 +107,7 @@ describe('ContentPane', () => {
     mockCreateTerminal.mockClear();
     mockCloseTerminal.mockClear();
     mockResizeTerminal.mockClear();
+    mockSendRequest.mockClear();
   });
 
   afterEach(() => {
@@ -140,9 +151,9 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 3. Closing tab works
+  // 3. Closing tab works and sends close request for terminal tabs
   // -----------------------------------------------------------------------
-  test('closing tab works', () => {
+  test('closing terminal tab calls sendRequest to close server PTY', () => {
     mockTabsState = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
     ];
@@ -155,6 +166,27 @@ describe('ContentPane', () => {
 
     expect(mockCloseTab).toHaveBeenCalledTimes(1);
     expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
+    expect(mockSendRequest).toHaveBeenCalledTimes(1);
+    expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 'term-1' });
+  });
+
+  // -----------------------------------------------------------------------
+  // 3b. Closing a non-terminal tab does not call sendRequest
+  // -----------------------------------------------------------------------
+  test('closing editor tab does not call sendRequest', () => {
+    mockTabsState = [
+      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
+    ];
+    mockActiveTabIdState = 'tab-1';
+
+    const { getByTestId } = renderContentPane();
+
+    const closeButton = getByTestId('tab-close-tab-1');
+    fireEvent.click(closeButton);
+
+    expect(mockCloseTab).toHaveBeenCalledTimes(1);
+    expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
+    expect(mockSendRequest).not.toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
@@ -198,5 +230,54 @@ describe('ContentPane', () => {
 
     expect(getByTestId('editor-placeholder')).toBeTruthy();
     expect(getByTestId('editor-placeholder').textContent).toContain('/src/foo.ts');
+  });
+
+  // -----------------------------------------------------------------------
+  // 7. Terminal creation is guarded against rapid duplicates
+  // -----------------------------------------------------------------------
+  test('rapid duplicate add-terminal clicks are guarded', async () => {
+    let resolveCreate: (value: string) => void;
+    const pendingCreate = new Promise<string>((resolve) => {
+      resolveCreate = resolve;
+    });
+    mockCreateTerminal.mockImplementation(() => pendingCreate);
+
+    const { getByTestId } = renderContentPane('ws-1');
+
+    const addButton = getByTestId('tab-add');
+    // Click twice rapidly
+    fireEvent.click(addButton);
+    fireEvent.click(addButton);
+
+    // Only one createTerminal call should have gone through
+    expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
+
+    // Resolve the pending create
+    resolveCreate!('term-new');
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  // -----------------------------------------------------------------------
+  // 8. handleAddTerminal catches errors gracefully
+  // -----------------------------------------------------------------------
+  test('handleAddTerminal catches errors without throwing', async () => {
+    const consoleErrorSpy = mock(() => {});
+    const originalError = console.error;
+    console.error = consoleErrorSpy;
+
+    mockCreateTerminal.mockImplementation(() => Promise.reject(new Error('creation failed')));
+
+    const { getByTestId } = renderContentPane('ws-1');
+
+    const addButton = getByTestId('tab-add');
+    fireEvent.click(addButton);
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    // createTab should NOT have been called since creation failed
+    expect(mockCreateTab).not.toHaveBeenCalled();
+
+    console.error = originalError;
   });
 });

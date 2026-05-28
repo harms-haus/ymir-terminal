@@ -1,14 +1,57 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { useTabs } from '../hooks/useTabs';
+import { useTerminal } from '../hooks/useTerminal';
 import { Terminal } from './Terminal';
+import { sendRequest } from '../lib/send-request';
+import type { Terminal as GhosttyTerminal } from 'ghostty-web';
 
 export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
   const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
   const activeTab = tabs.find(t => t.id === activeTabId);
 
+  const { sendData, onOutput, createTerminal, resizeTerminal } = useTerminal(activeTab?.terminalId ?? null);
+
+  const outputUnsubRef = useRef<(() => void) | null>(null);
+  const dataDisposableRef = useRef<{ dispose?: () => void } | null>(null);
+  const creatingRef = useRef(false);
+
+  // Clean up output subscription and data disposable when the active terminal changes
+  useEffect(() => {
+    return () => {
+      dataDisposableRef.current?.dispose?.();
+      dataDisposableRef.current = null;
+      outputUnsubRef.current?.();
+      outputUnsubRef.current = null;
+    };
+  }, [activeTab?.terminalId]);
+
   const handleAddTerminal = async () => {
-    if (!workspaceId) return;
-    createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}` });
+    if (!workspaceId || creatingRef.current) return;
+    creatingRef.current = true;
+    try {
+      const terminalId = await createTerminal(workspaceId);
+      createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}`, terminalId });
+    } catch (err) {
+      console.error('Failed to create terminal:', err);
+    } finally {
+      creatingRef.current = false;
+    }
   };
+
+  const handleReady = useCallback((term: GhosttyTerminal) => {
+    dataDisposableRef.current?.dispose?.();
+    dataDisposableRef.current = term.onData((data: string) => sendData(data));
+    outputUnsubRef.current?.();
+    outputUnsubRef.current = onOutput((data: string) => term.write(data));
+  }, [sendData, onOutput]);
+
+  const handleCloseTab = useCallback((tabId: string) => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (tab?.terminalId) {
+      sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
+    }
+    closeTab(tabId);
+  }, [tabs, closeTab]);
 
   return (
     <div data-testid="bottom-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
@@ -22,14 +65,14 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
             color: activeTabId === tab.id ? '#fff' : '#888',
           }}>
             <span style={{ fontSize: '12px' }}>{tab.title}</span>
-            <button onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '12px', padding: '0 2px' }}>×</button>
+            <button onClick={(e) => { e.stopPropagation(); handleCloseTab(tab.id); }} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '12px', padding: '0 2px' }}>×</button>
           </div>
         ))}
         <button data-testid="add-bottom-terminal" onClick={handleAddTerminal} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: '6px 12px', fontSize: '14px' }}>+</button>
       </div>
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {activeTab?.terminalId && <Terminal terminalId={activeTab.terminalId} />}
+        {activeTab?.terminalId && <Terminal key={activeTab.terminalId} terminalId={activeTab.terminalId} onReady={handleReady} onResize={resizeTerminal} />}
         {!activeTab && <div style={{ color: '#666', padding: '8px', fontSize: '12px' }}>No terminal</div>}
       </div>
     </div>

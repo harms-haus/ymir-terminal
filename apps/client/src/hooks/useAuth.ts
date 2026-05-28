@@ -53,6 +53,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token]);
 
+  // Auto-connect WebSocket when a stored token is present on mount/refresh.
+  // The login() flow already handles connecting, so this only fires when the
+  // WS is still disconnected (i.e. token restored from localStorage).
+  useEffect(() => {
+    if (token && wsClient.getStatus() === 'disconnected') {
+      wsClient.connect(getWsUrl());
+    }
+    // Intentionally no cleanup — disconnecting on unmount would break
+    // React StrictMode double-render and normal re-renders.
+  }, [token]);
+
   const login = useCallback(async (password: string): Promise<void> => {
     // Connect if not already connected
     const status = wsClient.getStatus();
@@ -91,8 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return new Promise<void>((resolve, reject) => {
+      let settled = false;
+
       const unsub = wsClient.onMessage((response: MessageEnvelope) => {
         if (response.type === 'response' && response.id === requestId) {
+          settled = true;
           unsub();
 
           if (response.error) {
@@ -114,12 +128,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       wsClient.send(envelope);
 
-      // Timeout after 10 seconds
       setTimeout(() => {
-        unsub();
-        reject(new Error('Authentication timed out'));
+        if (!settled) {
+          unsub();
+          reject(new Error('Authentication timed out'));
+        }
       }, 10_000);
     });
+  }, []);
+
+  // Listen for AUTH_REQUIRED from server (e.g. expired JWT on reconnect).
+  // Only react on non-auth channels — the auth channel already handles its
+  // own errors via the login() promise.
+  useEffect(() => {
+    const unsub = wsClient.onMessage((msg: MessageEnvelope) => {
+      if (msg.error?.code === 'AUTH_REQUIRED' && msg.channel !== 'auth') {
+        // Token is no longer valid — clear it and force re-login
+        setToken(null);
+        wsClient.setToken('');
+      }
+    });
+    return unsub;
   }, []);
 
   const logout = useCallback(() => {

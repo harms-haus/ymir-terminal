@@ -76,6 +76,15 @@ class WSClient {
   }
 
   private createConnection(): void {
+    // Tear down any prior connection before opening a new one.
+    if (this.ws) {
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onclose = null;
+      this.ws.close();
+      this.ws = null;
+    }
+
     this.notifyStatus('connecting');
     this.ws = new WebSocket(this.url);
 
