@@ -29,17 +29,32 @@ bun run build && YMIR_PASSWORD=yourpass bun run start
 Run the server directly with fine-grained control over options:
 
 ```bash
+# Recommended — password is not visible in process listings
+YMIR_PASSWORD=secret bun apps/server/src/index.ts [--port=3000] [--host=127.0.0.1]
+
+# Alternatively, use --password (note: visible in process listings)
 bun apps/server/src/index.ts --password=<pass> [--port=3000] [--host=127.0.0.1]
 ```
 
 | Flag            | Default     | Description                     |
 | --------------- | ----------- | ------------------------------- |
-| `--password`    | (required)  | Authentication password         |
+| `--password`    | (required)* | Authentication password         |
 | `--port`        | `3000`      | Server port                     |
 | `--host`        | `127.0.0.1` | Server bind address             |
 | `--staticDir`   | auto        | Path to built client static dir |
 
+\* Or set the `YMIR_PASSWORD` environment variable.
+
 In production, static files are served from the client build output (`apps/client/dist/`) with SPA fallback routing. Unmatched routes return `index.html`.
+
+## Security
+
+- **Argon2id password hashing** — passwords are hashed at startup using Bun's built-in Argon2id implementation
+- **JWT authentication** — HS256-signed tokens (via `jose`) with 7-day expiry; validated on every request
+- **Rate limiting** — 5 authentication attempts per minute per WebSocket connection before lockout
+- **Path traversal protection** — all file operations resolve paths against the workspace CWD; requests escaping the workspace are rejected
+- **Session isolation** — each client receives a unique session ID; sessions are tracked independently in the server
+- **Password max length** — passwords exceeding 128 characters are rejected before hashing
 
 ## Architecture
 
