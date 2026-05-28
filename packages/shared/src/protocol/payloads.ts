@@ -230,7 +230,7 @@ export interface GitStatusRequest {
 }
 
 export interface GitStatusResponse {
-  branch: string;
+  branch: string | null;
   changes: GitFileChange[];
   staged: GitFileChange[];
 }

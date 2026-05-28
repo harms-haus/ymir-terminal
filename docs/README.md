@@ -98,7 +98,7 @@ interface MessageEnvelope {
   type: "request" | "response" | "event";
   id: string;                  // UUID for correlating request ↔ response
   channel: string;             // e.g. "auth", "terminal.create", "file.tree"
-  payload?: unknown;           // request/response body
+  payload: unknown;            // request/response body
   error?: { code: string; message: string };
 }
 ```
@@ -132,7 +132,7 @@ interface MessageEnvelope {
 | `file.create`          | request    | Create file or directory          |
 | `file.delete`          | request    | Delete file or directory          |
 | `file.rename`          | request    | Rename/mmove a file               |
-| `file.changed`         | event      | Filesystem change notification    |
+| `file.change`          | event      | Filesystem change notification    |
 | `git.status`           | request    | Get git status for a path         |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
@@ -146,7 +146,7 @@ Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 5. Client stores the JWT and includes it via the `token` field on every subsequent request.
 6. Server validates the JWT on each request before dispatching to handlers.
 
-If no password is set (server started without `--password`), all requests are treated as authenticated.
+The server requires a password to start. Without `--password` or `YMIR_PASSWORD` env var, it exits with an error.
 
 ## Project Structure
 
@@ -176,9 +176,9 @@ If no password is set (server started without `--password`), all requests are tr
 
 ```typescript
 // ws/handlers/terminal.ts
-export function registerTerminalHandlers(router: MessageRouter): void {
-  router.handle('terminal.create', async (envelope, conn) => { ... });
-  router.handle('terminal.input',  async (envelope, conn) => { ... });
+export function registerTerminalHandlers(router: MessageRouter, deps: { ... }): void {
+  router.handle('terminal.create', async (conn, envelope) => { ... });
+  router.handle('terminal.input',  async (conn, envelope) => { ... });
 }
 ```
 
