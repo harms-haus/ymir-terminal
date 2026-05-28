@@ -26,8 +26,22 @@ const Portal = ({ children }: { children: React.ReactNode }) =>
 const Content = ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) =>
   React.createElement('div', props, children);
 
-const Item = ({ children, onSelect, disabled, ...props }: { children: React.ReactNode; onSelect?: () => void; disabled?: boolean; [key: string]: unknown }) =>
-  React.createElement('div', { ...props, onClick: disabled ? undefined : onSelect, disabled }, children);
+const Item = ({
+  children,
+  onSelect,
+  disabled,
+  ...props
+}: {
+  children: React.ReactNode;
+  onSelect?: () => void;
+  disabled?: boolean;
+  [key: string]: unknown;
+}) =>
+  React.createElement(
+    'div',
+    { ...props, onClick: disabled ? undefined : onSelect, disabled },
+    children,
+  );
 
 const Separator = (props: { [key: string]: unknown }) =>
   React.createElement('div', { ...props, role: 'separator' });
@@ -139,7 +153,11 @@ describe('PaneContextMenu', () => {
 
   test('Close Pane calls onClosePane with paneId', () => {
     const onClosePane = mock(() => {});
-    const { container } = renderPaneContextMenu({ paneId: 'pane-7', isOnlyPane: false, onClosePane });
+    const { container } = renderPaneContextMenu({
+      paneId: 'pane-7',
+      isOnlyPane: false,
+      onClosePane,
+    });
 
     const item = container.querySelector('[data-testid="close-pane"]') as HTMLElement;
     fireEvent.click(item);

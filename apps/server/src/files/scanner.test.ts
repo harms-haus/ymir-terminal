@@ -2,7 +2,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { scanDirectory, type ScanFileNode } from './scanner';
+import { scanDirectory } from './scanner';
+import type { FileNode } from '@ymir/shared';
 
 let tempRoot: string;
 
@@ -25,11 +26,11 @@ afterEach(() => {
 // ─── 1. Returns FileNode[] with correct shape ────────────────────────────
 
 describe('scanDirectory', () => {
-  test('returns FileNode[] with name, path, isDirectory, children', () => {
+  test('returns FileNode[] with name, path, isDirectory, children', async () => {
     // Single file
     writeFileSync(join(tempRoot, 'a.txt'), 'hello');
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
 
     expect(result).toBeInstanceOf(Array);
     expect(result).toHaveLength(1);
@@ -43,14 +44,14 @@ describe('scanDirectory', () => {
 
   // ─── 2. Top-level files and directories are listed ─────────────────────
 
-  test('lists top-level files and directories', () => {
+  test('lists top-level files and directories', async () => {
     writeFileSync(join(tempRoot, 'file1.txt'), 'a');
     writeFileSync(join(tempRoot, 'file2.txt'), 'b');
     mkdirSync(join(tempRoot, 'dir1'));
     writeFileSync(join(tempRoot, 'dir1', 'inner.txt'), 'c');
     mkdirSync(join(tempRoot, 'dir2'));
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
 
     // directories first, then files, alphabetical within each group
     const names = result.map((n) => n.name);
@@ -69,13 +70,13 @@ describe('scanDirectory', () => {
 
   // ─── 3. Directories have children populated (recursive) ────────────────
 
-  test('recursively populates children for nested directories', () => {
+  test('recursively populates children for nested directories', async () => {
     mkdirSync(join(tempRoot, 'src'), { recursive: true });
     mkdirSync(join(tempRoot, 'src', 'utils'), { recursive: true });
     writeFileSync(join(tempRoot, 'src', 'index.ts'), '');
     writeFileSync(join(tempRoot, 'src', 'utils', 'helpers.ts'), '');
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
 
     expect(result).toHaveLength(1);
     const src = result[0];
@@ -95,25 +96,25 @@ describe('scanDirectory', () => {
 
   // ─── 4. Hidden files/folders excluded by default, included when flag set
 
-  test('excludes hidden files and folders by default', () => {
+  test('excludes hidden files and folders by default', async () => {
     writeFileSync(join(tempRoot, '.env'), 'SECRET=1');
     mkdirSync(join(tempRoot, '.hidden-dir'));
     writeFileSync(join(tempRoot, '.hidden-dir', 'secret.txt'), '');
     writeFileSync(join(tempRoot, 'visible.txt'), '');
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('visible.txt');
   });
 
-  test('includes hidden files and folders when includeHidden=true', () => {
+  test('includes hidden files and folders when includeHidden=true', async () => {
     writeFileSync(join(tempRoot, '.env'), 'SECRET=1');
     mkdirSync(join(tempRoot, '.hidden-dir'));
     writeFileSync(join(tempRoot, '.hidden-dir', 'secret.txt'), '');
     writeFileSync(join(tempRoot, 'visible.txt'), '');
 
-    const result = scanDirectory(tempRoot, { includeHidden: true });
+    const result = await scanDirectory(tempRoot, { includeHidden: true });
 
     const names = result.map((n) => n.name);
     expect(names).toContain('.env');
@@ -126,23 +127,23 @@ describe('scanDirectory', () => {
 
   // ─── 5. node_modules directories are excluded ──────────────────────────
 
-  test('excludes node_modules directories by default', () => {
+  test('excludes node_modules directories by default', async () => {
     mkdirSync(join(tempRoot, 'node_modules'), { recursive: true });
     mkdirSync(join(tempRoot, 'node_modules', 'some-pkg'), { recursive: true });
     writeFileSync(join(tempRoot, 'node_modules', 'some-pkg', 'index.js'), '');
     writeFileSync(join(tempRoot, 'package.json'), '{}');
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('package.json');
   });
 
-  test('excludes node_modules even when includeHidden=true', () => {
+  test('excludes node_modules even when includeHidden=true', async () => {
     mkdirSync(join(tempRoot, 'node_modules'));
     writeFileSync(join(tempRoot, 'visible.txt'), '');
 
-    const result = scanDirectory(tempRoot, { includeHidden: true });
+    const result = await scanDirectory(tempRoot, { includeHidden: true });
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('visible.txt');
@@ -150,21 +151,21 @@ describe('scanDirectory', () => {
 
   // ─── 6. Max depth limits recursion ─────────────────────────────────────
 
-  test('respects maxDepth option', () => {
+  test('respects maxDepth option', async () => {
     mkdirSync(join(tempRoot, 'a', 'b', 'c'), { recursive: true });
     writeFileSync(join(tempRoot, 'a', 'a1.txt'), '');
     writeFileSync(join(tempRoot, 'a', 'b', 'b1.txt'), '');
     writeFileSync(join(tempRoot, 'a', 'b', 'c', 'c1.txt'), '');
 
     // maxDepth=0 means only the immediate children of tempRoot
-    const r0 = scanDirectory(tempRoot, { maxDepth: 0 });
+    const r0 = await scanDirectory(tempRoot, { maxDepth: 0 });
     expect(r0).toHaveLength(1); // just 'a' directory
     expect(r0[0].name).toBe('a');
     // children should NOT be populated (depth exhausted)
     expect(r0[0].children).toBeUndefined();
 
     // maxDepth=1: tempRoot -> a (depth 1), but a's children not expanded
-    const r1 = scanDirectory(tempRoot, { maxDepth: 1 });
+    const r1 = await scanDirectory(tempRoot, { maxDepth: 1 });
     expect(r1).toHaveLength(1);
     const a = r1[0];
     expect(a.children).toHaveLength(2); // 'b' (dir) and 'a1.txt' (file)
@@ -178,7 +179,7 @@ describe('scanDirectory', () => {
     expect(b.children).toBeUndefined();
   });
 
-  test('default maxDepth is 10 — deep structures are scanned', () => {
+  test('default maxDepth is 10 — deep structures are scanned', async () => {
     let current = tempRoot;
     for (let i = 0; i < 8; i++) {
       current = join(current, `level${i}`);
@@ -186,10 +187,10 @@ describe('scanDirectory', () => {
     }
     writeFileSync(join(current, 'deep.txt'), 'found');
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
 
     // Walk down the chain
-    let node: ScanFileNode | undefined = result[0];
+    let node: FileNode | undefined = result[0];
     for (let i = 0; i < 8; i++) {
       expect(node).toBeDefined();
       expect(node!.name).toBe(`level${i}`);
@@ -204,14 +205,14 @@ describe('scanDirectory', () => {
 
   // ─── 7. Returns empty array for nonexistent directory ──────────────────
 
-  test('returns empty array for nonexistent directory', () => {
-    const result = scanDirectory('/this/path/does/not/exist');
+  test('returns empty array for nonexistent directory', async () => {
+    const result = await scanDirectory('/this/path/does/not/exist');
     expect(result).toEqual([]);
   });
 
   // ─── 8. Files are sorted: directories first, then files, alphabetically
 
-  test('sorts directories first, then files, alphabetically', () => {
+  test('sorts directories first, then files, alphabetically', async () => {
     mkdirSync(join(tempRoot, 'zebra-dir'));
     mkdirSync(join(tempRoot, 'alpha-dir'));
     writeFileSync(join(tempRoot, 'beta.txt'), '');
@@ -219,7 +220,7 @@ describe('scanDirectory', () => {
     mkdirSync(join(tempRoot, 'mid-dir'));
     writeFileSync(join(tempRoot, 'gamma.txt'), '');
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
     const names = result.map((n) => n.name);
 
     expect(names).toEqual([
@@ -232,14 +233,14 @@ describe('scanDirectory', () => {
     ]);
   });
 
-  test('sorting applies recursively within subdirectories', () => {
+  test('sorting applies recursively within subdirectories', async () => {
     mkdirSync(join(tempRoot, 'sub'));
     writeFileSync(join(tempRoot, 'sub', 'z-file.txt'), '');
     writeFileSync(join(tempRoot, 'sub', 'a-file.txt'), '');
     mkdirSync(join(tempRoot, 'sub', 'z-dir'));
     mkdirSync(join(tempRoot, 'sub', 'a-dir'));
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
     const sub = result[0];
     expect(sub.name).toBe('sub');
 
@@ -249,22 +250,22 @@ describe('scanDirectory', () => {
 
   // ─── custom excludeDirs ────────────────────────────────────────────────
 
-  test('supports custom excludeDirs', () => {
+  test('supports custom excludeDirs', async () => {
     mkdirSync(join(tempRoot, 'dist'));
     mkdirSync(join(tempRoot, 'build'));
     writeFileSync(join(tempRoot, 'src.ts'), '');
 
-    const result = scanDirectory(tempRoot, { excludeDirs: ['dist', 'build'] });
+    const result = await scanDirectory(tempRoot, { excludeDirs: ['dist', 'build'] });
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('src.ts');
   });
 
-  test('default excludeDirs includes .git', () => {
+  test('default excludeDirs includes .git', async () => {
     mkdirSync(join(tempRoot, '.git'));
     writeFileSync(join(tempRoot, '.git', 'config'), '');
     writeFileSync(join(tempRoot, 'code.ts'), '');
 
-    const result = scanDirectory(tempRoot);
+    const result = await scanDirectory(tempRoot);
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('code.ts');
   });

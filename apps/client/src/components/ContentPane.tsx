@@ -5,7 +5,15 @@ import { Terminal } from './Terminal';
 import { TabBar } from './TabBar';
 import { sendRequest } from '../lib/send-request';
 
-export function ContentPane({ workspaceId }: { workspaceId: string | null }) {
+export function ContentPane({
+  workspaceId,
+  fileToOpen,
+  onFileOpened,
+}: {
+  workspaceId: string | null;
+  fileToOpen?: string | null;
+  onFileOpened?: () => void;
+}) {
   const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const { sendData, onOutput, createTerminal, resizeTerminal } = useTerminal(
@@ -64,32 +72,47 @@ export function ContentPane({ workspaceId }: { workspaceId: string | null }) {
     }
   };
 
-  const handleCloseTab = useCallback((tabId: string) => {
-    const tab = tabs.find((t) => t.id === tabId);
-    if (tab?.terminalId) {
-      sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
-    }
-    closeTab(tabId);
-  }, [tabs, closeTab]);
+  const handleCloseTab = useCallback(
+    (tabId: string) => {
+      const tab = tabs.find((t) => t.id === tabId);
+      if (tab?.terminalId) {
+        sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
+      }
+      closeTab(tabId);
+    },
+    [tabs, closeTab],
+  );
 
-  const handleAddEditor = (filePath: string) => {
-    const existing = tabs.find((t) => t.filePath === filePath);
-    if (existing) {
-      activateTab(existing.id);
-      return;
+  const handleAddEditor = useCallback(
+    (filePath: string) => {
+      const existing = tabs.find((t) => t.filePath === filePath);
+      if (existing) {
+        activateTab(existing.id);
+        return;
+      }
+      createTab({ type: 'editor', title: filePath.split('/').pop() || filePath, filePath });
+    },
+    [tabs, activateTab, createTab],
+  );
+
+  useEffect(() => {
+    if (fileToOpen) {
+      handleAddEditor(fileToOpen);
+      onFileOpened?.();
     }
-    createTab({ type: 'editor', title: filePath.split('/').pop() || filePath, filePath });
-  };
+  }, [fileToOpen, handleAddEditor, onFileOpened]);
 
   return (
-    <div data-testid="content-pane" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div
+      data-testid="content-pane"
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+    >
       <TabBar
         tabs={tabs}
         activeTabId={activeTabId}
         onActivate={activateTab}
         onClose={handleCloseTab}
         onAddTerminal={handleAddTerminal}
-        onAddEditor={handleAddEditor}
       />
       <div style={{ flex: 1, overflow: 'hidden' }}>
         {activeTab?.type === 'terminal' && activeTab.terminalId && (

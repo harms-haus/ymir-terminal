@@ -1,4 +1,13 @@
-import { toBase64, fromBase64 } from "@ymir/shared";
+import { toBase64, fromBase64 } from '@ymir/shared';
+
+const ALLOWED_SHELLS = new Set([
+  '/bin/bash',
+  '/bin/zsh',
+  '/bin/sh',
+  '/usr/bin/bash',
+  '/usr/bin/zsh',
+  '/usr/bin/sh',
+]);
 
 export interface PTYOptions {
   shell?: string;
@@ -6,28 +15,65 @@ export interface PTYOptions {
   cols: number;
   rows: number;
   onData: (data: string) => void; // base64-encoded output
+  onExit?: (code: number | null) => void;
 }
 
 export class PTYManager {
-  private terminals = new Map<string, { terminal: any; process: any }>();
+  private terminals = new Map<string, { terminal: unknown; process: unknown }>();
 
   create(id: string, options: PTYOptions): string {
-    const terminal = new (Bun as any).Terminal({
+    const BunTerminal = (Bun as Record<string, unknown>).Terminal as
+      | (new (opts: {
+          cols: number;
+          rows: number;
+          data: (term: unknown, data: Buffer) => void;
+        }) => {
+          write: (data: string) => void;
+          resize: (opts: { cols: number; rows: number }) => void;
+          close: () => void;
+        })
+      | undefined;
+    if (!BunTerminal) throw new Error('Bun.Terminal is not available');
+
+    const terminal = new BunTerminal({
       cols: options.cols,
       rows: options.rows,
-      data(_term: any, data: Buffer) {
+      data(_term: unknown, data: Buffer) {
         options.onData(toBase64(data));
       },
     });
 
-    const shell = options.shell || process.env.SHELL || "/bin/bash";
-    const proc = (Bun as any).spawn([shell], {
+    const shell = options.shell || process.env.SHELL || '/bin/bash';
+    if (!ALLOWED_SHELLS.has(shell)) {
+      throw new Error(`Shell not allowed: ${shell}`);
+    }
+
+    const bunSpawn = (Bun as Record<string, unknown>).spawn as
+      | ((
+          cmd: string[],
+          opts: { terminal: unknown; cwd: string; env: Record<string, string | undefined> },
+        ) => { kill: () => void; exited: Promise<number> })
+      | undefined;
+    if (!bunSpawn) throw new Error('Bun.spawn is not available');
+
+    const proc = bunSpawn([shell], {
       terminal,
       cwd: options.cwd,
       env: { ...process.env },
     });
 
     this.terminals.set(id, { terminal, process: proc });
+
+    proc.exited
+      .then((code: number) => {
+        this.terminals.delete(id);
+        options.onExit?.(code);
+      })
+      .catch(() => {
+        this.terminals.delete(id);
+        options.onExit?.(null);
+      });
+
     return id;
   }
 
@@ -35,20 +81,23 @@ export class PTYManager {
     const entry = this.terminals.get(id);
     if (!entry) throw new Error(`Terminal ${id} not found`);
     const decoded = fromBase64(base64Data);
-    entry.terminal.write(decoded);
+    (entry.terminal as { write: (data: string) => void }).write(decoded);
   }
 
   resize(id: string, cols: number, rows: number): void {
     const entry = this.terminals.get(id);
     if (!entry) throw new Error(`Terminal ${id} not found`);
-    entry.terminal.resize({ cols, rows });
+    (entry.terminal as { resize: (opts: { cols: number; rows: number }) => void }).resize({
+      cols,
+      rows,
+    });
   }
 
   kill(id: string): void {
     const entry = this.terminals.get(id);
     if (!entry) return;
-    entry.terminal.close();
-    entry.process.kill();
+    (entry.terminal as { close: () => void }).close();
+    (entry.process as { kill: () => void }).kill();
     this.terminals.delete(id);
   }
 
@@ -62,5 +111,3 @@ export class PTYManager {
     }
   }
 }
-
-export const ptyManager = new PTYManager();

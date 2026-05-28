@@ -32,7 +32,7 @@ const { StatusBar } = await import('./StatusBar');
 
 function renderStatusBar(options: { activeWorkspaceName?: string } = {}) {
   return render(
-    React.createElement(StatusBar, { activeWorkspaceName: options.activeWorkspaceName })
+    React.createElement(StatusBar, { activeWorkspaceName: options.activeWorkspaceName }),
   );
 }
 

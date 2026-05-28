@@ -1,8 +1,9 @@
-import { describe, expect, it, beforeEach, afterEach, mock } from "bun:test";
-import { PTYManager } from "./manager";
-import { toBase64 } from "@ymir/shared";
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-function-type */
+import { describe, expect, it, beforeEach, afterEach, mock } from 'bun:test';
+import { PTYManager } from './manager';
+import { toBase64 } from '@ymir/shared';
 
-describe("PTYManager", () => {
+describe('PTYManager', () => {
   let manager: PTYManager;
   let mockTerminalInstances: any[];
   let mockSpawnedProcesses: any[];
@@ -51,8 +52,14 @@ describe("PTYManager", () => {
 
     // Mock Bun.spawn
     (Bun as any).spawn = mock((_cmd: string[], opts: any) => {
+      let _resolve: (code: number) => void;
+      const exited = new Promise<number>((resolve) => {
+        _resolve = resolve;
+      });
       const proc = {
         killed: false,
+        exited,
+        _resolve: () => _resolve(0),
         kill() {
           this.killed = true;
         },
@@ -70,70 +77,70 @@ describe("PTYManager", () => {
     (Bun as any).spawn = originalSpawn;
   });
 
-  it("create() creates a PTY and returns the id", () => {
+  it('create() creates a PTY and returns the id', () => {
     const onData = mock((_data: string) => {});
-    const id = manager.create("test-1", {
-      cwd: "/home/user",
+    const id = manager.create('test-1', {
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
 
-    expect(id).toBe("test-1");
+    expect(id).toBe('test-1');
     expect(mockTerminalInstances).toHaveLength(1);
     expect(mockTerminalInstances[0].cols).toBe(80);
     expect(mockTerminalInstances[0].rows).toBe(24);
     expect(mockSpawnedProcesses).toHaveLength(1);
-    expect(manager.has("test-1")).toBe(true);
+    expect(manager.has('test-1')).toBe(true);
   });
 
-  it("create() uses shell option when provided", () => {
+  it('create() uses shell option when provided', () => {
     const onData = mock((_data: string) => {});
-    manager.create("test-shell", {
-      shell: "/bin/zsh",
-      cwd: "/home/user",
+    manager.create('test-shell', {
+      shell: '/bin/zsh',
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
 
     expect((Bun as any).spawn).toHaveBeenCalledWith(
-      ["/bin/zsh"],
-      expect.objectContaining({ cwd: "/home/user" }),
+      ['/bin/zsh'],
+      expect.objectContaining({ cwd: '/home/user' }),
     );
   });
 
-  it("create() defaults to SHELL env var when no shell option", () => {
+  it('create() defaults to SHELL env var when no shell option', () => {
     const originalShell = process.env.SHELL;
-    process.env.SHELL = "/bin/zsh";
+    process.env.SHELL = '/bin/zsh';
 
     const onData = mock((_data: string) => {});
-    manager.create("test-default-shell", {
-      cwd: "/home/user",
+    manager.create('test-default-shell', {
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
 
     expect((Bun as any).spawn).toHaveBeenCalledWith(
-      ["/bin/zsh"],
-      expect.objectContaining({ cwd: "/home/user" }),
+      ['/bin/zsh'],
+      expect.objectContaining({ cwd: '/home/user' }),
     );
 
     process.env.SHELL = originalShell;
   });
 
-  it("create() invokes onData with base64-encoded data from terminal", () => {
+  it('create() invokes onData with base64-encoded data from terminal', () => {
     const onData = mock((_data: string) => {});
-    manager.create("test-data", {
-      cwd: "/home/user",
+    manager.create('test-data', {
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
 
     const terminal = mockTerminalInstances[0];
-    const testData = Buffer.from("hello terminal");
+    const testData = Buffer.from('hello terminal');
     terminal.dataCallback(terminal, testData);
 
     expect(onData).toHaveBeenCalledTimes(1);
@@ -141,18 +148,18 @@ describe("PTYManager", () => {
     expect(encoded).toBe(toBase64(testData));
   });
 
-  it("write() decodes base64 and writes to terminal", () => {
+  it('write() decodes base64 and writes to terminal', () => {
     const onData = mock((_data: string) => {});
-    manager.create("test-write", {
-      cwd: "/home/user",
+    manager.create('test-write', {
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
 
-    const inputData = "ls -la\n";
+    const inputData = 'ls -la\n';
     const encoded = toBase64(inputData);
-    manager.write("test-write", encoded);
+    manager.write('test-write', encoded);
 
     const terminal = mockTerminalInstances[0];
     expect(terminal.written).toHaveLength(1);
@@ -160,70 +167,68 @@ describe("PTYManager", () => {
     expect(new TextDecoder().decode(written)).toBe(inputData);
   });
 
-  it("write() throws if terminal not found", () => {
-    expect(() => manager.write("nonexistent", toBase64("data"))).toThrow(
-      "Terminal nonexistent not found",
+  it('write() throws if terminal not found', () => {
+    expect(() => manager.write('nonexistent', toBase64('data'))).toThrow(
+      'Terminal nonexistent not found',
     );
   });
 
-  it("resize() resizes the terminal", () => {
+  it('resize() resizes the terminal', () => {
     const onData = mock((_data: string) => {});
-    manager.create("test-resize", {
-      cwd: "/home/user",
+    manager.create('test-resize', {
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
 
-    manager.resize("test-resize", 120, 40);
+    manager.resize('test-resize', 120, 40);
 
     const terminal = mockTerminalInstances[0];
     expect(terminal.resizeOpts).toEqual({ cols: 120, rows: 40 });
   });
 
-  it("resize() throws if terminal not found", () => {
-    expect(() => manager.resize("nonexistent", 120, 40)).toThrow(
-      "Terminal nonexistent not found",
-    );
+  it('resize() throws if terminal not found', () => {
+    expect(() => manager.resize('nonexistent', 120, 40)).toThrow('Terminal nonexistent not found');
   });
 
-  it("kill() closes terminal and kills process", () => {
+  it('kill() closes terminal and kills process', () => {
     const onData = mock((_data: string) => {});
-    manager.create("test-kill", {
-      cwd: "/home/user",
+    manager.create('test-kill', {
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
 
-    expect(manager.has("test-kill")).toBe(true);
+    expect(manager.has('test-kill')).toBe(true);
 
-    manager.kill("test-kill");
+    manager.kill('test-kill');
 
-    expect(manager.has("test-kill")).toBe(false);
+    expect(manager.has('test-kill')).toBe(false);
     expect(mockTerminalInstances[0].closed).toBe(true);
     expect(mockSpawnedProcesses[0].killed).toBe(true);
   });
 
-  it("kill() does nothing if terminal not found", () => {
+  it('kill() does nothing if terminal not found', () => {
     // Should not throw
-    manager.kill("nonexistent");
+    manager.kill('nonexistent');
   });
 
-  it("has() returns false for nonexistent terminal", () => {
-    expect(manager.has("nonexistent")).toBe(false);
+  it('has() returns false for nonexistent terminal', () => {
+    expect(manager.has('nonexistent')).toBe(false);
   });
 
-  it("killAll() closes all terminals", () => {
+  it('killAll() closes all terminals', () => {
     const onData = mock((_data: string) => {});
-    manager.create("term-1", {
-      cwd: "/home/user",
+    manager.create('term-1', {
+      cwd: '/home/user',
       cols: 80,
       rows: 24,
       onData,
     });
-    manager.create("term-2", {
-      cwd: "/home/user",
+    manager.create('term-2', {
+      cwd: '/home/user',
       cols: 100,
       rows: 30,
       onData,
@@ -231,8 +236,8 @@ describe("PTYManager", () => {
 
     manager.killAll();
 
-    expect(manager.has("term-1")).toBe(false);
-    expect(manager.has("term-2")).toBe(false);
+    expect(manager.has('term-1')).toBe(false);
+    expect(manager.has('term-2')).toBe(false);
     expect(mockTerminalInstances[0].closed).toBe(true);
     expect(mockTerminalInstances[1].closed).toBe(true);
     expect(mockSpawnedProcesses[0].killed).toBe(true);

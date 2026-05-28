@@ -37,10 +37,7 @@ export function initDatabase(dbPath: string): Database {
   return db;
 }
 
-export function createWorkspace(
-  db: Database,
-  input: CreateWorkspaceInput
-): Workspace {
+export function createWorkspace(db: Database, input: CreateWorkspaceInput): Workspace {
   const id = generateId();
   const stmt = db.prepare(`
     INSERT INTO workspaces (id, name, cwd, color)
@@ -57,14 +54,14 @@ export function createWorkspace(
 
 export function listWorkspaces(db: Database): Workspace[] {
   const stmt = db.prepare(
-    'SELECT id, name, cwd, color, created_at, updated_at FROM workspaces ORDER BY name ASC'
+    'SELECT id, name, cwd, color, created_at, updated_at FROM workspaces ORDER BY name ASC',
   );
   return stmt.all() as Workspace[];
 }
 
 export function getWorkspace(db: Database, id: string): Workspace | null {
   const stmt = db.prepare(
-    'SELECT id, name, cwd, color, created_at, updated_at FROM workspaces WHERE id = $id'
+    'SELECT id, name, cwd, color, created_at, updated_at FROM workspaces WHERE id = $id',
   );
   return (stmt.get({ $id: id }) as Workspace | null) ?? null;
 }
@@ -72,7 +69,7 @@ export function getWorkspace(db: Database, id: string): Workspace | null {
 export function updateWorkspace(
   db: Database,
   id: string,
-  input: UpdateWorkspaceInput
+  input: UpdateWorkspaceInput,
 ): Workspace | null {
   const existing = getWorkspace(db, id);
   if (!existing) return null;

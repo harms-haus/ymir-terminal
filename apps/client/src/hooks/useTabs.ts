@@ -15,7 +15,12 @@ export function useTabs() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   const createTab = useCallback(
-    (opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string; filePath?: string }) => {
+    (opts: {
+      type: 'terminal' | 'editor';
+      title: string;
+      terminalId?: string;
+      filePath?: string;
+    }) => {
       const id = crypto.randomUUID();
       const tab: Tab = { id, ...opts };
       setTabs((prev) => [...prev, tab]);

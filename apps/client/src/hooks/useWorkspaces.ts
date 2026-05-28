@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sendRequest } from '../lib/send-request';
+import { useAuth } from './useAuth';
 import type {
   WorkspaceListResponse,
   WorkspaceCreateRequest,
@@ -9,13 +10,12 @@ import type {
 } from '@ymir/shared';
 
 export function useWorkspaces() {
+  const { token } = useAuth();
   return useQuery({
     queryKey: ['workspaces'],
+    enabled: !!token,
     queryFn: async () => {
-      const response = await sendRequest<WorkspaceListResponse>(
-        'workspace.list',
-        {},
-      );
+      const response = await sendRequest<WorkspaceListResponse>('workspace.list', {});
       return response.workspaces;
     },
   });

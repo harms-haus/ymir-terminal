@@ -18,13 +18,10 @@ export function useTerminalResize() {
   }, []);
 
   // Callback ref: triggers re-render when element attaches, enabling the effect below
-  const ref = useCallback(
-    (node: HTMLDivElement | null) => {
-      containerRef.current = node;
-      setElement(node);
-    },
-    [],
-  );
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    containerRef.current = node;
+    setElement(node);
+  }, []);
 
   useEffect(() => {
     if (!element) return;

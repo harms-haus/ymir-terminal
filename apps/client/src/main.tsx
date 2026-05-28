@@ -1,10 +1,10 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { Route as rootRoute } from "./routes/__root";
-import { Route as indexRoute } from "./routes/index";
-import { AuthProvider } from "./hooks/useAuth";
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { Route as rootRoute } from './routes/__root';
+import { Route as indexRoute } from './routes/index';
+import { AuthProvider } from './hooks/useAuth';
 
 const routeTree = rootRoute.addChildren([indexRoute]);
 
@@ -17,13 +17,13 @@ const router = createRouter({
   },
 });
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
   }
 }
 
-const rootElement = document.getElementById("root")!;
+const rootElement = document.getElementById('root')!;
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

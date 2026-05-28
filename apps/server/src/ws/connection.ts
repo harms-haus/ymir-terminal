@@ -1,18 +1,25 @@
 import type { MessageEnvelope } from '@ymir/shared';
 
 /**
+ * Minimal shape of a WebSocket-like transport.  Declared separately so
+ * {@link ClientConnection.close} can call `ws.close()` without an unsafe cast.
+ */
+interface WsLike {
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+}
+
+/**
  * Wraps a Bun ServerWebSocket and tracks session-level state such as
  * authentication status and last-active timestamp.
  */
 export class ClientConnection {
   readonly sessionId: string;
-  isAuthenticated: boolean;
-  lastActive: Date;
+  isAuthenticated = false;
+  lastActive = new Date();
 
-  constructor(private readonly ws: { send(data: string): void }) {
+  constructor(private readonly ws: WsLike) {
     this.sessionId = crypto.randomUUID();
-    this.isAuthenticated = false;
-    this.lastActive = new Date();
   }
 
   /** Serialize an envelope to JSON and send it over the wire. */
@@ -22,7 +29,6 @@ export class ClientConnection {
 
   /** Close the underlying WebSocket connection. */
   close(): void {
-    // ServerWebSocket in Bun has a close method; cast to access it.
-    (this.ws as unknown as { close(): void }).close();
+    this.ws.close();
   }
 }

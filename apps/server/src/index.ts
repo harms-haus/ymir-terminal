@@ -34,7 +34,9 @@ const args = parseArgs(process.argv);
 
 const password = args.password || process.env.YMIR_PASSWORD;
 if (!password) {
-  console.error('Usage: ymir --password=<pass> [--port=3000] [--host=127.0.0.1] [--staticDir=<path>]');
+  console.error(
+    'Usage: ymir --password=<pass> [--port=3000] [--host=127.0.0.1] [--staticDir=<path>]',
+  );
   console.error('  Or set YMIR_PASSWORD environment variable');
   process.exit(1);
 }

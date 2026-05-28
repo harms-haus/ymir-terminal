@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { FileTree } from './FileTree';
 import { GitPanel } from './GitPanel';
 import { sendRequest } from '../lib/send-request';
-import type { FileNode } from './FileTree';
-import type { GitStatus } from './GitPanel';
+import { useFileChange } from '../hooks/useFileChange';
+import type { FileNode } from '@ymir/shared';
+import type { GitStatusResponse } from '@ymir/shared';
 
 interface RightSidebarProps {
   workspaceId: string | null;
@@ -12,7 +13,8 @@ interface RightSidebarProps {
 
 export function RightSidebar({ workspaceId, onFileSelect }: RightSidebarProps) {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
-  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
+  const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -26,7 +28,7 @@ export function RightSidebar({ workspaceId, onFileSelect }: RightSidebarProps) {
         /* aborted or timed out – safe to ignore */
       });
 
-    sendRequest<GitStatus>('git.status', { workspaceId }, { signal })
+    sendRequest<GitStatusResponse>('git.status', { workspaceId }, { signal })
       .then((res) => {
         setGitStatus(res);
       })
@@ -39,6 +41,18 @@ export function RightSidebar({ workspaceId, onFileSelect }: RightSidebarProps) {
     };
   }, [workspaceId]);
 
+  const refreshFileTree = useCallback(() => {
+    if (!workspaceId) return;
+    sendRequest<{ tree: FileNode[] }>('file.tree', { workspaceId })
+      .then((res) => setFileTree(res.tree))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Operation failed');
+        setTimeout(() => setError(null), 5000);
+      });
+  }, [workspaceId]);
+
+  useFileChange(workspaceId, refreshFileTree);
+
   // Reset state when workspace is cleared
   const effectiveFileTree = workspaceId ? fileTree : [];
   const effectiveGitStatus = workspaceId ? gitStatus : null;
@@ -48,6 +62,63 @@ export function RightSidebar({ workspaceId, onFileSelect }: RightSidebarProps) {
       onFileSelect(path);
     },
     [onFileSelect],
+  );
+
+  const handleNewFile = useCallback(
+    (parentDir: string) => {
+      const name = window.prompt('New file name:');
+      if (!name || !workspaceId) return;
+      sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: false })
+        .then(refreshFileTree)
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Operation failed');
+          setTimeout(() => setError(null), 5000);
+        });
+    },
+    [workspaceId, refreshFileTree],
+  );
+
+  const handleNewFolder = useCallback(
+    (parentDir: string) => {
+      const name = window.prompt('New folder name:');
+      if (!name || !workspaceId) return;
+      sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: true })
+        .then(refreshFileTree)
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Operation failed');
+          setTimeout(() => setError(null), 5000);
+        });
+    },
+    [workspaceId, refreshFileTree],
+  );
+
+  const handleRename = useCallback(
+    (path: string) => {
+      const oldName = path.split('/').pop() || '';
+      const newName = window.prompt('New name:', oldName);
+      if (!newName || !workspaceId) return;
+      const parentDir = path.split('/').slice(0, -1).join('/') || '/';
+      sendRequest('file.rename', { workspaceId, oldPath: path, newPath: parentDir + '/' + newName })
+        .then(refreshFileTree)
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Operation failed');
+          setTimeout(() => setError(null), 5000);
+        });
+    },
+    [workspaceId, refreshFileTree],
+  );
+
+  const handleDelete = useCallback(
+    (path: string) => {
+      if (!workspaceId) return;
+      sendRequest('file.delete', { workspaceId, path })
+        .then(refreshFileTree)
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Operation failed');
+          setTimeout(() => setError(null), 5000);
+        });
+    },
+    [workspaceId, refreshFileTree],
   );
 
   return (
@@ -71,12 +142,21 @@ export function RightSidebar({ workspaceId, onFileSelect }: RightSidebarProps) {
       >
         Explorer
       </div>
+      {error && (
+        <div style={{ padding: '8px', color: '#e06050', fontSize: '12px', borderBottom: '1px solid #333' }}>
+          {error}
+        </div>
+      )}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {workspaceId ? (
           <FileTree
             tree={effectiveFileTree}
             onFileSelect={handleFileSelect}
             workspaceId={workspaceId}
+            onNewFile={handleNewFile}
+            onNewFolder={handleNewFolder}
+            onRename={handleRename}
+            onDelete={handleDelete}
           />
         ) : (
           <div style={{ color: '#666', padding: '8px', fontSize: '12px' }}>

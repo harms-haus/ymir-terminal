@@ -60,7 +60,7 @@ describe('getLanguageFromPath', () => {
     expect(getLanguageFromPath('test.ts')).toBe('typescript');
   });
 
-  test("returns null for unknown extension", () => {
+  test('returns null for unknown extension', () => {
     expect(getLanguageFromPath('unknown.xyz')).toBeNull();
   });
 });

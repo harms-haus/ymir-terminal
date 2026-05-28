@@ -532,4 +532,62 @@ describe('WSClient', () => {
     expect(received1[0]).toEqual(incoming);
     expect(received2[0]).toEqual(incoming);
   });
+
+  // -----------------------------------------------------------------------
+  // onerror handler: status becomes 'disconnected' after error + close
+  // -----------------------------------------------------------------------
+  test('onerror followed by close transitions to disconnected', () => {
+    const { wsClient } = wsClientModule;
+
+    const originalSetTimeout = globalThis.setTimeout;
+    const timers: Array<{ cb: () => void; delay: number }> = [];
+    globalThis.setTimeout = ((cb: () => void, delay?: number) => {
+      const id = timers.length;
+      timers.push({ cb, delay: delay ?? 0 });
+      return id as any;
+    }) as any;
+
+    try {
+      const statuses: string[] = [];
+      wsClient.onStatusChange((s) => statuses.push(s));
+
+      wsClient.connect('ws://localhost:8080');
+      const ws = MockWebSocket.instances[0];
+      ws.simulateOpen();
+
+      statuses.length = 0;
+
+      // Simulate an error event (real WebSocket fires onerror then onclose)
+      ws.onerror?.({});
+      ws.simulateClose();
+
+      // Status should have transitioned through 'disconnected' and then 'reconnecting'
+      expect(statuses).toContain('disconnected');
+      expect(statuses).toContain('reconnecting');
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // Malformed JSON in onmessage does not crash and no handler is called
+  // -----------------------------------------------------------------------
+  test('malformed JSON in onmessage does not crash and no handler is called', () => {
+    const { wsClient } = wsClientModule;
+    wsClient.connect('ws://localhost:8080');
+    const ws = MockWebSocket.instances[0];
+    ws.simulateOpen();
+
+    const received: MessageEnvelope[] = [];
+    wsClient.onMessage((envelope) => received.push(envelope));
+
+    // Send raw non-JSON string directly via onmessage
+    ws.onmessage?.({ data: 'not json' });
+
+    // No handler should have been called
+    expect(received.length).toBe(0);
+
+    // Client should still be connected and functional
+    expect(wsClient.getStatus()).toBe('connected');
+  });
 });

@@ -10,7 +10,13 @@ export interface AppLayoutProps {
   footer?: React.ReactNode;
 }
 
-export function AppLayout({ children, leftSidebar, rightSidebar, bottomPanel, footer }: AppLayoutProps) {
+export function AppLayout({
+  children,
+  leftSidebar,
+  rightSidebar,
+  bottomPanel,
+  footer,
+}: AppLayoutProps) {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) return <LoginPage />;

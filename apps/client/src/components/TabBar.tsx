@@ -7,7 +7,6 @@ interface TabBarProps {
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onAddTerminal: () => void;
-  onAddEditor?: (filePath: string) => void;
 }
 
 export function TabBar({ tabs, activeTabId, onActivate, onClose, onAddTerminal }: TabBarProps) {
@@ -21,7 +20,7 @@ export function TabBar({ tabs, activeTabId, onActivate, onClose, onAddTerminal }
         alignItems: 'flex-end',
         borderBottom: '1px solid #333',
         flexShrink: 0,
-        overflow: 'hidden',
+        overflowX: 'auto',
       }}
     >
       {tabs.map((tab) => {
@@ -41,7 +40,7 @@ export function TabBar({ tabs, activeTabId, onActivate, onClose, onAddTerminal }
               fontSize: '13px',
               cursor: 'pointer',
               background: isActive ? '#1e1e1e' : '#2d2d2d',
-              color: isActive ? '#fff' : '#999',
+              color: isActive ? '#fff' : '#aaa',
               borderRight: '1px solid #333',
               borderBottom: isActive ? '1px solid #1e1e1e' : '1px solid #333',
               userSelect: 'none',
@@ -69,8 +68,8 @@ export function TabBar({ tabs, activeTabId, onActivate, onClose, onAddTerminal }
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '20px',
-                height: '20px',
+                width: '28px',
+                height: '28px',
               }}
             >
               ×

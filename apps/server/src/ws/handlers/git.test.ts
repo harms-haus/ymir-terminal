@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
   type RequestEnvelope,
@@ -69,9 +70,7 @@ describe('registerGitHandlers', () => {
           { path: 'src/foo.ts', status: 'M' },
           { path: 'README.md', status: '?' },
         ],
-        staged: [
-          { path: 'src/bar.ts', status: 'A' },
-        ],
+        staged: [{ path: 'src/bar.ts', status: 'A' }],
       };
     });
 
@@ -120,9 +119,7 @@ describe('registerGitHandlers', () => {
         { path: 'src/foo.ts', status: 'M' },
         { path: 'README.md', status: '?' },
       ]);
-      expect(payload.staged).toEqual([
-        { path: 'src/bar.ts', status: 'A' },
-      ]);
+      expect(payload.staged).toEqual([{ path: 'src/bar.ts', status: 'A' }]);
     });
 
     // -----------------------------------------------------------------

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { wsClient } from '../lib/ws-client';
 import { PROTOCOL_VERSION } from '@ymir/shared';
 import type { MessageEnvelope } from '@ymir/shared';
@@ -20,9 +20,7 @@ interface AuthState {
 
 const TOKEN_KEY = 'ymir-token';
 const getWsUrl = () =>
-  'ws://' +
-  (typeof window !== 'undefined' ? window.location.host : 'localhost:3000') +
-  '/ws';
+  'ws://' + (typeof window !== 'undefined' ? window.location.host : 'localhost:3000') + '/ws';
 
 // ---------------------------------------------------------------------------
 // Context
@@ -35,6 +33,8 @@ export const AuthContext = createContext<AuthState | null>(null);
 // ---------------------------------------------------------------------------
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const isLoggingInRef = useRef(false);
+
   const [token, setToken] = useState<string | null>(() => {
     const stored = localStorage.getItem(TOKEN_KEY);
     if (stored) {
@@ -65,76 +65,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   const login = useCallback(async (password: string): Promise<void> => {
-    // Connect if not already connected
-    const status = wsClient.getStatus();
-    if (status === 'disconnected') {
-      wsClient.connect(getWsUrl());
-    }
+    if (isLoggingInRef.current) return;
+    isLoggingInRef.current = true;
 
-    // Wait for connection to open
-    if (wsClient.getStatus() !== 'connected') {
-      await new Promise<void>((resolve, reject) => {
-        let unsub: (() => void) | null = null;
+    try {
+      // Connect if not already connected
+      const status = wsClient.getStatus();
+      if (status === 'disconnected') {
+        wsClient.connect(getWsUrl());
+      }
 
-        const timeout = setTimeout(() => {
-          unsub?.();
-          reject(new Error('Connection timed out'));
-        }, 5000);
+      // Wait for connection to open
+      if (wsClient.getStatus() !== 'connected') {
+        await new Promise<void>((resolve, reject) => {
+          let unsub: (() => void) | null = null;
 
-        unsub = wsClient.onStatusChange((s) => {
-          if (s === 'connected') {
-            clearTimeout(timeout);
+          const timeout = setTimeout(() => {
             unsub?.();
-            resolve();
+            reject(new Error('Connection timed out'));
+          }, 5000);
+
+          unsub = wsClient.onStatusChange((s) => {
+            if (s === 'connected') {
+              clearTimeout(timeout);
+              unsub?.();
+              resolve();
+            }
+          });
+        });
+      }
+
+      const requestId = crypto.randomUUID();
+
+      const envelope: MessageEnvelope = {
+        v: PROTOCOL_VERSION,
+        type: 'request',
+        id: requestId,
+        channel: 'auth',
+        payload: { password },
+      };
+
+      return new Promise<void>((resolve, reject) => {
+        let settled = false;
+
+        const unsub = wsClient.onMessage((response: MessageEnvelope) => {
+          if (response.type === 'response' && response.id === requestId) {
+            settled = true;
+            unsub();
+
+            if (response.error) {
+              isLoggingInRef.current = false;
+              reject(new Error(response.error.message || 'Authentication failed'));
+              return;
+            }
+
+            const payload = response.payload as { token: string; expiresIn: number } | null;
+            if (payload?.token) {
+              const jwt = payload.token;
+              wsClient.setToken(jwt);
+              setToken(jwt);
+              isLoggingInRef.current = false;
+              resolve();
+            } else {
+              isLoggingInRef.current = false;
+              reject(new Error('Authentication failed'));
+            }
           }
         });
+
+        wsClient.send(envelope);
+
+        setTimeout(() => {
+          if (!settled) {
+            unsub();
+            isLoggingInRef.current = false;
+            reject(new Error('Authentication timed out'));
+          }
+        }, 10_000);
       });
+    } catch (err) {
+      isLoggingInRef.current = false;
+      throw err;
     }
-
-    const requestId = crypto.randomUUID();
-
-    const envelope: MessageEnvelope = {
-      v: PROTOCOL_VERSION,
-      type: 'request',
-      id: requestId,
-      channel: 'auth',
-      payload: { password },
-    };
-
-    return new Promise<void>((resolve, reject) => {
-      let settled = false;
-
-      const unsub = wsClient.onMessage((response: MessageEnvelope) => {
-        if (response.type === 'response' && response.id === requestId) {
-          settled = true;
-          unsub();
-
-          if (response.error) {
-            reject(new Error(response.error.message || 'Authentication failed'));
-            return;
-          }
-
-          const payload = response.payload as { token: string; expiresIn: number } | null;
-          if (payload?.token) {
-            const jwt = payload.token;
-            wsClient.setToken(jwt);
-            setToken(jwt);
-            resolve();
-          } else {
-            reject(new Error('Authentication failed'));
-          }
-        }
-      });
-
-      wsClient.send(envelope);
-
-      setTimeout(() => {
-        if (!settled) {
-          unsub();
-          reject(new Error('Authentication timed out'));
-        }
-      }, 10_000);
-    });
   }, []);
 
   // Listen for AUTH_REQUIRED from server (e.g. expired JWT on reconnect).

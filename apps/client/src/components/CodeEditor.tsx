@@ -7,6 +7,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 import { rust } from '@codemirror/lang-rust';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { useRef } from 'react';
 
 const LANG_EXTENSIONS: Record<string, () => unknown> = {
   javascript,
@@ -27,21 +28,29 @@ interface CodeEditorProps {
 
 export function CodeEditor({ content, language, onChange, onSave }: CodeEditorProps) {
   const extensions = language && LANG_EXTENSIONS[language] ? [LANG_EXTENSIONS[language]()] : [];
+  const currentValueRef = useRef(content);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
-      onSave?.(content);
+      onSave?.(currentValueRef.current);
     }
   };
 
   return (
-    <div data-testid="code-editor" style={{ height: '100%', overflow: 'auto' }} onKeyDown={handleKeyDown}>
+    <div
+      data-testid="code-editor"
+      style={{ height: '100%', overflow: 'auto' }}
+      onKeyDown={handleKeyDown}
+    >
       <CodeMirror
         value={content}
         theme={oneDark}
         extensions={extensions}
-        onChange={onChange}
+        onChange={(value) => {
+          currentValueRef.current = value;
+          onChange?.(value);
+        }}
         height="100%"
       />
     </div>

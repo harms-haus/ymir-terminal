@@ -179,9 +179,7 @@ function CreateWorkspaceForm({
     <form onSubmit={handleSubmit}>
       {mutation.isError && (
         <div role="alert" style={styles.errorBox} data-testid="create-workspace-error">
-          {mutation.error instanceof Error
-            ? mutation.error.message
-            : 'Failed to create workspace'}
+          {mutation.error instanceof Error ? mutation.error.message : 'Failed to create workspace'}
         </div>
       )}
 
@@ -266,11 +264,7 @@ function CreateWorkspaceForm({
 // Outer dialog — controls visibility, Escape key, backdrop click
 // ---------------------------------------------------------------------------
 
-export function CreateWorkspaceDialog({
-  open,
-  onClose,
-  onCreated,
-}: CreateWorkspaceDialogProps) {
+export function CreateWorkspaceDialog({ open, onClose, onCreated }: CreateWorkspaceDialogProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Focus trap

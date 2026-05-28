@@ -3,34 +3,36 @@
 // ---------------------------------------------------------------------------
 
 export const REQUEST_TYPES = [
-  "auth",
-  "terminal.create",
-  "terminal.input",
-  "terminal.resize",
-  "terminal.close",
-  "workspace.list",
-  "workspace.create",
-  "workspace.update",
-  "workspace.delete",
-  "tab.create",
-  "tab.close",
-  "tab.activate",
-  "file.tree",
-  "file.read",
-  "file.write",
-  "file.delete",
-  "file.rename",
-  "file.create",
-  "git.status",
+  'auth',
+  'terminal.create',
+  'terminal.input',
+  'terminal.resize',
+  'terminal.close',
+  'workspace.list',
+  'workspace.create',
+  'workspace.update',
+  'workspace.delete',
+  // Tab management — handlers to be implemented
+  'tab.create',
+  'tab.close',
+  'tab.activate',
+  'file.tree',
+  'file.read',
+  'file.write',
+  'file.delete',
+  'file.rename',
+  'file.create',
+  'git.status',
 ] as const;
 
 export type RequestType = (typeof REQUEST_TYPES)[number];
 
 export const EVENT_TYPES = [
-  "terminal.output",
-  "terminal.exit",
-  "file.change",
-  "session.init",
+  'terminal.output',
+  'terminal.exit',
+  'file.change',
+  // Emitted on connection after auth — to be implemented
+  'session.init',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -100,7 +102,7 @@ export interface WorkspaceSummary {
   color: string;
 }
 
-export interface WorkspaceListRequest {}
+export type WorkspaceListRequest = Record<string, never>;
 
 export interface WorkspaceListResponse {
   workspaces: WorkspaceSummary[];

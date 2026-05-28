@@ -36,12 +36,12 @@ YMIR_PASSWORD=secret bun apps/server/src/index.ts [--port=3000] [--host=127.0.0.
 bun apps/server/src/index.ts --password=<pass> [--port=3000] [--host=127.0.0.1]
 ```
 
-| Flag            | Default     | Description                     |
-| --------------- | ----------- | ------------------------------- |
-| `--password`    | (required)* | Authentication password         |
-| `--port`        | `3000`      | Server port                     |
-| `--host`        | `127.0.0.1` | Server bind address             |
-| `--staticDir`   | auto        | Path to built client static dir |
+| Flag          | Default      | Description                     |
+| ------------- | ------------ | ------------------------------- |
+| `--password`  | (required)\* | Authentication password         |
+| `--port`      | `3000`       | Server port                     |
+| `--host`      | `127.0.0.1`  | Server bind address             |
+| `--staticDir` | auto         | Path to built client static dir |
 
 \* Or set the `YMIR_PASSWORD` environment variable.
 

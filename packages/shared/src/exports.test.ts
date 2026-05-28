@@ -41,5 +41,3 @@ describe('shared package exports', () => {
     expect(node.type).toBe('split');
   });
 });
-
-

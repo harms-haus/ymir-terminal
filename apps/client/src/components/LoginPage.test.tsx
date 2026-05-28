@@ -28,9 +28,11 @@ function renderLoginPage(overrides: { login?: ReturnType<typeof mock> } = {}) {
   };
 
   const result = render(
-    React.createElement(AuthContext.Provider, { value: contextValue },
-      React.createElement(LoginPage)
-    )
+    React.createElement(
+      AuthContext.Provider,
+      { value: contextValue },
+      React.createElement(LoginPage),
+    ),
   );
 
   return {

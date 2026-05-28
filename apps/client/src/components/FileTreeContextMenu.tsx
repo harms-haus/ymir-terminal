@@ -25,6 +25,12 @@ export function FileTreeContextMenu({
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
+        <style>{`
+          [data-testid="context-menu"] [role="menuitem"]:focus-visible {
+            outline: 2px solid #007acc;
+            outline-offset: -2px;
+          }
+        `}</style>
         <ContextMenu.Content
           data-testid="context-menu"
           style={{
@@ -41,14 +47,26 @@ export function FileTreeContextMenu({
               <ContextMenu.Item
                 data-testid="menu-new-file"
                 onSelect={() => onNewFile?.(path)}
-                style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#ccc', outline: 'none' }}
+                style={{
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  color: '#ccc',
+                  outline: 'none',
+                }}
               >
                 New File
               </ContextMenu.Item>
               <ContextMenu.Item
                 data-testid="menu-new-folder"
                 onSelect={() => onNewFolder?.(path)}
-                style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#ccc', outline: 'none' }}
+                style={{
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  color: '#ccc',
+                  outline: 'none',
+                }}
               >
                 New Folder
               </ContextMenu.Item>
@@ -58,7 +76,13 @@ export function FileTreeContextMenu({
             <ContextMenu.Item
               data-testid="menu-open-editor"
               onSelect={() => onOpenEditor?.(path)}
-              style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#ccc', outline: 'none' }}
+              style={{
+                padding: '6px 12px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                color: '#ccc',
+                outline: 'none',
+              }}
             >
               Open in Editor
             </ContextMenu.Item>
@@ -66,7 +90,13 @@ export function FileTreeContextMenu({
           <ContextMenu.Item
             data-testid="menu-rename"
             onSelect={() => onRename?.(path)}
-            style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#ccc', outline: 'none' }}
+            style={{
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: '#ccc',
+              outline: 'none',
+            }}
           >
             Rename
           </ContextMenu.Item>
@@ -79,7 +109,13 @@ export function FileTreeContextMenu({
                 onDelete?.(path);
               }
             }}
-            style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#c74e39', outline: 'none' }}
+            style={{
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: '#e06050',
+              outline: 'none',
+            }}
           >
             Delete
           </ContextMenu.Item>

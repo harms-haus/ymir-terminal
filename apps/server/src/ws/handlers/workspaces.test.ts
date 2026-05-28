@@ -1,11 +1,13 @@
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
   type RequestEnvelope,
+  type EventEnvelope,
   PROTOCOL_VERSION,
   ErrorCodes,
   type WorkspaceListResponse,
   type WorkspaceCreateResponse,
   type WorkspaceSummary,
+  type FileChangeEvent as FileChangePayload,
 } from '@ymir/shared';
 import { MessageRouter } from '../router';
 import { registerWorkspaceHandlers } from './workspaces';
@@ -53,6 +55,10 @@ describe('registerWorkspaceHandlers', () => {
   let createWorkspaceFn: ReturnType<typeof mock>;
   let updateWorkspaceFn: ReturnType<typeof mock>;
   let deleteWorkspaceFn: ReturnType<typeof mock>;
+  let getWorkspaceFn: ReturnType<typeof mock>;
+  let startWorkspaceWatcherFn: ReturnType<typeof mock>;
+  let stopWorkspaceWatcherFn: ReturnType<typeof mock>;
+  let broadcastedEvents: EventEnvelope[];
 
   beforeEach(() => {
     router = new MessageRouter();
@@ -64,28 +70,53 @@ describe('registerWorkspaceHandlers', () => {
 
     // Mock the CRUD functions
     listWorkspacesFn = mock(() => []);
-    createWorkspaceFn = mock((_arg0: unknown, input: { name: string; cwd: string; color?: string }) => ({
+    createWorkspaceFn = mock(
+      (_arg0: unknown, input: { name: string; cwd: string; color?: string }) => ({
+        id: 'ws-1',
+        name: input.name,
+        cwd: input.cwd,
+        color: input.color ?? '#007acc',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      }),
+    );
+    updateWorkspaceFn = mock((_arg0: unknown, id: string, input: Record<string, unknown>) => {
+      const base: WorkspaceSummary = { id, name: 'original', cwd: '/original', color: '#000000' };
+      return {
+        ...base,
+        ...input,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      };
+    });
+    deleteWorkspaceFn = mock(() => true);
+    getWorkspaceFn = mock(() => ({
       id: 'ws-1',
-      name: input.name,
-      cwd: input.cwd,
-      color: input.color ?? '#007acc',
+      name: 'original',
+      cwd: '/original',
+      color: '#000000',
       created_at: '2025-01-01T00:00:00Z',
       updated_at: '2025-01-01T00:00:00Z',
     }));
-    updateWorkspaceFn = mock((_arg0: unknown, id: string, input: Record<string, unknown>) => {
-      const base: WorkspaceSummary = { id, name: 'original', cwd: '/original', color: '#000000' };
-      return { ...base, ...input, created_at: '2025-01-01T00:00:00Z', updated_at: '2025-01-01T00:00:00Z' };
-    });
-    deleteWorkspaceFn = mock(() => true);
+    startWorkspaceWatcherFn = mock(() => {});
+    stopWorkspaceWatcherFn = mock(() => {});
+
+    broadcastedEvents = [];
 
     registerWorkspaceHandlers(router, {
       persistentDb: mockPersistentDb as unknown as import('bun:sqlite').Database,
       sessionDb: mockSessionDb as unknown as import('bun:sqlite').Database,
+      broadcastEvent: (event: EventEnvelope) => {
+        broadcastedEvents.push(event);
+      },
       _mocks: {
         listWorkspaces: listWorkspacesFn,
         createWorkspace: createWorkspaceFn,
         updateWorkspace: updateWorkspaceFn,
         deleteWorkspace: deleteWorkspaceFn,
+        getWorkspace: getWorkspaceFn,
+        startWorkspaceWatcher: startWorkspaceWatcherFn,
+        stopWorkspaceWatcher: stopWorkspaceWatcherFn,
       },
     });
   });
@@ -162,7 +193,11 @@ describe('registerWorkspaceHandlers', () => {
   // -----------------------------------------------------------------------
   describe('workspace.create', () => {
     it('validates name/cwd/color, creates workspace, responds with WorkspaceCreateResponse', async () => {
-      const req = request('workspace.create', { name: 'My Project', cwd: '/home/dev', color: '#007acc' });
+      const req = request('workspace.create', {
+        name: 'My Project',
+        cwd: '/home/dev',
+        color: '#007acc',
+      });
       await router.route(conn, req);
 
       expect(createWorkspaceFn).toHaveBeenCalledTimes(1);
@@ -221,6 +256,49 @@ describe('registerWorkspaceHandlers', () => {
       const resp = conn.sent[0] as Record<string, unknown>;
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
     });
+
+    it('starts workspace watcher and broadcasts file.change events', async () => {
+      // Capture the watcher callback passed to startWorkspaceWatcher
+      let watcherCallback: ((event: { path: string; kind: string }) => void) | undefined;
+      startWorkspaceWatcherFn.mockImplementation(
+        (
+          _workspaceId: string,
+          _dirPath: string,
+          cb: (event: { path: string; kind: string }) => void,
+        ) => {
+          watcherCallback = cb;
+        },
+      );
+
+      const req = request('workspace.create', {
+        name: 'Watched',
+        cwd: '/tmp/watched',
+        color: '#123',
+      });
+      await router.route(conn, req);
+
+      // Handler should have called startWorkspaceWatcher
+      expect(startWorkspaceWatcherFn).toHaveBeenCalledTimes(1);
+      expect(startWorkspaceWatcherFn.mock.calls[0][0]).toBe('ws-1');
+      expect(startWorkspaceWatcherFn.mock.calls[0][1]).toBe('/tmp/watched');
+      expect(watcherCallback).toBeDefined();
+
+      // Simulate a file change event from the watcher
+      broadcastedEvents = [];
+      watcherCallback!({ path: '/tmp/watched/src/index.ts', kind: 'modify' });
+
+      // Should have broadcast exactly one event
+      expect(broadcastedEvents.length).toBe(1);
+      const event = broadcastedEvents[0] as EventEnvelope<FileChangePayload>;
+      expect(event.v).toBe(PROTOCOL_VERSION);
+      expect(event.type).toBe('event');
+      expect(event.channel).toBe('file.change');
+      expect(event.payload).toEqual({
+        workspaceId: 'ws-1',
+        path: '/tmp/watched/src/index.ts',
+        kind: 'modify',
+      });
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -243,7 +321,12 @@ describe('registerWorkspaceHandlers', () => {
     });
 
     it('updates multiple fields', async () => {
-      const req = request('workspace.update', { id: 'ws-1', name: 'New', cwd: '/new', color: '#aabbcc' });
+      const req = request('workspace.update', {
+        id: 'ws-1',
+        name: 'New',
+        cwd: '/new',
+        color: '#aabbcc',
+      });
       await router.route(conn, req);
 
       const callArgs = updateWorkspaceFn.mock.calls[0];

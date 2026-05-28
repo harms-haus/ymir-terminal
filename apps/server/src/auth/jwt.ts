@@ -15,7 +15,7 @@ export function generateSigningSecret(): string {
 export async function generateToken(
   sessionId: string,
   secret: string,
-  expiresIn: string = '7d'
+  expiresIn: string = '7d',
 ): Promise<string> {
   const key = new TextEncoder().encode(secret);
   return new SignJWT({ sessionId })
@@ -29,10 +29,7 @@ export async function generateToken(
  * Verify a JWT and return the payload containing the session ID.
  * Throws if the token is invalid or expired.
  */
-export async function verifyToken(
-  token: string,
-  secret: string
-): Promise<{ sessionId: string }> {
+export async function verifyToken(token: string, secret: string): Promise<{ sessionId: string }> {
   const key = new TextEncoder().encode(secret);
   const { payload } = await jwtVerify<{ sessionId: string }>(token, key);
   return { sessionId: payload.sessionId };

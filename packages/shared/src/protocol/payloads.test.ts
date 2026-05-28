@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from 'bun:test';
 import {
   REQUEST_TYPES,
   EVENT_TYPES,
@@ -50,44 +50,44 @@ import {
   // Unions
   type RequestPayload,
   type EventPayload,
-} from "./payloads";
+} from './payloads';
 
 // ---------------------------------------------------------------------------
 // REQUEST_TYPES constant
 // ---------------------------------------------------------------------------
 
-describe("REQUEST_TYPES", () => {
+describe('REQUEST_TYPES', () => {
   const expected: readonly string[] = [
-    "auth",
-    "terminal.create",
-    "terminal.input",
-    "terminal.resize",
-    "terminal.close",
-    "workspace.list",
-    "workspace.create",
-    "workspace.update",
-    "workspace.delete",
-    "tab.create",
-    "tab.close",
-    "tab.activate",
-    "file.tree",
-    "file.read",
-    "file.write",
-    "file.delete",
-    "file.rename",
-    "file.create",
-    "git.status",
+    'auth',
+    'terminal.create',
+    'terminal.input',
+    'terminal.resize',
+    'terminal.close',
+    'workspace.list',
+    'workspace.create',
+    'workspace.update',
+    'workspace.delete',
+    'tab.create',
+    'tab.close',
+    'tab.activate',
+    'file.tree',
+    'file.read',
+    'file.write',
+    'file.delete',
+    'file.rename',
+    'file.create',
+    'git.status',
   ];
 
-  it("contains all expected request types", () => {
+  it('contains all expected request types', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it("has exactly 19 entries", () => {
+  it('has exactly 19 entries', () => {
     expect(REQUEST_TYPES).toHaveLength(19);
   });
 
-  it("is frozen (readonly tuple)", () => {
+  it('is frozen (readonly tuple)', () => {
     // `as const` produces a readonly tuple — TypeScript enforces this, and at
     // runtime the array should still be an Array (just typed as readonly).
     expect(Array.isArray(REQUEST_TYPES)).toBe(true);
@@ -98,19 +98,19 @@ describe("REQUEST_TYPES", () => {
 // EVENT_TYPES constant
 // ---------------------------------------------------------------------------
 
-describe("EVENT_TYPES", () => {
+describe('EVENT_TYPES', () => {
   const expected: readonly string[] = [
-    "terminal.output",
-    "terminal.exit",
-    "file.change",
-    "session.init",
+    'terminal.output',
+    'terminal.exit',
+    'file.change',
+    'session.init',
   ];
 
-  it("contains all expected event types", () => {
+  it('contains all expected event types', () => {
     expect(EVENT_TYPES).toEqual(expected);
   });
 
-  it("has exactly 4 entries", () => {
+  it('has exactly 4 entries', () => {
     expect(EVENT_TYPES).toHaveLength(4);
   });
 });
@@ -119,14 +119,14 @@ describe("EVENT_TYPES", () => {
 // Type union exhaustiveness
 // ---------------------------------------------------------------------------
 
-describe("type unions are exhaustive", () => {
-  it("RequestType covers every entry in REQUEST_TYPES", () => {
+describe('type unions are exhaustive', () => {
+  it('RequestType covers every entry in REQUEST_TYPES', () => {
     // Compile-time check: if we miss one, TS will error on the assignment.
     const values: RequestType[] = [...REQUEST_TYPES];
     expect(values).toHaveLength(REQUEST_TYPES.length);
   });
 
-  it("EventType covers every entry in EVENT_TYPES", () => {
+  it('EventType covers every entry in EVENT_TYPES', () => {
     const values: EventType[] = [...EVENT_TYPES];
     expect(values).toHaveLength(EVENT_TYPES.length);
   });
@@ -136,19 +136,19 @@ describe("type unions are exhaustive", () => {
 // Auth payloads
 // ---------------------------------------------------------------------------
 
-describe("AuthRequest", () => {
-  it("round-trips through JSON", () => {
-    const payload: AuthRequest = { password: "s3cret!" };
+describe('AuthRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: AuthRequest = { password: 's3cret!' };
     const json = JSON.stringify(payload);
     const parsed: AuthRequest = JSON.parse(json);
     expect(parsed).toEqual(payload);
-    expect(parsed.password).toBe("s3cret!");
+    expect(parsed.password).toBe('s3cret!');
   });
 });
 
-describe("AuthResponse", () => {
-  it("round-trips through JSON", () => {
-    const payload: AuthResponse = { token: "jwt-token", expiresIn: 3600 };
+describe('AuthResponse', () => {
+  it('round-trips through JSON', () => {
+    const payload: AuthResponse = { token: 'jwt-token', expiresIn: 3600 };
     const json = JSON.stringify(payload);
     const parsed: AuthResponse = JSON.parse(json);
     expect(parsed).toEqual(payload);
@@ -159,16 +159,16 @@ describe("AuthResponse", () => {
 // Terminal payloads
 // ---------------------------------------------------------------------------
 
-describe("TerminalCreateRequest", () => {
-  it("round-trips through JSON with required fields only", () => {
-    const payload: TerminalCreateRequest = { workspaceId: "ws-1" };
+describe('TerminalCreateRequest', () => {
+  it('round-trips through JSON with required fields only', () => {
+    const payload: TerminalCreateRequest = { workspaceId: 'ws-1' };
     const parsed: TerminalCreateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 
-  it("round-trips through JSON with optional fields", () => {
+  it('round-trips through JSON with optional fields', () => {
     const payload: TerminalCreateRequest = {
-      workspaceId: "ws-1",
+      workspaceId: 'ws-1',
       cols: 120,
       rows: 40,
     };
@@ -177,30 +177,30 @@ describe("TerminalCreateRequest", () => {
   });
 });
 
-describe("TerminalCreateResponse", () => {
-  it("round-trips through JSON", () => {
-    const payload: TerminalCreateResponse = { terminalId: "t-1" };
+describe('TerminalCreateResponse', () => {
+  it('round-trips through JSON', () => {
+    const payload: TerminalCreateResponse = { terminalId: 't-1' };
     const parsed: TerminalCreateResponse = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("TerminalInputRequest", () => {
-  it("round-trips through JSON", () => {
+describe('TerminalInputRequest', () => {
+  it('round-trips through JSON', () => {
     const payload: TerminalInputRequest = {
-      terminalId: "t-1",
-      data: "aGVsbG8=",
+      terminalId: 't-1',
+      data: 'aGVsbG8=',
     };
     const parsed: TerminalInputRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
-    expect(parsed.data).toBe("aGVsbG8="); // base64
+    expect(parsed.data).toBe('aGVsbG8='); // base64
   });
 });
 
-describe("TerminalResizeRequest", () => {
-  it("round-trips through JSON", () => {
+describe('TerminalResizeRequest', () => {
+  it('round-trips through JSON', () => {
     const payload: TerminalResizeRequest = {
-      terminalId: "t-1",
+      terminalId: 't-1',
       cols: 80,
       rows: 24,
     };
@@ -209,29 +209,29 @@ describe("TerminalResizeRequest", () => {
   });
 });
 
-describe("TerminalOutputEvent", () => {
-  it("round-trips through JSON", () => {
+describe('TerminalOutputEvent', () => {
+  it('round-trips through JSON', () => {
     const payload: TerminalOutputEvent = {
-      terminalId: "t-1",
-      data: "b3V0cHV0",
+      terminalId: 't-1',
+      data: 'b3V0cHV0',
     };
     const parsed: TerminalOutputEvent = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
-    expect(parsed.data).toBe("b3V0cHV0"); // base64
+    expect(parsed.data).toBe('b3V0cHV0'); // base64
   });
 });
 
-describe("TerminalCloseRequest", () => {
-  it("round-trips through JSON", () => {
-    const payload: TerminalCloseRequest = { terminalId: "t-1" };
+describe('TerminalCloseRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: TerminalCloseRequest = { terminalId: 't-1' };
     const parsed: TerminalCloseRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("TerminalExitEvent", () => {
-  it("round-trips through JSON", () => {
-    const payload: TerminalExitEvent = { terminalId: "t-1", exitCode: 0 };
+describe('TerminalExitEvent', () => {
+  it('round-trips through JSON', () => {
+    const payload: TerminalExitEvent = { terminalId: 't-1', exitCode: 0 };
     const parsed: TerminalExitEvent = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
@@ -241,25 +241,25 @@ describe("TerminalExitEvent", () => {
 // Workspace payloads
 // ---------------------------------------------------------------------------
 
-describe("WorkspaceSummary", () => {
-  it("round-trips through JSON", () => {
+describe('WorkspaceSummary', () => {
+  it('round-trips through JSON', () => {
     const payload: WorkspaceSummary = {
-      id: "ws-1",
-      name: "my-project",
-      cwd: "/home/user/project",
-      color: "#ff0000",
+      id: 'ws-1',
+      name: 'my-project',
+      cwd: '/home/user/project',
+      color: '#ff0000',
     };
     const parsed: WorkspaceSummary = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("WorkspaceListResponse", () => {
-  it("round-trips through JSON", () => {
+describe('WorkspaceListResponse', () => {
+  it('round-trips through JSON', () => {
     const payload: WorkspaceListResponse = {
       workspaces: [
-        { id: "ws-1", name: "a", cwd: "/a", color: "#000" },
-        { id: "ws-2", name: "b", cwd: "/b", color: "#111" },
+        { id: 'ws-1', name: 'a', cwd: '/a', color: '#000' },
+        { id: 'ws-2', name: 'b', cwd: '/b', color: '#111' },
       ],
     };
     const parsed: WorkspaceListResponse = JSON.parse(JSON.stringify(payload));
@@ -268,50 +268,50 @@ describe("WorkspaceListResponse", () => {
   });
 });
 
-describe("WorkspaceCreateRequest", () => {
-  it("round-trips through JSON", () => {
+describe('WorkspaceCreateRequest', () => {
+  it('round-trips through JSON', () => {
     const payload: WorkspaceCreateRequest = {
-      name: "new-ws",
-      cwd: "/home/user/new",
-      color: "#00ff00",
+      name: 'new-ws',
+      cwd: '/home/user/new',
+      color: '#00ff00',
     };
     const parsed: WorkspaceCreateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("WorkspaceCreateResponse", () => {
-  it("round-trips through JSON", () => {
+describe('WorkspaceCreateResponse', () => {
+  it('round-trips through JSON', () => {
     const payload: WorkspaceCreateResponse = {
-      workspace: { id: "ws-3", name: "new-ws", cwd: "/new", color: "#00ff00" },
+      workspace: { id: 'ws-3', name: 'new-ws', cwd: '/new', color: '#00ff00' },
     };
     const parsed: WorkspaceCreateResponse = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("WorkspaceUpdateRequest", () => {
-  it("round-trips through JSON with optional fields", () => {
+describe('WorkspaceUpdateRequest', () => {
+  it('round-trips through JSON with optional fields', () => {
     const payload: WorkspaceUpdateRequest = {
-      id: "ws-1",
-      name: "renamed",
-      cwd: "/new/path",
-      color: "#ffffff",
+      id: 'ws-1',
+      name: 'renamed',
+      cwd: '/new/path',
+      color: '#ffffff',
     };
     const parsed: WorkspaceUpdateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 
-  it("round-trips through JSON with only required fields", () => {
-    const payload: WorkspaceUpdateRequest = { id: "ws-1" };
+  it('round-trips through JSON with only required fields', () => {
+    const payload: WorkspaceUpdateRequest = { id: 'ws-1' };
     const parsed: WorkspaceUpdateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("WorkspaceDeleteRequest", () => {
-  it("round-trips through JSON", () => {
-    const payload: WorkspaceDeleteRequest = { id: "ws-1" };
+describe('WorkspaceDeleteRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: WorkspaceDeleteRequest = { id: 'ws-1' };
     const parsed: WorkspaceDeleteRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
@@ -321,12 +321,12 @@ describe("WorkspaceDeleteRequest", () => {
 // Tab payloads
 // ---------------------------------------------------------------------------
 
-describe("TabInfo", () => {
-  it("round-trips through JSON", () => {
+describe('TabInfo', () => {
+  it('round-trips through JSON', () => {
     const payload: TabInfo = {
-      id: "tab-1",
-      tabType: "terminal",
-      title: "Terminal",
+      id: 'tab-1',
+      tabType: 'terminal',
+      title: 'Terminal',
       active: true,
       order: 0,
     };
@@ -335,58 +335,58 @@ describe("TabInfo", () => {
   });
 });
 
-describe("TabCreateRequest", () => {
-  it("round-trips through JSON with required fields only", () => {
+describe('TabCreateRequest', () => {
+  it('round-trips through JSON with required fields only', () => {
     const payload: TabCreateRequest = {
-      workspaceId: "ws-1",
-      tabType: "terminal",
+      workspaceId: 'ws-1',
+      tabType: 'terminal',
     };
     const parsed: TabCreateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 
-  it("round-trips through JSON with optional filePath", () => {
+  it('round-trips through JSON with optional filePath', () => {
     const payload: TabCreateRequest = {
-      workspaceId: "ws-1",
-      tabType: "editor",
-      filePath: "/src/index.ts",
+      workspaceId: 'ws-1',
+      tabType: 'editor',
+      filePath: '/src/index.ts',
     };
     const parsed: TabCreateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("TabCloseRequest", () => {
-  it("round-trips through JSON", () => {
-    const payload: TabCloseRequest = { tabId: "tab-1" };
+describe('TabCloseRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: TabCloseRequest = { tabId: 'tab-1' };
     const parsed: TabCloseRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("TabActivateRequest", () => {
-  it("round-trips through JSON", () => {
-    const payload: TabActivateRequest = { tabId: "tab-2" };
+describe('TabActivateRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: TabActivateRequest = { tabId: 'tab-2' };
     const parsed: TabActivateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("TabsListResponse", () => {
-  it("round-trips through JSON", () => {
+describe('TabsListResponse', () => {
+  it('round-trips through JSON', () => {
     const payload: TabsListResponse = {
       tabs: [
         {
-          id: "tab-1",
-          tabType: "terminal",
-          title: "Terminal",
+          id: 'tab-1',
+          tabType: 'terminal',
+          title: 'Terminal',
           active: true,
           order: 0,
         },
         {
-          id: "tab-2",
-          tabType: "editor",
-          title: "index.ts",
+          id: 'tab-2',
+          tabType: 'editor',
+          title: 'index.ts',
           active: false,
           order: 1,
         },
@@ -402,11 +402,11 @@ describe("TabsListResponse", () => {
 // File payloads
 // ---------------------------------------------------------------------------
 
-describe("FileNode", () => {
-  it("round-trips through JSON (file node without children)", () => {
+describe('FileNode', () => {
+  it('round-trips through JSON (file node without children)', () => {
     const payload: FileNode = {
-      name: "index.ts",
-      path: "/src/index.ts",
+      name: 'index.ts',
+      path: '/src/index.ts',
       isDirectory: false,
     };
     const parsed: FileNode = JSON.parse(JSON.stringify(payload));
@@ -414,14 +414,12 @@ describe("FileNode", () => {
     expect(parsed.children).toBeUndefined();
   });
 
-  it("round-trips through JSON (directory node with children)", () => {
+  it('round-trips through JSON (directory node with children)', () => {
     const payload: FileNode = {
-      name: "src",
-      path: "/src",
+      name: 'src',
+      path: '/src',
       isDirectory: true,
-      children: [
-        { name: "index.ts", path: "/src/index.ts", isDirectory: false },
-      ],
+      children: [{ name: 'index.ts', path: '/src/index.ts', isDirectory: false }],
     };
     const parsed: FileNode = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
@@ -429,26 +427,26 @@ describe("FileNode", () => {
   });
 });
 
-describe("FileTreeRequest", () => {
-  it("round-trips through JSON with required fields only", () => {
-    const payload: FileTreeRequest = { workspaceId: "ws-1" };
+describe('FileTreeRequest', () => {
+  it('round-trips through JSON with required fields only', () => {
+    const payload: FileTreeRequest = { workspaceId: 'ws-1' };
     const parsed: FileTreeRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 
-  it("round-trips through JSON with optional path", () => {
-    const payload: FileTreeRequest = { workspaceId: "ws-1", path: "/src" };
+  it('round-trips through JSON with optional path', () => {
+    const payload: FileTreeRequest = { workspaceId: 'ws-1', path: '/src' };
     const parsed: FileTreeRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("FileTreeResponse", () => {
-  it("round-trips through JSON", () => {
+describe('FileTreeResponse', () => {
+  it('round-trips through JSON', () => {
     const payload: FileTreeResponse = {
       tree: [
-        { name: "src", path: "/src", isDirectory: true, children: [] },
-        { name: "README.md", path: "/README.md", isDirectory: false },
+        { name: 'src', path: '/src', isDirectory: true, children: [] },
+        { name: 'README.md', path: '/README.md', isDirectory: false },
       ],
     };
     const parsed: FileTreeResponse = JSON.parse(JSON.stringify(payload));
@@ -456,33 +454,33 @@ describe("FileTreeResponse", () => {
   });
 });
 
-describe("FileReadRequest", () => {
-  it("round-trips through JSON", () => {
+describe('FileReadRequest', () => {
+  it('round-trips through JSON', () => {
     const payload: FileReadRequest = {
-      workspaceId: "ws-1",
-      path: "/src/index.ts",
+      workspaceId: 'ws-1',
+      path: '/src/index.ts',
     };
     const parsed: FileReadRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("FileReadResponse", () => {
-  it("round-trips through JSON", () => {
+describe('FileReadResponse', () => {
+  it('round-trips through JSON', () => {
     const payload: FileReadResponse = {
       content: "console.log('hello')",
-      language: "typescript",
+      language: 'typescript',
     };
     const parsed: FileReadResponse = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("FileWriteRequest", () => {
-  it("round-trips through JSON", () => {
+describe('FileWriteRequest', () => {
+  it('round-trips through JSON', () => {
     const payload: FileWriteRequest = {
-      workspaceId: "ws-1",
-      path: "/src/index.ts",
+      workspaceId: 'ws-1',
+      path: '/src/index.ts',
       content: "console.log('updated')",
     };
     const parsed: FileWriteRequest = JSON.parse(JSON.stringify(payload));
@@ -490,44 +488,44 @@ describe("FileWriteRequest", () => {
   });
 });
 
-describe("FileDeleteRequest", () => {
-  it("round-trips through JSON", () => {
+describe('FileDeleteRequest', () => {
+  it('round-trips through JSON', () => {
     const payload: FileDeleteRequest = {
-      workspaceId: "ws-1",
-      path: "/src/old.ts",
+      workspaceId: 'ws-1',
+      path: '/src/old.ts',
     };
     const parsed: FileDeleteRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("FileRenameRequest", () => {
-  it("round-trips through JSON", () => {
+describe('FileRenameRequest', () => {
+  it('round-trips through JSON', () => {
     const payload: FileRenameRequest = {
-      workspaceId: "ws-1",
-      oldPath: "/src/old.ts",
-      newPath: "/src/new.ts",
+      workspaceId: 'ws-1',
+      oldPath: '/src/old.ts',
+      newPath: '/src/new.ts',
     };
     const parsed: FileRenameRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("FileCreateRequest", () => {
-  it("round-trips through JSON (file)", () => {
+describe('FileCreateRequest', () => {
+  it('round-trips through JSON (file)', () => {
     const payload: FileCreateRequest = {
-      workspaceId: "ws-1",
-      path: "/src/new-file.ts",
+      workspaceId: 'ws-1',
+      path: '/src/new-file.ts',
       isDirectory: false,
     };
     const parsed: FileCreateRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 
-  it("round-trips through JSON (directory)", () => {
+  it('round-trips through JSON (directory)', () => {
     const payload: FileCreateRequest = {
-      workspaceId: "ws-1",
-      path: "/src/new-dir",
+      workspaceId: 'ws-1',
+      path: '/src/new-dir',
       isDirectory: true,
     };
     const parsed: FileCreateRequest = JSON.parse(JSON.stringify(payload));
@@ -535,12 +533,12 @@ describe("FileCreateRequest", () => {
   });
 });
 
-describe("FileChangeEvent", () => {
-  it("round-trips through JSON", () => {
+describe('FileChangeEvent', () => {
+  it('round-trips through JSON', () => {
     const payload: FileChangeEvent = {
-      workspaceId: "ws-1",
-      path: "/src/index.ts",
-      kind: "modify",
+      workspaceId: 'ws-1',
+      path: '/src/index.ts',
+      kind: 'modify',
     };
     const parsed: FileChangeEvent = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
@@ -551,34 +549,34 @@ describe("FileChangeEvent", () => {
 // Git payloads
 // ---------------------------------------------------------------------------
 
-describe("GitFileChange", () => {
-  it("round-trips through JSON", () => {
+describe('GitFileChange', () => {
+  it('round-trips through JSON', () => {
     const payload: GitFileChange = {
-      path: "/src/index.ts",
-      status: "modified",
+      path: '/src/index.ts',
+      status: 'modified',
     };
     const parsed: GitFileChange = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("GitStatusRequest", () => {
-  it("round-trips through JSON", () => {
-    const payload: GitStatusRequest = { workspaceId: "ws-1" };
+describe('GitStatusRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: GitStatusRequest = { workspaceId: 'ws-1' };
     const parsed: GitStatusRequest = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("GitStatusResponse", () => {
-  it("round-trips through JSON", () => {
+describe('GitStatusResponse', () => {
+  it('round-trips through JSON', () => {
     const payload: GitStatusResponse = {
-      branch: "main",
+      branch: 'main',
       changes: [
-        { path: "/src/index.ts", status: "modified" },
-        { path: "/src/new.ts", status: "added" },
+        { path: '/src/index.ts', status: 'modified' },
+        { path: '/src/new.ts', status: 'added' },
       ],
-      staged: [{ path: "/README.md", status: "modified" }],
+      staged: [{ path: '/README.md', status: 'modified' }],
     };
     const parsed: GitStatusResponse = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
@@ -591,17 +589,17 @@ describe("GitStatusResponse", () => {
 // Session payloads
 // ---------------------------------------------------------------------------
 
-describe("SessionInitEvent", () => {
-  it("round-trips through JSON", () => {
-    const payload: SessionInitEvent = { sessionId: "sess-abc123" };
+describe('SessionInitEvent', () => {
+  it('round-trips through JSON', () => {
+    const payload: SessionInitEvent = { sessionId: 'sess-abc123' };
     const parsed: SessionInitEvent = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
 });
 
-describe("ConnectionStatusEvent", () => {
-  it("round-trips through JSON", () => {
-    const payload: ConnectionStatusEvent = { status: "connected" };
+describe('ConnectionStatusEvent', () => {
+  it('round-trips through JSON', () => {
+    const payload: ConnectionStatusEvent = { status: 'connected' };
     const parsed: ConnectionStatusEvent = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
   });
@@ -611,30 +609,30 @@ describe("ConnectionStatusEvent", () => {
 // RequestPayload / EventPayload union exhaustiveness
 // ---------------------------------------------------------------------------
 
-describe("RequestPayload union", () => {
-  it("accepts every request payload type", () => {
+describe('RequestPayload union', () => {
+  it('accepts every request payload type', () => {
     // Compile-time: each assignment must be valid. If a type is missing from
     // the union, TypeScript will error here.
     const payloads: RequestPayload[] = [
-      { password: "x" } satisfies AuthRequest,
-      { workspaceId: "ws-1" } satisfies TerminalCreateRequest,
-      { terminalId: "t-1", data: "" } satisfies TerminalInputRequest,
-      { terminalId: "t-1", cols: 80, rows: 24 } satisfies TerminalResizeRequest,
-      { terminalId: "t-1" } satisfies TerminalCloseRequest,
+      { password: 'x' } satisfies AuthRequest,
+      { workspaceId: 'ws-1' } satisfies TerminalCreateRequest,
+      { terminalId: 't-1', data: '' } satisfies TerminalInputRequest,
+      { terminalId: 't-1', cols: 80, rows: 24 } satisfies TerminalResizeRequest,
+      { terminalId: 't-1' } satisfies TerminalCloseRequest,
       {} satisfies WorkspaceListRequest,
-      { name: "ws", cwd: "/", color: "#000" } satisfies WorkspaceCreateRequest,
-      { id: "ws-1" } satisfies WorkspaceUpdateRequest,
-      { id: "ws-1" } satisfies WorkspaceDeleteRequest,
-      { workspaceId: "ws-1", tabType: "terminal" } satisfies TabCreateRequest,
-      { tabId: "tab-1" } satisfies TabCloseRequest,
-      { tabId: "tab-1" } satisfies TabActivateRequest,
-      { workspaceId: "ws-1" } satisfies FileTreeRequest,
-      { workspaceId: "ws-1", path: "/a" } satisfies FileReadRequest,
-      { workspaceId: "ws-1", path: "/a", content: "" } satisfies FileWriteRequest,
-      { workspaceId: "ws-1", path: "/a" } satisfies FileDeleteRequest,
-      { workspaceId: "ws-1", oldPath: "/a", newPath: "/b" } satisfies FileRenameRequest,
-      { workspaceId: "ws-1", path: "/a", isDirectory: false } satisfies FileCreateRequest,
-      { workspaceId: "ws-1" } satisfies GitStatusRequest,
+      { name: 'ws', cwd: '/', color: '#000' } satisfies WorkspaceCreateRequest,
+      { id: 'ws-1' } satisfies WorkspaceUpdateRequest,
+      { id: 'ws-1' } satisfies WorkspaceDeleteRequest,
+      { workspaceId: 'ws-1', tabType: 'terminal' } satisfies TabCreateRequest,
+      { tabId: 'tab-1' } satisfies TabCloseRequest,
+      { tabId: 'tab-1' } satisfies TabActivateRequest,
+      { workspaceId: 'ws-1' } satisfies FileTreeRequest,
+      { workspaceId: 'ws-1', path: '/a' } satisfies FileReadRequest,
+      { workspaceId: 'ws-1', path: '/a', content: '' } satisfies FileWriteRequest,
+      { workspaceId: 'ws-1', path: '/a' } satisfies FileDeleteRequest,
+      { workspaceId: 'ws-1', oldPath: '/a', newPath: '/b' } satisfies FileRenameRequest,
+      { workspaceId: 'ws-1', path: '/a', isDirectory: false } satisfies FileCreateRequest,
+      { workspaceId: 'ws-1' } satisfies GitStatusRequest,
     ];
 
     // Ensure they all survive a JSON round-trip
@@ -646,14 +644,14 @@ describe("RequestPayload union", () => {
   });
 });
 
-describe("EventPayload union", () => {
-  it("accepts every event payload type", () => {
+describe('EventPayload union', () => {
+  it('accepts every event payload type', () => {
     const payloads: EventPayload[] = [
-      { terminalId: "t-1", data: "" } satisfies TerminalOutputEvent,
-      { terminalId: "t-1", exitCode: 0 } satisfies TerminalExitEvent,
-      { workspaceId: "ws-1", path: "/a", kind: "create" } satisfies FileChangeEvent,
-      { sessionId: "sess-1" } satisfies SessionInitEvent,
-      { status: "disconnected" } satisfies ConnectionStatusEvent,
+      { terminalId: 't-1', data: '' } satisfies TerminalOutputEvent,
+      { terminalId: 't-1', exitCode: 0 } satisfies TerminalExitEvent,
+      { workspaceId: 'ws-1', path: '/a', kind: 'create' } satisfies FileChangeEvent,
+      { sessionId: 'sess-1' } satisfies SessionInitEvent,
+      { status: 'disconnected' } satisfies ConnectionStatusEvent,
     ];
 
     for (const p of payloads) {

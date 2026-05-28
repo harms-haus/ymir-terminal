@@ -13,8 +13,7 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '100vh',
     backgroundColor: '#0d1117',
     color: '#e6edf3',
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif',
   },
   card: {
     backgroundColor: '#161b22',
@@ -135,7 +134,11 @@ export function LoginPage() {
           <p style={styles.subtitle}>Enter your password to connect</p>
 
           <form onSubmit={handleSubmit}>
-            {error && <div style={styles.errorBox} data-testid="login-error">{error}</div>}
+            {error && (
+              <div style={styles.errorBox} data-testid="login-error">
+                {error}
+              </div>
+            )}
 
             <div style={styles.inputGroup}>
               <label htmlFor="password" style={styles.label}>

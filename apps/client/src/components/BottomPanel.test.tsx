@@ -6,7 +6,7 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -23,7 +23,11 @@ type Tab = {
 
 let mockTabs: Tab[] = [];
 let mockActiveTabId: string | null = null;
-let mockCreateTab: (opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string }) => string;
+let mockCreateTab: (opts: {
+  type: 'terminal' | 'editor';
+  title: string;
+  terminalId?: string;
+}) => string;
 let mockCloseTab: (id: string) => void;
 let mockActivateTab: (id: string) => void;
 
@@ -70,13 +74,43 @@ mock.module('../lib/send-request', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock Terminal component
+// Mock ghostty-web (heavy native dependency of Terminal)
 // ---------------------------------------------------------------------------
 
-mock.module('./Terminal', () => ({
-  Terminal: ({ terminalId }: { terminalId: string; onReady?: (t: unknown) => void; onResize?: (c: number, r: number) => void }) =>
-    React.createElement('div', { 'data-testid': `terminal-instance-${terminalId}` }, `Terminal: ${terminalId}`),
-}));
+mock.module('ghostty-web', () => {
+  const MockTerminal = class {
+    cols = 80;
+    rows = 24;
+    write() {
+      return this;
+    }
+    resize() {
+      return this;
+    }
+    onRender() {
+      return this;
+    }
+    onData() {
+      return { dispose() {} };
+    }
+    onResize() {
+      return { dispose() {} };
+    }
+    open() {}
+    loadAddon() {}
+    dispose() {}
+  };
+  const MockFitAddon = class {
+    fit() {}
+    dispose() {}
+    activate() {}
+  };
+  return {
+    Terminal: MockTerminal,
+    FitAddon: MockFitAddon,
+    init: () => Promise.resolve(),
+  };
+});
 
 const { BottomPanel } = await import('./BottomPanel');
 
@@ -85,9 +119,7 @@ const { BottomPanel } = await import('./BottomPanel');
 // ---------------------------------------------------------------------------
 
 function renderBottomPanel(workspaceId: string | null = 'ws-1') {
-  return render(
-    React.createElement(BottomPanel, { workspaceId })
-  );
+  return render(React.createElement(BottomPanel, { workspaceId }));
 }
 
 // ---------------------------------------------------------------------------
@@ -98,16 +130,18 @@ describe('BottomPanel', () => {
   beforeEach(() => {
     mockTabs = [];
     mockActiveTabId = null;
-    mockCreateTab = mock((opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string }) => {
-      const id = `tab-${mockTabs.length + 1}`;
-      const tab: Tab = { id, ...opts };
-      mockTabs = [...mockTabs, tab];
-      mockActiveTabId = id;
-      return id;
-    });
+    mockCreateTab = mock(
+      (opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string }) => {
+        const id = `tab-${mockTabs.length + 1}`;
+        const tab: Tab = { id, ...opts };
+        mockTabs = [...mockTabs, tab];
+        mockActiveTabId = id;
+        return id;
+      },
+    );
     mockCloseTab = mock((tabId: string) => {
-      const idx = mockTabs.findIndex(t => t.id === tabId);
-      const next = mockTabs.filter(t => t.id !== tabId);
+      const idx = mockTabs.findIndex((t) => t.id === tabId);
+      const next = mockTabs.filter((t) => t.id !== tabId);
       if (mockActiveTabId === tabId) {
         mockActiveTabId = next[Math.max(0, idx - 1)]?.id || next[0]?.id || null;
       }
@@ -156,7 +190,7 @@ describe('BottomPanel', () => {
       expect(mockCreateTerminalFn).toHaveBeenCalledWith('ws-1');
       expect(mockCreateTab).toHaveBeenCalledTimes(1);
       expect(mockCreateTab).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' })
+        expect.objectContaining({ type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }),
       );
     });
   });
@@ -188,15 +222,13 @@ describe('BottomPanel', () => {
   // 4. Terminal content renders in the active bottom tab
   // -----------------------------------------------------------------------
   test('terminal content renders in the active bottom tab', () => {
-    mockTabs = [
-      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
-    ];
+    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
     mockActiveTabId = 'tab-1';
 
     const { getByTestId } = renderBottomPanel();
 
     // Terminal component should be rendered with the active tab's terminalId
-    expect(getByTestId('terminal-instance-t1')).toBeTruthy();
+    expect(getByTestId('terminal-t1')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
@@ -204,7 +236,12 @@ describe('BottomPanel', () => {
   // -----------------------------------------------------------------------
   test('rapid duplicate clicks are prevented by the creating guard', async () => {
     let resolveCreate: (id: string) => void;
-    mockCreateTerminalFn = mock(() => new Promise<string>((resolve) => { resolveCreate = resolve; }));
+    mockCreateTerminalFn = mock(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
 
     const { getByTestId } = renderBottomPanel();
 
@@ -245,9 +282,18 @@ describe('BottomPanel', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Cleanup: restore all mocked modules so other test files see the originals
+// ---------------------------------------------------------------------------
+afterAll(() => {
+  mock.restore();
+});
+
 // Helper to query by test id from container (since we need it in some tests)
 function getByTestId(container: HTMLElement | Document, testId: string): HTMLElement {
-  const el = (container instanceof Document ? container : container.ownerDocument).querySelector(`[data-testid="${testId}"]`);
+  const el = (container instanceof Document ? container : container.ownerDocument).querySelector(
+    `[data-testid="${testId}"]`,
+  );
   if (!el) throw new Error(`Could not find element with data-testid="${testId}"`);
   return el as HTMLElement;
 }

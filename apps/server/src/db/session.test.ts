@@ -45,9 +45,9 @@ describe('session database', () => {
     expect(id).toBeTruthy();
     expect(typeof id).toBe('string');
 
-    const row = db
-      .query('SELECT id FROM client_sessions WHERE id = ?')
-      .get(id) as { id: string } | null;
+    const row = db.query('SELECT id FROM client_sessions WHERE id = ?').get(id) as {
+      id: string;
+    } | null;
     expect(row).not.toBeNull();
     expect(row!.id).toBe(id);
   });
@@ -80,7 +80,9 @@ describe('session database', () => {
     // Verify records exist
     expect(db.query('SELECT id FROM tabs WHERE id = ?').get(tabId)).not.toBeNull();
     expect(db.query('SELECT id FROM panes WHERE id = ?').get(paneId)).not.toBeNull();
-    expect(db.query('SELECT id FROM terminal_instances WHERE id = ?').get(terminalId)).not.toBeNull();
+    expect(
+      db.query('SELECT id FROM terminal_instances WHERE id = ?').get(terminalId),
+    ).not.toBeNull();
     expect(db.query('SELECT id FROM bottom_panel_tabs WHERE id = ?').get(bptId)).not.toBeNull();
 
     // Delete session
@@ -107,9 +109,7 @@ describe('session database', () => {
     });
 
     expect(tabId).toBeTruthy();
-    const row = db
-      .query('SELECT * FROM tabs WHERE id = ?')
-      .get(tabId) as Record<string, unknown>;
+    const row = db.query('SELECT * FROM tabs WHERE id = ?').get(tabId) as Record<string, unknown>;
     expect(row).not.toBeNull();
     expect(row.id).toBe(tabId);
     expect(row.session_id).toBe(sessionId);
@@ -151,9 +151,10 @@ describe('session database', () => {
 
     updateTab(db, tabId, { active: 1, order: 5 });
 
-    const row = db
-      .query('SELECT active, sort_order FROM tabs WHERE id = ?')
-      .get(tabId) as { active: number; sort_order: number };
+    const row = db.query('SELECT active, sort_order FROM tabs WHERE id = ?').get(tabId) as {
+      active: number;
+      sort_order: number;
+    };
     expect(row.active).toBe(1);
     expect(row.sort_order).toBe(5);
   });
@@ -188,9 +189,7 @@ describe('session database', () => {
     const paneId = createPane(db, { tabId, terminalId: 't1' });
     expect(paneId).toBeTruthy();
 
-    const row = db
-      .query('SELECT * FROM panes WHERE id = ?')
-      .get(paneId) as Record<string, unknown>;
+    const row = db.query('SELECT * FROM panes WHERE id = ?').get(paneId) as Record<string, unknown>;
     expect(row).not.toBeNull();
     expect(row.id).toBe(paneId);
     expect(row.tab_id).toBe(tabId);
@@ -219,9 +218,10 @@ describe('session database', () => {
 
     expect(terminalId).toBeTruthy();
 
-    const row = db
-      .query('SELECT * FROM terminal_instances WHERE id = ?')
-      .get(terminalId) as Record<string, unknown>;
+    const row = db.query('SELECT * FROM terminal_instances WHERE id = ?').get(terminalId) as Record<
+      string,
+      unknown
+    >;
     expect(row).not.toBeNull();
     expect(row.id).toBe(terminalId);
     expect(row.session_id).toBe(sessionId);
@@ -297,9 +297,10 @@ describe('session database', () => {
 
     expect(bptId).toBeTruthy();
 
-    const row = db
-      .query('SELECT * FROM bottom_panel_tabs WHERE id = ?')
-      .get(bptId) as Record<string, unknown>;
+    const row = db.query('SELECT * FROM bottom_panel_tabs WHERE id = ?').get(bptId) as Record<
+      string,
+      unknown
+    >;
     expect(row).not.toBeNull();
     expect(row.id).toBe(bptId);
     expect(row.session_id).toBe(sessionId);
@@ -349,20 +350,30 @@ describe('session database', () => {
     // Verify all exist
     expect(db.query('SELECT id FROM tabs WHERE session_id = ?').all(sessionId).length).toBe(1);
     expect(db.query('SELECT id FROM panes WHERE tab_id = ?').all(tabId).length).toBe(1);
-    expect(db.query('SELECT id FROM terminal_instances WHERE session_id = ?').all(sessionId).length).toBe(1);
-    expect(db.query('SELECT id FROM bottom_panel_tabs WHERE session_id = ?').all(sessionId).length).toBe(1);
+    expect(
+      db.query('SELECT id FROM terminal_instances WHERE session_id = ?').all(sessionId).length,
+    ).toBe(1);
+    expect(
+      db.query('SELECT id FROM bottom_panel_tabs WHERE session_id = ?').all(sessionId).length,
+    ).toBe(1);
 
     cleanupSession(db, sessionId);
 
-    // Session itself should remain
+    // Session itself should also be deleted
     expect(
-      (db.query('SELECT id FROM client_sessions WHERE id = ?').get(sessionId) as { id: string } | null),
-    ).not.toBeNull();
+      db.query('SELECT id FROM client_sessions WHERE id = ?').get(sessionId) as {
+        id: string;
+      } | null,
+    ).toBeNull();
 
     // All related records gone
     expect(db.query('SELECT id FROM tabs WHERE session_id = ?').all(sessionId).length).toBe(0);
     expect(db.query('SELECT id FROM panes WHERE tab_id = ?').all(tabId).length).toBe(0);
-    expect(db.query('SELECT id FROM terminal_instances WHERE session_id = ?').all(sessionId).length).toBe(0);
-    expect(db.query('SELECT id FROM bottom_panel_tabs WHERE session_id = ?').all(sessionId).length).toBe(0);
+    expect(
+      db.query('SELECT id FROM terminal_instances WHERE session_id = ?').all(sessionId).length,
+    ).toBe(0);
+    expect(
+      db.query('SELECT id FROM bottom_panel_tabs WHERE session_id = ?').all(sessionId).length,
+    ).toBe(0);
   });
 });

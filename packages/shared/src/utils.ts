@@ -1,6 +1,6 @@
-import * as os from "node:os";
-import * as path from "node:path";
-import { CONFIG_DIR, DB_FILE } from "./constants";
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { CONFIG_DIR, DB_FILE } from './constants';
 
 export function generateId(): string {
   return crypto.randomUUID();
@@ -33,7 +33,7 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 export function expandTilde(filePath: string): string {
-  if (filePath.startsWith("~/")) {
+  if (filePath.startsWith('~/')) {
     return path.join(os.homedir(), filePath.slice(2));
   }
   return filePath;

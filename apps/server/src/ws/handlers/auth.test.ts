@@ -87,8 +87,8 @@ describe('registerAuthHandlers', () => {
   });
 
   it('subsequent requests with valid token pass authentication', async () => {
-    // First create a valid token
-    const token = await generateToken('some-session', signingSecret);
+    // First create a valid token bound to the connection's sessionId
+    const token = await generateToken(conn.sessionId, signingSecret);
 
     // Register a dummy handler for another channel
     let handlerReached = false;
@@ -130,5 +130,95 @@ describe('registerAuthHandlers', () => {
     expect(conn.sent.length).toBe(1);
     const resp = conn.sent[0] as Record<string, unknown>;
     expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.AUTH_REQUIRED);
+  });
+
+  // -------------------------------------------------------------------------
+  // Rate-limiting tests
+  // -------------------------------------------------------------------------
+
+  it('returns rate-limit error after MAX_AUTH_ATTEMPTS failed attempts', async () => {
+    // Make 5 failed attempts (MAX_AUTH_ATTEMPTS)
+    for (let i = 0; i < 5; i++) {
+      const req = request('auth', { password: 'wrong' });
+      await router.route(conn, req);
+    }
+    // All 5 should have returned normal AUTH_FAILED
+    for (let i = 0; i < 5; i++) {
+      const resp = conn.sent[i] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.AUTH_FAILED);
+      expect((resp.error as Record<string, unknown>).message).toBe('Invalid password');
+    }
+
+    // The 6th attempt should be rate-limited
+    const req = request('auth', { password: 'wrong' });
+    await router.route(conn, req);
+
+    expect(conn.sent.length).toBe(6);
+    const resp = conn.sent[5] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.AUTH_FAILED);
+    expect((resp.error as Record<string, unknown>).message).toBe(
+      'Too many authentication attempts. Try again later.',
+    );
+  });
+
+  it('resets rate limit after AUTH_WINDOW_MS expires', async () => {
+    // Fill up the rate limit with 5 failed attempts
+    for (let i = 0; i < 5; i++) {
+      const req = request('auth', { password: 'wrong' });
+      await router.route(conn, req);
+    }
+
+    // Confirm we are rate-limited
+    let req = request('auth', { password: 'wrong' });
+    await router.route(conn, req);
+    expect(
+      ((conn.sent[5] as Record<string, unknown>).error as Record<string, unknown>).message,
+    ).toBe('Too many authentication attempts. Try again later.');
+
+    // Advance Date.now past AUTH_WINDOW_MS (60 000 ms)
+    const realDateNow = Date.now;
+    const frozenTime = Date.now();
+    try {
+      Date.now = () => frozenTime + 60_001; // AUTH_WINDOW_MS + 1ms
+
+      // The window has expired – counter should reset, correct password should work
+      req = request('auth', { password: 'test-password' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[6] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.type).toBe('response');
+      const payload = resp.payload as Record<string, unknown>;
+      expect(typeof payload.token).toBe('string');
+    } finally {
+      Date.now = realDateNow;
+    }
+  });
+
+  it('allows successful auth after failures below the limit', async () => {
+    // Make 3 failed attempts – below MAX_AUTH_ATTEMPTS (5)
+    for (let i = 0; i < 3; i++) {
+      const req = request('auth', { password: 'wrong' });
+      await router.route(conn, req);
+    }
+
+    // All 3 should be normal AUTH_FAILED
+    for (let i = 0; i < 3; i++) {
+      const resp = conn.sent[i] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.AUTH_FAILED);
+      expect((resp.error as Record<string, unknown>).message).toBe('Invalid password');
+    }
+
+    // Correct password should still work
+    const req = request('auth', { password: 'test-password' });
+    await router.route(conn, req);
+
+    expect(conn.sent.length).toBe(4);
+    const resp = conn.sent[3] as Record<string, unknown>;
+    expect(resp.error).toBeUndefined();
+    expect(resp.type).toBe('response');
+    const payload = resp.payload as Record<string, unknown>;
+    expect(typeof payload.token).toBe('string');
+    expect(typeof payload.expiresIn).toBe('number');
   });
 });

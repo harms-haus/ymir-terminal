@@ -1,16 +1,7 @@
-interface GitFileChange {
-  path: string;
-  status: string;
-}
-
-export interface GitStatus {
-  branch: string;
-  changes: GitFileChange[];
-  staged: GitFileChange[];
-}
+import type { GitStatusResponse } from '@ymir/shared';
 
 interface GitPanelProps {
-  gitStatus: GitStatus | null;
+  gitStatus: GitStatusResponse | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -25,10 +16,7 @@ const STATUS_COLORS: Record<string, string> = {
 export function GitPanel({ gitStatus }: GitPanelProps) {
   if (!gitStatus)
     return (
-      <div
-        data-testid="git-panel"
-        style={{ padding: '8px', color: '#666', fontSize: '12px' }}
-      >
+      <div data-testid="git-panel" style={{ padding: '8px', color: '#666', fontSize: '12px' }}>
         Not a git repository
       </div>
     );
@@ -49,9 +37,7 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
 
       {gitStatus.staged.length > 0 && (
         <div data-testid="git-staged" style={{ marginBottom: '8px' }}>
-          <div style={{ color: '#888', marginBottom: '4px' }}>
-            Staged Changes
-          </div>
+          <div style={{ color: '#888', marginBottom: '4px' }}>Staged Changes</div>
           {gitStatus.staged.map((f, i) => (
             <div
               key={i}

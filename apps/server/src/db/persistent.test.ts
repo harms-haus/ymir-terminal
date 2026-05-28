@@ -18,7 +18,9 @@ describe('persistent database', () => {
 
   it('initDatabase creates the workspaces table', () => {
     // Verify the table exists by querying its schema
-    const tableInfo = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='workspaces'").all();
+    const tableInfo = db
+      .query("SELECT name FROM sqlite_master WHERE type='table' AND name='workspaces'")
+      .all();
     expect(tableInfo.length).toBe(1);
     expect(tableInfo[0].name).toBe('workspaces');
   });
@@ -35,9 +37,7 @@ describe('persistent database', () => {
     expect(workspace.id.length).toBeGreaterThan(0);
 
     // Verify it's a valid UUID format
-    expect(workspace.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-    );
+    expect(workspace.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 
     expect(workspace.name).toBe('test');
     expect(workspace.cwd).toBe('/tmp/test');

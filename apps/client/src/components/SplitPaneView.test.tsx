@@ -20,9 +20,7 @@ function renderSplitPane(layout: LayoutNode) {
   const renderPane = (paneId: string) =>
     React.createElement('div', { 'data-testid': `pane-content-${paneId}` }, `Pane: ${paneId}`);
 
-  return render(
-    React.createElement(SplitPaneView, { layout, renderPane })
-  );
+  return render(React.createElement(SplitPaneView, { layout, renderPane }));
 }
 
 function makePane(id: string): PaneNode {
@@ -63,10 +61,7 @@ describe('SplitPaneView', () => {
   // 2. Renders split panels when given a SplitNode with direction and children
   // -----------------------------------------------------------------------
   test('renders split panels when given a SplitNode with direction and children', () => {
-    const layout = makeSplit('split-1', 'horizontal', [
-      makePane('a'),
-      makePane('b'),
-    ]);
+    const layout = makeSplit('split-1', 'horizontal', [makePane('a'), makePane('b')]);
     const { getByTestId, container } = renderSplitPane(layout);
 
     // Both panes should be rendered
@@ -82,10 +77,7 @@ describe('SplitPaneView', () => {
   // 3. Horizontal split renders children side by side
   // -----------------------------------------------------------------------
   test('horizontal split renders children side by side', () => {
-    const layout = makeSplit('split-h', 'horizontal', [
-      makePane('left'),
-      makePane('right'),
-    ]);
+    const layout = makeSplit('split-h', 'horizontal', [makePane('left'), makePane('right')]);
     const { container } = renderSplitPane(layout);
 
     const group = container.querySelector('[data-group]') as HTMLElement;
@@ -101,10 +93,7 @@ describe('SplitPaneView', () => {
   // 4. Vertical split renders children stacked
   // -----------------------------------------------------------------------
   test('vertical split renders children stacked', () => {
-    const layout = makeSplit('split-v', 'vertical', [
-      makePane('top'),
-      makePane('bottom'),
-    ]);
+    const layout = makeSplit('split-v', 'vertical', [makePane('top'), makePane('bottom')]);
     const { container } = renderSplitPane(layout);
 
     const group = container.querySelector('[data-group]') as HTMLElement;

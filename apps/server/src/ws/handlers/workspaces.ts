@@ -1,8 +1,11 @@
 import {
   ErrorCodes,
+  PROTOCOL_VERSION,
+  type EventEnvelope,
   type MessageEnvelope,
   type RequestEnvelope,
   type ResponseEnvelope,
+  type FileChangeEvent as FileChangePayload,
   type WorkspaceCreateRequest,
   type WorkspaceCreateResponse,
   type WorkspaceDeleteRequest,
@@ -11,20 +14,18 @@ import {
   type WorkspaceUpdateRequest,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
-import {
-  createError,
-  createResponse,
-  type MessageRouter,
-} from '../router';
+import { createError, createResponse, type MessageRouter } from '../router';
 import {
   listWorkspaces as dbListWorkspaces,
   createWorkspace as dbCreateWorkspace,
   updateWorkspace as dbUpdateWorkspace,
   deleteWorkspace as dbDeleteWorkspace,
+  getWorkspace as dbGetWorkspace,
   type Workspace,
   type CreateWorkspaceInput,
   type UpdateWorkspaceInput,
 } from '../../db/persistent';
+import { startWorkspaceWatcher, stopWorkspaceWatcher } from '../../files/watcher';
 import type { Database } from 'bun:sqlite';
 
 // ---------------------------------------------------------------------------
@@ -34,16 +35,21 @@ import type { Database } from 'bun:sqlite';
 export interface WorkspaceDeps {
   persistentDb: Database;
   sessionDb: Database;
+  /** Broadcast an event envelope to all authenticated connected clients. */
+  broadcastEvent: (envelope: EventEnvelope) => void;
   /** Internal: allows tests to inject mock CRUD functions. */
   _mocks?: {
     listWorkspaces?: (db: Database) => Workspace[];
     createWorkspace?: (db: Database, input: CreateWorkspaceInput) => Workspace;
-    updateWorkspace?: (
-      db: Database,
-      id: string,
-      input: UpdateWorkspaceInput,
-    ) => Workspace | null;
+    updateWorkspace?: (db: Database, id: string, input: UpdateWorkspaceInput) => Workspace | null;
     deleteWorkspace?: (db: Database, id: string) => boolean;
+    getWorkspace?: (db: Database, id: string) => Workspace | null;
+    startWorkspaceWatcher?: (
+      workspaceId: string,
+      dirPath: string,
+      callback: (event: import('../../files/watcher').FileChangeEvent) => void,
+    ) => void;
+    stopWorkspaceWatcher?: (workspaceId: string) => void;
   };
 }
 
@@ -65,155 +71,154 @@ function toSummary(ws: Workspace): WorkspaceSummary {
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerWorkspaceHandlers(
-  router: MessageRouter,
-  deps: WorkspaceDeps,
-): void {
+export function registerWorkspaceHandlers(router: MessageRouter, deps: WorkspaceDeps): void {
   const { persistentDb, _mocks } = deps;
 
   const doList = _mocks?.listWorkspaces ?? dbListWorkspaces;
   const doCreate = _mocks?.createWorkspace ?? dbCreateWorkspace;
   const doUpdate = _mocks?.updateWorkspace ?? dbUpdateWorkspace;
   const doDelete = _mocks?.deleteWorkspace ?? dbDeleteWorkspace;
+  const doGet = _mocks?.getWorkspace ?? dbGetWorkspace;
+  const doStartWatcher = _mocks?.startWorkspaceWatcher ?? startWorkspaceWatcher;
+  const doStopWatcher = _mocks?.stopWorkspaceWatcher ?? stopWorkspaceWatcher;
 
   // --- workspace.list -----------------------------------------------------
-  router.handle(
-    'workspace.list',
-    async (conn: unknown, envelope: MessageEnvelope) => {
-      const req = envelope as RequestEnvelope;
+  router.handle('workspace.list', async (conn: unknown, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope;
 
-      const workspaces = doList(persistentDb);
-      const summaries = workspaces.map(toSummary);
+    const workspaces = doList(persistentDb);
+    const summaries = workspaces.map(toSummary);
 
-      const resp: ResponseEnvelope<WorkspaceListResponse> = createResponse(req, {
-        workspaces: summaries,
-      });
+    const resp: ResponseEnvelope<WorkspaceListResponse> = createResponse(req, {
+      workspaces: summaries,
+    });
 
-      (conn as ClientConnection).send(resp);
-    },
-  );
+    (conn as ClientConnection).send(resp);
+  });
 
   // --- workspace.create ---------------------------------------------------
-  router.handle(
-    'workspace.create',
-    async (conn: unknown, envelope: MessageEnvelope) => {
-      const req = envelope as RequestEnvelope<WorkspaceCreateRequest>;
-      const payload = req.payload;
+  router.handle('workspace.create', async (conn: unknown, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<WorkspaceCreateRequest>;
+    const payload = req.payload;
 
-      if (
-        payload == null ||
-        typeof payload !== 'object' ||
-        typeof payload.name !== 'string' ||
-        typeof payload.cwd !== 'string' ||
-        typeof payload.color !== 'string'
-      ) {
-        const err: ResponseEnvelope = createError(
-          { id: req.id, channel: req.channel ?? 'workspace.create' },
-          ErrorCodes.INVALID_MESSAGE,
-          'Missing required fields: name, cwd, color',
-        );
-        (conn as ClientConnection).send(err);
-        return;
-      }
-
-      const workspace = doCreate(persistentDb, {
-        name: payload.name,
-        cwd: payload.cwd,
-        color: payload.color,
-      });
-
-      const resp: ResponseEnvelope<WorkspaceCreateResponse> = createResponse(
-        req,
-        { workspace: toSummary(workspace) },
+    if (
+      payload == null ||
+      typeof payload !== 'object' ||
+      typeof payload.name !== 'string' ||
+      typeof payload.cwd !== 'string' ||
+      typeof payload.color !== 'string'
+    ) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'workspace.create' },
+        ErrorCodes.INVALID_MESSAGE,
+        'Missing required fields: name, cwd, color',
       );
+      (conn as ClientConnection).send(err);
+      return;
+    }
 
-      (conn as ClientConnection).send(resp);
-    },
-  );
+    const workspace = doCreate(persistentDb, {
+      name: payload.name,
+      cwd: payload.cwd,
+      color: payload.color,
+    });
+
+    doStartWatcher(workspace.id, workspace.cwd, (fileEvent) => {
+      const event: EventEnvelope<FileChangePayload> = {
+        v: PROTOCOL_VERSION,
+        type: 'event',
+        channel: 'file.change',
+        payload: {
+          workspaceId: workspace.id,
+          path: fileEvent.path,
+          kind: fileEvent.kind,
+        },
+      };
+      deps.broadcastEvent(event);
+    });
+
+    const resp: ResponseEnvelope<WorkspaceCreateResponse> = createResponse(req, {
+      workspace: toSummary(workspace),
+    });
+
+    (conn as ClientConnection).send(resp);
+  });
 
   // --- workspace.update ---------------------------------------------------
-  router.handle(
-    'workspace.update',
-    async (conn: unknown, envelope: MessageEnvelope) => {
-      const req = envelope as RequestEnvelope<WorkspaceUpdateRequest>;
-      const payload = req.payload;
+  router.handle('workspace.update', async (conn: unknown, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<WorkspaceUpdateRequest>;
+    const payload = req.payload;
 
-      if (
-        payload == null ||
-        typeof payload !== 'object' ||
-        typeof payload.id !== 'string'
-      ) {
-        const err: ResponseEnvelope = createError(
-          { id: req.id, channel: req.channel ?? 'workspace.update' },
-          ErrorCodes.INVALID_MESSAGE,
-          'Missing required field: id',
-        );
-        (conn as ClientConnection).send(err);
-        return;
-      }
+    if (payload == null || typeof payload !== 'object' || typeof payload.id !== 'string') {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'workspace.update' },
+        ErrorCodes.INVALID_MESSAGE,
+        'Missing required field: id',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
 
-      // Build update input from only the provided optional fields
-      const input: UpdateWorkspaceInput = {};
-      if (payload.name !== undefined) input.name = payload.name;
-      if (payload.cwd !== undefined) input.cwd = payload.cwd;
-      if (payload.color !== undefined) input.color = payload.color;
+    // Build update input from only the provided optional fields
+    const input: UpdateWorkspaceInput = {};
+    if (payload.name !== undefined) input.name = payload.name;
+    if (payload.cwd !== undefined) input.cwd = payload.cwd;
+    if (payload.color !== undefined) input.color = payload.color;
 
-      const workspace = doUpdate(persistentDb, payload.id, input);
+    const workspace = doUpdate(persistentDb, payload.id, input);
 
-      if (!workspace) {
-        const err: ResponseEnvelope = createError(
-          { id: req.id, channel: req.channel ?? 'workspace.update' },
-          ErrorCodes.WORKSPACE_NOT_FOUND,
-          `Workspace not found: ${payload.id}`,
-        );
-        (conn as ClientConnection).send(err);
-        return;
-      }
+    if (!workspace) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'workspace.update' },
+        ErrorCodes.WORKSPACE_NOT_FOUND,
+        `Workspace not found: ${payload.id}`,
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
 
-      const resp: ResponseEnvelope = createResponse(req, {
-        workspace: toSummary(workspace),
-      });
+    const resp: ResponseEnvelope = createResponse(req, {
+      workspace: toSummary(workspace),
+    });
 
-      (conn as ClientConnection).send(resp);
-    },
-  );
+    (conn as ClientConnection).send(resp);
+  });
 
   // --- workspace.delete ---------------------------------------------------
-  router.handle(
-    'workspace.delete',
-    async (conn: unknown, envelope: MessageEnvelope) => {
-      const req = envelope as RequestEnvelope<WorkspaceDeleteRequest>;
-      const payload = req.payload;
+  router.handle('workspace.delete', async (conn: unknown, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<WorkspaceDeleteRequest>;
+    const payload = req.payload;
 
-      if (
-        payload == null ||
-        typeof payload !== 'object' ||
-        typeof payload.id !== 'string'
-      ) {
-        const err: ResponseEnvelope = createError(
-          { id: req.id, channel: req.channel ?? 'workspace.delete' },
-          ErrorCodes.INVALID_MESSAGE,
-          'Missing required field: id',
-        );
-        (conn as ClientConnection).send(err);
-        return;
-      }
+    if (payload == null || typeof payload !== 'object' || typeof payload.id !== 'string') {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'workspace.delete' },
+        ErrorCodes.INVALID_MESSAGE,
+        'Missing required field: id',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
 
-      const deleted = doDelete(persistentDb, payload.id);
+    // Stop watcher before deleting the workspace record
+    const existing = doGet(persistentDb, payload.id);
+    if (existing) {
+      doStopWatcher(payload.id);
+    }
 
-      if (!deleted) {
-        const err: ResponseEnvelope = createError(
-          { id: req.id, channel: req.channel ?? 'workspace.delete' },
-          ErrorCodes.WORKSPACE_NOT_FOUND,
-          `Workspace not found: ${payload.id}`,
-        );
-        (conn as ClientConnection).send(err);
-        return;
-      }
+    const deleted = doDelete(persistentDb, payload.id);
 
-      const resp: ResponseEnvelope = createResponse(req, { deleted: true });
+    if (!deleted) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'workspace.delete' },
+        ErrorCodes.WORKSPACE_NOT_FOUND,
+        `Workspace not found: ${payload.id}`,
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
 
-      (conn as ClientConnection).send(resp);
-    },
-  );
+    const resp: ResponseEnvelope = createResponse(req, { deleted: true });
+
+    (conn as ClientConnection).send(resp);
+  });
 }

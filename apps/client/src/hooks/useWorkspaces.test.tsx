@@ -6,11 +6,11 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { MessageEnvelope } from '@ymir/shared';
+import { PROTOCOL_VERSION, type MessageEnvelope } from '@ymir/shared';
 
 // ---------------------------------------------------------------------------
 // Mock ws-client module
@@ -19,14 +19,12 @@ import type { MessageEnvelope } from '@ymir/shared';
 const mockSend = mock(() => {});
 let messageHandlers: Array<(envelope: MessageEnvelope) => void> = [];
 
-const mockOnMessage = mock(
-  (handler: (envelope: MessageEnvelope) => void) => {
-    messageHandlers.push(handler);
-    return () => {
-      messageHandlers = messageHandlers.filter((h) => h !== handler);
-    };
-  },
-);
+const mockOnMessage = mock((handler: (envelope: MessageEnvelope) => void) => {
+  messageHandlers.push(handler);
+  return () => {
+    messageHandlers = messageHandlers.filter((h) => h !== handler);
+  };
+});
 
 mock.module('../lib/ws-client', () => ({
   wsClient: {
@@ -36,9 +34,11 @@ mock.module('../lib/ws-client', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Import after mocking
+// Import after mocking (useAuth is NOT mocked — auth state is provided via
+// AuthContext.Provider in the wrapper so the real useAuth() hook works)
 // ---------------------------------------------------------------------------
 
+const { AuthContext } = await import('./useAuth');
 const { useWorkspaces, useCreateWorkspace, useDeleteWorkspace, useUpdateWorkspace } =
   await import('./useWorkspaces');
 
@@ -46,7 +46,14 @@ const { useWorkspaces, useCreateWorkspace, useDeleteWorkspace, useUpdateWorkspac
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createQueryWrapper() {
+function createQueryWrapper(
+  authState = {
+    isAuthenticated: true,
+    token: 'test-token',
+    login: mock(() => {}),
+    logout: mock(() => {}),
+  },
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -55,9 +62,9 @@ function createQueryWrapper() {
 
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return React.createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      children,
+      AuthContext.Provider,
+      { value: authState },
+      React.createElement(QueryClientProvider, { client: queryClient }, children),
     );
   };
 }
@@ -68,7 +75,7 @@ function createQueryWrapper() {
  */
 function simulateResponse(requestId: string, payload: unknown, error?: unknown) {
   const response: MessageEnvelope = {
-    v: 1,
+    v: PROTOCOL_VERSION,
     type: 'response',
     id: requestId,
     payload: error ? null : payload,
@@ -119,9 +126,7 @@ describe('useWorkspaces', () => {
 
     // Simulate server response for workspace.list
     const envelope = getLastSentEnvelope();
-    const workspaces = [
-      { id: '1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000' },
-    ];
+    const workspaces = [{ id: '1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000' }];
 
     simulateResponse(envelope.id!, { workspaces });
 
@@ -340,4 +345,11 @@ describe('useUpdateWorkspace', () => {
       expect(result.current.isSuccess).toBe(true);
     });
   });
+});
+
+// ---------------------------------------------------------------------------
+// Cleanup: restore mocked modules so other test files are not polluted
+// ---------------------------------------------------------------------------
+afterAll(() => {
+  mock.restore();
 });

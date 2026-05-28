@@ -33,9 +33,7 @@ function renderRightSidebar(
   workspaceId: string | null = 'ws-1',
   onFileSelect: (path: string) => void = mock(() => {}),
 ) {
-  return render(
-    React.createElement(RightSidebar, { workspaceId, onFileSelect }),
-  );
+  return render(React.createElement(RightSidebar, { workspaceId, onFileSelect }));
 }
 
 // ---------------------------------------------------------------------------
@@ -106,9 +104,7 @@ describe('RightSidebar', () => {
           name: 'src',
           path: '/src',
           isDirectory: true,
-          children: [
-            { name: 'hello.ts', path: '/src/hello.ts', isDirectory: false },
-          ],
+          children: [{ name: 'hello.ts', path: '/src/hello.ts', isDirectory: false }],
         },
       ],
     });

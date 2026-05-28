@@ -1,4 +1,5 @@
 import { extname, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 import {
   ErrorCodes,
   type MessageEnvelope,
@@ -14,12 +15,8 @@ import {
   type FileCreateRequest,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
-import {
-  createError,
-  createResponse,
-  type MessageRouter,
-} from '../router';
-import { scanDirectory, type ScanFileNode } from '../../files/scanner';
+import { createError, createResponse, type MessageRouter } from '../router';
+import { scanDirectory } from '../../files/scanner';
 import * as fileOps from '../../files/operations';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../db/persistent';
@@ -91,8 +88,8 @@ const EXTENSION_MAP: Record<string, string> = {
 };
 
 const FILENAME_MAP: Record<string, string> = {
-  'Makefile': 'makefile',
-  'Dockerfile': 'dockerfile',
+  Makefile: 'makefile',
+  Dockerfile: 'dockerfile',
   '.gitignore': 'plaintext',
   '.env': 'plaintext',
   '.eslintrc': 'json',
@@ -117,9 +114,24 @@ function detectLanguage(filePath: string): string {
 function safePath(workspaceCwd: string, userInput: string): string {
   const resolved = resolve(workspaceCwd, userInput);
   const normalizedCwd = resolve(workspaceCwd);
-  if (!resolved.startsWith(normalizedCwd + '/') && resolved !== normalizedCwd) {
-    throw new Error('Path traversal detected');
+
+  try {
+    // Resolve symlinks for both the target and the workspace root.
+    const realResolved = realpathSync(resolved);
+    const realCwd = realpathSync(normalizedCwd);
+    if (!realResolved.startsWith(realCwd + '/') && realResolved !== realCwd) {
+      throw new Error('Path traversal detected');
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Path traversal detected') throw e;
+    // realpathSync failed — the path (or workspace root) may not exist on disk
+    // (e.g. unit tests with mock filesystems, or a file being created for the
+    // first time).  Fall back to string-based comparison as a best-effort check.
+    if (!resolved.startsWith(normalizedCwd + '/') && resolved !== normalizedCwd) {
+      throw new Error('Path traversal detected');
+    }
   }
+
   return resolved;
 }
 
@@ -130,7 +142,10 @@ function safePath(workspaceCwd: string, userInput: string): string {
 export interface FileDeps {
   persistentDb: Database;
   scanner: {
-    scanDirectory: (dirPath: string, options?: import('../../files/scanner').ScanOptions) => ScanFileNode[];
+    scanDirectory: (
+      dirPath: string,
+      options?: import('../../files/scanner').ScanOptions,
+    ) => Promise<import('@ymir/shared').FileNode[]>;
   };
   operations: {
     readFile: (path: string) => string;
@@ -151,10 +166,7 @@ export interface FileDeps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function resolveWorkspace(
-  deps: FileDeps,
-  payload: Record<string, unknown>,
-): Workspace | null {
+function resolveWorkspace(deps: FileDeps, payload: Record<string, unknown>): Workspace | null {
   const wsId = payload.workspaceId;
   if (typeof wsId !== 'string' || wsId.length === 0) return null;
   const getWs = deps._mocks?.getWorkspace ?? dbGetWorkspace;
@@ -165,10 +177,7 @@ function resolveWorkspace(
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerFileHandlers(
-  router: MessageRouter,
-  deps: FileDeps,
-): void {
+export function registerFileHandlers(router: MessageRouter, deps: FileDeps): void {
   const { scanner: scannerMod, operations: ops } = deps;
   const doScan = scannerMod.scanDirectory ?? scanDirectory;
   const doRead = ops.readFile ?? fileOps.readFile;
@@ -183,11 +192,7 @@ export function registerFileHandlers(
     const req = envelope as RequestEnvelope<FileTreeRequest>;
     const payload = req.payload;
 
-    if (
-      payload == null ||
-      typeof payload !== 'object' ||
-      typeof payload.workspaceId !== 'string'
-    ) {
+    if (payload == null || typeof payload !== 'object' || typeof payload.workspaceId !== 'string') {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'file.tree' },
         ErrorCodes.INVALID_MESSAGE,
@@ -208,7 +213,7 @@ export function registerFileHandlers(
       return;
     }
 
-    const tree = doScan(workspace.cwd);
+    const tree = await doScan(workspace.cwd);
 
     const resp: ResponseEnvelope<FileTreeResponse> = createResponse(req, {
       tree,

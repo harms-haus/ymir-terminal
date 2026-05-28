@@ -6,7 +6,7 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
@@ -14,7 +14,7 @@ import React from 'react';
 // Mock useTabs
 // ---------------------------------------------------------------------------
 
-const mockCreateTab = mock((_opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string; filePath?: string }) => {
+const mockCreateTab = mock(() => {
   return 'mock-tab-id';
 });
 const mockCloseTab = mock(() => {});
@@ -71,13 +71,44 @@ mock.module('../lib/send-request', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock Terminal component
+// Mock ghostty-web (Terminal's heavy native dependency) instead of Terminal
+// This avoids permanently replacing the Terminal module for other test files
 // ---------------------------------------------------------------------------
 
-mock.module('./Terminal', () => ({
-  Terminal: ({ terminalId }: { terminalId: string }) =>
-    React.createElement('div', { 'data-testid': `terminal-${terminalId}` }, `Terminal: ${terminalId}`),
-}));
+mock.module('ghostty-web', () => {
+  const MockTerminal = class {
+    cols = 80;
+    rows = 24;
+    write() {
+      return this;
+    }
+    resize() {
+      return this;
+    }
+    onRender() {
+      return this;
+    }
+    onData() {
+      return { dispose() {} };
+    }
+    onResize() {
+      return { dispose() {} };
+    }
+    open() {}
+    loadAddon() {}
+    dispose() {}
+  };
+  const MockFitAddon = class {
+    fit() {}
+    dispose() {}
+    activate() {}
+  };
+  return {
+    Terminal: MockTerminal,
+    FitAddon: MockFitAddon,
+    init: () => Promise.resolve(),
+  };
+});
 
 const { ContentPane } = await import('./ContentPane');
 
@@ -86,9 +117,7 @@ const { ContentPane } = await import('./ContentPane');
 // ---------------------------------------------------------------------------
 
 function renderContentPane(workspaceId: string | null = null) {
-  return render(
-    React.createElement(ContentPane, { workspaceId })
-  );
+  return render(React.createElement(ContentPane, { workspaceId }));
 }
 
 // ---------------------------------------------------------------------------
@@ -118,9 +147,7 @@ describe('ContentPane', () => {
   // 1. ContentPane renders with tab bar and terminal content
   // -----------------------------------------------------------------------
   test('renders with tab bar and terminal content', () => {
-    mockTabsState = [
-      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
-    ];
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
     mockActiveTabIdState = 'tab-1';
 
     const { getByTestId } = renderContentPane();
@@ -154,9 +181,7 @@ describe('ContentPane', () => {
   // 3. Closing tab works and sends close request for terminal tabs
   // -----------------------------------------------------------------------
   test('closing terminal tab calls sendRequest to close server PTY', () => {
-    mockTabsState = [
-      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
-    ];
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
     mockActiveTabIdState = 'tab-1';
 
     const { getByTestId } = renderContentPane();
@@ -174,9 +199,7 @@ describe('ContentPane', () => {
   // 3b. Closing a non-terminal tab does not call sendRequest
   // -----------------------------------------------------------------------
   test('closing editor tab does not call sendRequest', () => {
-    mockTabsState = [
-      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
-    ];
+    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
     mockActiveTabIdState = 'tab-1';
 
     const { getByTestId } = renderContentPane();
@@ -221,9 +244,7 @@ describe('ContentPane', () => {
   // 6. Shows editor placeholder for editor tabs
   // -----------------------------------------------------------------------
   test('shows editor placeholder for editor tabs', () => {
-    mockTabsState = [
-      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
-    ];
+    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
     mockActiveTabIdState = 'tab-1';
 
     const { getByTestId } = renderContentPane();
@@ -280,4 +301,8 @@ describe('ContentPane', () => {
 
     console.error = originalError;
   });
+});
+
+afterAll(() => {
+  mock.restore();
 });

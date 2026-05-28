@@ -52,10 +52,7 @@ const sampleTree = [
   },
 ];
 
-function renderFileTree(
-  tree = sampleTree,
-  onFileSelect: (path: string) => void = mock(() => {}),
-) {
+function renderFileTree(tree = sampleTree, onFileSelect: (path: string) => void = mock(() => {})) {
   return render(
     React.createElement(FileTree, {
       tree,

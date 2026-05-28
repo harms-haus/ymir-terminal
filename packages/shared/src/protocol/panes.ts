@@ -28,10 +28,7 @@ export function isPaneNode(node: LayoutNode): node is PaneNode {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Find a `PaneNode` anywhere in the tree by its id. */
-export function findPaneById(
-  root: LayoutNode,
-  id: string,
-): PaneNode | undefined {
+export function findPaneById(root: LayoutNode, id: string): PaneNode | undefined {
   if (isPaneNode(root)) {
     return root.id === id ? root : undefined;
   }
@@ -44,18 +41,12 @@ export function findPaneById(
 }
 
 /** Return a new tree with the node at `paneId` replaced by `replacement` (immutable). */
-export function replacePane(
-  root: LayoutNode,
-  paneId: string,
-  replacement: LayoutNode,
-): LayoutNode {
+export function replacePane(root: LayoutNode, paneId: string, replacement: LayoutNode): LayoutNode {
   if (isPaneNode(root)) {
     return root.id === paneId ? replacement : root;
   }
   // SplitNode — rebuild children
-  const newChildren = root.children.map((child) =>
-    replacePane(child, paneId, replacement),
-  );
+  const newChildren = root.children.map((child) => replacePane(child, paneId, replacement));
   return { ...root, children: newChildren };
 }
 

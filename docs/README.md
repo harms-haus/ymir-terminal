@@ -32,17 +32,17 @@ Bun Server
 
 ## Tech Stack
 
-| Layer        | Technology                                                             |
-| ------------ | ---------------------------------------------------------------------- |
-| Runtime      | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner   |
-| Language     | TypeScript (strict mode)                                               |
-| Backend      | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                       |
-| Frontend     | React 19, TanStack Router, TanStack Query, Vite                        |
-| Terminal     | `@xterm/xterm` + `@xterm/addon-fit`                                    |
-| Code Editor  | CodeMirror 6 (`@codemirror/lang-*`)                                    |
-| Auth         | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry |
-| Styling      | Inline CSS, `react-resizable-panels` for IDE layout                    |
-| Testing      | `bun:test`, Testing Library (React), happy-dom                         |
+| Layer       | Technology                                                            |
+| ----------- | --------------------------------------------------------------------- |
+| Runtime     | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner   |
+| Language    | TypeScript (strict mode)                                              |
+| Backend     | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                       |
+| Frontend    | React 19, TanStack Router, TanStack Query, Vite                       |
+| Terminal    | `@xterm/xterm` + `@xterm/addon-fit`                                   |
+| Code Editor | CodeMirror 6 (`@codemirror/lang-*`)                                   |
+| Auth        | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry |
+| Styling     | Inline CSS, `react-resizable-panels` for IDE layout                   |
+| Testing     | `bun:test`, Testing Library (React), happy-dom                        |
 
 ## Getting Started
 
@@ -94,11 +94,11 @@ All communication uses a JSON envelope format over a single WebSocket connection
 
 ```typescript
 interface MessageEnvelope {
-  v: 1;                        // protocol version
-  type: "request" | "response" | "event";
-  id: string;                  // UUID for correlating request ↔ response
-  channel: string;             // e.g. "auth", "terminal.create", "file.tree"
-  payload: unknown;            // request/response body
+  v: 1; // protocol version
+  type: 'request' | 'response' | 'event';
+  id: string; // UUID for correlating request ↔ response
+  channel: string; // e.g. "auth", "terminal.create", "file.tree"
+  payload: unknown; // request/response body
   error?: { code: string; message: string };
 }
 ```
@@ -111,29 +111,29 @@ interface MessageEnvelope {
 
 ### Channel Reference
 
-| Channel                | Direction  | Description                       |
-| ---------------------- | ---------- | --------------------------------- |
-| `auth`                 | request    | Authenticate with password        |
-| `terminal.create`      | request    | Spawn a new PTY                   |
-| `terminal.input`       | request    | Send keystrokes (base64)          |
-| `terminal.resize`      | request    | Resize terminal dimensions        |
-| `terminal.close`       | request    | Kill a PTY                        |
-| `terminal.output`      | event      | PTY output (base64)               |
-| `workspace.list`       | request    | List saved workspaces             |
-| `workspace.create`     | request    | Create a workspace                |
-| `workspace.update`     | request    | Update workspace settings         |
-| `workspace.delete`     | request    | Delete a workspace                |
-| `tab.create`           | request    | Open a new tab                    |
-| `tab.close`            | request    | Close a tab                       |
-| `tab.activate`         | request    | Focus a tab                       |
-| `file.tree`            | request    | Get directory listing             |
-| `file.read`            | request    | Read file contents                |
-| `file.write`           | request    | Write file contents               |
-| `file.create`          | request    | Create file or directory          |
-| `file.delete`          | request    | Delete file or directory          |
-| `file.rename`          | request    | Rename/mmove a file               |
-| `file.change`          | event      | Filesystem change notification    |
-| `git.status`           | request    | Get git status for a path         |
+| Channel            | Direction | Description                    |
+| ------------------ | --------- | ------------------------------ |
+| `auth`             | request   | Authenticate with password     |
+| `terminal.create`  | request   | Spawn a new PTY                |
+| `terminal.input`   | request   | Send keystrokes (base64)       |
+| `terminal.resize`  | request   | Resize terminal dimensions     |
+| `terminal.close`   | request   | Kill a PTY                     |
+| `terminal.output`  | event     | PTY output (base64)            |
+| `workspace.list`   | request   | List saved workspaces          |
+| `workspace.create` | request   | Create a workspace             |
+| `workspace.update` | request   | Update workspace settings      |
+| `workspace.delete` | request   | Delete a workspace             |
+| `tab.create`       | request   | Open a new tab                 |
+| `tab.close`        | request   | Close a tab                    |
+| `tab.activate`     | request   | Focus a tab                    |
+| `file.tree`        | request   | Get directory listing          |
+| `file.read`        | request   | Read file contents             |
+| `file.write`       | request   | Write file contents            |
+| `file.create`      | request   | Create file or directory       |
+| `file.delete`      | request   | Delete file or directory       |
+| `file.rename`      | request   | Rename/mmove a file            |
+| `file.change`      | event     | Filesystem change notification |
+| `git.status`       | request   | Get git status for a path      |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 
@@ -152,13 +152,13 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 
 ### `packages/shared` — `@ymir/shared`
 
-| File                     | Purpose                                    |
-| ------------------------ | ------------------------------------------ |
-| `protocol/types.ts`      | Envelope types (`MessageEnvelope`, etc.)   |
-| `protocol/payloads.ts`   | Request type constants and payload types   |
-| `protocol/panes.ts`      | Split pane tree types                      |
-| `constants.ts`           | Default ports, paths, timeouts             |
-| `utils.ts`               | `generateId`, `toBase64`, `fromBase64`     |
+| File                   | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| `protocol/types.ts`    | Envelope types (`MessageEnvelope`, etc.) |
+| `protocol/payloads.ts` | Request type constants and payload types |
+| `protocol/panes.ts`    | Split pane tree types                    |
+| `constants.ts`         | Default ports, paths, timeouts           |
+| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`   |
 
 ### `apps/server` — `@ymir/server`
 
@@ -186,29 +186,29 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 
 ### `apps/client` — `@ymir/client`
 
-| Directory       | Purpose                                           |
-| --------------- | ------------------------------------------------- |
-| `components/`   | React UI components (see below)                   |
-| `hooks/`        | Custom React hooks for state and data             |
-| `lib/`          | WebSocket client, request helper, utilities       |
-| `routes/`       | TanStack Router route definitions                 |
-| `utils/`        | Path helpers                                      |
+| Directory     | Purpose                                     |
+| ------------- | ------------------------------------------- |
+| `components/` | React UI components (see below)             |
+| `hooks/`      | Custom React hooks for state and data       |
+| `lib/`        | WebSocket client, request helper, utilities |
+| `routes/`     | TanStack Router route definitions           |
+| `utils/`      | Path helpers                                |
 
 **Key components:**
 
-| Component            | Role                                        |
-| -------------------- | ------------------------------------------- |
-| `AppLayout`          | IDE shell with resizable left/center/right  |
-| `SplitPaneView`      | Recursive split pane renderer               |
-| `Terminal`           | xterm.js terminal emulator                  |
-| `CodeEditor`         | CodeMirror 6 editor instance                |
-| `FileTree`           | Directory tree with context menu            |
-| `GitPanel`           | Git status display                          |
-| `LoginPage`          | Password authentication form                |
-| `BottomPanel`        | Terminal panel at bottom of layout          |
-| `StatusBar`          | Connection status, workspace info           |
-| `TabBar`             | Editor/terminal tab strip                   |
-| `ToastProvider`      | Toast notification system                   |
+| Component       | Role                                       |
+| --------------- | ------------------------------------------ |
+| `AppLayout`     | IDE shell with resizable left/center/right |
+| `SplitPaneView` | Recursive split pane renderer              |
+| `Terminal`      | xterm.js terminal emulator                 |
+| `CodeEditor`    | CodeMirror 6 editor instance               |
+| `FileTree`      | Directory tree with context menu           |
+| `GitPanel`      | Git status display                         |
+| `LoginPage`     | Password authentication form               |
+| `BottomPanel`   | Terminal panel at bottom of layout         |
+| `StatusBar`     | Connection status, workspace info          |
+| `TabBar`        | Editor/terminal tab strip                  |
+| `ToastProvider` | Toast notification system                  |
 
 ## Testing
 
@@ -229,9 +229,9 @@ Tests exist in every package:
 
 Ymir stores persistent data in SQLite:
 
-| Database   | Location                                  | Purpose                      |
-| ---------- | ----------------------------------------- | ---------------------------- |
-| Persistent | `~/.config/ymir/ymir.db`                  | Workspaces, password hash    |
-| Session    | In-memory (`:memory:`)                    | Client sessions, tab state   |
+| Database   | Location                 | Purpose                    |
+| ---------- | ------------------------ | -------------------------- |
+| Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash  |
+| Session    | In-memory (`:memory:`)   | Client sessions, tab state |
 
 The config directory is created automatically on first run.

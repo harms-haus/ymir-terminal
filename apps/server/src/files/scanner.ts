@@ -1,12 +1,6 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-
-export interface ScanFileNode {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  children?: ScanFileNode[];
-}
+import type { FileNode } from '@ymir/shared';
 
 export interface ScanOptions {
   maxDepth?: number; // default 10
@@ -14,10 +8,7 @@ export interface ScanOptions {
   excludeDirs?: string[]; // default ['node_modules', '.git']
 }
 
-export function scanDirectory(
-  dirPath: string,
-  options: ScanOptions = {},
-): ScanFileNode[] {
+export async function scanDirectory(dirPath: string, options: ScanOptions = {}): Promise<FileNode[]> {
   const maxDepth = options.maxDepth ?? 10;
   const includeHidden = options.includeHidden ?? false;
   const excludeDirs = options.excludeDirs ?? ['node_modules', '.git'];
@@ -25,21 +16,21 @@ export function scanDirectory(
   return scan(dirPath, maxDepth, includeHidden, excludeDirs, 0);
 }
 
-function scan(
+async function scan(
   dirPath: string,
   maxDepth: number,
   includeHidden: boolean,
   excludeDirs: string[],
   currentDepth: number,
-): ScanFileNode[] {
+): Promise<FileNode[]> {
   let entries;
   try {
-    entries = readdirSync(dirPath);
+    entries = await readdir(dirPath);
   } catch {
     return [];
   }
 
-  const nodes: ScanFileNode[] = [];
+  const nodes: FileNode[] = [];
 
   for (const entry of entries) {
     // Skip hidden files/dirs unless includeHidden
@@ -48,33 +39,27 @@ function scan(
     }
 
     const fullPath = join(dirPath, entry);
-    let stat;
+    let entryStat;
     try {
-      stat = statSync(fullPath);
+      entryStat = await stat(fullPath);
     } catch {
       continue;
     }
 
-    const isDirectory = stat.isDirectory();
+    const isDirectory = entryStat.isDirectory();
 
     if (isDirectory && excludeDirs.includes(entry)) {
       continue;
     }
 
-    const node: ScanFileNode = {
+    const node: FileNode = {
       name: entry,
       path: fullPath,
       isDirectory,
     };
 
     if (isDirectory && currentDepth < maxDepth) {
-      node.children = scan(
-        fullPath,
-        maxDepth,
-        includeHidden,
-        excludeDirs,
-        currentDepth + 1,
-      );
+      node.children = await scan(fullPath, maxDepth, includeHidden, excludeDirs, currentDepth + 1);
     }
 
     nodes.push(node);

@@ -60,7 +60,9 @@ const mockUseTabs = mock(() => ({
 }));
 
 const mockUseCreateWorkspace = mock(() => ({
-  mutateAsync: mock(() => Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc' } })),
+  mutateAsync: mock(() =>
+    Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc' } }),
+  ),
   isPending: false,
   isError: false,
   error: null,
@@ -113,7 +115,8 @@ mock.module('../lib/ws-client', () => ({
 
 mock.module('react-resizable-panels', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Group: ({ children, style }: any) => React.createElement('div', { style, 'data-group': '' }, children),
+  Group: ({ children, style }: any) =>
+    React.createElement('div', { style, 'data-group': '' }, children),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Panel: ({ children, style }: any) => React.createElement('div', { style }, children),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

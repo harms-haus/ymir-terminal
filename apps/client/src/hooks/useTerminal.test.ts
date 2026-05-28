@@ -8,7 +8,7 @@ try {
 
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import type { MessageEnvelope } from '@ymir/shared';
+import { PROTOCOL_VERSION, type MessageEnvelope } from '@ymir/shared';
 
 // ---------------------------------------------------------------------------
 // Mock ws-client module
@@ -17,14 +17,12 @@ import type { MessageEnvelope } from '@ymir/shared';
 const mockSend = mock(() => {});
 let messageHandlers: Array<(envelope: MessageEnvelope) => void> = [];
 
-const mockOnMessage = mock(
-  (handler: (envelope: MessageEnvelope) => void) => {
-    messageHandlers.push(handler);
-    return () => {
-      messageHandlers = messageHandlers.filter((h) => h !== handler);
-    };
-  },
-);
+const mockOnMessage = mock((handler: (envelope: MessageEnvelope) => void) => {
+  messageHandlers.push(handler);
+  return () => {
+    messageHandlers = messageHandlers.filter((h) => h !== handler);
+  };
+});
 
 mock.module('../lib/ws-client', () => ({
   wsClient: {
@@ -60,7 +58,7 @@ function simulateMessage(envelope: MessageEnvelope) {
  */
 function simulateResponse(requestId: string, payload: unknown, error?: unknown) {
   const response: MessageEnvelope = {
-    v: 1,
+    v: PROTOCOL_VERSION,
     type: 'response',
     id: requestId,
     payload: error ? null : payload,
@@ -165,7 +163,7 @@ describe('useTerminal', () => {
     // Simulate a terminal.output message for this terminal
     const outputData = btoa(String.fromCodePoint(...new TextEncoder().encode('hello world')));
     simulateMessage({
-      v: 1,
+      v: PROTOCOL_VERSION,
       type: 'event',
       id: 'evt-1',
       channel: 'terminal.output',
@@ -191,7 +189,7 @@ describe('useTerminal', () => {
     // Simulate a terminal.output message for a different terminal
     const outputData = btoa(String.fromCodePoint(...new TextEncoder().encode('other output')));
     simulateMessage({
-      v: 1,
+      v: PROTOCOL_VERSION,
       type: 'event',
       id: 'evt-2',
       channel: 'terminal.output',
@@ -222,7 +220,7 @@ describe('useTerminal', () => {
 
     const outputData = btoa(String.fromCodePoint(...new TextEncoder().encode('after unsub')));
     simulateMessage({
-      v: 1,
+      v: PROTOCOL_VERSION,
       type: 'event',
       id: 'evt-3',
       channel: 'terminal.output',

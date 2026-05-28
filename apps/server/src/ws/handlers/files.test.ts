@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
   type RequestEnvelope,
@@ -111,7 +112,11 @@ describe('registerFileHandlers', () => {
     });
 
     it('registers file.write handler', async () => {
-      const req = request('file.write', { workspaceId: 'ws-1', path: '/home/dev/project/foo.ts', content: 'hello' });
+      const req = request('file.write', {
+        workspaceId: 'ws-1',
+        path: '/home/dev/project/foo.ts',
+        content: 'hello',
+      });
       const result = await router.route(conn, req);
       expect(result).toBeNull();
     });
@@ -123,13 +128,21 @@ describe('registerFileHandlers', () => {
     });
 
     it('registers file.rename handler', async () => {
-      const req = request('file.rename', { workspaceId: 'ws-1', oldPath: '/a.ts', newPath: '/b.ts' });
+      const req = request('file.rename', {
+        workspaceId: 'ws-1',
+        oldPath: '/a.ts',
+        newPath: '/b.ts',
+      });
       const result = await router.route(conn, req);
       expect(result).toBeNull();
     });
 
     it('registers file.create handler', async () => {
-      const req = request('file.create', { workspaceId: 'ws-1', path: '/new.ts', isDirectory: false });
+      const req = request('file.create', {
+        workspaceId: 'ws-1',
+        path: '/new.ts',
+        isDirectory: false,
+      });
       const result = await router.route(conn, req);
       expect(result).toBeNull();
     });
@@ -235,7 +248,10 @@ describe('registerFileHandlers', () => {
         conn.sent.length = 0;
         readFileFn.mockImplementation(() => 'content');
 
-        const req = request('file.read', { workspaceId: 'ws-1', path: `/home/dev/project/${filename}` });
+        const req = request('file.read', {
+          workspaceId: 'ws-1',
+          path: `/home/dev/project/${filename}`,
+        });
         await router.route(conn, req);
 
         const resp = conn.sent[0] as Record<string, unknown>;
@@ -440,7 +456,11 @@ describe('registerFileHandlers', () => {
     });
 
     it('file.write rejects traversal with PERMISSION_DENIED', async () => {
-      const req = request('file.write', { workspaceId: 'ws-1', path: '../../etc/malicious', content: 'pwned' });
+      const req = request('file.write', {
+        workspaceId: 'ws-1',
+        path: '../../etc/malicious',
+        content: 'pwned',
+      });
       await router.route(conn, req);
 
       expect(writeFileFn).toHaveBeenCalledTimes(0);
@@ -484,7 +504,11 @@ describe('registerFileHandlers', () => {
     });
 
     it('file.create rejects traversal with PERMISSION_DENIED', async () => {
-      const req = request('file.create', { workspaceId: 'ws-1', path: '/tmp/evil', isDirectory: false });
+      const req = request('file.create', {
+        workspaceId: 'ws-1',
+        path: '/tmp/evil',
+        isDirectory: false,
+      });
       await router.route(conn, req);
 
       expect(createFileFn).toHaveBeenCalledTimes(0);

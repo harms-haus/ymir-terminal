@@ -14,7 +14,9 @@ import React from 'react';
 // Mock useWorkspaces hook
 // ---------------------------------------------------------------------------
 
-let mockWorkspacesData: Array<{ id: string; name: string; cwd: string; color: string }> | undefined = undefined;
+let mockWorkspacesData:
+  | Array<{ id: string; name: string; cwd: string; color: string }>
+  | undefined = undefined;
 let mockIsLoading = false;
 
 const mockUseWorkspaces = mock(() => ({
@@ -47,13 +49,9 @@ function renderSidebar(
     activeWorkspaceId?: string | null;
     workspaces?: Array<{ id: string; name: string; cwd: string; color: string }>;
     isLoading?: boolean;
-  } = {}
+  } = {},
 ) {
-  const {
-    activeWorkspaceId = null,
-    workspaces = testWorkspaces,
-    isLoading = false,
-  } = options;
+  const { activeWorkspaceId = null, workspaces = testWorkspaces, isLoading = false } = options;
 
   mockWorkspacesData = workspaces;
   mockIsLoading = isLoading;
@@ -68,7 +66,7 @@ function renderSidebar(
       activeWorkspaceId,
       onWorkspaceSelect,
       onAddWorkspace,
-    })
+    }),
   );
 
   return { ...result, onWorkspaceSelect, onAddWorkspace };

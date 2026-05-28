@@ -95,16 +95,24 @@ describe('useConnectionStatus', () => {
     // Initially disconnected
     expect(result.current.isConnected).toBe(false);
 
-    act(() => { simulateStatusChange('connecting'); });
+    act(() => {
+      simulateStatusChange('connecting');
+    });
     expect(result.current.isConnected).toBe(false);
 
-    act(() => { simulateStatusChange('connected'); });
+    act(() => {
+      simulateStatusChange('connected');
+    });
     expect(result.current.isConnected).toBe(true);
 
-    act(() => { simulateStatusChange('reconnecting'); });
+    act(() => {
+      simulateStatusChange('reconnecting');
+    });
     expect(result.current.isConnected).toBe(false);
 
-    act(() => { simulateStatusChange('disconnected'); });
+    act(() => {
+      simulateStatusChange('disconnected');
+    });
     expect(result.current.isConnected).toBe(false);
   });
 
@@ -114,16 +122,24 @@ describe('useConnectionStatus', () => {
 
     expect(result.current.isReconnecting).toBe(false);
 
-    act(() => { simulateStatusChange('connecting'); });
+    act(() => {
+      simulateStatusChange('connecting');
+    });
     expect(result.current.isReconnecting).toBe(false);
 
-    act(() => { simulateStatusChange('connected'); });
+    act(() => {
+      simulateStatusChange('connected');
+    });
     expect(result.current.isReconnecting).toBe(false);
 
-    act(() => { simulateStatusChange('reconnecting'); });
+    act(() => {
+      simulateStatusChange('reconnecting');
+    });
     expect(result.current.isReconnecting).toBe(true);
 
-    act(() => { simulateStatusChange('disconnected'); });
+    act(() => {
+      simulateStatusChange('disconnected');
+    });
     expect(result.current.isReconnecting).toBe(false);
   });
 
@@ -131,10 +147,18 @@ describe('useConnectionStatus', () => {
   test('component re-renders on each status change', () => {
     const { result } = renderHook(() => useConnectionStatus());
 
-    const statuses: ConnectionStatus[] = ['connecting', 'connected', 'disconnected', 'reconnecting', 'connected'];
+    const statuses: ConnectionStatus[] = [
+      'connecting',
+      'connected',
+      'disconnected',
+      'reconnecting',
+      'connected',
+    ];
 
     for (const s of statuses) {
-      act(() => { simulateStatusChange(s); });
+      act(() => {
+        simulateStatusChange(s);
+      });
       expect(result.current.status).toBe(s);
     }
   });

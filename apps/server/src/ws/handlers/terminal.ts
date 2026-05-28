@@ -9,17 +9,13 @@ import {
   type TerminalResizeRequest,
   type TerminalCloseRequest,
   type TerminalOutputEvent,
+  type TerminalExitEvent,
   DEFAULT_COLS,
   DEFAULT_ROWS,
 } from '@ymir/shared';
 import type { PTYManager } from '../../pty/manager';
 import type { ClientConnection } from '../connection';
-import {
-  createError,
-  createResponse,
-  createEvent,
-  type MessageRouter,
-} from '../router';
+import { createError, createResponse, createEvent, type MessageRouter } from '../router';
 import {
   type Database,
   createTerminalInstance,
@@ -27,19 +23,18 @@ import {
   updateTerminalSize,
   deleteTerminalInstance,
 } from '../../db/session';
+import { getWorkspace } from '../../db/persistent';
 
 export interface TerminalDeps {
   ptyManager: PTYManager;
   sessionDb: Database;
+  persistentDb: Database;
 }
 
 /**
  * Register WebSocket handlers for all terminal.* channels.
  */
-export function registerTerminalHandlers(
-  router: MessageRouter,
-  deps: TerminalDeps,
-): void {
+export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDeps): void {
   const { ptyManager, sessionDb } = deps;
 
   // --- terminal.create ----------------------------------------------------
@@ -70,9 +65,14 @@ export function registerTerminalHandlers(
       rows,
     });
 
+    // Resolve workspace CWD
+    const workspace =
+      workspaceId !== 'default' ? getWorkspace(deps.persistentDb, workspaceId) : null;
+    const cwd = workspace?.cwd ?? process.cwd();
+
     // Create the PTY process
     ptyManager.create(terminalId, {
-      cwd: workspaceId === 'default' ? process.cwd() : process.cwd(),
+      cwd,
       cols,
       rows,
       onData: (data: string) => {
@@ -81,6 +81,14 @@ export function registerTerminalHandlers(
           data,
         } satisfies TerminalOutputEvent);
         clientConn.send(evt);
+      },
+      onExit: (exitCode) => {
+        const evt = createEvent('terminal.exit', {
+          terminalId,
+          exitCode,
+        } satisfies TerminalExitEvent);
+        clientConn.send(evt);
+        deleteTerminalInstance(sessionDb, terminalId);
       },
     });
 

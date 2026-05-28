@@ -33,7 +33,8 @@ class MockResizeObserver {
   }
 }
 
-(globalThis as unknown as { ResizeObserver: typeof MockResizeObserver }).ResizeObserver = MockResizeObserver;
+(globalThis as unknown as { ResizeObserver: typeof MockResizeObserver }).ResizeObserver =
+  MockResizeObserver;
 
 // ---------------------------------------------------------------------------
 // Helper: simulate a resize event on the container element
@@ -44,7 +45,17 @@ function simulateResize(width: number, height: number) {
     cb([
       {
         target: document.createElement('div'),
-        contentRect: { width, height, x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, toJSON: () => {} },
+        contentRect: {
+          width,
+          height,
+          x: 0,
+          y: 0,
+          top: 0,
+          left: 0,
+          right: width,
+          bottom: height,
+          toJSON: () => {},
+        },
         borderBoxSize: [] as unknown as ResizeObserverSize[],
         contentBoxSize: [] as unknown as ResizeObserverSize[],
         devicePixelContentBoxSize: [] as unknown as ResizeObserverSize[],

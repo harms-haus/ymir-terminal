@@ -1,15 +1,12 @@
 import {
+  PROTOCOL_VERSION,
   WS_RECONNECT_ATTEMPTS,
   WS_RECONNECT_BASE_DELAY_MS,
   WS_RECONNECT_MAX_DELAY_MS,
 } from '@ymir/shared';
 import type { MessageEnvelope } from '@ymir/shared';
 
-export type ConnectionStatus =
-  | 'connecting'
-  | 'connected'
-  | 'disconnected'
-  | 'reconnecting';
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 class WSClient {
   private ws: WebSocket | null = null;
@@ -45,9 +42,7 @@ class WSClient {
     };
   }
 
-  onStatusChange(
-    handler: (status: ConnectionStatus) => void,
-  ): () => void {
+  onStatusChange(handler: (status: ConnectionStatus) => void): () => void {
     this.statusHandlers.push(handler);
     return () => {
       this.statusHandlers = this.statusHandlers.filter((h) => h !== handler);
@@ -96,6 +91,10 @@ class WSClient {
     this.ws.onmessage = (ev: MessageEvent) => {
       try {
         const envelope = JSON.parse(ev.data) as MessageEnvelope;
+        if (envelope.v !== PROTOCOL_VERSION) {
+          console.warn(`Received message with unsupported protocol version: ${envelope.v}`);
+          return;
+        }
         for (const handler of this.messageHandlers) {
           handler(envelope);
         }

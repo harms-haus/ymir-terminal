@@ -1,12 +1,8 @@
 import { useState } from 'react';
+import type { FileNode } from '@ymir/shared';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 
-export interface FileNode {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  children?: FileNode[];
-}
+export type { FileNode };
 
 interface FileTreeProps {
   tree: FileNode[];
@@ -16,11 +12,20 @@ interface FileTreeProps {
   onNewFolder?: (parentDir: string) => void;
   onRename?: (path: string) => void;
   onDelete?: (path: string) => void;
+  onOpenEditor?: (path: string) => void;
 }
 
-export function FileTree({ tree, onFileSelect, onNewFile, onNewFolder, onRename, onDelete }: FileTreeProps) {
+export function FileTree({
+  tree,
+  onFileSelect,
+  onNewFile,
+  onNewFolder,
+  onRename,
+  onDelete,
+  onOpenEditor,
+}: FileTreeProps) {
   return (
-    <div data-testid="file-tree" style={{ fontSize: '13px', userSelect: 'none' }}>
+    <div data-testid="file-tree" role="tree" style={{ fontSize: '13px', userSelect: 'none' }}>
       {tree.map((node) => (
         <FileTreeNode
           key={node.path}
@@ -31,6 +36,7 @@ export function FileTree({ tree, onFileSelect, onNewFile, onNewFolder, onRename,
           onNewFolder={onNewFolder}
           onRename={onRename}
           onDelete={onDelete}
+          onOpenEditor={onOpenEditor}
         />
       ))}
     </div>
@@ -45,6 +51,7 @@ function FileTreeNode({
   onNewFolder,
   onRename,
   onDelete,
+  onOpenEditor,
 }: {
   node: FileNode;
   onFileSelect: (path: string) => void;
@@ -53,6 +60,7 @@ function FileTreeNode({
   onNewFolder?: (parentDir: string) => void;
   onRename?: (path: string) => void;
   onDelete?: (path: string) => void;
+  onOpenEditor?: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -73,10 +81,20 @@ function FileTreeNode({
         onNewFolder={onNewFolder}
         onRename={onRename}
         onDelete={onDelete}
+        onOpenEditor={onOpenEditor}
       >
         <div
           data-testid={`tree-node-${node.path}`}
+          role="treeitem"
+          tabIndex={0}
+          aria-expanded={node.isDirectory ? expanded : undefined}
           onClick={handleClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleClick();
+            }
+          }}
           style={{
             paddingLeft: `${depth * 16 + 8}px`,
             paddingRight: '8px',
@@ -105,6 +123,7 @@ function FileTreeNode({
             onNewFolder={onNewFolder}
             onRename={onRename}
             onDelete={onDelete}
+            onOpenEditor={onOpenEditor}
           />
         ))}
     </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { wsClient } from '../lib/ws-client';
-import { toBase64, fromBase64 } from '@ymir/shared';
+import { toBase64, fromBase64, PROTOCOL_VERSION } from '@ymir/shared';
 import type { MessageEnvelope } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 
@@ -10,10 +10,7 @@ export function useTerminal(terminalId: string | null) {
   useEffect(() => {
     if (!terminalId) return;
     const unsub = wsClient.onMessage((envelope: MessageEnvelope) => {
-      if (
-        envelope.channel === 'terminal.output' &&
-        envelope.payload?.terminalId === terminalId
-      ) {
+      if (envelope.channel === 'terminal.output' && envelope.payload?.terminalId === terminalId) {
         const decoded = fromBase64(envelope.payload.data);
         const text = new TextDecoder().decode(decoded);
         outputHandlers.current.forEach((h) => h(text));
@@ -27,7 +24,7 @@ export function useTerminal(terminalId: string | null) {
       if (!terminalId) return;
       const encoded = toBase64(new TextEncoder().encode(data));
       wsClient.send({
-        v: 1,
+        v: PROTOCOL_VERSION,
         type: 'request',
         id: crypto.randomUUID(),
         channel: 'terminal.input',
@@ -38,10 +35,11 @@ export function useTerminal(terminalId: string | null) {
   );
 
   const createTerminal = useCallback(async (workspaceId: string) => {
-    const result = await sendRequest<{ terminalId: string }>(
-      'terminal.create',
-      { workspaceId, cols: 80, rows: 24 },
-    );
+    const result = await sendRequest<{ terminalId: string }>('terminal.create', {
+      workspaceId,
+      cols: 80,
+      rows: 24,
+    });
     return result.terminalId;
   }, []);
 
@@ -54,7 +52,7 @@ export function useTerminal(terminalId: string | null) {
     (cols: number, rows: number) => {
       if (!terminalId) return;
       wsClient.send({
-        v: 1,
+        v: PROTOCOL_VERSION,
         type: 'request',
         id: crypto.randomUUID(),
         channel: 'terminal.resize',
@@ -67,9 +65,7 @@ export function useTerminal(terminalId: string | null) {
   const onOutput = useCallback((handler: (data: string) => void) => {
     outputHandlers.current.push(handler);
     return () => {
-      outputHandlers.current = outputHandlers.current.filter(
-        (h) => h !== handler,
-      );
+      outputHandlers.current = outputHandlers.current.filter((h) => h !== handler);
     };
   }, []);
 

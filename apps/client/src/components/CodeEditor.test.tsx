@@ -30,12 +30,14 @@ const MockCodeMirror = ({
   height?: string;
 }) => {
   capturedOnChange = onChange;
-  return React.createElement('div', {
-    'data-testid': 'mock-codemirror',
-    'data-extensions-count': extensions?.length ?? 0,
-    'data-theme': theme ? 'set' : 'unset',
-    'data-height': height ?? '',
-  },
+  return React.createElement(
+    'div',
+    {
+      'data-testid': 'mock-codemirror',
+      'data-extensions-count': extensions?.length ?? 0,
+      'data-theme': theme ? 'set' : 'unset',
+      'data-height': height ?? '',
+    },
     React.createElement('div', { 'data-testid': 'cm-content' }, value),
   );
 };
@@ -108,7 +110,9 @@ describe('CodeEditor', () => {
   // 3. Accepts onSave callback
   // -----------------------------------------------------------------------
   test('calls onSave when Ctrl+S is pressed', () => {
-    const onSave = mock((content: string) => { void content; });
+    const onSave = mock((content: string) => {
+      void content;
+    });
     const { getByTestId } = renderCodeEditor({ content: 'save me', onSave });
 
     const editor = getByTestId('code-editor');
@@ -119,7 +123,9 @@ describe('CodeEditor', () => {
   });
 
   test('calls onSave when Cmd+S is pressed (macOS)', () => {
-    const onSave = mock((content: string) => { void content; });
+    const onSave = mock((content: string) => {
+      void content;
+    });
     const { getByTestId } = renderCodeEditor({ content: 'save me', onSave });
 
     const editor = getByTestId('code-editor');
@@ -133,7 +139,9 @@ describe('CodeEditor', () => {
   // 4. Accepts onChange callback
   // -----------------------------------------------------------------------
   test('calls onChange when content changes', () => {
-    const onChange = mock((value: string) => { void value; });
+    const onChange = mock((value: string) => {
+      void value;
+    });
     renderCodeEditor({ content: 'initial', onChange });
 
     // Simulate CodeMirror calling onChange directly (captured from mock props)

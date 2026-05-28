@@ -8,7 +8,7 @@ module.exports = [
   {
     ignores: [
       "node_modules",
-      "dist",
+      "**/dist",
       ".output",
       "eslint.config.js",
       "**/routeTree.gen.ts",

@@ -1,17 +1,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-
-export interface GitFileChange {
-  path: string;
-  status: string;
-}
-
-export interface GitStatusResult {
-  branch: string;
-  changes: GitFileChange[];
-  staged: GitFileChange[];
-}
+import type { GitFileChange, GitStatusResponse } from '@ymir/shared';
 
 export function isGitRepo(dirPath: string): boolean {
   return existsSync(join(dirPath, '.git'));
@@ -25,7 +15,7 @@ export function getCurrentBranch(dirPath: string): string | null {
   }
 }
 
-export function getGitStatus(dirPath: string): GitStatusResult | null {
+export function getGitStatus(dirPath: string): GitStatusResponse | null {
   if (!isGitRepo(dirPath)) return null;
 
   const branch = getCurrentBranch(dirPath) || 'unknown';

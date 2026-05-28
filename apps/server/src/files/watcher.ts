@@ -1,4 +1,4 @@
-import { watch, type FSWatcher } from 'node:fs';
+import { watch, existsSync, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 
 export interface FileChangeEvent {
@@ -16,20 +16,26 @@ const activeWatchers = new Map<string, ManagedWatcher>();
 
 export function startWatcher(
   dirPath: string,
-  callback: (event: FileChangeEvent) => void
+  callback: (event: FileChangeEvent) => void,
 ): ManagedWatcher {
-  const watcher = watch(
-    dirPath,
-    { recursive: true },
-    (eventType, filename) => {
-      if (!filename) return;
-      const fullPath = join(dirPath, filename);
-      callback({
-        path: fullPath,
-        kind: eventType === 'rename' ? 'create' : 'modify',
-      });
+  // Close existing watcher for this path if any
+  if (activeWatchers.has(dirPath)) {
+    const existing = activeWatchers.get(dirPath)!;
+    existing.watcher.close();
+    activeWatchers.delete(dirPath);
+  }
+
+  const watcher = watch(dirPath, { recursive: true }, (eventType, filename) => {
+    if (!filename) return;
+    const fullPath = join(dirPath, filename);
+    let kind: 'create' | 'modify' | 'delete';
+    if (eventType === 'rename') {
+      kind = existsSync(fullPath) ? 'create' : 'delete';
+    } else {
+      kind = 'modify';
     }
-  );
+    callback({ path: fullPath, kind });
+  });
   const managed = { watcher, dirPath, close: () => watcher.close() };
   activeWatchers.set(dirPath, managed);
   return managed;
@@ -46,5 +52,36 @@ export function stopWatcher(dirPath: string): void {
 export function stopAllWatchers(): void {
   for (const [path] of activeWatchers) {
     stopWatcher(path);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Workspace-level watcher management
+// ---------------------------------------------------------------------------
+
+const activeWatchersByWorkspace = new Map<string, { dirPath: string }>();
+
+export function startWorkspaceWatcher(
+  workspaceId: string,
+  dirPath: string,
+  callback: (event: FileChangeEvent) => void,
+): void {
+  // Stop existing watcher for this workspace if any
+  stopWorkspaceWatcher(workspaceId);
+  startWatcher(dirPath, callback);
+  activeWatchersByWorkspace.set(workspaceId, { dirPath });
+}
+
+export function stopWorkspaceWatcher(workspaceId: string): void {
+  const entry = activeWatchersByWorkspace.get(workspaceId);
+  if (entry) {
+    stopWatcher(entry.dirPath);
+    activeWatchersByWorkspace.delete(workspaceId);
+  }
+}
+
+export function stopAllWorkspaceWatchers(): void {
+  for (const [id] of activeWatchersByWorkspace) {
+    stopWorkspaceWatcher(id);
   }
 }

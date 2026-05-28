@@ -7,9 +7,11 @@ import type { Terminal as GhosttyTerminal } from 'ghostty-web';
 
 export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
   const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
-  const activeTab = tabs.find(t => t.id === activeTabId);
+  const activeTab = tabs.find((t) => t.id === activeTabId);
 
-  const { sendData, onOutput, createTerminal, resizeTerminal } = useTerminal(activeTab?.terminalId ?? null);
+  const { sendData, onOutput, createTerminal, resizeTerminal } = useTerminal(
+    activeTab?.terminalId ?? null,
+  );
 
   const outputUnsubRef = useRef<(() => void) | null>(null);
   const dataDisposableRef = useRef<{ dispose?: () => void } | null>(null);
@@ -38,42 +40,109 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
     }
   };
 
-  const handleReady = useCallback((term: GhosttyTerminal) => {
-    dataDisposableRef.current?.dispose?.();
-    dataDisposableRef.current = term.onData((data: string) => sendData(data));
-    outputUnsubRef.current?.();
-    outputUnsubRef.current = onOutput((data: string) => term.write(data));
-  }, [sendData, onOutput]);
+  const handleReady = useCallback(
+    (term: GhosttyTerminal) => {
+      dataDisposableRef.current?.dispose?.();
+      dataDisposableRef.current = term.onData((data: string) => sendData(data));
+      outputUnsubRef.current?.();
+      outputUnsubRef.current = onOutput((data: string) => term.write(data));
+    },
+    [sendData, onOutput],
+  );
 
-  const handleCloseTab = useCallback((tabId: string) => {
-    const tab = tabs.find(t => t.id === tabId);
-    if (tab?.terminalId) {
-      sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
-    }
-    closeTab(tabId);
-  }, [tabs, closeTab]);
+  const handleCloseTab = useCallback(
+    (tabId: string) => {
+      const tab = tabs.find((t) => t.id === tabId);
+      if (tab?.terminalId) {
+        sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
+      }
+      closeTab(tabId);
+    },
+    [tabs, closeTab],
+  );
 
   return (
-    <div data-testid="bottom-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
+    <div
+      data-testid="bottom-panel"
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}
+    >
       {/* Tab bar */}
-      <div style={{ display: 'flex', alignItems: 'center', background: '#252526', borderBottom: '1px solid #333', height: '35px' }}>
-        {tabs.map(tab => (
-          <div key={tab.id} data-testid={`bottom-tab-${tab.id}`} onClick={() => activateTab(tab.id)} style={{
-            padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-            background: activeTabId === tab.id ? '#1e1e1e' : 'transparent',
-            borderBottom: activeTabId === tab.id ? '1px solid #007acc' : '1px solid transparent',
-            color: activeTabId === tab.id ? '#fff' : '#888',
-          }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          background: '#252526',
+          borderBottom: '1px solid #333',
+          height: '35px',
+        }}
+      >
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            data-testid={`bottom-tab-${tab.id}`}
+            onClick={() => activateTab(tab.id)}
+            style={{
+              padding: '6px 12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: activeTabId === tab.id ? '#1e1e1e' : 'transparent',
+              borderBottom: activeTabId === tab.id ? '1px solid #007acc' : '1px solid transparent',
+              color: activeTabId === tab.id ? '#fff' : '#888',
+            }}
+          >
             <span style={{ fontSize: '12px' }}>{tab.title}</span>
-            <button onClick={(e) => { e.stopPropagation(); handleCloseTab(tab.id); }} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '12px', padding: '0 2px' }}>×</button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCloseTab(tab.id);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#888',
+                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '0 2px',
+                width: '24px',
+                height: '24px',
+                minWidth: '24px',
+                minHeight: '24px',
+              }}
+            >
+              ×
+            </button>
           </div>
         ))}
-        <button data-testid="add-bottom-terminal" onClick={handleAddTerminal} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: '6px 12px', fontSize: '14px' }}>+</button>
+        <button
+          data-testid="add-bottom-terminal"
+          onClick={handleAddTerminal}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#888',
+            cursor: 'pointer',
+            padding: '6px 12px',
+            fontSize: '14px',
+          }}
+        >
+          +
+        </button>
       </div>
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {activeTab?.terminalId && <Terminal key={activeTab.terminalId} terminalId={activeTab.terminalId} onReady={handleReady} onResize={resizeTerminal} />}
-        {!activeTab && <div style={{ color: '#666', padding: '8px', fontSize: '12px' }}>No terminal</div>}
+        {activeTab?.terminalId && (
+          <Terminal
+            key={activeTab.terminalId}
+            terminalId={activeTab.terminalId}
+            onReady={handleReady}
+            onResize={resizeTerminal}
+          />
+        )}
+        {!activeTab && (
+          <div style={{ color: '#666', padding: '8px', fontSize: '12px' }}>No terminal</div>
+        )}
       </div>
     </div>
   );

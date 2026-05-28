@@ -9,7 +9,14 @@ interface PaneContextMenuProps {
   children: React.ReactNode;
 }
 
-export function PaneContextMenu({ paneId, isOnlyPane, onSplitRight, onSplitDown, onClosePane, children }: PaneContextMenuProps) {
+export function PaneContextMenu({
+  paneId,
+  isOnlyPane,
+  onSplitRight,
+  onSplitDown,
+  onClosePane,
+  children,
+}: PaneContextMenuProps) {
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
@@ -28,14 +35,26 @@ export function PaneContextMenu({ paneId, isOnlyPane, onSplitRight, onSplitDown,
           <ContextMenu.Item
             data-testid="split-right"
             onSelect={() => onSplitRight?.(paneId)}
-            style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#ccc', outline: 'none' }}
+            style={{
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: '#ccc',
+              outline: 'none',
+            }}
           >
             Split Right
           </ContextMenu.Item>
           <ContextMenu.Item
             data-testid="split-down"
             onSelect={() => onSplitDown?.(paneId)}
-            style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#ccc', outline: 'none' }}
+            style={{
+              padding: '6px 12px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: '#ccc',
+              outline: 'none',
+            }}
           >
             Split Down
           </ContextMenu.Item>

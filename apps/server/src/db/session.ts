@@ -54,11 +54,11 @@ export function initSessionDb(): Database {
   return db;
 }
 
-export function createSession(db: Database): string {
-  const id = randomUUID();
+export function createSession(db: Database, id?: string): string {
+  const sessionId = id ?? randomUUID();
   const stmt = db.prepare('INSERT INTO client_sessions (id) VALUES (?)');
-  stmt.run(id);
-  return id;
+  stmt.run(sessionId);
+  return sessionId;
 }
 
 export function deleteSession(db: Database, sessionId: string): void {
@@ -81,11 +81,23 @@ export function createTab(
   const stmt = db.prepare(
     'INSERT INTO tabs (id, session_id, workspace_id, tab_type, title, file_path, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)',
   );
-  stmt.run(id, opts.sessionId, opts.workspaceId, opts.tabType, opts.title ?? null, opts.filePath ?? null, opts.order);
+  stmt.run(
+    id,
+    opts.sessionId,
+    opts.workspaceId,
+    opts.tabType,
+    opts.title ?? null,
+    opts.filePath ?? null,
+    opts.order,
+  );
   return id;
 }
 
-export function listTabs(db: Database, sessionId: string, workspaceId: string): Record<string, unknown>[] {
+export function listTabs(
+  db: Database,
+  sessionId: string,
+  workspaceId: string,
+): Record<string, unknown>[] {
   const stmt = db.prepare(
     'SELECT * FROM tabs WHERE session_id = ? AND workspace_id = ? ORDER BY sort_order ASC',
   );
@@ -119,14 +131,9 @@ export function deleteTab(db: Database, tabId: string): void {
   db.prepare('DELETE FROM tabs WHERE id = ?').run(tabId);
 }
 
-export function createPane(
-  db: Database,
-  opts: { tabId: string; terminalId?: string },
-): string {
+export function createPane(db: Database, opts: { tabId: string; terminalId?: string }): string {
   const id = randomUUID();
-  const stmt = db.prepare(
-    'INSERT INTO panes (id, tab_id, terminal_id) VALUES (?, ?, ?)',
-  );
+  const stmt = db.prepare('INSERT INTO panes (id, tab_id, terminal_id) VALUES (?, ?, ?)');
   stmt.run(id, opts.tabId, opts.terminalId ?? null);
   return id;
 }
@@ -163,7 +170,11 @@ export function updateTerminalSize(
   cols: number,
   rows: number,
 ): void {
-  db.prepare('UPDATE terminal_instances SET cols = ?, rows = ? WHERE id = ?').run(cols, rows, terminalId);
+  db.prepare('UPDATE terminal_instances SET cols = ?, rows = ? WHERE id = ?').run(
+    cols,
+    rows,
+    terminalId,
+  );
 }
 
 export function deleteTerminalInstance(db: Database, terminalId: string): void {
@@ -199,11 +210,5 @@ export function listBottomPanelTabs(
 }
 
 export function cleanupSession(db: Database, sessionId: string): void {
-  // Delete in dependency order to respect foreign keys
-  // bottom_panel_tabs -> session
-  db.prepare('DELETE FROM bottom_panel_tabs WHERE session_id = ?').run(sessionId);
-  // terminal_instances -> session
-  db.prepare('DELETE FROM terminal_instances WHERE session_id = ?').run(sessionId);
-  // tabs -> session (panes cascade from tabs)
-  db.prepare('DELETE FROM tabs WHERE session_id = ?').run(sessionId);
+  deleteSession(db, sessionId);
 }

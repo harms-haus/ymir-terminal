@@ -243,4 +243,37 @@ describe('useAuth', () => {
       renderHook(() => useAuth());
     }).toThrow();
   });
+
+  // -----------------------------------------------------------------------
+  // 8. AUTH_REQUIRED push clears token and sets isAuthenticated to false
+  // -----------------------------------------------------------------------
+  test('AUTH_REQUIRED push clears token and sets isAuthenticated to false', async () => {
+    // Pre-set a token so the user starts authenticated
+    localStorage.setItem('ymir-token', 'valid-jwt');
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    // Should start authenticated
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.token).toBe('valid-jwt');
+
+    // Simulate server pushing AUTH_REQUIRED on a non-auth channel
+    await act(async () => {
+      messageHandler!({
+        v: PROTOCOL_VERSION,
+        type: 'response',
+        id: 'server-push-1',
+        channel: 'data',
+        payload: null,
+        error: { code: 'AUTH_REQUIRED', message: 'Token expired' },
+      });
+    });
+
+    // Token should be cleared
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.token).toBeNull();
+    expect(localStorage.getItem('ymir-token')).toBeNull();
+  });
 });

@@ -43,9 +43,7 @@ describe('ToastProvider', () => {
   });
 
   test('renders without crashing', () => {
-    const { container } = render(
-      React.createElement(ToastProvider, null, null)
-    );
+    const { container } = render(React.createElement(ToastProvider, null, null));
     expect(container).toBeTruthy();
   });
 
@@ -54,17 +52,15 @@ describe('ToastProvider', () => {
       React.createElement(
         ToastProvider,
         null,
-        React.createElement('div', null, 'Hello from child')
-      )
+        React.createElement('div', null, 'Hello from child'),
+      ),
     );
     expect(getByText('Hello from child')).toBeTruthy();
   });
 
   test('renders the Toaster component', () => {
     const { getByTestId } = render(
-      React.createElement(ToastProvider, null,
-        React.createElement('div', null, 'Content')
-      )
+      React.createElement(ToastProvider, null, React.createElement('div', null, 'Content')),
     );
     expect(getByTestId('sonner-toaster')).toBeTruthy();
   });

@@ -3,12 +3,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import {
-  getGitStatus,
-  isGitRepo,
-  getCurrentBranch,
-  type GitStatusResult,
-} from './status';
+import { getGitStatus, isGitRepo, getCurrentBranch, type GitStatusResponse } from './status';
 
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });
@@ -170,6 +165,6 @@ function initRepo(dir: string) {
  * Wrapper to avoid name clash with the `getGitStatus` import used by
  * the `null` test (which needs the raw function to test non-git dirs).
  */
-function getGitRepoStatus(dirPath: string): GitStatusResult | null {
+function getGitRepoStatus(dirPath: string): GitStatusResponse | null {
   return getGitStatus(dirPath);
 }

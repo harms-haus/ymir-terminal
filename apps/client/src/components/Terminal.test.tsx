@@ -31,7 +31,11 @@ const mockTerminalInstance = {
 };
 
 const MockTerminal = mock(() => mockTerminalInstance);
-const MockFitAddon = mock(() => ({ fit: mockFit, dispose: mock(() => {}), activate: mock(() => {}) }));
+const MockFitAddon = mock(() => ({
+  fit: mockFit,
+  dispose: mock(() => {}),
+  activate: mock(() => {}),
+}));
 const mockInit = mock(() => Promise.resolve());
 
 mock.module('ghostty-web', () => ({
@@ -53,15 +57,9 @@ function renderTerminal(
     rows?: number;
     onReady?: () => void;
     onResize?: (cols: number, rows: number) => void;
-  } = {}
+  } = {},
 ) {
-  const {
-    terminalId = 'test-terminal',
-    cols,
-    rows,
-    onReady,
-    onResize,
-  } = options;
+  const { terminalId = 'test-terminal', cols, rows, onReady, onResize } = options;
 
   return render(
     React.createElement(Terminal, {
@@ -70,7 +68,7 @@ function renderTerminal(
       ...(rows !== undefined && { rows }),
       onReady,
       onResize,
-    })
+    }),
   );
 }
 

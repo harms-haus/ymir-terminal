@@ -4,8 +4,8 @@ _Last updated: 2026-05-27_
 
 ## Phase Overview
 
-| Phase | Focus                   | Status      | Start Date | End Date |
-| ----- | ----------------------- | ----------- | ---------- | -------- |
+| Phase | Focus                   | Status      | Start Date | End Date   |
+| ----- | ----------------------- | ----------- | ---------- | ---------- |
 | 1     | Scaffolding & Tooling   | ✅ Complete | 2026-05-27 | 2026-05-27 |
 | 2     | Shared Types & Protocol | ✅ Complete | 2026-05-27 | 2026-05-27 |
 | 3     | Server Foundation       | ✅ Complete | 2026-05-27 | 2026-05-27 |

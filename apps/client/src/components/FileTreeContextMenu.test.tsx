@@ -26,8 +26,15 @@ const Portal = ({ children }: { children: React.ReactNode }) =>
 const Content = ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) =>
   React.createElement('div', props, children);
 
-const Item = ({ children, onSelect, ...props }: { children: React.ReactNode; onSelect?: () => void; [key: string]: unknown }) =>
-  React.createElement('div', { ...props, onClick: onSelect }, children);
+const Item = ({
+  children,
+  onSelect,
+  ...props
+}: {
+  children: React.ReactNode;
+  onSelect?: () => void;
+  [key: string]: unknown;
+}) => React.createElement('div', { ...props, onClick: onSelect }, children);
 
 const Separator = (props: { [key: string]: unknown }) =>
   React.createElement('div', { ...props, role: 'separator' });
@@ -205,7 +212,11 @@ describe('FileTreeContextMenu', () => {
     const originalConfirm = globalThis.confirm;
     globalThis.confirm = () => true;
     try {
-      const { container } = renderContextMenu({ isDirectory: true, path: '/src/components', onDelete });
+      const { container } = renderContextMenu({
+        isDirectory: true,
+        path: '/src/components',
+        onDelete,
+      });
 
       const item = container.querySelector('[data-testid="menu-delete"]') as HTMLElement;
       fireEvent.click(item);
@@ -221,7 +232,11 @@ describe('FileTreeContextMenu', () => {
   // -----------------------------------------------------------------------
   test('Open in Editor calls onOpenEditor with the file path', () => {
     const onOpenEditor = mock(() => {});
-    const { container } = renderContextMenu({ isDirectory: false, path: '/src/index.ts', onOpenEditor });
+    const { container } = renderContextMenu({
+      isDirectory: false,
+      path: '/src/index.ts',
+      onOpenEditor,
+    });
 
     const item = container.querySelector('[data-testid="menu-open-editor"]') as HTMLElement;
     fireEvent.click(item);

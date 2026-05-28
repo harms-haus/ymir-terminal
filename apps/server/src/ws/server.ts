@@ -2,10 +2,13 @@ import type { Server, ServerWebSocket } from 'bun';
 import { resolve, join, extname } from 'node:path';
 import {
   ErrorCodes,
+  PROTOCOL_VERSION,
+  MAX_CONNECTIONS,
   type ResponseEnvelope,
   type MessageEnvelope,
 } from '@ymir/shared';
 import { ClientConnection } from './connection';
+import { cleanupAuthAttempts } from './handlers/auth';
 
 /** Active connections keyed by session ID. */
 export const connections = new Map<string, ClientConnection>();
@@ -45,15 +48,12 @@ export interface WsServerOptions {
  * Start a WebSocket server using Bun.serve.
  *
  * - On `open`: create a ClientConnection and store it in the connections map.
- * - On `message`: parse JSON; if the connection is not authenticated only
- *   messages with `channel === 'auth'` are forwarded. Others receive an
- *   `AUTH_REQUIRED` error response.
+ * - On `message`: parse JSON and forward to the router middleware which
+ *   handles authentication and channel dispatch.
  * - On `close`: remove the connection from the map and invoke the
  *   `onClose` callback to clean up PTY processes and session data.
  */
-export async function startWebSocketServer(
-  options: WsServerOptions,
-): Promise<Server> {
+export async function startWebSocketServer(options: WsServerOptions): Promise<Server> {
   const { port, host, onMessage, onClose } = options;
 
   // Resolve the static files directory (for SPA serving)
@@ -78,10 +78,11 @@ export async function startWebSocketServer(
       // Serve static files from the client build directory
       const url = new URL(req.url);
       const pathname = url.pathname === '/' ? '/index.html' : url.pathname;
-      const filePath = join(staticDir, pathname);
+      const filePath = resolve(staticDir, pathname);
+      const resolvedStaticDir = resolve(staticDir);
 
       // Prevent directory traversal
-      if (!filePath.startsWith(staticDir)) {
+      if (!filePath.startsWith(resolvedStaticDir + '/') && filePath !== resolvedStaticDir) {
         return new Response('Forbidden', { status: 403 });
       }
 
@@ -109,6 +110,11 @@ export async function startWebSocketServer(
     },
     websocket: {
       open(ws: ServerWebSocket) {
+        if (connections.size >= MAX_CONNECTIONS) {
+          ws.close(1013, 'Too many connections');
+          return;
+        }
+
         const conn = new ClientConnection(ws);
         (ws as unknown as Record<string, unknown>).__conn = conn;
         connections.set(conn.sessionId, conn);
@@ -127,28 +133,13 @@ export async function startWebSocketServer(
           parsed = JSON.parse(raw);
         } catch {
           conn.send({
-            v: 1,
+            v: PROTOCOL_VERSION,
             type: 'response',
             id: 'unknown',
             payload: null,
             error: {
               code: ErrorCodes.INVALID_MESSAGE,
               message: 'Invalid JSON',
-            },
-          } as ResponseEnvelope);
-          return;
-        }
-
-        // Unauthenticated connections may only send on the 'auth' channel
-        if (!conn.isAuthenticated && parsed.channel !== 'auth') {
-          conn.send({
-            v: 1,
-            type: 'response',
-            id: parsed.id ?? 'unknown',
-            payload: null,
-            error: {
-              code: ErrorCodes.AUTH_REQUIRED,
-              message: 'Authentication required',
             },
           } as ResponseEnvelope);
           return;
@@ -163,6 +154,7 @@ export async function startWebSocketServer(
         const conn = getConnection(ws);
         if (conn) {
           connections.delete(conn.sessionId);
+          cleanupAuthAttempts(conn.sessionId);
           if (onClose) {
             onClose(conn);
           }

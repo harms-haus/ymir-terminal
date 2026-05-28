@@ -20,7 +20,7 @@ function renderAppLayout(
   options: {
     isAuthenticated?: boolean;
     children?: React.ReactNode;
-  } = {}
+  } = {},
 ) {
   const {
     isAuthenticated = true,
@@ -35,9 +35,11 @@ function renderAppLayout(
   };
 
   const result = render(
-    React.createElement(AuthContext.Provider, { value: contextValue },
-      React.createElement(AppLayout, null, children)
-    )
+    React.createElement(
+      AuthContext.Provider,
+      { value: contextValue },
+      React.createElement(AppLayout, null, children),
+    ),
   );
 
   return { ...result, contextValue };
@@ -120,10 +122,10 @@ describe('AppLayout', () => {
   // 6. Shows LoginPage when not authenticated
   // -----------------------------------------------------------------------
   test('shows LoginPage when not authenticated', () => {
-    const { queryByTestId } = renderAppLayout({ isAuthenticated: false });
+    const { container, queryByTestId } = renderAppLayout({ isAuthenticated: false });
 
     // LoginPage has a password input
-    const passwordInput = document.querySelector('input[type="password"]');
+    const passwordInput = container.querySelector('input[type="password"]');
     expect(passwordInput).toBeTruthy();
 
     // Layout panels should not be rendered

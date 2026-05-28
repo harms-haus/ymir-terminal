@@ -1,4 +1,11 @@
-import { readFileSync, writeFileSync, unlinkSync, renameSync, mkdirSync, existsSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+  renameSync,
+  mkdirSync,
+  existsSync,
+} from 'node:fs';
 import { dirname } from 'node:path';
 
 export function readFile(path: string): string {
@@ -52,8 +59,4 @@ export function createDirectory(path: string): void {
   } catch (err) {
     throw new Error(`Failed to create directory: ${path}`, { cause: err });
   }
-}
-
-export function fileExists(path: string): boolean {
-  return existsSync(path);
 }

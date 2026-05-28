@@ -13,16 +13,20 @@ import { useWorkspaces } from '../hooks/useWorkspaces';
 export function WorkspaceView() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [fileToOpen, setFileToOpen] = useState<string | null>(null);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
 
   const activeWorkspace = workspaces?.find((ws) => ws.id === activeWorkspaceId);
 
-  const handleWorkspaceSelect = useCallback((id: string) => {
-    setActiveWorkspaceId(id);
-    const ws = workspaces?.find((w) => w.id === id);
-    if (ws?.color) setAccentColor(ws.color);
-  }, [workspaces, setAccentColor]);
+  const handleWorkspaceSelect = useCallback(
+    (id: string) => {
+      setActiveWorkspaceId(id);
+      const ws = workspaces?.find((w) => w.id === id);
+      if (ws?.color) setAccentColor(ws.color);
+    },
+    [workspaces, setAccentColor],
+  );
 
   const handleAddWorkspace = useCallback(() => {
     setIsDialogOpen(true);
@@ -37,9 +41,8 @@ export function WorkspaceView() {
     [setAccentColor],
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleFileSelect = useCallback((_path: string) => {
-    // Will be connected to editor tab creation
+  const handleFileSelect = useCallback((path: string) => {
+    setFileToOpen(path);
   }, []);
 
   return (
@@ -53,15 +56,16 @@ export function WorkspaceView() {
           />
         }
         rightSidebar={
-          <RightSidebar
-            workspaceId={activeWorkspaceId}
-            onFileSelect={handleFileSelect}
-          />
+          <RightSidebar workspaceId={activeWorkspaceId} onFileSelect={handleFileSelect} />
         }
         bottomPanel={<BottomPanel workspaceId={activeWorkspaceId} />}
         footer={<StatusBar activeWorkspaceName={activeWorkspace?.name} />}
       >
-        <ContentPane workspaceId={activeWorkspaceId} />
+        <ContentPane
+          workspaceId={activeWorkspaceId}
+          fileToOpen={fileToOpen}
+          onFileOpened={() => setFileToOpen(null)}
+        />
         <CreateWorkspaceDialog
           open={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}

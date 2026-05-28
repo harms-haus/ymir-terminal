@@ -1,9 +1,9 @@
 import { test, expect, beforeEach, afterEach } from 'bun:test';
 import WebSocket from 'ws';
+import { PROTOCOL_VERSION } from '@ymir/shared';
 import { startWebSocketServer, connections } from './server';
 import type { ClientConnection } from './connection';
 import type { Server } from 'bun';
-import { ErrorCodes } from '@ymir/shared';
 
 let server: Server;
 let port: number;
@@ -17,16 +17,6 @@ function waitForOpen(ws: WebSocket): Promise<void> {
   return new Promise((resolve, reject) => {
     ws.on('open', resolve);
     ws.on('error', reject);
-  });
-}
-
-function nextMessage(ws: WebSocket): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('message timeout')), 5000);
-    ws.once('message', (data) => {
-      clearTimeout(timeout);
-      resolve(data.toString());
-    });
   });
 }
 
@@ -84,7 +74,7 @@ test('server receives and parses JSON messages via onMessage callback', async ()
   await waitForOpen(ws);
 
   const testPayload = {
-    v: 1,
+    v: PROTOCOL_VERSION,
     type: 'request',
     id: 'test-1',
     channel: 'auth',
@@ -123,38 +113,4 @@ test('disconnection is detected and connection is removed from map', async () =>
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   expect(connections.size).toBe(0);
-});
-
-// ---------------------------------------------------------------------------
-// Test 4: Unauthenticated connections get error for non-auth channel
-// ---------------------------------------------------------------------------
-test('unauthenticated connections receive error for non-auth channel messages', async () => {
-  const ws = new WebSocket(wsUrl());
-  await waitForOpen(ws);
-
-  // Send a message on a non-auth channel without authenticating
-  const nonAuthMessage = {
-    v: 1,
-    type: 'request',
-    id: 'msg-1',
-    channel: 'terminal.create',
-    payload: { workspaceId: 'ws-1' },
-  };
-
-  ws.send(JSON.stringify(nonAuthMessage));
-
-  const response = await nextMessage(ws);
-  const parsed = JSON.parse(response);
-
-  expect(parsed.type).toBe('response');
-  expect(parsed.id).toBe('msg-1');
-  expect(parsed.error).toBeDefined();
-  expect(parsed.error.code).toBe(ErrorCodes.AUTH_REQUIRED);
-
-  // Connection should still exist but not authenticated
-  expect(connections.size).toBe(1);
-  const conn = Array.from(connections.values())[0];
-  expect(conn.isAuthenticated).toBe(false);
-
-  ws.close();
 });

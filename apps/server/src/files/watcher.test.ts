@@ -2,11 +2,7 @@ import { describe, test, expect, afterEach } from 'bun:test';
 import { mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import {
-  startWatcher,
-  stopWatcher,
-  stopAllWatchers,
-} from './watcher';
+import { startWatcher, stopWatcher, stopAllWatchers } from './watcher';
 
 const TEST_DIR = join(tmpdir(), 'ymir-watcher-test');
 

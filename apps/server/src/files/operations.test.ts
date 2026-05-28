@@ -9,7 +9,6 @@ import {
   renameFile,
   createFile,
   createDirectory,
-  fileExists,
 } from './operations';
 
 let tempDir: string;
@@ -139,20 +138,5 @@ describe('createDirectory', () => {
     const dirPath = join(tempDir, 'exists');
     createDirectory(dirPath);
     expect(() => createDirectory(dirPath)).not.toThrow();
-  });
-});
-
-// ── fileExists ────────────────────────────────────────────────────────────────
-
-describe('fileExists', () => {
-  test('returns true for an existing file', () => {
-    const filePath = join(tempDir, 'real.txt');
-    writeFileSync(filePath, 'yes');
-    expect(fileExists(filePath)).toBe(true);
-  });
-
-  test('returns false for a nonexistent file', () => {
-    const filePath = join(tempDir, 'phantom.txt');
-    expect(fileExists(filePath)).toBe(false);
   });
 });

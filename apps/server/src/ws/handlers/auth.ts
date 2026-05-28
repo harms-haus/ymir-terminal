@@ -26,6 +26,11 @@ const MAX_AUTH_ATTEMPTS = 5;
 const AUTH_WINDOW_MS = 60_000; // 1 minute
 const MAX_PASSWORD_LENGTH = 128;
 
+/** Remove auth-attempt tracking for a disconnected session. */
+export function cleanupAuthAttempts(sessionId: string): void {
+  authAttempts.delete(sessionId);
+}
+
 /** Convert expiry string like "7d" to seconds. */
 function expiryToSeconds(expiry: string): number {
   const match = expiry.match(/^(\d+)([smhd])$/);
@@ -42,10 +47,7 @@ function expiryToSeconds(expiry: string): number {
  * connection is not already authenticated and the envelope carries no valid
  * token, an AUTH_REQUIRED error is returned.
  */
-export function registerAuthHandlers(
-  router: MessageRouter,
-  deps: AuthDeps,
-): void {
+export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): void {
   // --- auth channel handler -----------------------------------------------
   router.handle('auth', async (conn: unknown, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<AuthRequest>;
@@ -66,7 +68,11 @@ export function registerAuthHandlers(
     // Per-connection rate limiting
     const attempts = authAttempts.get(clientConn.sessionId) || { count: 0, lastAttempt: 0 };
     const now = Date.now();
-    if (attempts.count >= MAX_AUTH_ATTEMPTS && now - attempts.lastAttempt < AUTH_WINDOW_MS) {
+    // Reset counter if outside the window
+    if (now - attempts.lastAttempt >= AUTH_WINDOW_MS) {
+      attempts.count = 0;
+    }
+    if (attempts.count >= MAX_AUTH_ATTEMPTS) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'auth' },
         ErrorCodes.AUTH_FAILED,
@@ -96,7 +102,7 @@ export function registerAuthHandlers(
     authAttempts.delete(clientConn.sessionId);
 
     // Create a session in the DB and issue a JWT
-    const sessionId = createSession(deps.sessionDb);
+    const sessionId = createSession(deps.sessionDb, clientConn.sessionId);
     const token = await generateToken(sessionId, deps.signingSecret, TOKEN_EXPIRY);
 
     clientConn.isAuthenticated = true;
@@ -108,6 +114,16 @@ export function registerAuthHandlers(
 
     (conn as ClientConnection).send(resp);
   });
+
+  // --- periodic cleanup of stale authAttempts entries --------------------
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of authAttempts) {
+      if (now - val.lastAttempt >= AUTH_WINDOW_MS) {
+        authAttempts.delete(key);
+      }
+    }
+  }, AUTH_WINDOW_MS);
 
   // --- auth middleware ----------------------------------------------------
   // We wrap the router's dispatch so that non-auth channels require auth.
@@ -123,7 +139,7 @@ export function registerAuthHandlers(
       return originalRoute(conn, envelope);
     }
 
-    const clientConn = conn as { isAuthenticated: boolean };
+    const clientConn = conn as { sessionId: string; isAuthenticated: boolean };
 
     // Already authenticated on this connection
     if (clientConn.isAuthenticated) {
@@ -134,7 +150,17 @@ export function registerAuthHandlers(
     const token = envelope.token;
     if (typeof token === 'string' && token.length > 0) {
       try {
-        await verifyToken(token, deps.signingSecret);
+        const result = await verifyToken(token, deps.signingSecret);
+        // Defense-in-depth: ensure the token belongs to this connection
+        if (result.sessionId !== clientConn.sessionId) {
+          const mismatchErr = createError(
+            { id: envelope.id ?? '', channel },
+            ErrorCodes.AUTH_FAILED,
+            'Token session mismatch',
+          );
+          (conn as ClientConnection).send(mismatchErr);
+          return mismatchErr;
+        }
         clientConn.isAuthenticated = true;
         return originalRoute(conn, envelope);
       } catch {

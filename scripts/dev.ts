@@ -1,4 +1,4 @@
-import { spawn, type Subprocess } from "bun";
+import { spawn, type Subprocess } from 'bun';
 
 const SERVER_PORT = 3000;
 const CLIENT_PORT = 5173;
@@ -9,16 +9,13 @@ let client: Subprocess | null = null;
 function prefixLines(prefix: string, data: Uint8Array): string {
   const text = new TextDecoder().decode(data);
   return text
-    .split("\n")
+    .split('\n')
     .filter((line) => line.length > 0)
     .map((line) => `[${prefix}] ${line}`)
-    .join("\n");
+    .join('\n');
 }
 
-async function readOutput(
-  proc: Subprocess,
-  prefix: string,
-): Promise<void> {
+async function readOutput(proc: Subprocess, prefix: string): Promise<void> {
   const reader = proc.stdout.getReader();
   try {
     while (true) {
@@ -32,10 +29,7 @@ async function readOutput(
   }
 }
 
-async function readErrors(
-  proc: Subprocess,
-  prefix: string,
-): Promise<void> {
+async function readErrors(proc: Subprocess, prefix: string): Promise<void> {
   const reader = proc.stderr.getReader();
   try {
     while (true) {
@@ -62,43 +56,41 @@ function cleanup(): void {
   }
 }
 
-process.on("SIGINT", () => {
-  console.log("\n[dev] Received SIGINT, shutting down...");
+process.on('SIGINT', () => {
+  console.log('\n[dev] Received SIGINT, shutting down...');
   cleanup();
   process.exit(0);
 });
 
-process.on("SIGTERM", () => {
+process.on('SIGTERM', () => {
   cleanup();
   process.exit(0);
 });
 
 // ── Spawn server ───────────────────────────────────────────────
-console.log(
-  `[dev] Starting server on port ${SERVER_PORT} and client on port ${CLIENT_PORT}...`,
-);
+console.log(`[dev] Starting server on port ${SERVER_PORT} and client on port ${CLIENT_PORT}...`);
 
 server = spawn({
-  cmd: ["bun", "apps/server/src/index.ts", `--password=${process.env.YMIR_PASSWORD || 'dev'}`],
-  cwd: import.meta.dir.replace(/\/scripts$/, ""),
-  stdout: "pipe",
-  stderr: "pipe",
+  cmd: ['bun', 'apps/server/src/index.ts', `--password=${process.env.YMIR_PASSWORD || 'dev'}`],
+  cwd: import.meta.dir.replace(/\/scripts$/, ''),
+  stdout: 'pipe',
+  stderr: 'pipe',
   env: { ...process.env, PORT: String(SERVER_PORT) },
 });
 
 client = spawn({
-  cmd: ["bun", "run", "--cwd", "apps/client", "dev"],
-  cwd: import.meta.dir.replace(/\/scripts$/, ""),
-  stdout: "pipe",
-  stderr: "pipe",
+  cmd: ['bun', 'run', '--cwd', 'apps/client', 'dev'],
+  cwd: import.meta.dir.replace(/\/scripts$/, ''),
+  stdout: 'pipe',
+  stderr: 'pipe',
   env: { ...process.env, PORT: String(CLIENT_PORT) },
 });
 
 // ── Pipe output concurrently ───────────────────────────────────
-const serverOut = readOutput(server, "server");
-const serverErr = readErrors(server, "server");
-const clientOut = readOutput(client, "client");
-const clientErr = readErrors(client, "client");
+const serverOut = readOutput(server, 'server');
+const serverErr = readErrors(server, 'server');
+const clientOut = readOutput(client, 'client');
+const clientErr = readErrors(client, 'client');
 
 // ── Wait for either process to exit ────────────────────────────
 const serverExit = server.exited;

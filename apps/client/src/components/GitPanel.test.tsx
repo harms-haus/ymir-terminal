@@ -11,17 +11,17 @@ import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 import { GitPanel } from './GitPanel';
 
-import type { GitStatus } from './GitPanel';
+import type { GitStatusResponse } from '@ymir/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderGitPanel(gitStatus: GitStatus | null) {
+function renderGitPanel(gitStatus: GitStatusResponse | null) {
   return render(React.createElement(GitPanel, { gitStatus }));
 }
 
-const sampleStatus: GitStatus = {
+const sampleStatus: GitStatusResponse = {
   branch: 'main',
   changes: [
     { path: 'src/index.ts', status: 'M' },
@@ -132,7 +132,7 @@ describe('GitPanel', () => {
   // 5. Empty state when no changes
   // -----------------------------------------------------------------------
   test('shows empty state when no changes', () => {
-    const emptyStatus: GitStatus = {
+    const emptyStatus: GitStatusResponse = {
       branch: 'main',
       changes: [],
       staged: [],
@@ -158,7 +158,7 @@ describe('GitPanel', () => {
   // 7. Shows only changes when no staged files
   // -----------------------------------------------------------------------
   test('shows only changes section when no staged files', () => {
-    const noStaged: GitStatus = {
+    const noStaged: GitStatusResponse = {
       branch: 'develop',
       changes: [{ path: 'file.ts', status: 'M' }],
       staged: [],
@@ -174,7 +174,7 @@ describe('GitPanel', () => {
   // 8. Shows only staged when no unstaged changes
   // -----------------------------------------------------------------------
   test('shows only staged section when no unstaged changes', () => {
-    const noChanges: GitStatus = {
+    const noChanges: GitStatusResponse = {
       branch: 'develop',
       changes: [],
       staged: [{ path: 'file.ts', status: 'A' }],
@@ -190,7 +190,7 @@ describe('GitPanel', () => {
   // 9. Handles untracked files with ? status
   // -----------------------------------------------------------------------
   test('handles untracked files with ? status', () => {
-    const withUntracked: GitStatus = {
+    const withUntracked: GitStatusResponse = {
       branch: 'main',
       changes: [{ path: 'new-file.txt', status: '?' }],
       staged: [],

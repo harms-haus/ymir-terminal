@@ -15,7 +15,7 @@ import { PTYManager } from './pty/manager';
 import { stopAllWatchers } from './files/watcher';
 import * as fileScanner from './files/scanner';
 import * as fileOperations from './files/operations';
-import { getDbPath } from '@ymir/shared';
+import { getDbPath, type EventEnvelope } from '@ymir/shared';
 
 export interface StartServerOptions {
   password: string;
@@ -49,10 +49,21 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   registerAuthHandlers(router, { passwordHash, signingSecret, sessionDb });
 
   // 6b. Terminal handlers
-  registerTerminalHandlers(router, { ptyManager, sessionDb });
+  registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb: db });
 
   // 6c. Workspace handlers
-  registerWorkspaceHandlers(router, { persistentDb: db, sessionDb });
+  registerWorkspaceHandlers(router, {
+    persistentDb: db,
+    sessionDb,
+    broadcastEvent: (event: EventEnvelope) => {
+      const msg = JSON.stringify(event);
+      for (const conn of connections.values()) {
+        if (conn.isAuthenticated) {
+          conn.ws.send(msg);
+        }
+      }
+    },
+  });
 
   // 6d. File handlers
   registerFileHandlers(router, {
@@ -92,7 +103,10 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   console.log(`Ymir server listening on ${host}:${port}`);
 
   // 9. Graceful shutdown on SIGINT / SIGTERM
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('\nShutting down...');
 
     // Kill all PTY processes
