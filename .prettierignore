@@ -1,0 +1,9 @@
+node_modules
+dist
+.output
+*.min.js
+routeTree.gen.ts
+bun.lock
+.env
+*.db
+eslint.config.js
