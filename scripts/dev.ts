@@ -79,7 +79,7 @@ console.log(
 );
 
 server = spawn({
-  cmd: ["bun", "apps/server/src/index.ts", "--password=dev"],
+  cmd: ["bun", "apps/server/src/index.ts", `--password=${process.env.YMIR_PASSWORD || 'dev'}`],
   cwd: import.meta.dir.replace(/\/scripts$/, ""),
   stdout: "pipe",
   stderr: "pipe",

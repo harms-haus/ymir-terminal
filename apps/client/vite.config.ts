@@ -9,6 +9,14 @@ export default defineConfig({
       '@ymir/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
     },
   },
+  server: {
+    proxy: {
+      '/ws': {
+        target: 'ws://localhost:3000',
+        ws: true,
+      },
+    },
+  },
   build: {
     outDir: 'dist',
   },

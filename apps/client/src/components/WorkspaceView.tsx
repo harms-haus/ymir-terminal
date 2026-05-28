@@ -6,11 +6,13 @@ import { ContentPane } from './ContentPane';
 import { BottomPanel } from './BottomPanel';
 import { StatusBar } from './StatusBar';
 import { ToastProvider } from './ToastProvider';
+import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
 import { useTheme } from '../hooks/useTheme';
 import { useWorkspaces } from '../hooks/useWorkspaces';
 
 export function WorkspaceView() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
 
@@ -23,8 +25,17 @@ export function WorkspaceView() {
   }, [workspaces, setAccentColor]);
 
   const handleAddWorkspace = useCallback(() => {
-    // Will be connected to workspace creation dialog
+    setIsDialogOpen(true);
   }, []);
+
+  const handleWorkspaceCreated = useCallback(
+    (workspaceId: string, color: string) => {
+      setActiveWorkspaceId(workspaceId);
+      setAccentColor(color);
+      setIsDialogOpen(false);
+    },
+    [setAccentColor],
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleFileSelect = useCallback((_path: string) => {
@@ -51,6 +62,11 @@ export function WorkspaceView() {
         footer={<StatusBar activeWorkspaceName={activeWorkspace?.name} />}
       >
         <ContentPane workspaceId={activeWorkspaceId} />
+        <CreateWorkspaceDialog
+          open={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          onCreated={handleWorkspaceCreated}
+        />
       </AppLayout>
     </ToastProvider>
   );

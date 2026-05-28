@@ -1,13 +1,49 @@
-import { useTabs, type Tab } from '../hooks/useTabs';
+import { useRef, useCallback } from 'react';
+import { useTabs } from '../hooks/useTabs';
+import { useTerminal } from '../hooks/useTerminal';
 import { Terminal } from './Terminal';
 import { TabBar } from './TabBar';
 
 export function ContentPane({ workspaceId }: { workspaceId: string | null }) {
   const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const { sendData, onOutput, createTerminal, resizeTerminal } = useTerminal(
+    activeTab?.type === 'terminal' ? (activeTab.terminalId ?? null) : null,
+  );
+  // Track cleanup functions for the current terminal's I/O wiring
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  const handleAddTerminal = () => {
-    createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}` });
+  const handleTerminalReady = useCallback(
+    (term: { onData: (cb: (data: string) => void) => void }) => {
+      // Clean up previous wiring
+      cleanupRef.current?.();
+
+      const dataDisposable = term.onData((data: string) => {
+        sendData(data);
+      });
+      const unregisterOutput = onOutput((data: string) => {
+        term.write(data);
+      });
+
+      cleanupRef.current = () => {
+        dataDisposable?.dispose?.();
+        unregisterOutput();
+      };
+    },
+    [sendData, onOutput],
+  );
+
+  const handleTerminalResize = useCallback(
+    (cols: number, rows: number) => {
+      resizeTerminal(cols, rows);
+    },
+    [resizeTerminal],
+  );
+
+  const handleAddTerminal = async () => {
+    if (!workspaceId) return;
+    const terminalId = await createTerminal(workspaceId);
+    createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}`, terminalId });
   };
 
   const handleAddEditor = (filePath: string) => {
@@ -31,7 +67,11 @@ export function ContentPane({ workspaceId }: { workspaceId: string | null }) {
       />
       <div style={{ flex: 1, overflow: 'hidden' }}>
         {activeTab?.type === 'terminal' && activeTab.terminalId && (
-          <Terminal terminalId={activeTab.terminalId} />
+          <Terminal
+            terminalId={activeTab.terminalId}
+            onReady={handleTerminalReady}
+            onResize={handleTerminalResize}
+          />
         )}
         {activeTab?.type === 'editor' && (
           <div data-testid="editor-placeholder">Editor: {activeTab.filePath}</div>

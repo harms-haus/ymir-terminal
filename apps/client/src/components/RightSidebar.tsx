@@ -15,22 +15,27 @@ export function RightSidebar({ workspaceId, onFileSelect }: RightSidebarProps) {
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
 
-    sendRequest<{ tree: FileNode[] }>('workspace/file-tree', {
-      workspaceId,
-    }).then((res) => {
-      if (!cancelled) setFileTree(res.tree);
-    });
+    sendRequest<{ tree: FileNode[] }>('file.tree', { workspaceId }, { signal })
+      .then((res) => {
+        setFileTree(res.tree);
+      })
+      .catch(() => {
+        /* aborted or timed out – safe to ignore */
+      });
 
-    sendRequest<GitStatus>('workspace/git-status', {
-      workspaceId,
-    }).then((res) => {
-      if (!cancelled) setGitStatus(res);
-    });
+    sendRequest<GitStatus>('git.status', { workspaceId }, { signal })
+      .then((res) => {
+        setGitStatus(res);
+      })
+      .catch(() => {
+        /* aborted or timed out – safe to ignore */
+      });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [workspaceId]);
 

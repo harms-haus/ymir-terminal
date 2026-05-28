@@ -28,9 +28,9 @@ export function AppLayout({ children, leftSidebar, rightSidebar, bottomPanel, fo
       <Group orientation="horizontal" style={{ flex: 1, minHeight: 0 }}>
         {/* Left sidebar - workspace list */}
         <Panel
-          defaultSize={15}
-          minSize={10}
-          maxSize={25}
+          defaultSize="15%"
+          minSize="10%"
+          maxSize="80%"
           style={{ background: '#252526', borderRight: '1px solid #333' }}
         >
           <div data-testid="left-sidebar">{leftSidebar ?? 'Left Sidebar'}</div>
@@ -38,18 +38,18 @@ export function AppLayout({ children, leftSidebar, rightSidebar, bottomPanel, fo
         <Separator style={{ width: '2px', background: '#333' }} />
 
         {/* Center - main content with bottom panel */}
-        <Panel defaultSize={55} minSize={30}>
+        <Panel defaultSize="55%" minSize="30%">
           <Group orientation="vertical">
-            <Panel defaultSize={75} minSize={30}>
+            <Panel defaultSize="75%" minSize="30%">
               <div data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
                 {children ?? null}
               </div>
             </Panel>
             <Separator style={{ height: '2px', background: '#333' }} />
             <Panel
-              defaultSize={25}
-              minSize={10}
-              maxSize={50}
+              defaultSize="25%"
+              minSize="10%"
+              maxSize="90%"
               style={{ background: '#252526', borderTop: '1px solid #333' }}
             >
               <div data-testid="bottom-panel">{bottomPanel ?? 'Bottom Panel'}</div>
@@ -60,9 +60,9 @@ export function AppLayout({ children, leftSidebar, rightSidebar, bottomPanel, fo
 
         {/* Right sidebar - file tree */}
         <Panel
-          defaultSize={30}
-          minSize={15}
-          maxSize={40}
+          defaultSize="30%"
+          minSize="15%"
+          maxSize="80%"
           style={{ background: '#252526', borderLeft: '1px solid #333' }}
         >
           <div data-testid="right-sidebar">{rightSidebar ?? 'Right Sidebar'}</div>

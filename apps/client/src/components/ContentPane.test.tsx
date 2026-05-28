@@ -41,6 +41,26 @@ mock.module('../hooks/useTabs', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock useTerminal
+// ---------------------------------------------------------------------------
+
+const mockSendData = mock(() => {});
+const mockOnOutput = mock(() => () => {});
+const mockCreateTerminal = mock(() => Promise.resolve('term-1'));
+const mockCloseTerminal = mock(() => Promise.resolve());
+const mockResizeTerminal = mock(() => {});
+
+mock.module('../hooks/useTerminal', () => ({
+  useTerminal: () => ({
+    sendData: mockSendData,
+    onOutput: mockOnOutput,
+    createTerminal: mockCreateTerminal,
+    closeTerminal: mockCloseTerminal,
+    resizeTerminal: mockResizeTerminal,
+  }),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock Terminal component
 // ---------------------------------------------------------------------------
 
@@ -72,6 +92,11 @@ describe('ContentPane', () => {
     mockCreateTab.mockClear();
     mockCloseTab.mockClear();
     mockActivateTab.mockClear();
+    mockSendData.mockClear();
+    mockOnOutput.mockClear();
+    mockCreateTerminal.mockClear();
+    mockCloseTerminal.mockClear();
+    mockResizeTerminal.mockClear();
   });
 
   afterEach(() => {
@@ -97,15 +122,20 @@ describe('ContentPane', () => {
   // -----------------------------------------------------------------------
   // 2. Add terminal tab button works
   // -----------------------------------------------------------------------
-  test('add terminal tab button works', () => {
-    const { getByTestId } = renderContentPane();
+  test('add terminal tab button works', async () => {
+    const { getByTestId } = renderContentPane('ws-1');
 
     const addButton = getByTestId('tab-add');
     fireEvent.click(addButton);
 
+    // Wait for the async createTerminal + createTab to complete
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
     expect(mockCreateTab).toHaveBeenCalledTimes(1);
     expect(mockCreateTab).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'terminal' })
+      expect.objectContaining({ type: 'terminal', terminalId: 'term-1' }),
     );
   });
 

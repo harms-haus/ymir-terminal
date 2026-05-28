@@ -59,8 +59,16 @@ const mockUseTabs = mock(() => ({
   activateTab: mock(() => {}),
 }));
 
+const mockUseCreateWorkspace = mock(() => ({
+  mutateAsync: mock(() => Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc' } })),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+
 mock.module('../hooks/useWorkspaces', () => ({
   useWorkspaces: mockUseWorkspaces,
+  useCreateWorkspace: mockUseCreateWorkspace,
 }));
 
 mock.module('../hooks/useTheme', () => ({
