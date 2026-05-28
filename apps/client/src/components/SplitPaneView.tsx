@@ -1,6 +1,6 @@
 import React, { Fragment } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import type { LayoutNode, SplitNode } from '../../../packages/shared/src/protocol/panes';
+import type { LayoutNode, SplitNode } from '@ymir/shared';
 
 interface SplitPaneViewProps {
   layout: LayoutNode;

@@ -10,7 +10,7 @@ import { describe, test, expect, afterEach } from 'bun:test';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 import { SplitPaneView } from './SplitPaneView';
-import type { LayoutNode, PaneNode, SplitNode } from '../../../packages/shared/src/protocol/panes';
+import type { LayoutNode, PaneNode, SplitNode } from '@ymir/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
