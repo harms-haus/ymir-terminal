@@ -64,7 +64,8 @@ mock.module('../hooks/useTerminal', () => ({
 // Mock sendRequest
 // ---------------------------------------------------------------------------
 
-const mockSendRequest = mock(() => Promise.resolve({}));
+let mockSendRequestResponse: unknown = {};
+const mockSendRequest = mock(() => Promise.resolve(mockSendRequestResponse));
 
 mock.module('../lib/send-request', () => ({
   sendRequest: mockSendRequest,
@@ -110,6 +111,33 @@ mock.module('ghostty-web', () => {
   };
 });
 
+// ---------------------------------------------------------------------------
+// Mock @uiw/react-codemirror (CodeEditor's heavy dependency)
+// Provides a mock that calls onSave and exposes a data-testid
+// ---------------------------------------------------------------------------
+
+mock.module('@uiw/react-codemirror', () => {
+  const MockCodeMirror = ({ value }: { value: string }) =>
+    React.createElement(
+      'div',
+      {
+        'data-testid': 'mock-codemirror',
+      },
+      React.createElement('div', { 'data-testid': 'cm-content' }, value),
+    );
+  return { default: MockCodeMirror };
+});
+
+// Mock all the codemirror language modules (they may be imported transitively)
+mock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));
+mock.module('@codemirror/lang-css', () => ({ css: () => {} }));
+mock.module('@codemirror/lang-html', () => ({ html: () => {} }));
+mock.module('@codemirror/lang-json', () => ({ json: () => {} }));
+mock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
+mock.module('@codemirror/lang-python', () => ({ python: () => {} }));
+mock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
+mock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
+
 const { ContentPane } = await import('./ContentPane');
 
 // ---------------------------------------------------------------------------
@@ -118,6 +146,11 @@ const { ContentPane } = await import('./ContentPane');
 
 function renderContentPane(workspaceId: string | null = null) {
   return render(React.createElement(ContentPane, { workspaceId }));
+}
+
+// Helper to wait for microtasks (promises) to flush
+async function flush() {
+  await new Promise((r) => setTimeout(r, 0));
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +170,9 @@ describe('ContentPane', () => {
     mockCloseTerminal.mockClear();
     mockResizeTerminal.mockClear();
     mockSendRequest.mockClear();
+    // Reset to default implementation (returns mockSendRequestResponse)
+    mockSendRequest.mockImplementation(() => Promise.resolve(mockSendRequestResponse));
+    mockSendRequestResponse = {};
   });
 
   afterEach(() => {
@@ -241,16 +277,23 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 6. Shows editor placeholder for editor tabs
+  // 6. Shows CodeEditor for editor tabs after file content loads
   // -----------------------------------------------------------------------
-  test('shows editor placeholder for editor tabs', () => {
+  test('shows CodeEditor for editor tabs after file content loads', async () => {
     mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
     mockActiveTabIdState = 'tab-1';
+    mockSendRequestResponse = { content: 'const x = 1;', language: 'javascript' };
 
-    const { getByTestId } = renderContentPane();
+    const { getByTestId } = renderContentPane('ws-1');
 
-    expect(getByTestId('editor-placeholder')).toBeTruthy();
-    expect(getByTestId('editor-placeholder').textContent).toContain('/src/foo.ts');
+    // Wait for the async file.read to resolve
+    await flush();
+
+    expect(getByTestId('code-editor')).toBeTruthy();
+    expect(mockSendRequest).toHaveBeenCalledWith(
+      'file.read',
+      expect.objectContaining({ workspaceId: 'ws-1', path: '/src/foo.ts' }),
+    );
   });
 
   // -----------------------------------------------------------------------
@@ -293,13 +336,104 @@ describe('ContentPane', () => {
     const addButton = getByTestId('tab-add');
     fireEvent.click(addButton);
 
-    await new Promise((r) => setTimeout(r, 0));
+    await flush();
 
     expect(consoleErrorSpy).toHaveBeenCalled();
     // createTab should NOT have been called since creation failed
     expect(mockCreateTab).not.toHaveBeenCalled();
 
     console.error = originalError;
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. Shows loading indicator while fetching file content
+  // -----------------------------------------------------------------------
+  test('shows loading indicator while fetching file content', () => {
+    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mockActiveTabIdState = 'tab-1';
+    // Keep sendRequest pending so the loading state persists
+    let resolvePending: (value: unknown) => void;
+    mockSendRequest.mockImplementation(() => new Promise((resolve) => { resolvePending = resolve; }));
+
+    const { container, queryByTestId } = renderContentPane('ws-1');
+
+    // Should show loading indicator
+    expect(container.textContent).toContain('Loading...');
+    // CodeEditor should NOT be rendered yet
+    expect(queryByTestId('code-editor')).toBeNull();
+
+    // Resolve the pending promise so the test doesn't hang
+    resolvePending!({ content: '', language: '' });
+  });
+
+  // -----------------------------------------------------------------------
+  // 10. Shows error message when file read fails
+  // -----------------------------------------------------------------------
+  test('shows error message when file read fails', async () => {
+    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mockActiveTabIdState = 'tab-1';
+    mockSendRequest.mockImplementation(() => Promise.reject(new Error('File not found')));
+
+    const { container, queryByTestId } = renderContentPane('ws-1');
+
+    await flush();
+
+    expect(container.textContent).toContain('File not found');
+    // CodeEditor should NOT be rendered
+    expect(queryByTestId('code-editor')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. Save triggers sendRequest with file.write
+  // -----------------------------------------------------------------------
+  test('save triggers sendRequest with file.write and correct payload', async () => {
+    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mockActiveTabIdState = 'tab-1';
+    mockSendRequestResponse = { content: 'const x = 1;', language: 'javascript' };
+
+    const { getByTestId } = renderContentPane('ws-1');
+
+    // Wait for file.read to resolve and CodeEditor to render
+    await flush();
+
+    expect(getByTestId('code-editor')).toBeTruthy();
+
+    // Simulate Ctrl+S to trigger save
+    const editor = getByTestId('code-editor');
+    fireEvent.keyDown(editor, { key: 's', ctrlKey: true });
+
+    expect(mockSendRequest).toHaveBeenCalledWith(
+      'file.write',
+      expect.objectContaining({
+        workspaceId: 'ws-1',
+        path: '/src/foo.ts',
+        content: 'const x = 1;',
+      }),
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. No CodeEditor when no editor tab is active
+  // -----------------------------------------------------------------------
+  test('no CodeEditor when no editor tab is active', () => {
+    mockTabsState = [];
+    mockActiveTabIdState = null;
+
+    const { queryByTestId } = renderContentPane('ws-1');
+
+    expect(queryByTestId('code-editor')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. No CodeEditor when a terminal tab is active
+  // -----------------------------------------------------------------------
+  test('no CodeEditor when terminal tab is active', () => {
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mockActiveTabIdState = 'tab-1';
+
+    const { queryByTestId } = renderContentPane('ws-1');
+
+    expect(queryByTestId('code-editor')).toBeNull();
   });
 });
 

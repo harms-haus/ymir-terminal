@@ -32,6 +32,15 @@ export function PaneContextMenu({
             zIndex: 1000,
           }}
         >
+          <style>{`
+            [data-testid="pane-context-menu"] [role="menuitem"]:focus-visible {
+              outline: 2px solid #007acc;
+              outline-offset: -2px;
+            }
+            [data-testid="pane-context-menu"] [role="menuitem"]:hover {
+              background: #094771;
+            }
+          `}</style>
           <ContextMenu.Item
             data-testid="split-right"
             onSelect={() => onSplitRight?.(paneId)}

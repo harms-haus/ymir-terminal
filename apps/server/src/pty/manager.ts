@@ -39,7 +39,7 @@ export class PTYManager {
           data: (term: unknown, data: Buffer) => void;
         }) => {
           write: (data: string) => void;
-          resize: (opts: { cols: number; rows: number }) => void;
+          resize: (cols: number, rows: number) => void;
           close: () => void;
         })
       | undefined;
@@ -115,10 +115,10 @@ export class PTYManager {
     const safeRows = Math.floor(rows);
     if (!Number.isFinite(safeCols) || safeCols < 1 || !Number.isFinite(safeRows) || safeRows < 1) return;
     try {
-      (entry.terminal as { resize: (opts: { cols: number; rows: number }) => void }).resize({
-        cols: safeCols,
-        rows: safeRows,
-      });
+      (entry.terminal as { resize: (cols: number, rows: number) => void }).resize(
+        safeCols,
+        safeRows,
+      );
     } catch (err) {
       console.warn(`resize(${id}, ${safeCols}, ${safeRows}) failed:`, err);
     }

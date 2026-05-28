@@ -7,7 +7,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 import { rust } from '@codemirror/lang-rust';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 
 const LANG_EXTENSIONS: Record<string, () => unknown> = {
   javascript,
@@ -27,7 +27,9 @@ interface CodeEditorProps {
 }
 
 export function CodeEditor({ content, language, onChange, onSave }: CodeEditorProps) {
-  const extensions = language && LANG_EXTENSIONS[language] ? [LANG_EXTENSIONS[language]()] : [];
+  const extensions = useMemo(() => {
+    return language && LANG_EXTENSIONS[language] ? [LANG_EXTENSIONS[language]()] : [];
+  }, [language]);
   const currentValueRef = useRef(content);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

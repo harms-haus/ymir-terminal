@@ -152,6 +152,7 @@ export function RightSidebar({ workspaceId, onFileSelect }: RightSidebarProps) {
           <FileTree
             tree={effectiveFileTree}
             onFileSelect={handleFileSelect}
+            onOpenEditor={handleFileSelect}
             workspaceId={workspaceId}
             onNewFile={handleNewFile}
             onNewFolder={handleNewFolder}

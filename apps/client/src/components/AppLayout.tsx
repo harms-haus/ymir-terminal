@@ -39,7 +39,7 @@ export function AppLayout({
           maxSize="80%"
           style={{ background: '#252526', borderRight: '1px solid #333' }}
         >
-          <div data-testid="left-sidebar">{leftSidebar ?? 'Left Sidebar'}</div>
+          <nav aria-label="Workspaces" data-testid="left-sidebar">{leftSidebar ?? 'Left Sidebar'}</nav>
         </Panel>
         <Separator style={{ width: '2px', background: '#333' }} />
 
@@ -47,9 +47,9 @@ export function AppLayout({
         <Panel defaultSize="55%" minSize="30%">
           <Group orientation="vertical">
             <Panel defaultSize="75%" minSize="30%">
-              <div data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
+              <main data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
                 {children ?? null}
-              </div>
+              </main>
             </Panel>
             <Separator style={{ height: '2px', background: '#333' }} />
             <Panel
@@ -71,7 +71,7 @@ export function AppLayout({
           maxSize="80%"
           style={{ background: '#252526', borderLeft: '1px solid #333' }}
         >
-          <div data-testid="right-sidebar">{rightSidebar ?? 'Right Sidebar'}</div>
+          <aside aria-label="Explorer" data-testid="right-sidebar">{rightSidebar ?? 'Right Sidebar'}</aside>
         </Panel>
       </Group>
       {footer}

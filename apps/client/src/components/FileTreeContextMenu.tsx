@@ -1,4 +1,5 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import './FileTreeContextMenu.css';
 
 interface FileTreeContextMenuProps {
   path: string;
@@ -25,12 +26,6 @@ export function FileTreeContextMenu({
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <style>{`
-          [data-testid="context-menu"] [role="menuitem"]:focus-visible {
-            outline: 2px solid #007acc;
-            outline-offset: -2px;
-          }
-        `}</style>
         <ContextMenu.Content
           data-testid="context-menu"
           style={{
@@ -42,6 +37,16 @@ export function FileTreeContextMenu({
             zIndex: 1000,
           }}
         >
+          <style>{`
+            [data-testid="context-menu"] [role="menuitem"]:focus-visible {
+              outline: 2px solid #007acc;
+              outline-offset: -2px;
+            }
+            [data-testid="context-menu"] [role="menuitem"]:hover {
+              background: #094771;
+            }
+          `}</style>
+
           {isDirectory && (
             <>
               <ContextMenu.Item

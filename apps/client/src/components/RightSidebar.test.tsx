@@ -11,6 +11,45 @@ import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
+// Mock @radix-ui/react-context-menu so context menu items render as
+// regular clickable divs (portals don't work in happy-dom)
+// ---------------------------------------------------------------------------
+
+const CmRoot = ({ children }: { children: React.ReactNode }) =>
+  React.createElement('div', { 'data-testid': 'context-menu-root' }, children);
+
+const CmTrigger = ({ children }: { children: React.ReactNode; asChild?: boolean }) =>
+  React.createElement('div', { 'data-testid': 'context-menu-trigger' }, children);
+
+const CmPortal = ({ children }: { children: React.ReactNode }) =>
+  React.createElement('div', null, children);
+
+const CmContent = ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) =>
+  React.createElement('div', props, children);
+
+const CmItem = ({
+  children,
+  onSelect,
+  ...props
+}: {
+  children: React.ReactNode;
+  onSelect?: () => void;
+  [key: string]: unknown;
+}) => React.createElement('div', { ...props, onClick: onSelect }, children);
+
+const CmSeparator = (props: { [key: string]: unknown }) =>
+  React.createElement('div', { ...props, role: 'separator' });
+
+mock.module('@radix-ui/react-context-menu', () => ({
+  Root: CmRoot,
+  Trigger: CmTrigger,
+  Portal: CmPortal,
+  Content: CmContent,
+  Item: CmItem,
+  Separator: CmSeparator,
+}));
+
+// ---------------------------------------------------------------------------
 // Mock send-request before importing the component
 // ---------------------------------------------------------------------------
 
@@ -139,5 +178,58 @@ describe('RightSidebar', () => {
     expect(getByText('No workspace selected')).toBeTruthy();
     // FileTree should not be rendered
     expect(queryByTestId('file-tree')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // 6. 'Open in Editor' context menu action calls onFileSelect
+  // -----------------------------------------------------------------------
+  test('Open in Editor context menu action calls onFileSelect with the file path', async () => {
+    const onFileSelect = mock(() => {});
+
+    // Mock file tree response with a file inside a directory
+    sendRequestSpy.mockResolvedValueOnce({
+      tree: [
+        {
+          name: 'src',
+          path: '/src',
+          isDirectory: true,
+          children: [{ name: 'app.ts', path: '/src/app.ts', isDirectory: false }],
+        },
+      ],
+    });
+    // Mock git status response
+    sendRequestSpy.mockResolvedValueOnce({
+      branch: 'main',
+      changes: [],
+      staged: [],
+    });
+
+    const { getByTestId } = renderRightSidebar('ws-1', onFileSelect);
+
+    // Wait for the directory node to appear after async data loads
+    await waitFor(() => {
+      expect(getByTestId('tree-node-/src')).toBeTruthy();
+    });
+
+    // Expand the directory so the file node is rendered
+    fireEvent.click(getByTestId('tree-node-/src'));
+
+    // Wait for the file node to appear
+    await waitFor(() => {
+      expect(getByTestId('tree-node-/src/app.ts')).toBeTruthy();
+    });
+
+    // Find the 'Open in Editor' context menu item rendered inside the
+    // mocked Radix context menu for the file node
+    const openEditorItem = getByTestId('menu-open-editor');
+    expect(openEditorItem).toBeTruthy();
+
+    // Click the 'Open in Editor' menu item
+    fireEvent.click(openEditorItem);
+
+    // The RightSidebar passes onOpenEditor={handleFileSelect} to FileTree,
+    // so clicking 'Open in Editor' should invoke onFileSelect with the
+    // correct file path
+    expect(onFileSelect).toHaveBeenCalledWith('/src/app.ts');
   });
 });

@@ -1,15 +1,24 @@
 import { useWorkspaces } from '../hooks/useWorkspaces';
+import { WorkspaceItem } from './WorkspaceItem';
 
 interface WorkspaceSidebarProps {
   activeWorkspaceId: string | null;
   onWorkspaceSelect: (id: string) => void;
   onAddWorkspace: () => void;
+  onRenameWorkspace: (id: string, newName: string) => void;
+  onSetCwdWorkspace: (id: string, newCwd: string) => void;
+  onRemoveWorkspace: (id: string) => void;
+  onChangeColorWorkspace: (id: string, newColor: string) => void;
 }
 
 export function WorkspaceSidebar({
   activeWorkspaceId,
   onWorkspaceSelect,
   onAddWorkspace,
+  onRenameWorkspace,
+  onSetCwdWorkspace,
+  onRemoveWorkspace,
+  onChangeColorWorkspace,
 }: WorkspaceSidebarProps) {
   const { data: workspaces, isLoading } = useWorkspaces();
 
@@ -31,6 +40,7 @@ export function WorkspaceSidebar({
           Workspaces
         </span>
         <button
+          aria-label="Add workspace"
           data-testid="add-workspace-btn"
           onClick={onAddWorkspace}
           style={{
@@ -39,6 +49,7 @@ export function WorkspaceSidebar({
             color: '#888',
             cursor: 'pointer',
             fontSize: '16px',
+            borderRadius: '4px',
           }}
         >
           +
@@ -50,53 +61,16 @@ export function WorkspaceSidebar({
       )}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {workspaces?.map((ws) => (
-          <div
+          <WorkspaceItem
             key={ws.id}
-            data-testid={`workspace-${ws.id}`}
-            onClick={() => onWorkspaceSelect(ws.id)}
-            style={{
-              padding: '6px 8px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: activeWorkspaceId === ws.id ? '#37373d' : 'transparent',
-            }}
-          >
-            <div
-              data-testid={`ws-color-${ws.id}`}
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: ws.color || '#007acc',
-              }}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: '13px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {ws.name}
-              </div>
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: '#666',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {ws.cwd}
-              </div>
-            </div>
-          </div>
+            workspace={ws}
+            isActive={activeWorkspaceId === ws.id}
+            onSelect={onWorkspaceSelect}
+            onRename={onRenameWorkspace}
+            onSetCwd={onSetCwdWorkspace}
+            onRemove={onRemoveWorkspace}
+            onChangeColor={onChangeColorWorkspace}
+          />
         ))}
       </div>
     </div>

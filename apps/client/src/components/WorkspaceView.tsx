@@ -8,7 +8,7 @@ import { StatusBar } from './StatusBar';
 import { ToastProvider } from './ToastProvider';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
 import { useTheme } from '../hooks/useTheme';
-import { useWorkspaces } from '../hooks/useWorkspaces';
+import { useWorkspaces, useUpdateWorkspace, useDeleteWorkspace } from '../hooks/useWorkspaces';
 
 export function WorkspaceView() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
@@ -16,6 +16,8 @@ export function WorkspaceView() {
   const [fileToOpen, setFileToOpen] = useState<string | null>(null);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
+  const updateWorkspace = useUpdateWorkspace();
+  const deleteWorkspace = useDeleteWorkspace();
 
   const activeWorkspaceId = useMemo(() => {
     if (selectedWorkspaceId) return selectedWorkspaceId;
@@ -51,6 +53,24 @@ export function WorkspaceView() {
     setFileToOpen(path);
   }, []);
 
+  const handleRenameWorkspace = useCallback((id: string, name: string) => {
+    updateWorkspace.mutate({ id, name });
+  }, [updateWorkspace]);
+
+  const handleSetCwdWorkspace = useCallback((id: string, cwd: string) => {
+    updateWorkspace.mutate({ id, cwd });
+  }, [updateWorkspace]);
+
+  const handleChangeColorWorkspace = useCallback((id: string, color: string) => {
+    updateWorkspace.mutate({ id, color });
+    if (id === activeWorkspaceId) setAccentColor(color);
+  }, [updateWorkspace, activeWorkspaceId, setAccentColor]);
+
+  const handleRemoveWorkspace = useCallback((id: string) => {
+    deleteWorkspace.mutate({ id });
+    if (id === selectedWorkspaceId) setSelectedWorkspaceId(null);
+  }, [deleteWorkspace, selectedWorkspaceId]);
+
   return (
     <ToastProvider>
       <AppLayout
@@ -59,6 +79,10 @@ export function WorkspaceView() {
             activeWorkspaceId={activeWorkspaceId}
             onWorkspaceSelect={handleWorkspaceSelect}
             onAddWorkspace={handleAddWorkspace}
+            onRenameWorkspace={handleRenameWorkspace}
+            onSetCwdWorkspace={handleSetCwdWorkspace}
+            onRemoveWorkspace={handleRemoveWorkspace}
+            onChangeColorWorkspace={handleChangeColorWorkspace}
           />
         }
         rightSidebar={

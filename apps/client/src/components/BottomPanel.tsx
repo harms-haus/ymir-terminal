@@ -66,6 +66,10 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
       data-testid="bottom-panel"
       style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}
     >
+      <style>{`
+        .tab-close-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+        .tab-close-btn:focus-visible { outline: 1px solid #007acc; outline-offset: -1px; }
+      `}</style>
       {/* Tab bar */}
       <div
         style={{
@@ -94,10 +98,12 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
           >
             <span style={{ fontSize: '12px' }}>{tab.title}</span>
             <button
+              aria-label={`Close ${tab.title}`}
               onClick={(e) => {
                 e.stopPropagation();
                 handleCloseTab(tab.id);
               }}
+              className="tab-close-btn"
               style={{
                 background: 'none',
                 border: 'none',
@@ -109,6 +115,7 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
                 height: '24px',
                 minWidth: '24px',
                 minHeight: '24px',
+                borderRadius: '4px',
               }}
             >
               ×
@@ -116,6 +123,7 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
           </div>
         ))}
         <button
+          aria-label="Open new terminal"
           data-testid="add-bottom-terminal"
           onClick={handleAddTerminal}
           style={{
@@ -125,6 +133,7 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
             cursor: 'pointer',
             padding: '6px 12px',
             fontSize: '14px',
+            borderRadius: '4px',
           }}
         >
           +

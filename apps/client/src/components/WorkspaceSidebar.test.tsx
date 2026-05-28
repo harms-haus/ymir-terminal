@@ -29,6 +29,32 @@ mock.module('../hooks/useWorkspaces', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock WorkspaceItem component
+// ---------------------------------------------------------------------------
+
+mock.module('./WorkspaceItem', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  WorkspaceItem: ({ workspace, isActive, onSelect }: any) => {
+    return React.createElement(
+      'div',
+      {
+        'data-testid': `workspace-item-${workspace.id}`,
+        onClick: () => onSelect(workspace.id),
+        style: { background: isActive ? '#37373d' : 'transparent' },
+      },
+      [
+        React.createElement('div', {
+          key: 'dot',
+          'data-testid': `ws-color-${workspace.id}`,
+          style: { background: workspace.color },
+        }),
+        workspace.name,
+      ],
+    );
+  },
+}));
+
+// ---------------------------------------------------------------------------
 // Import after mocking
 // ---------------------------------------------------------------------------
 
@@ -58,14 +84,23 @@ function renderSidebar(
   mockUseWorkspaces.mockClear();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onWorkspaceSelect: any = mock(() => {});
   const onAddWorkspace = mock(() => {});
+  const onRenameWorkspace = mock(() => {});
+  const onSetCwdWorkspace = mock(() => {});
+  const onRemoveWorkspace = mock(() => {});
+  const onChangeColorWorkspace = mock(() => {});
 
   const result = render(
     React.createElement(WorkspaceSidebar, {
       activeWorkspaceId,
       onWorkspaceSelect,
       onAddWorkspace,
+      onRenameWorkspace,
+      onSetCwdWorkspace,
+      onRemoveWorkspace,
+      onChangeColorWorkspace,
     }),
   );
 
@@ -118,8 +153,8 @@ describe('WorkspaceSidebar', () => {
   test('active workspace is highlighted', () => {
     const { getByTestId } = renderSidebar({ activeWorkspaceId: 'ws-2' });
 
-    const activeWs = getByTestId('workspace-ws-2') as HTMLElement;
-    const inactiveWs = getByTestId('workspace-ws-1') as HTMLElement;
+    const activeWs = getByTestId('workspace-item-ws-2') as HTMLElement;
+    const inactiveWs = getByTestId('workspace-item-ws-1') as HTMLElement;
 
     expect(activeWs.style.background).toBe('#37373d');
     expect(inactiveWs.style.background).toBe('transparent');
@@ -131,7 +166,7 @@ describe('WorkspaceSidebar', () => {
   test('clicking a workspace calls onWorkspaceSelect', () => {
     const { getByTestId, onWorkspaceSelect } = renderSidebar();
 
-    fireEvent.click(getByTestId('workspace-ws-2'));
+    fireEvent.click(getByTestId('workspace-item-ws-2'));
 
     expect(onWorkspaceSelect).toHaveBeenCalledTimes(1);
     expect(onWorkspaceSelect).toHaveBeenCalledWith('ws-2');
