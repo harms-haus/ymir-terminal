@@ -2,7 +2,15 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPage } from './LoginPage';
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export interface AppLayoutProps {
+  children?: React.ReactNode;
+  leftSidebar?: React.ReactNode;
+  rightSidebar?: React.ReactNode;
+  bottomPanel?: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
+export function AppLayout({ children, leftSidebar, rightSidebar, bottomPanel, footer }: AppLayoutProps) {
   const { isAuthenticated } = useAuth();
 
   if (!isAuthenticated) return <LoginPage />;
@@ -17,7 +25,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         color: '#ccc',
       }}
     >
-      <Group orientation="horizontal" style={{ flex: 1 }}>
+      <Group orientation="horizontal" style={{ flex: 1, minHeight: 0 }}>
         {/* Left sidebar - workspace list */}
         <Panel
           defaultSize={15}
@@ -25,7 +33,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           maxSize={25}
           style={{ background: '#252526', borderRight: '1px solid #333' }}
         >
-          <div data-testid="left-sidebar">Left Sidebar</div>
+          <div data-testid="left-sidebar">{leftSidebar ?? 'Left Sidebar'}</div>
         </Panel>
         <Separator style={{ width: '2px', background: '#333' }} />
 
@@ -34,7 +42,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <Group orientation="vertical">
             <Panel defaultSize={75} minSize={30}>
               <div data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
-                {children}
+                {children ?? null}
               </div>
             </Panel>
             <Separator style={{ height: '2px', background: '#333' }} />
@@ -44,7 +52,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               maxSize={50}
               style={{ background: '#252526', borderTop: '1px solid #333' }}
             >
-              <div data-testid="bottom-panel">Bottom Panel</div>
+              <div data-testid="bottom-panel">{bottomPanel ?? 'Bottom Panel'}</div>
             </Panel>
           </Group>
         </Panel>
@@ -57,9 +65,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           maxSize={40}
           style={{ background: '#252526', borderLeft: '1px solid #333' }}
         >
-          <div data-testid="right-sidebar">Right Sidebar</div>
+          <div data-testid="right-sidebar">{rightSidebar ?? 'Right Sidebar'}</div>
         </Panel>
       </Group>
+      {footer}
     </div>
   );
 }
