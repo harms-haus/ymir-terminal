@@ -6,6 +6,8 @@ import {
 } from '@ymir/shared';
 import type { MessageEnvelope } from '@ymir/shared';
 
+const MAX_PENDING_MESSAGES = 100;
+
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 class WSClient {
@@ -18,6 +20,7 @@ class WSClient {
   private token: string | null = null;
   private status: ConnectionStatus = 'disconnected';
   private intentionalClose = false;
+  private pendingMessages: MessageEnvelope[] = [];
 
   connect(url: string): void {
     this.url = url;
@@ -29,6 +32,10 @@ class WSClient {
 
   send(envelope: MessageEnvelope): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      if (this.pendingMessages.length >= MAX_PENDING_MESSAGES) {
+        this.pendingMessages.shift();
+      }
+      this.pendingMessages.push(envelope);
       return;
     }
     const outgoing = this.token ? { ...envelope, token: this.token } : envelope;
@@ -57,6 +64,7 @@ class WSClient {
     this.intentionalClose = true;
     this.clearReconnectTimer();
     this.reconnectAttempts = 0;
+    this.pendingMessages = [];
 
     if (this.ws) {
       this.ws.close();
@@ -86,6 +94,7 @@ class WSClient {
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
       this.notifyStatus('connected');
+      this.flushPendingMessages();
     };
 
     this.ws.onmessage = (ev: MessageEvent) => {
@@ -116,6 +125,7 @@ class WSClient {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= WS_RECONNECT_ATTEMPTS) {
+      this.pendingMessages = [];
       return;
     }
 
@@ -136,6 +146,14 @@ class WSClient {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  private flushPendingMessages(): void {
+    const pending = this.pendingMessages;
+    this.pendingMessages = [];
+    for (const envelope of pending) {
+      this.send(envelope);
     }
   }
 

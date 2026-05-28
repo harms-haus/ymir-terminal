@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // own errors via the login() promise.
   useEffect(() => {
     const unsub = wsClient.onMessage((msg: MessageEnvelope) => {
-      if (msg.error?.code === 'AUTH_REQUIRED' && msg.channel !== 'auth') {
+      if ((msg.error?.code === 'AUTH_REQUIRED' || msg.error?.code === 'AUTH_FAILED') && msg.channel !== 'auth') {
         // Token is no longer valid — clear it and force re-login
         setToken(null);
         wsClient.setToken('');

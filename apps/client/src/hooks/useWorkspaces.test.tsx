@@ -26,10 +26,22 @@ const mockOnMessage = mock((handler: (envelope: MessageEnvelope) => void) => {
   };
 });
 
+const mockGetStatus = mock(() => 'connected' as const);
+let statusHandlers: Array<(status: string) => void> = [];
+
+const mockOnStatusChange = mock((handler: (status: string) => void) => {
+  statusHandlers.push(handler);
+  return () => {
+    statusHandlers = statusHandlers.filter((h) => h !== handler);
+  };
+});
+
 mock.module('../lib/ws-client', () => ({
   wsClient: {
     send: mockSend,
     onMessage: mockOnMessage,
+    getStatus: mockGetStatus,
+    onStatusChange: mockOnStatusChange,
   },
 }));
 
@@ -106,7 +118,10 @@ describe('useWorkspaces', () => {
   beforeEach(() => {
     mockSend.mockClear();
     mockOnMessage.mockClear();
+    mockGetStatus.mockClear();
+    mockOnStatusChange.mockClear();
     messageHandlers = [];
+    statusHandlers = [];
   });
 
   afterEach(() => {
@@ -181,7 +196,10 @@ describe('useCreateWorkspace', () => {
   beforeEach(() => {
     mockSend.mockClear();
     mockOnMessage.mockClear();
+    mockGetStatus.mockClear();
+    mockOnStatusChange.mockClear();
     messageHandlers = [];
+    statusHandlers = [];
   });
 
   afterEach(() => {
@@ -241,7 +259,10 @@ describe('useDeleteWorkspace', () => {
   beforeEach(() => {
     mockSend.mockClear();
     mockOnMessage.mockClear();
+    mockGetStatus.mockClear();
+    mockOnStatusChange.mockClear();
     messageHandlers = [];
+    statusHandlers = [];
   });
 
   afterEach(() => {
@@ -295,7 +316,10 @@ describe('useUpdateWorkspace', () => {
   beforeEach(() => {
     mockSend.mockClear();
     mockOnMessage.mockClear();
+    mockGetStatus.mockClear();
+    mockOnStatusChange.mockClear();
     messageHandlers = [];
+    statusHandlers = [];
   });
 
   afterEach(() => {

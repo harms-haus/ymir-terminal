@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sendRequest } from '../lib/send-request';
 import { useAuth } from './useAuth';
+import { useConnectionStatus } from './useConnectionStatus';
 import type {
   WorkspaceListResponse,
   WorkspaceCreateRequest,
@@ -11,9 +12,10 @@ import type {
 
 export function useWorkspaces() {
   const { token } = useAuth();
+  const { isConnected } = useConnectionStatus();
   return useQuery({
     queryKey: ['workspaces'],
-    enabled: !!token,
+    enabled: !!token && isConnected,
     queryFn: async () => {
       const response = await sendRequest<WorkspaceListResponse>('workspace.list', {});
       return response.workspaces;

@@ -47,7 +47,7 @@ function expiryToSeconds(expiry: string): number {
  * connection is not already authenticated and the envelope carries no valid
  * token, an AUTH_REQUIRED error is returned.
  */
-export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): void {
+export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () => void {
   // --- auth channel handler -----------------------------------------------
   router.handle('auth', async (conn: unknown, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<AuthRequest>;
@@ -116,7 +116,7 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): voi
   });
 
   // --- periodic cleanup of stale authAttempts entries --------------------
-  setInterval(() => {
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [key, val] of authAttempts) {
       if (now - val.lastAttempt >= AUTH_WINDOW_MS) {
@@ -150,17 +150,17 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): voi
     const token = envelope.token;
     if (typeof token === 'string' && token.length > 0) {
       try {
-        const result = await verifyToken(token, deps.signingSecret);
-        // Defense-in-depth: ensure the token belongs to this connection
-        if (result.sessionId !== clientConn.sessionId) {
-          const mismatchErr = createError(
-            { id: envelope.id ?? '', channel },
-            ErrorCodes.AUTH_FAILED,
-            'Token session mismatch',
-          );
-          (conn as ClientConnection).send(mismatchErr);
-          return mismatchErr;
+        await verifyToken(token, deps.signingSecret);
+
+        // Token is valid — ensure this connection has a DB session row.
+        // On page refresh a new WebSocket is created with a fresh sessionId,
+        // so we create a session for it (idempotent if already present).
+        try {
+          createSession(deps.sessionDb, clientConn.sessionId);
+        } catch {
+          // Session row already exists for this connection — that's fine.
         }
+
         clientConn.isAuthenticated = true;
         return originalRoute(conn, envelope);
       } catch {
@@ -176,5 +176,10 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): voi
     );
     (conn as ClientConnection).send(err);
     return err;
+  };
+
+  // Return cleanup function
+  return () => {
+    clearInterval(cleanupTimer);
   };
 }
