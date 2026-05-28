@@ -282,4 +282,54 @@ describe("MessageRouter", () => {
     await router.route(conn, envelopeB);
     expect(called).toEqual(["a", "b"]);
   });
+
+  it("catches handler errors and returns error response", async () => {
+    const router = new MessageRouter();
+
+    router.handle("failing.channel", async () => {
+      throw new Error("Handler crashed");
+    });
+
+    const envelope: MessageEnvelope = {
+      v: PROTOCOL_VERSION,
+      type: "request",
+      id: "req-fail",
+      channel: "failing.channel",
+      payload: {},
+    };
+
+    const conn: unknown = {};
+    const result = await router.route(conn, envelope);
+
+    expect(result).not.toBeNull();
+    expect(result!.type).toBe("response");
+    expect(result!.id).toBe("req-fail");
+    expect(result!.error).toBeDefined();
+    expect(result!.error!.code).toBe("HANDLER_ERROR");
+    expect(result!.error!.message).toBe("Handler crashed");
+    expect(result!.payload).toBeNull();
+  });
+
+  it("catches non-Error throws and returns generic message", async () => {
+    const router = new MessageRouter();
+
+    router.handle("throw.string", async () => {
+      throw "string error"; // eslint-disable-line no-throw-literal
+    });
+
+    const envelope: MessageEnvelope = {
+      v: PROTOCOL_VERSION,
+      type: "request",
+      id: "req-str",
+      channel: "throw.string",
+      payload: {},
+    };
+
+    const conn: unknown = {};
+    const result = await router.route(conn, envelope);
+
+    expect(result).not.toBeNull();
+    expect(result!.error!.code).toBe("HANDLER_ERROR");
+    expect(result!.error!.message).toBe("Internal error");
+  });
 });

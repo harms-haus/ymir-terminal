@@ -21,10 +21,11 @@ export interface StartServerOptions {
   password: string;
   port: number;
   host: string;
+  staticDir?: string;
 }
 
 export async function startServer(options: StartServerOptions): Promise<void> {
-  const { password, port, host } = options;
+  const { password, port, host, staticDir } = options;
 
   // 1. Hash password at startup
   const passwordHash = await hashPassword(password);
@@ -68,6 +69,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   const server: Server = await startWebSocketServer({
     port,
     host,
+    staticDir,
     onMessage(conn, raw) {
       try {
         const envelope = JSON.parse(raw);

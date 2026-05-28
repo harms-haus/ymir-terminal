@@ -157,7 +157,17 @@ export class MessageRouter {
       );
     }
 
-    await handler(conn, envelope);
-    return null;
+    try {
+      await handler(conn, envelope);
+      return null;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Internal error";
+      return createError(
+        { id: envelope.id ?? "", channel: envelope.channel },
+        "HANDLER_ERROR",
+        message,
+      );
+    }
   }
 }

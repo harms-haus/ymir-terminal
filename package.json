@@ -2,7 +2,9 @@
   "name": "ymir",
   "private": true,
   "scripts": {
-    "dev:server": "bun run --cwd apps/server dev",
+    "dev": "bun scripts/dev.ts",
+    "build": "bun run --cwd apps/client build",
+    "start": "bun apps/server/src/index.ts --password=$YMIR_PASSWORD",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
