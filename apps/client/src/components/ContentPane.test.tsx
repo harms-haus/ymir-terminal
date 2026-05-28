@@ -1,0 +1,172 @@
+/// <reference lib="dom" />
+import { GlobalRegistrator } from '@happy-dom/global-registrator';
+try {
+  await GlobalRegistrator.register();
+} catch {
+  // Already registered
+}
+
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { render, cleanup, fireEvent } from '@testing-library/react';
+import React from 'react';
+
+// ---------------------------------------------------------------------------
+// Mock useTabs
+// ---------------------------------------------------------------------------
+
+const mockCreateTab = mock((_opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string; filePath?: string }) => {
+  return 'mock-tab-id';
+});
+const mockCloseTab = mock(() => {});
+const mockActivateTab = mock(() => {});
+
+let mockTabsState: Array<{
+  id: string;
+  type: 'terminal' | 'editor';
+  title: string;
+  terminalId?: string;
+  filePath?: string;
+}> = [];
+let mockActiveTabIdState: string | null = null;
+
+mock.module('../hooks/useTabs', () => ({
+  useTabs: () => ({
+    tabs: mockTabsState,
+    activeTabId: mockActiveTabIdState,
+    createTab: mockCreateTab,
+    closeTab: mockCloseTab,
+    activateTab: mockActivateTab,
+  }),
+  Tab: null, // type export, not used at runtime
+}));
+
+// ---------------------------------------------------------------------------
+// Mock Terminal component
+// ---------------------------------------------------------------------------
+
+mock.module('./Terminal', () => ({
+  Terminal: ({ terminalId }: { terminalId: string }) =>
+    React.createElement('div', { 'data-testid': `terminal-${terminalId}` }, `Terminal: ${terminalId}`),
+}));
+
+const { ContentPane } = await import('./ContentPane');
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function renderContentPane(workspaceId: string | null = null) {
+  return render(
+    React.createElement(ContentPane, { workspaceId })
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('ContentPane', () => {
+  beforeEach(() => {
+    mockTabsState = [];
+    mockActiveTabIdState = null;
+    mockCreateTab.mockClear();
+    mockCloseTab.mockClear();
+    mockActivateTab.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  // -----------------------------------------------------------------------
+  // 1. ContentPane renders with tab bar and terminal content
+  // -----------------------------------------------------------------------
+  test('renders with tab bar and terminal content', () => {
+    mockTabsState = [
+      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
+    ];
+    mockActiveTabIdState = 'tab-1';
+
+    const { getByTestId } = renderContentPane();
+
+    expect(getByTestId('content-pane')).toBeTruthy();
+    expect(getByTestId('tab-bar')).toBeTruthy();
+    expect(getByTestId('terminal-term-1')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 2. Add terminal tab button works
+  // -----------------------------------------------------------------------
+  test('add terminal tab button works', () => {
+    const { getByTestId } = renderContentPane();
+
+    const addButton = getByTestId('tab-add');
+    fireEvent.click(addButton);
+
+    expect(mockCreateTab).toHaveBeenCalledTimes(1);
+    expect(mockCreateTab).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'terminal' })
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // 3. Closing tab works
+  // -----------------------------------------------------------------------
+  test('closing tab works', () => {
+    mockTabsState = [
+      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
+    ];
+    mockActiveTabIdState = 'tab-1';
+
+    const { getByTestId } = renderContentPane();
+
+    const closeButton = getByTestId('tab-close-tab-1');
+    fireEvent.click(closeButton);
+
+    expect(mockCloseTab).toHaveBeenCalledTimes(1);
+    expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 4. Active tab shows its content
+  // -----------------------------------------------------------------------
+  test('active tab shows its content', () => {
+    mockTabsState = [
+      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
+      { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
+    ];
+    mockActiveTabIdState = 'tab-2';
+
+    const { getByTestId, queryByTestId } = renderContentPane();
+
+    // Active tab's terminal should be shown
+    expect(getByTestId('terminal-term-2')).toBeTruthy();
+    // Inactive tab's terminal should NOT be shown
+    expect(queryByTestId('terminal-term-1')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // 5. Shows "No tabs open" when no active tab
+  // -----------------------------------------------------------------------
+  test('shows no tabs message when no active tab', () => {
+    const { container } = renderContentPane();
+
+    const content = container.textContent;
+    expect(content).toContain('No tabs open');
+  });
+
+  // -----------------------------------------------------------------------
+  // 6. Shows editor placeholder for editor tabs
+  // -----------------------------------------------------------------------
+  test('shows editor placeholder for editor tabs', () => {
+    mockTabsState = [
+      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
+    ];
+    mockActiveTabIdState = 'tab-1';
+
+    const { getByTestId } = renderContentPane();
+
+    expect(getByTestId('editor-placeholder')).toBeTruthy();
+    expect(getByTestId('editor-placeholder').textContent).toContain('/src/foo.ts');
+  });
+});
