@@ -1,6 +1,7 @@
 import {
   ErrorCodes,
   PROTOCOL_VERSION,
+  expandTilde,
   type EventEnvelope,
   type MessageEnvelope,
   type RequestEnvelope,
@@ -13,6 +14,7 @@ import {
   type WorkspaceSummary,
   type WorkspaceUpdateRequest,
 } from '@ymir/shared';
+import { resolve } from 'node:path';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
 import {
@@ -117,9 +119,11 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       return;
     }
 
+    const normalizedCwd = resolve(expandTilde(payload.cwd));
+
     const workspace = doCreate(persistentDb, {
       name: payload.name,
-      cwd: payload.cwd,
+      cwd: normalizedCwd,
       color: payload.color,
     });
 
@@ -162,7 +166,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
     // Build update input from only the provided optional fields
     const input: UpdateWorkspaceInput = {};
     if (payload.name !== undefined) input.name = payload.name;
-    if (payload.cwd !== undefined) input.cwd = payload.cwd;
+    if (payload.cwd !== undefined) input.cwd = resolve(expandTilde(payload.cwd));
     if (payload.color !== undefined) input.color = payload.color;
 
     const workspace = doUpdate(persistentDb, payload.id, input);

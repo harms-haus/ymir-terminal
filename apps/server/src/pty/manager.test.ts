@@ -3,6 +3,12 @@ import { describe, expect, it, beforeEach, afterEach, mock } from 'bun:test';
 import { PTYManager } from './manager';
 import { toBase64 } from '@ymir/shared';
 
+const mockExistsSync = mock((_path: string) => true);
+
+mock.module('node:fs', () => ({
+  existsSync: mockExistsSync,
+}));
+
 describe('PTYManager', () => {
   let manager: PTYManager;
   let mockTerminalInstances: any[];
@@ -49,6 +55,9 @@ describe('PTYManager', () => {
         this.closed = true;
       }
     };
+
+    // Reset existsSync mock to default (all shells exist)
+    mockExistsSync.mockImplementation((_path: string) => true);
 
     // Mock Bun.spawn
     (Bun as any).spawn = mock((_cmd: string[], opts: any) => {
@@ -217,6 +226,83 @@ describe('PTYManager', () => {
 
   it('has() returns false for nonexistent terminal', () => {
     expect(manager.has('nonexistent')).toBe(false);
+  });
+
+  it('create() falls back to another shell when resolved shell does not exist', () => {
+    mockExistsSync.mockImplementation((path: string) => {
+      // /bin/bash (the default) doesn't exist, but /bin/sh does
+      if (path === '/bin/sh') return true;
+      return false;
+    });
+
+    const onData = mock((_data: string) => {});
+    manager.create('test-fallback', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    expect((Bun as any).spawn).toHaveBeenCalledWith(
+      ['/bin/sh'],
+      expect.objectContaining({ cwd: '/home/user' }),
+    );
+  });
+
+  it('create() throws when no supported shell exists on the system', () => {
+    mockExistsSync.mockReturnValue(false);
+
+    const onData = mock((_data: string) => {});
+    expect(() =>
+      manager.create('test-no-shell', {
+        cwd: '/home/user',
+        cols: 80,
+        rows: 24,
+        onData,
+      }),
+    ).toThrow('No supported shell found on this system');
+  });
+
+  it('create() re-throws with descriptive message when Bun.spawn fails', () => {
+    mockExistsSync.mockReturnValue(true);
+
+    const spawnError = new Error('Permission denied');
+    (Bun as any).spawn = mock(() => {
+      throw spawnError;
+    });
+
+    const onData = mock((_data: string) => {});
+    let caught: Error | undefined;
+    try {
+      manager.create('test-spawn-error', {
+        shell: '/bin/bash',
+        cwd: '/home/user',
+        cols: 80,
+        rows: 24,
+        onData,
+      });
+    } catch (e) {
+      caught = e as Error;
+    }
+
+    expect(caught).toBeDefined();
+    expect(caught!.message).toBe('Failed to spawn shell: /bin/bash');
+    expect(caught!.cause).toBe(spawnError);
+  });
+
+  it('create() throws when shell is not in the allowlist', () => {
+    mockExistsSync.mockReturnValue(true);
+
+    const onData = mock((_data: string) => {});
+    expect(() =>
+      manager.create('test-disallowed-shell', {
+        shell: '/usr/bin/fish',
+        cwd: '/home/user',
+        cols: 80,
+        rows: 24,
+        onData,
+      }),
+    ).toThrow('Shell not allowed: /usr/bin/fish');
   });
 
   it('killAll() closes all terminals', () => {

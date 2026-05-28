@@ -71,26 +71,39 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     const cwd = workspace?.cwd ?? process.cwd();
 
     // Create the PTY process
-    ptyManager.create(terminalId, {
-      cwd,
-      cols,
-      rows,
-      onData: (data: string) => {
-        const evt = createEvent('terminal.output', {
-          terminalId,
-          data,
-        } satisfies TerminalOutputEvent);
-        clientConn.send(evt);
-      },
-      onExit: (exitCode) => {
-        const evt = createEvent('terminal.exit', {
-          terminalId,
-          exitCode,
-        } satisfies TerminalExitEvent);
-        clientConn.send(evt);
-        deleteTerminalInstance(sessionDb, terminalId);
-      },
-    });
+    try {
+      ptyManager.create(terminalId, {
+        cwd,
+        cols,
+        rows,
+        onData: (data: string) => {
+          const evt = createEvent('terminal.output', {
+            terminalId,
+            data,
+          } satisfies TerminalOutputEvent);
+          clientConn.send(evt);
+        },
+        onExit: (exitCode) => {
+          const evt = createEvent('terminal.exit', {
+            terminalId,
+            exitCode,
+          } satisfies TerminalExitEvent);
+          clientConn.send(evt);
+          deleteTerminalInstance(sessionDb, terminalId);
+        },
+      });
+    } catch (err: unknown) {
+      // Clean up the DB record if PTY creation fails
+      deleteTerminalInstance(sessionDb, terminalId);
+      const message = err instanceof Error ? err.message : String(err);
+      const errResp: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'terminal.create' },
+        ErrorCodes.INTERNAL_ERROR,
+        `Failed to create terminal: ${message}`,
+      );
+      clientConn.send(errResp);
+      return;
+    }
 
     const resp: ResponseEnvelope<TerminalCreateResponse> = createResponse(req, {
       terminalId,

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { AppLayout } from './AppLayout';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { RightSidebar } from './RightSidebar';
@@ -11,17 +11,23 @@ import { useTheme } from '../hooks/useTheme';
 import { useWorkspaces } from '../hooks/useWorkspaces';
 
 export function WorkspaceView() {
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [fileToOpen, setFileToOpen] = useState<string | null>(null);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
 
+  const activeWorkspaceId = useMemo(() => {
+    if (selectedWorkspaceId) return selectedWorkspaceId;
+    if (workspaces && workspaces.length > 0) return workspaces[0].id;
+    return null;
+  }, [selectedWorkspaceId, workspaces]);
+
   const activeWorkspace = workspaces?.find((ws) => ws.id === activeWorkspaceId);
 
   const handleWorkspaceSelect = useCallback(
     (id: string) => {
-      setActiveWorkspaceId(id);
+      setSelectedWorkspaceId(id);
       const ws = workspaces?.find((w) => w.id === id);
       if (ws?.color) setAccentColor(ws.color);
     },
@@ -34,7 +40,7 @@ export function WorkspaceView() {
 
   const handleWorkspaceCreated = useCallback(
     (workspaceId: string, color: string) => {
-      setActiveWorkspaceId(workspaceId);
+      setSelectedWorkspaceId(workspaceId);
       setAccentColor(color);
       setIsDialogOpen(false);
     },

@@ -7,9 +7,10 @@ interface TabBarProps {
   onActivate: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onAddTerminal: () => void;
+  canAddTerminal?: boolean;
 }
 
-export function TabBar({ tabs, activeTabId, onActivate, onClose, onAddTerminal }: TabBarProps) {
+export function TabBar({ tabs, activeTabId, onActivate, onClose, onAddTerminal, canAddTerminal = true }: TabBarProps) {
   return (
     <div
       data-testid="tab-bar"
@@ -79,12 +80,14 @@ export function TabBar({ tabs, activeTabId, onActivate, onClose, onAddTerminal }
       })}
       <button
         data-testid="tab-add"
+        disabled={!canAddTerminal}
         onClick={onAddTerminal}
         style={{
           background: 'none',
           border: 'none',
           color: '#999',
-          cursor: 'pointer',
+          cursor: canAddTerminal ? 'pointer' : 'not-allowed',
+          opacity: canAddTerminal ? undefined : 0.3,
           fontSize: '18px',
           lineHeight: '35px',
           padding: '0 10px',

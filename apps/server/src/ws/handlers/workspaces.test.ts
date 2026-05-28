@@ -1,3 +1,5 @@
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
   type RequestEnvelope,
@@ -257,6 +259,20 @@ describe('registerWorkspaceHandlers', () => {
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
     });
 
+    it('expands tilde in cwd to absolute path', async () => {
+      const req = request('workspace.create', {
+        name: 'Tilde',
+        cwd: '~/projects/my-app',
+        color: '#111111',
+      });
+      await router.route(conn, req);
+
+      expect(createWorkspaceFn).toHaveBeenCalledTimes(1);
+      const callArgs = createWorkspaceFn.mock.calls[0];
+      const expectedCwd = path.resolve(os.homedir(), 'projects/my-app');
+      expect(callArgs[1].cwd).toBe(expectedCwd);
+    });
+
     it('starts workspace watcher and broadcasts file.change events', async () => {
       // Capture the watcher callback passed to startWorkspaceWatcher
       let watcherCallback: ((event: { path: string; kind: string }) => void) | undefined;
@@ -340,6 +356,19 @@ describe('registerWorkspaceHandlers', () => {
       expect(updateWorkspaceFn).toHaveBeenCalledTimes(0);
       const resp = conn.sent[0] as Record<string, unknown>;
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('expands tilde in cwd to absolute path', async () => {
+      const req = request('workspace.update', {
+        id: 'ws-1',
+        cwd: '~/new-location',
+      });
+      await router.route(conn, req);
+
+      expect(updateWorkspaceFn).toHaveBeenCalledTimes(1);
+      const callArgs = updateWorkspaceFn.mock.calls[0];
+      const expectedCwd = path.resolve(os.homedir(), 'new-location');
+      expect(callArgs[2].cwd).toBe(expectedCwd);
     });
 
     it('returns error WORKSPACE_NOT_FOUND when update returns null', async () => {

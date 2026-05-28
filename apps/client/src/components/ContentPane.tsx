@@ -113,6 +113,7 @@ export function ContentPane({
         onActivate={activateTab}
         onClose={handleCloseTab}
         onAddTerminal={handleAddTerminal}
+        canAddTerminal={!!workspaceId}
       />
       <div style={{ flex: 1, overflow: 'hidden' }}>
         {activeTab?.type === 'terminal' && activeTab.terminalId && (

@@ -50,7 +50,9 @@ export function Terminal({ terminalId, cols = 80, rows = 24, onReady, onResize }
 
       const observer = new ResizeObserver(() => {
         fit.fit();
-        onResizeRef.current?.(term.cols, term.rows);
+        if (term.cols > 0 && term.rows > 0) {
+          onResizeRef.current?.(term.cols, term.rows);
+        }
       });
       observer.observe(containerRef.current!);
       observerRef.current = observer;

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { toBase64, fromBase64 } from '@ymir/shared';
 
 const ALLOWED_SHELLS = new Set([
@@ -8,6 +9,15 @@ const ALLOWED_SHELLS = new Set([
   '/usr/bin/zsh',
   '/usr/bin/sh',
 ]);
+
+const FALLBACK_ORDER = [
+  '/bin/sh',
+  '/bin/bash',
+  '/usr/bin/bash',
+  '/bin/zsh',
+  '/usr/bin/zsh',
+  '/usr/bin/sh',
+] as const;
 
 export interface PTYOptions {
   shell?: string;
@@ -43,9 +53,18 @@ export class PTYManager {
       },
     });
 
-    const shell = options.shell || process.env.SHELL || '/bin/bash';
-    if (!ALLOWED_SHELLS.has(shell)) {
-      throw new Error(`Shell not allowed: ${shell}`);
+    const requestedShell = options.shell || process.env.SHELL || '/bin/bash';
+    if (!ALLOWED_SHELLS.has(requestedShell)) {
+      throw new Error(`Shell not allowed: ${requestedShell}`);
+    }
+
+    let shell = requestedShell;
+    if (!existsSync(shell)) {
+      const fallback = FALLBACK_ORDER.find((s) => ALLOWED_SHELLS.has(s) && existsSync(s));
+      if (!fallback) {
+        throw new Error('No supported shell found on this system');
+      }
+      shell = fallback;
     }
 
     const bunSpawn = (Bun as Record<string, unknown>).spawn as
@@ -56,11 +75,16 @@ export class PTYManager {
       | undefined;
     if (!bunSpawn) throw new Error('Bun.spawn is not available');
 
-    const proc = bunSpawn([shell], {
-      terminal,
-      cwd: options.cwd,
-      env: { ...process.env },
-    });
+    let proc: { kill: () => void; exited: Promise<number> };
+    try {
+      proc = bunSpawn([shell], {
+        terminal,
+        cwd: options.cwd,
+        env: { ...process.env },
+      });
+    } catch (err) {
+      throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
+    }
 
     this.terminals.set(id, { terminal, process: proc });
 
@@ -87,10 +111,17 @@ export class PTYManager {
   resize(id: string, cols: number, rows: number): void {
     const entry = this.terminals.get(id);
     if (!entry) throw new Error(`Terminal ${id} not found`);
-    (entry.terminal as { resize: (opts: { cols: number; rows: number }) => void }).resize({
-      cols,
-      rows,
-    });
+    const safeCols = Math.floor(cols);
+    const safeRows = Math.floor(rows);
+    if (!Number.isFinite(safeCols) || safeCols < 1 || !Number.isFinite(safeRows) || safeRows < 1) return;
+    try {
+      (entry.terminal as { resize: (opts: { cols: number; rows: number }) => void }).resize({
+        cols: safeCols,
+        rows: safeRows,
+      });
+    } catch (err) {
+      console.warn(`resize(${id}, ${safeCols}, ${safeRows}) failed:`, err);
+    }
   }
 
   kill(id: string): void {
