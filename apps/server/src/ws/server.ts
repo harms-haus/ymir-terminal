@@ -37,7 +37,8 @@ export interface WsServerOptions {
   port: number;
   host: string;
   staticDir?: string;
-  onMessage?: (conn: ClientConnection, message: string) => void;
+  onMessage?: (conn: ClientConnection, message: MessageEnvelope) => void;
+  onClose?: (conn: ClientConnection) => void;
 }
 
 /**
@@ -47,12 +48,13 @@ export interface WsServerOptions {
  * - On `message`: parse JSON; if the connection is not authenticated only
  *   messages with `channel === 'auth'` are forwarded. Others receive an
  *   `AUTH_REQUIRED` error response.
- * - On `close`: remove the connection from the map (does NOT destroy PTYs).
+ * - On `close`: remove the connection from the map and invoke the
+ *   `onClose` callback to clean up PTY processes and session data.
  */
 export async function startWebSocketServer(
   options: WsServerOptions,
 ): Promise<Server> {
-  const { port, host, onMessage } = options;
+  const { port, host, onMessage, onClose } = options;
 
   // Resolve the static files directory (for SPA serving)
   const staticDir = options.staticDir
@@ -153,7 +155,7 @@ export async function startWebSocketServer(
         }
 
         if (onMessage) {
-          onMessage(conn, raw);
+          onMessage(conn, parsed);
         }
       },
 
@@ -161,8 +163,10 @@ export async function startWebSocketServer(
         const conn = getConnection(ws);
         if (conn) {
           connections.delete(conn.sessionId);
+          if (onClose) {
+            onClose(conn);
+          }
         }
-        // Intentionally does NOT destroy PTY processes on disconnect.
       },
     },
   });

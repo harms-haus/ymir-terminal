@@ -21,6 +21,11 @@ export interface AuthDeps {
 /** JWT expiry duration string (7 days) – keep in sync with jwt.ts default. */
 const TOKEN_EXPIRY = '7d';
 
+const authAttempts = new Map<string, { count: number; lastAttempt: number }>();
+const MAX_AUTH_ATTEMPTS = 5;
+const AUTH_WINDOW_MS = 60_000; // 1 minute
+const MAX_PASSWORD_LENGTH = 128;
+
 /** Convert expiry string like "7d" to seconds. */
 function expiryToSeconds(expiry: string): number {
   const match = expiry.match(/^(\d+)([smhd])$/);
@@ -47,10 +52,37 @@ export function registerAuthHandlers(
     const clientConn = conn as { sessionId: string; isAuthenticated: boolean };
     const password: string = req.payload?.password ?? '';
 
+    // Reject overly long passwords before hashing
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'auth' },
+        ErrorCodes.AUTH_FAILED,
+        'Password too long',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
+
+    // Per-connection rate limiting
+    const attempts = authAttempts.get(clientConn.sessionId) || { count: 0, lastAttempt: 0 };
+    const now = Date.now();
+    if (attempts.count >= MAX_AUTH_ATTEMPTS && now - attempts.lastAttempt < AUTH_WINDOW_MS) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'auth' },
+        ErrorCodes.AUTH_FAILED,
+        'Too many authentication attempts. Try again later.',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
+
     const valid = await verifyPassword(password, deps.passwordHash);
 
     if (!valid) {
       clientConn.isAuthenticated = false;
+      attempts.count++;
+      attempts.lastAttempt = Date.now();
+      authAttempts.set(clientConn.sessionId, attempts);
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'auth' },
         ErrorCodes.AUTH_FAILED,
@@ -59,6 +91,9 @@ export function registerAuthHandlers(
       (conn as ClientConnection).send(err);
       return;
     }
+
+    // Clear rate-limit attempts on successful auth
+    authAttempts.delete(clientConn.sessionId);
 
     // Create a session in the DB and issue a JWT
     const sessionId = createSession(deps.sessionDb);

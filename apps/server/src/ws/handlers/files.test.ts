@@ -425,4 +425,72 @@ describe('registerFileHandlers', () => {
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // 8. Path traversal protection
+  // -----------------------------------------------------------------------
+  describe('path traversal protection', () => {
+    it('file.read rejects traversal with PERMISSION_DENIED', async () => {
+      const req = request('file.read', { workspaceId: 'ws-1', path: '../../../etc/passwd' });
+      await router.route(conn, req);
+
+      expect(readFileFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+    });
+
+    it('file.write rejects traversal with PERMISSION_DENIED', async () => {
+      const req = request('file.write', { workspaceId: 'ws-1', path: '../../etc/malicious', content: 'pwned' });
+      await router.route(conn, req);
+
+      expect(writeFileFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+    });
+
+    it('file.delete rejects traversal with PERMISSION_DENIED', async () => {
+      const req = request('file.delete', { workspaceId: 'ws-1', path: '/etc/passwd' });
+      await router.route(conn, req);
+
+      expect(deleteFileFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+    });
+
+    it('file.rename rejects traversal on oldPath with PERMISSION_DENIED', async () => {
+      const req = request('file.rename', {
+        workspaceId: 'ws-1',
+        oldPath: '../../../etc/passwd',
+        newPath: '/home/dev/project/stolen.txt',
+      });
+      await router.route(conn, req);
+
+      expect(renameFileFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+    });
+
+    it('file.rename rejects traversal on newPath with PERMISSION_DENIED', async () => {
+      const req = request('file.rename', {
+        workspaceId: 'ws-1',
+        oldPath: '/home/dev/project/a.ts',
+        newPath: '../../../tmp/evil',
+      });
+      await router.route(conn, req);
+
+      expect(renameFileFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+    });
+
+    it('file.create rejects traversal with PERMISSION_DENIED', async () => {
+      const req = request('file.create', { workspaceId: 'ws-1', path: '/tmp/evil', isDirectory: false });
+      await router.route(conn, req);
+
+      expect(createFileFn).toHaveBeenCalledTimes(0);
+      expect(createDirectoryFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+    });
+  });
 });

@@ -353,7 +353,106 @@ describe('registerTerminalHandlers', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 7. PTY output events
+  // 7. Cross-session access denied
+  // -------------------------------------------------------------------------
+
+  describe('cross-session access denied', () => {
+    it('terminal.input rejects access from a different session', async () => {
+      registerTerminalHandlers(router, { ptyManager, sessionDb });
+
+      // Create a terminal under the current session
+      const createReq = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+      });
+      await router.route(conn, createReq);
+      const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      const terminalId = createResp.payload!.terminalId;
+
+      // Use a different session
+      const otherConn = mockConn();
+      otherConn.sessionId = crypto.randomUUID(); // different session
+
+      const inputReq = request<TerminalInputRequest>('terminal.input', {
+        terminalId,
+        data: btoa('ls'),
+      });
+
+      await router.route(otherConn, inputReq);
+
+      expect(otherConn.sent.length).toBe(1);
+      const resp = otherConn.sent[0] as ResponseEnvelope;
+      expect(resp.error).toBeDefined();
+      expect(resp.error!.code).toBe(ErrorCodes.PERMISSION_DENIED);
+
+      // PTY write should NOT have been called
+      expect(ptyManager.write).not.toHaveBeenCalled();
+    });
+
+    it('terminal.resize rejects access from a different session', async () => {
+      registerTerminalHandlers(router, { ptyManager, sessionDb });
+
+      // Create a terminal under the current session
+      const createReq = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+      });
+      await router.route(conn, createReq);
+      const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      const terminalId = createResp.payload!.terminalId;
+
+      // Use a different session
+      const otherConn = mockConn();
+      otherConn.sessionId = crypto.randomUUID();
+
+      const resizeReq = request<TerminalResizeRequest>('terminal.resize', {
+        terminalId,
+        cols: 100,
+        rows: 50,
+      });
+
+      await router.route(otherConn, resizeReq);
+
+      expect(otherConn.sent.length).toBe(1);
+      const resp = otherConn.sent[0] as ResponseEnvelope;
+      expect(resp.error).toBeDefined();
+      expect(resp.error!.code).toBe(ErrorCodes.PERMISSION_DENIED);
+
+      // PTY resize should NOT have been called
+      expect(ptyManager.resize).not.toHaveBeenCalled();
+    });
+
+    it('terminal.close rejects access from a different session', async () => {
+      registerTerminalHandlers(router, { ptyManager, sessionDb });
+
+      // Create a terminal under the current session
+      const createReq = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+      });
+      await router.route(conn, createReq);
+      const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      const terminalId = createResp.payload!.terminalId;
+
+      // Use a different session
+      const otherConn = mockConn();
+      otherConn.sessionId = crypto.randomUUID();
+
+      const closeReq = request<TerminalCloseRequest>('terminal.close', {
+        terminalId,
+      });
+
+      await router.route(otherConn, closeReq);
+
+      expect(otherConn.sent.length).toBe(1);
+      const resp = otherConn.sent[0] as ResponseEnvelope;
+      expect(resp.error).toBeDefined();
+      expect(resp.error!.code).toBe(ErrorCodes.PERMISSION_DENIED);
+
+      // PTY kill should NOT have been called
+      expect(ptyManager.kill).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 8. PTY output events
   // -------------------------------------------------------------------------
 
   describe('terminal.output events', () => {

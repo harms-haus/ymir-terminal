@@ -1,4 +1,4 @@
-import { extname } from 'node:path';
+import { extname, resolve } from 'node:path';
 import {
   ErrorCodes,
   type MessageEnvelope,
@@ -108,6 +108,19 @@ function detectLanguage(filePath: string): string {
   }
   const ext = extname(filePath).toLowerCase();
   return EXTENSION_MAP[ext] ?? 'plaintext';
+}
+
+// ---------------------------------------------------------------------------
+// Path traversal protection
+// ---------------------------------------------------------------------------
+
+function safePath(workspaceCwd: string, userInput: string): string {
+  const resolved = resolve(workspaceCwd, userInput);
+  const normalizedCwd = resolve(workspaceCwd);
+  if (!resolved.startsWith(normalizedCwd + '/') && resolved !== normalizedCwd) {
+    throw new Error('Path traversal detected');
+  }
+  return resolved;
 }
 
 // ---------------------------------------------------------------------------
@@ -235,8 +248,21 @@ export function registerFileHandlers(
       return;
     }
 
-    const content = doRead(payload.path);
-    const language = detectLanguage(payload.path);
+    let resolvedPath: string;
+    try {
+      resolvedPath = safePath(workspace.cwd, payload.path);
+    } catch {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'file.read' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Path traversal detected',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
+
+    const content = doRead(resolvedPath);
+    const language = detectLanguage(resolvedPath);
 
     const resp: ResponseEnvelope<FileReadResponse> = createResponse(req, {
       content,
@@ -278,7 +304,20 @@ export function registerFileHandlers(
       return;
     }
 
-    doWrite(payload.path, payload.content);
+    let resolvedPath: string;
+    try {
+      resolvedPath = safePath(workspace.cwd, payload.path);
+    } catch {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'file.write' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Path traversal detected',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
+
+    doWrite(resolvedPath, payload.content);
 
     const resp: ResponseEnvelope = createResponse(req, { success: true });
     (conn as ClientConnection).send(resp);
@@ -315,7 +354,20 @@ export function registerFileHandlers(
       return;
     }
 
-    doDelete(payload.path);
+    let resolvedPath: string;
+    try {
+      resolvedPath = safePath(workspace.cwd, payload.path);
+    } catch {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'file.delete' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Path traversal detected',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
+
+    doDelete(resolvedPath);
 
     const resp: ResponseEnvelope = createResponse(req, { success: true });
     (conn as ClientConnection).send(resp);
@@ -353,7 +405,22 @@ export function registerFileHandlers(
       return;
     }
 
-    doRename(payload.oldPath, payload.newPath);
+    let resolvedOldPath: string;
+    let resolvedNewPath: string;
+    try {
+      resolvedOldPath = safePath(workspace.cwd, payload.oldPath);
+      resolvedNewPath = safePath(workspace.cwd, payload.newPath);
+    } catch {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'file.rename' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Path traversal detected',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
+
+    doRename(resolvedOldPath, resolvedNewPath);
 
     const resp: ResponseEnvelope = createResponse(req, { success: true });
     (conn as ClientConnection).send(resp);
@@ -390,10 +457,23 @@ export function registerFileHandlers(
       return;
     }
 
+    let resolvedPath: string;
+    try {
+      resolvedPath = safePath(workspace.cwd, payload.path);
+    } catch {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'file.create' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Path traversal detected',
+      );
+      (conn as ClientConnection).send(err);
+      return;
+    }
+
     if (payload.isDirectory) {
-      doCreateDir(payload.path);
+      doCreateDir(resolvedPath);
     } else {
-      doCreateFile(payload.path);
+      doCreateFile(resolvedPath);
     }
 
     const resp: ResponseEnvelope = createResponse(req, { success: true });

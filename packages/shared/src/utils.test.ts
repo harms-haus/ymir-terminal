@@ -25,6 +25,14 @@ describe("toBase64 / fromBase64", () => {
     const decoded = fromBase64(encoded);
     expect(decoded).toEqual(new Uint8Array([1, 2, 3]));
   });
+
+  it('handles large payloads without stack overflow', () => {
+    const largeData = new Uint8Array(200_000).fill(65); // 200KB of 'A'
+    const encoded = toBase64(largeData);
+    expect(encoded.length).toBeGreaterThan(0);
+    const decoded = fromBase64(encoded);
+    expect(decoded.length).toBe(200_000);
+  });
 });
 
 describe("clamp", () => {

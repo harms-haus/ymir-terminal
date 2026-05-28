@@ -73,7 +73,12 @@ export function FileTreeContextMenu({
           <ContextMenu.Separator style={{ height: '1px', background: '#333', margin: '4px 0' }} />
           <ContextMenu.Item
             data-testid="menu-delete"
-            onSelect={() => onDelete?.(path)}
+            onSelect={() => {
+              const name = path.split('/').pop() || path;
+              if (window.confirm(`Delete "${name}"? This cannot be undone.`)) {
+                onDelete?.(path);
+              }
+            }}
             style={{ padding: '6px 12px', cursor: 'pointer', fontSize: '13px', color: '#c74e39', outline: 'none' }}
           >
             Delete

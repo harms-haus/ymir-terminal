@@ -32,9 +32,11 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 const args = parseArgs(process.argv);
 
-if (!args.password) {
-  console.log('Usage: ymir --password=<pass> [--port=3000] [--host=127.0.0.1] [--staticDir=<path>]');
+const password = args.password || process.env.YMIR_PASSWORD;
+if (!password) {
+  console.error('Usage: ymir --password=<pass> [--port=3000] [--host=127.0.0.1] [--staticDir=<path>]');
+  console.error('  Or set YMIR_PASSWORD environment variable');
   process.exit(1);
 }
 
-startServer({ password: args.password, port: args.port, host: args.host, staticDir: args.staticDir });
+startServer({ password, port: args.port, host: args.host, staticDir: args.staticDir });

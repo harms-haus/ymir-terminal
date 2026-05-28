@@ -3,7 +3,7 @@ import type { Database } from 'bun:sqlite';
 import { hashPassword } from './auth/password';
 import { generateSigningSecret } from './auth/jwt';
 import { initDatabase } from './db/persistent';
-import { initSessionDb } from './db/session';
+import { initSessionDb, cleanupSession } from './db/session';
 import { startWebSocketServer, connections } from './ws/server';
 import { MessageRouter } from './ws/router';
 import { registerAuthHandlers } from './ws/handlers/auth';
@@ -70,15 +70,21 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     port,
     host,
     staticDir,
-    onMessage(conn, raw) {
-      try {
-        const envelope = JSON.parse(raw);
-        router.route(conn, envelope).catch((err: unknown) => {
-          console.error('Router error:', err);
-        });
-      } catch {
-        // Parsing errors are already handled in startWebSocketServer
+    onMessage(conn, envelope) {
+      router.route(conn, envelope).catch((err: unknown) => {
+        console.error('Router error:', err);
+      });
+    },
+    onClose(conn) {
+      // Query all terminal instances for this session and kill each PTY
+      const terminals = sessionDb
+        .prepare('SELECT id FROM terminal_instances WHERE session_id = ?')
+        .all(conn.sessionId) as { id: string }[];
+      for (const { id } of terminals) {
+        ptyManager.kill(id);
       }
+      // Remove all session DB rows (tabs, panes, terminal_instances, etc.)
+      cleanupSession(sessionDb, conn.sessionId);
     },
   });
 

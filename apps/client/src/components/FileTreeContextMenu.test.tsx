@@ -202,12 +202,18 @@ describe('FileTreeContextMenu', () => {
   // -----------------------------------------------------------------------
   test('Delete calls onDelete with the path', () => {
     const onDelete = mock(() => {});
-    const { container } = renderContextMenu({ isDirectory: true, path: '/src/components', onDelete });
+    const originalConfirm = globalThis.confirm;
+    globalThis.confirm = () => true;
+    try {
+      const { container } = renderContextMenu({ isDirectory: true, path: '/src/components', onDelete });
 
-    const item = container.querySelector('[data-testid="menu-delete"]') as HTMLElement;
-    fireEvent.click(item);
+      const item = container.querySelector('[data-testid="menu-delete"]') as HTMLElement;
+      fireEvent.click(item);
 
-    expect(onDelete).toHaveBeenCalledWith('/src/components');
+      expect(onDelete).toHaveBeenCalledWith('/src/components');
+    } finally {
+      globalThis.confirm = originalConfirm;
+    }
   });
 
   // -----------------------------------------------------------------------

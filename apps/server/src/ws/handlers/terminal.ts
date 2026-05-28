@@ -120,6 +120,17 @@ export function registerTerminalHandlers(
       return;
     }
 
+    // Verify terminal belongs to the requesting session
+    if (instance.session_id !== clientConn.sessionId) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'terminal.input' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Terminal does not belong to this session',
+      );
+      clientConn.send(err);
+      return;
+    }
+
     // Write base64-encoded data to the PTY
     ptyManager.write(terminalId, payload.data ?? '');
 
@@ -151,6 +162,17 @@ export function registerTerminalHandlers(
         { id: req.id, channel: req.channel ?? 'terminal.resize' },
         ErrorCodes.TERMINAL_NOT_FOUND,
         `Terminal not found: ${terminalId}`,
+      );
+      clientConn.send(err);
+      return;
+    }
+
+    // Verify terminal belongs to the requesting session
+    if (instance.session_id !== clientConn.sessionId) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'terminal.resize' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Terminal does not belong to this session',
       );
       clientConn.send(err);
       return;
@@ -193,6 +215,17 @@ export function registerTerminalHandlers(
         { id: req.id, channel: req.channel ?? 'terminal.close' },
         ErrorCodes.TERMINAL_NOT_FOUND,
         `Terminal not found: ${terminalId}`,
+      );
+      clientConn.send(err);
+      return;
+    }
+
+    // Verify terminal belongs to the requesting session
+    if (instance.session_id !== clientConn.sessionId) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'terminal.close' },
+        ErrorCodes.PERMISSION_DENIED,
+        'Terminal does not belong to this session',
       );
       clientConn.send(err);
       return;

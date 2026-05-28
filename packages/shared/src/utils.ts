@@ -7,8 +7,12 @@ export function generateId(): string {
 }
 
 export function toBase64(data: Uint8Array | string): string {
-  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
-  return btoa(String.fromCodePoint(...bytes));
+  const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 export function fromBase64(data: string): Uint8Array {

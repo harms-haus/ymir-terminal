@@ -75,7 +75,7 @@ test('server receives and parses JSON messages via onMessage callback', async ()
     port: 0,
     host: HOST,
     onMessage(conn, message) {
-      received.push({ conn, message: JSON.parse(message) });
+      received.push({ conn, message });
     },
   });
   port = server.port;
