@@ -1,28 +1,24 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useTabs } from '../hooks/useTabs';
-import { useTerminal } from '../hooks/useTerminal';
+import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { Terminal } from './Terminal';
 import { sendRequest } from '../lib/send-request';
+import {
+  COLOR_ACCENT,
+  COLOR_BG_PRIMARY,
+  COLOR_BG_SECONDARY,
+  COLOR_BORDER,
+  COLOR_CLOSE_BTN_HOVER_BG,
+  COLOR_TEXT_BRIGHT,
+  COLOR_TEXT_DIM,
+  COLOR_TEXT_MUTED,
+} from '../lib/theme';
 
 export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
   const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
-  const { createTerminal } = useTerminal(null);
-  const creatingRef = useRef(false);
-
-  const handleAddTerminal = async () => {
-    if (!workspaceId || creatingRef.current) return;
-    creatingRef.current = true;
-    try {
-      const terminalId = await createTerminal(workspaceId);
-      createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}`, terminalId });
-    } catch (err) {
-      console.error('Failed to create terminal:', err);
-    } finally {
-      creatingRef.current = false;
-    }
-  };
+  const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab);
 
   const handleCloseTab = useCallback(
     (tabId: string) => {
@@ -38,19 +34,24 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
   return (
     <div
       data-testid="bottom-panel"
-      style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: COLOR_BG_PRIMARY,
+      }}
     >
       <style>{`
-        .tab-close-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
-        .tab-close-btn:focus-visible { outline: 1px solid #007acc; outline-offset: -1px; }
+        .tab-close-btn:hover { color: ${COLOR_TEXT_BRIGHT}; background: ${COLOR_CLOSE_BTN_HOVER_BG}; }
+        .tab-close-btn:focus-visible { outline: 1px solid ${COLOR_ACCENT}; outline-offset: -1px; }
       `}</style>
       {/* Tab bar */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          background: '#252526',
-          borderBottom: '1px solid #333',
+          background: COLOR_BG_SECONDARY,
+          borderBottom: `1px solid ${COLOR_BORDER}`,
           height: '35px',
         }}
       >
@@ -65,9 +66,10 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              background: activeTabId === tab.id ? '#1e1e1e' : 'transparent',
-              borderBottom: activeTabId === tab.id ? '1px solid #007acc' : '1px solid transparent',
-              color: activeTabId === tab.id ? '#fff' : '#888',
+              background: activeTabId === tab.id ? COLOR_BG_PRIMARY : 'transparent',
+              borderBottom:
+                activeTabId === tab.id ? `1px solid ${COLOR_ACCENT}` : '1px solid transparent',
+              color: activeTabId === tab.id ? COLOR_TEXT_BRIGHT : COLOR_TEXT_MUTED,
             }}
           >
             <span style={{ fontSize: '12px' }}>{tab.title}</span>
@@ -81,7 +83,7 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#888',
+                color: COLOR_TEXT_MUTED,
                 cursor: 'pointer',
                 fontSize: '12px',
                 padding: '0 2px',
@@ -103,7 +105,7 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
           style={{
             background: 'none',
             border: 'none',
-            color: '#888',
+            color: COLOR_TEXT_MUTED,
             cursor: 'pointer',
             padding: '6px 12px',
             fontSize: '14px',
@@ -116,13 +118,10 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden' }}>
         {activeTab?.terminalId && (
-          <Terminal
-            key={activeTab.terminalId}
-            terminalId={activeTab.terminalId}
-          />
+          <Terminal key={activeTab.terminalId} terminalId={activeTab.terminalId} />
         )}
         {!activeTab && (
-          <div style={{ color: '#666', padding: '8px', fontSize: '12px' }}>No terminal</div>
+          <div style={{ color: COLOR_TEXT_DIM, padding: '8px', fontSize: '12px' }}>No terminal</div>
         )}
       </div>
     </div>

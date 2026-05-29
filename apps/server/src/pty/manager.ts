@@ -113,7 +113,8 @@ export class PTYManager {
     if (!entry) throw new Error(`Terminal ${id} not found`);
     const safeCols = Math.floor(cols);
     const safeRows = Math.floor(rows);
-    if (!Number.isFinite(safeCols) || safeCols < 1 || !Number.isFinite(safeRows) || safeRows < 1) return;
+    if (!Number.isFinite(safeCols) || safeCols < 1 || !Number.isFinite(safeRows) || safeRows < 1)
+      return;
     try {
       (entry.terminal as { resize: (cols: number, rows: number) => void }).resize(
         safeCols,

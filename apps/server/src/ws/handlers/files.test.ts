@@ -8,8 +8,8 @@ import {
   type FileReadResponse,
 } from '@ymir/shared';
 import { MessageRouter } from '../router';
-import { registerFileHandlers } from './files';
-import type { FileDeps } from './files';
+import { registerFileHandlers } from './files/index';
+import type { FileDeps } from './files/index';
 
 // ---------------------------------------------------------------------------
 // Helpers

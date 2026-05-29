@@ -10,13 +10,9 @@ export function useTheme() {
     }
   }, []);
 
-  const setAccentColor = useCallback(
-    (color: string) => {
-      setAccentColorState(color);
-      applyToDom(color);
-    },
-    [applyToDom],
-  );
+  const setAccentColor = useCallback((color: string) => {
+    setAccentColorState(color);
+  }, []);
 
   useEffect(() => {
     applyToDom(accentColor);

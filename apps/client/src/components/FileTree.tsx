@@ -12,6 +12,7 @@ interface FileTreeProps {
   workspaceId: string;
   gitStatus?: GitStatusResponse | null;
   workspaceRoot?: string;
+  selectedPath?: string;
   onNewFile?: (parentDir: string) => void;
   onNewFolder?: (parentDir: string) => void;
   onRename?: (path: string) => void;
@@ -24,6 +25,7 @@ export function FileTree({
   onFileSelect,
   gitStatus,
   workspaceRoot,
+  selectedPath,
   onNewFile,
   onNewFolder,
   onRename,
@@ -42,6 +44,7 @@ export function FileTree({
           depth={0}
           gitPathMap={gitPathMap}
           workspaceRoot={workspaceRoot}
+          selectedPath={selectedPath}
           onNewFile={onNewFile}
           onNewFolder={onNewFolder}
           onRename={onRename}
@@ -68,6 +71,7 @@ function FileTreeNode({
   depth,
   gitPathMap,
   workspaceRoot,
+  selectedPath,
   onNewFile,
   onNewFolder,
   onRename,
@@ -79,6 +83,7 @@ function FileTreeNode({
   depth: number;
   gitPathMap: Map<string, { status: string; staged: boolean }>;
   workspaceRoot?: string;
+  selectedPath?: string;
   onNewFile?: (parentDir: string) => void;
   onNewFolder?: (parentDir: string) => void;
   onRename?: (path: string) => void;
@@ -87,11 +92,13 @@ function FileTreeNode({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  const isSelected = !node.isDirectory && node.path === selectedPath;
+
   const relativePath = workspaceRoot ? node.path.slice(workspaceRoot.length + 1) : node.path;
   const gitEntry = gitPathMap.get(relativePath);
   const dirStatus = useMemo(
-    () => node.isDirectory ? computeDirectoryStatus(node, gitPathMap, workspaceRoot || '') : null,
-    [node.isDirectory, node.children, gitPathMap, workspaceRoot],
+    () => (node.isDirectory ? computeDirectoryStatus(node, gitPathMap, workspaceRoot || '') : null),
+    [node, gitPathMap, workspaceRoot],
   );
 
   const statusLabel = gitEntry ? GIT_STATUS_LABELS[gitEntry.status] || gitEntry.status : undefined;
@@ -120,6 +127,7 @@ function FileTreeNode({
           role="treeitem"
           tabIndex={0}
           aria-expanded={node.isDirectory ? expanded : undefined}
+          aria-selected={isSelected}
           onClick={handleClick}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -140,12 +148,21 @@ function FileTreeNode({
             overflow: 'hidden',
           }}
         >
-          <span style={{ fontSize: '10px', display: 'inline-block', width: '10px', textAlign: 'center' }}>
+          <span
+            style={{
+              fontSize: '10px',
+              display: 'inline-block',
+              width: '10px',
+              textAlign: 'center',
+            }}
+          >
             {node.isDirectory ? (expanded ? '▼' : '▶') : ''}
           </span>
           <span
             style={{
-              ...(gitEntry && gitEntry.status === 'D' ? { color: '#c74e39', textDecoration: 'line-through' } : {}),
+              ...(gitEntry && gitEntry.status === 'D'
+                ? { color: '#c74e39', textDecoration: 'line-through' }
+                : {}),
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -194,6 +211,7 @@ function FileTreeNode({
               depth={depth + 1}
               gitPathMap={gitPathMap}
               workspaceRoot={workspaceRoot}
+              selectedPath={selectedPath}
               onNewFile={onNewFile}
               onNewFolder={onNewFolder}
               onRename={onRename}

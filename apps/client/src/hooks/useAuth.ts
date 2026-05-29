@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { wsClient } from '../lib/ws-client';
-import { PROTOCOL_VERSION } from '@ymir/shared';
+import { sendRequest } from '../lib/send-request';
 import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 
 // ---------------------------------------------------------------------------
@@ -95,58 +95,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const requestId = crypto.randomUUID();
-
-      const envelope: MessageEnvelope = {
-        v: PROTOCOL_VERSION,
-        type: 'request',
-        id: requestId,
-        channel: 'auth',
-        payload: { password },
-      };
-
-      return new Promise<void>((resolve, reject) => {
-        let settled = false;
-
-        const unsub = wsClient.onMessage((response: MessageEnvelope) => {
-          if (response.type === 'response' && response.id === requestId) {
-            settled = true;
-            unsub();
-
-            const resp = response as ResponseEnvelope;
-            if (resp.error) {
-              isLoggingInRef.current = false;
-              reject(new Error(resp.error.message || 'Authentication failed'));
-              return;
-            }
-
-            const payload = response.payload as { token: string; expiresIn: number } | null;
-            if (payload?.token) {
-              const jwt = payload.token;
-              wsClient.setToken(jwt);
-              setToken(jwt);
-              isLoggingInRef.current = false;
-              resolve();
-            } else {
-              isLoggingInRef.current = false;
-              reject(new Error('Authentication failed'));
-            }
-          }
-        });
-
-        wsClient.send(envelope);
-
-        setTimeout(() => {
-          if (!settled) {
-            unsub();
-            isLoggingInRef.current = false;
-            reject(new Error('Authentication timed out'));
-          }
-        }, 10_000);
+      const payload = await sendRequest<{ token: string; expiresIn: number }>('auth', {
+        password,
       });
-    } catch (err) {
+
+      if (payload?.token) {
+        wsClient.setToken(payload.token);
+        setToken(payload.token);
+      } else {
+        throw new Error('Authentication failed');
+      }
+    } finally {
       isLoggingInRef.current = false;
-      throw err;
     }
   }, []);
 
@@ -156,7 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = wsClient.onMessage((msg: MessageEnvelope) => {
       const resp = msg as ResponseEnvelope;
-      if ((resp.error?.code === 'AUTH_REQUIRED' || resp.error?.code === 'AUTH_FAILED') && msg.channel !== 'auth') {
+      if (
+        (resp.error?.code === 'AUTH_REQUIRED' || resp.error?.code === 'AUTH_FAILED') &&
+        msg.channel !== 'auth'
+      ) {
         // Token is no longer valid — clear it and force re-login
         setToken(null);
         wsClient.setToken('');

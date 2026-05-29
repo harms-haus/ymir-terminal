@@ -8,7 +8,10 @@ export interface ScanOptions {
   excludeDirs?: string[]; // default ['node_modules', '.git']
 }
 
-export async function scanDirectory(dirPath: string, options: ScanOptions = {}): Promise<FileNode[]> {
+export async function scanDirectory(
+  dirPath: string,
+  options: ScanOptions = {},
+): Promise<FileNode[]> {
   const maxDepth = options.maxDepth ?? 10;
   const includeHidden = options.includeHidden ?? false;
   const excludeDirs = options.excludeDirs ?? ['node_modules', '.git'];
@@ -26,7 +29,8 @@ async function scan(
   let entries;
   try {
     entries = await readdir(dirPath);
-  } catch {
+  } catch (error) {
+    console.error('Failed to read directory:', dirPath, error);
     return [];
   }
 

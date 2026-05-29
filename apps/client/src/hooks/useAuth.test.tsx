@@ -6,7 +6,7 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { PROTOCOL_VERSION } from '@ymir/shared';
@@ -58,6 +58,11 @@ function createWrapper() {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('useAuth', () => {
   beforeEach(() => {

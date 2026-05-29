@@ -1,22 +1,17 @@
 import type { GitStatusResponse, GitFileChange } from '@ymir/shared';
+import { COLOR_ACCENT, COLOR_TEXT_DIM, COLOR_TEXT_MUTED, GIT_STATUS_COLORS } from '../lib/theme';
 
 interface GitPanelProps {
   gitStatus: GitStatusResponse | null;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  M: '#e2c08d',
-  A: '#73c991',
-  D: '#c74e39',
-  R: '#73c991',
-  C: '#73c991',
-  '?': '#888',
-};
-
 export function GitPanel({ gitStatus }: GitPanelProps) {
   if (!gitStatus)
     return (
-      <div data-testid="git-panel" style={{ padding: '8px', color: '#666', fontSize: '12px' }}>
+      <div
+        data-testid="git-panel"
+        style={{ padding: '8px', color: COLOR_TEXT_DIM, fontSize: '12px' }}
+      >
         Not a git repository
       </div>
     );
@@ -31,13 +26,13 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
           marginBottom: '8px',
         }}
       >
-        <span style={{ color: '#007acc' }}>⎇</span>
+        <span style={{ color: COLOR_ACCENT }}>⎇</span>
         <span data-testid="git-branch">{gitStatus.branch}</span>
       </div>
 
       {gitStatus.staged.length > 0 && (
         <div data-testid="git-staged" style={{ marginBottom: '8px' }}>
-          <div style={{ color: '#888', marginBottom: '4px' }}>Staged Changes</div>
+          <div style={{ color: COLOR_TEXT_MUTED, marginBottom: '4px' }}>Staged Changes</div>
           {gitStatus.staged.map((f: GitFileChange, i: number) => (
             <div
               key={i}
@@ -50,7 +45,7 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
             >
               <span
                 style={{
-                  color: STATUS_COLORS[f.status] || '#888',
+                  color: GIT_STATUS_COLORS[f.status] || COLOR_TEXT_MUTED,
                   width: '16px',
                 }}
               >
@@ -72,7 +67,7 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
 
       {gitStatus.changes.length > 0 && (
         <div data-testid="git-changes">
-          <div style={{ color: '#888', marginBottom: '4px' }}>Changes</div>
+          <div style={{ color: COLOR_TEXT_MUTED, marginBottom: '4px' }}>Changes</div>
           {gitStatus.changes.map((f: GitFileChange, i: number) => (
             <div
               key={i}
@@ -85,7 +80,7 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
             >
               <span
                 style={{
-                  color: STATUS_COLORS[f.status] || '#888',
+                  color: GIT_STATUS_COLORS[f.status] || COLOR_TEXT_MUTED,
                   width: '16px',
                 }}
               >
@@ -106,7 +101,7 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
       )}
 
       {gitStatus.changes.length === 0 && gitStatus.staged.length === 0 && (
-        <div style={{ color: '#666' }}>No changes</div>
+        <div style={{ color: COLOR_TEXT_DIM }}>No changes</div>
       )}
     </div>
   );

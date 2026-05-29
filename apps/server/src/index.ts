@@ -19,7 +19,14 @@ function parseArgs(argv: string[]): ParsedArgs {
     if (arg.startsWith('--password=')) {
       result.password = arg.slice('--password='.length);
     } else if (arg.startsWith('--port=')) {
-      result.port = parseInt(arg.slice('--port='.length), 10);
+      const port = parseInt(arg.slice('--port='.length), 10);
+      if (Number.isNaN(port) || port < 1 || port > 65535) {
+        console.error(
+          `Invalid port: ${arg.slice('--port='.length)}. Must be a number between 1 and 65535.`,
+        );
+        process.exit(1);
+      }
+      result.port = port;
     } else if (arg.startsWith('--host=')) {
       result.host = arg.slice('--host='.length);
     } else if (arg.startsWith('--staticDir=')) {

@@ -28,6 +28,7 @@ describe('protocol types', () => {
       expect(ErrorCodes.FILE_NOT_FOUND).toBe('FILE_NOT_FOUND');
       expect(ErrorCodes.PERMISSION_DENIED).toBe('PERMISSION_DENIED');
       expect(ErrorCodes.INTERNAL_ERROR).toBe('INTERNAL_ERROR');
+      expect(ErrorCodes.HANDLER_ERROR).toBe('HANDLER_ERROR');
     });
 
     it('has exactly 9 codes', () => {

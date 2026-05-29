@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { type MessageEnvelope, type RequestEnvelope, PROTOCOL_VERSION } from '@ymir/shared';
 import { createError, createEvent, createResponse, MessageRouter, parseMessage } from './router';
+import type { ClientConnection } from './connection';
 
 // ---------------------------------------------------------------------------
 // parseMessage
@@ -187,7 +188,7 @@ describe('MessageRouter', () => {
       payload: { workspaceId: 'ws-1' },
     };
 
-    const conn: unknown = {};
+    const conn = {} as ClientConnection;
     await router.route(conn, envelope);
 
     expect(received).not.toBeNull();
@@ -206,7 +207,7 @@ describe('MessageRouter', () => {
       payload: {},
     };
 
-    const conn: unknown = {};
+    const conn = {} as ClientConnection;
     const result = await router.route(conn, envelope);
 
     expect(result).not.toBeNull();
@@ -224,7 +225,7 @@ describe('MessageRouter', () => {
       receivedConn = conn;
     });
 
-    const fakeConn = { id: 'conn-1' };
+    const fakeConn = { id: 'conn-1' } as ClientConnection;
     const envelope: MessageEnvelope = {
       v: PROTOCOL_VERSION,
       type: 'request',
@@ -256,7 +257,7 @@ describe('MessageRouter', () => {
       payload: {},
     };
 
-    const conn: unknown = {};
+    const conn = {} as ClientConnection;
     await router.route(conn, envelopeA);
     expect(called).toEqual(['a']);
 
@@ -287,7 +288,7 @@ describe('MessageRouter', () => {
       payload: {},
     };
 
-    const conn: unknown = {};
+    const conn = {} as ClientConnection;
     const result = await router.route(conn, envelope);
 
     expect(result).not.toBeNull();
@@ -314,7 +315,7 @@ describe('MessageRouter', () => {
       payload: {},
     };
 
-    const conn: unknown = {};
+    const conn = {} as ClientConnection;
     const result = await router.route(conn, envelope);
 
     expect(result).not.toBeNull();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { FileTree } from './FileTree';
 import { GitPanel } from './GitPanel';
@@ -8,6 +8,7 @@ import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
 import { mergeDeletedFiles } from '../lib/git-tree-status';
+import { COLOR_BORDER, COLOR_ERROR, COLOR_TEXT_MUTED } from '../lib/theme';
 
 interface RightSidebarProps {
   workspaceId: string | null;
@@ -19,6 +20,24 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  function handleAsyncError(err: unknown) {
+    setError(err instanceof Error ? err.message : 'Operation failed');
+    const id = setTimeout(() => {
+      setError(null);
+      timeoutRefs.current = timeoutRefs.current.filter((t) => t !== id);
+    }, 5000);
+    timeoutRefs.current.push(id);
+  }
+
+  // Cleanup pending error-dismiss timeouts on unmount
+  useEffect(() => {
+    const currentTimeouts = timeoutRefs.current;
+    return () => {
+      currentTimeouts.forEach(clearTimeout);
+    };
+  }, []);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -53,10 +72,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
     if (!workspaceId) return;
     sendRequest<{ tree: FileNode[] }>('file.tree', { workspaceId })
       .then((res) => setFileTree(res.tree))
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Operation failed');
-        setTimeout(() => setError(null), 5000);
-      });
+      .catch(handleAsyncError);
   }, [workspaceId]);
 
   const refreshGitStatus = useCallback(async () => {
@@ -80,15 +96,13 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
   const effectiveGitStatus = workspaceId ? gitStatus : null;
 
   const treeWithDeleted = useMemo(
-    () => mergeDeletedFiles(workspaceId ? fileTree : [], workspaceId ? gitStatus : null, workspaceCwd || ''),
+    () =>
+      mergeDeletedFiles(
+        workspaceId ? fileTree : [],
+        workspaceId ? gitStatus : null,
+        workspaceCwd || '',
+      ),
     [fileTree, gitStatus, workspaceId, workspaceCwd],
-  );
-
-  const handleFileSelect = useCallback(
-    (path: string) => {
-      onFileSelect(path);
-    },
-    [onFileSelect],
   );
 
   const handleNewFile = useCallback(
@@ -97,10 +111,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
       if (!name || !workspaceId) return;
       sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: false })
         .then(refreshFileTree)
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Operation failed');
-          setTimeout(() => setError(null), 5000);
-        });
+        .catch(handleAsyncError);
     },
     [workspaceId, refreshFileTree],
   );
@@ -111,10 +122,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
       if (!name || !workspaceId) return;
       sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: true })
         .then(refreshFileTree)
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Operation failed');
-          setTimeout(() => setError(null), 5000);
-        });
+        .catch(handleAsyncError);
     },
     [workspaceId, refreshFileTree],
   );
@@ -127,10 +135,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
       const parentDir = path.split('/').slice(0, -1).join('/') || '/';
       sendRequest('file.rename', { workspaceId, oldPath: path, newPath: parentDir + '/' + newName })
         .then(refreshFileTree)
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Operation failed');
-          setTimeout(() => setError(null), 5000);
-        });
+        .catch(handleAsyncError);
     },
     [workspaceId, refreshFileTree],
   );
@@ -140,10 +145,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
       if (!workspaceId) return;
       sendRequest('file.delete', { workspaceId, path })
         .then(refreshFileTree)
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Operation failed');
-          setTimeout(() => setError(null), 5000);
-        });
+        .catch(handleAsyncError);
     },
     [workspaceId, refreshFileTree],
   );
@@ -161,16 +163,23 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
       <div
         style={{
           padding: '8px 12px',
-          borderBottom: '1px solid #333',
+          borderBottom: `1px solid ${COLOR_BORDER}`,
           fontSize: '11px',
           textTransform: 'uppercase',
-          color: '#888',
+          color: COLOR_TEXT_MUTED,
         }}
       >
         Explorer
       </div>
       {error && (
-        <div style={{ padding: '8px', color: '#e06050', fontSize: '12px', borderBottom: '1px solid #333' }}>
+        <div
+          style={{
+            padding: '8px',
+            color: COLOR_ERROR,
+            fontSize: '12px',
+            borderBottom: `1px solid ${COLOR_BORDER}`,
+          }}
+        >
           {error}
         </div>
       )}
@@ -179,8 +188,8 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
           {workspaceId ? (
             <FileTree
               tree={treeWithDeleted}
-              onFileSelect={handleFileSelect}
-              onOpenEditor={handleFileSelect}
+              onFileSelect={onFileSelect}
+              onOpenEditor={onFileSelect}
               workspaceId={workspaceId}
               onNewFile={handleNewFile}
               onNewFolder={handleNewFolder}
@@ -190,10 +199,10 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
               workspaceRoot={workspaceCwd}
             />
           ) : (
-            <div style={{ padding: '8px', color: '#888' }}>No workspace selected</div>
+            <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>
           )}
         </Panel>
-        <Separator style={{ height: '2px', background: '#333' }} />
+        <Separator style={{ height: '2px', background: COLOR_BORDER }} />
         <Panel defaultSize="30%" minSize="10%" style={{ overflow: 'auto' }}>
           <GitPanel gitStatus={effectiveGitStatus} />
         </Panel>

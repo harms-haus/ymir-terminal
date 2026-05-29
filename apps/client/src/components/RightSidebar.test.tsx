@@ -6,7 +6,7 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, afterEach, mock, spyOn } from 'bun:test';
+import { describe, test, expect, afterEach, afterAll, mock, spyOn } from 'bun:test';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -54,9 +54,12 @@ mock.module('@radix-ui/react-context-menu', () => ({
 // ---------------------------------------------------------------------------
 
 mock.module('react-resizable-panels', () => ({
-  Group: ({ children, style }: any) => React.createElement('div', { style, 'data-group': '' }, children),
-  Panel: ({ children, style }: any) => React.createElement('div', { style }, children),
-  Separator: ({ style }: any) => React.createElement('div', { style, 'data-separator': '' }),
+  Group: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
+    React.createElement('div', { style, 'data-group': '' }, children),
+  Panel: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
+    React.createElement('div', { style }, children),
+  Separator: ({ style }: { style?: React.CSSProperties }) =>
+    React.createElement('div', { style, 'data-separator': '' }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -66,7 +69,14 @@ mock.module('react-resizable-panels', () => ({
 mock.module('../lib/git-tree-status', () => ({
   buildGitPathMap: () => new Map(),
   computeDirectoryStatus: () => null,
-  GIT_STATUS_COLORS: { '??': '#73c991', 'A': '#73c991', 'M': '#e2c08d', 'D': '#c74e39', 'R': '#73c991', 'C': '#73c991' },
+  GIT_STATUS_COLORS: {
+    '??': '#73c991',
+    A: '#73c991',
+    M: '#e2c08d',
+    D: '#c74e39',
+    R: '#73c991',
+    C: '#73c991',
+  },
   mergeDeletedFiles: (tree: unknown[]) => tree,
 }));
 
@@ -124,6 +134,11 @@ function renderRightSidebar(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('RightSidebar', () => {
   afterEach(() => {
@@ -295,9 +310,7 @@ describe('RightSidebar', () => {
   test('file change event triggers both file.tree and git.status refreshes', async () => {
     // Mock initial file tree response
     sendRequestSpy.mockResolvedValueOnce({
-      tree: [
-        { name: 'src', path: '/src', isDirectory: true, children: [] },
-      ],
+      tree: [{ name: 'src', path: '/src', isDirectory: true, children: [] }],
     });
     // Mock initial git status response
     sendRequestSpy.mockResolvedValueOnce({
@@ -345,7 +358,7 @@ describe('RightSidebar', () => {
     // After a file change, both file.tree and git.status should be refreshed
     await waitFor(() => {
       const calls = sendRequestSpy.mock.calls;
-      const channels = calls.map((call: any[]) => call[0]);
+      const channels = calls.map((call: [string, ...unknown[]]) => call[0]);
       expect(channels).toContain('file.tree');
       expect(channels).toContain('git.status');
     });
@@ -357,9 +370,7 @@ describe('RightSidebar', () => {
   test('passes workspaceCwd to FileTree when provided', async () => {
     // Mock file tree response
     sendRequestSpy.mockResolvedValueOnce({
-      tree: [
-        { name: 'src', path: '/src', isDirectory: true, children: [] },
-      ],
+      tree: [{ name: 'src', path: '/src', isDirectory: true, children: [] }],
     });
     // Mock git status response
     sendRequestSpy.mockResolvedValueOnce({
@@ -368,7 +379,11 @@ describe('RightSidebar', () => {
       staged: [],
     });
 
-    const { getByTestId } = renderRightSidebar('ws-1', mock(() => {}), '/home/user/project');
+    const { getByTestId } = renderRightSidebar(
+      'ws-1',
+      mock(() => {}),
+      '/home/user/project',
+    );
 
     await waitFor(() => {
       expect(getByTestId('file-tree')).toBeTruthy();

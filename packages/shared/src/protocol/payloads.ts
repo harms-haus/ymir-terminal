@@ -12,10 +12,6 @@ export const REQUEST_TYPES = [
   'workspace.create',
   'workspace.update',
   'workspace.delete',
-  // Tab management — handlers to be implemented
-  'tab.create',
-  'tab.close',
-  'tab.activate',
   'file.tree',
   'file.read',
   'file.write',
@@ -31,8 +27,7 @@ export const EVENT_TYPES = [
   'terminal.output',
   'terminal.exit',
   'file.change',
-  // Emitted on connection after auth — to be implemented
-  'session.init',
+  'connection.status',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -102,6 +97,7 @@ export interface WorkspaceSummary {
   color: string;
 }
 
+/** @deprecated — retained for union completeness; the request carries no body. */
 export type WorkspaceListRequest = Record<string, never>;
 
 export interface WorkspaceListResponse {
@@ -127,36 +123,6 @@ export interface WorkspaceUpdateRequest {
 
 export interface WorkspaceDeleteRequest {
   id: string;
-}
-
-// ---------------------------------------------------------------------------
-// Tab
-// ---------------------------------------------------------------------------
-
-export interface TabInfo {
-  id: string;
-  tabType: string;
-  title: string;
-  active: boolean;
-  order: number;
-}
-
-export interface TabCreateRequest {
-  workspaceId: string;
-  tabType: string;
-  filePath?: string;
-}
-
-export interface TabCloseRequest {
-  tabId: string;
-}
-
-export interface TabActivateRequest {
-  tabId: string;
-}
-
-export interface TabsListResponse {
-  tabs: TabInfo[];
 }
 
 // ---------------------------------------------------------------------------
@@ -241,10 +207,6 @@ export interface GitStatusResponse {
 // Session
 // ---------------------------------------------------------------------------
 
-export interface SessionInitEvent {
-  sessionId: string;
-}
-
 export interface ConnectionStatusEvent {
   status: string;
 }
@@ -263,9 +225,6 @@ export type RequestPayload =
   | WorkspaceCreateRequest
   | WorkspaceUpdateRequest
   | WorkspaceDeleteRequest
-  | TabCreateRequest
-  | TabCloseRequest
-  | TabActivateRequest
   | FileTreeRequest
   | FileReadRequest
   | FileWriteRequest
@@ -278,5 +237,4 @@ export type EventPayload =
   | TerminalOutputEvent
   | TerminalExitEvent
   | FileChangeEvent
-  | SessionInitEvent
   | ConnectionStatusEvent;

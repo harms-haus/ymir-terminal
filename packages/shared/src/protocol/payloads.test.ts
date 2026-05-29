@@ -23,12 +23,6 @@ import {
   type WorkspaceCreateResponse,
   type WorkspaceUpdateRequest,
   type WorkspaceDeleteRequest,
-  // Tab
-  type TabInfo,
-  type TabCreateRequest,
-  type TabCloseRequest,
-  type TabActivateRequest,
-  type TabsListResponse,
   // File
   type FileNode,
   type FileTreeRequest,
@@ -45,7 +39,6 @@ import {
   type GitStatusRequest,
   type GitStatusResponse,
   // Session
-  type SessionInitEvent,
   type ConnectionStatusEvent,
   // Unions
   type RequestPayload,
@@ -67,9 +60,6 @@ describe('REQUEST_TYPES', () => {
     'workspace.create',
     'workspace.update',
     'workspace.delete',
-    'tab.create',
-    'tab.close',
-    'tab.activate',
     'file.tree',
     'file.read',
     'file.write',
@@ -83,8 +73,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 19 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(19);
+  it('has exactly 16 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(16);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -103,7 +93,7 @@ describe('EVENT_TYPES', () => {
     'terminal.output',
     'terminal.exit',
     'file.change',
-    'session.init',
+    'connection.status',
   ];
 
   it('contains all expected event types', () => {
@@ -318,87 +308,6 @@ describe('WorkspaceDeleteRequest', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tab payloads
-// ---------------------------------------------------------------------------
-
-describe('TabInfo', () => {
-  it('round-trips through JSON', () => {
-    const payload: TabInfo = {
-      id: 'tab-1',
-      tabType: 'terminal',
-      title: 'Terminal',
-      active: true,
-      order: 0,
-    };
-    const parsed: TabInfo = JSON.parse(JSON.stringify(payload));
-    expect(parsed).toEqual(payload);
-  });
-});
-
-describe('TabCreateRequest', () => {
-  it('round-trips through JSON with required fields only', () => {
-    const payload: TabCreateRequest = {
-      workspaceId: 'ws-1',
-      tabType: 'terminal',
-    };
-    const parsed: TabCreateRequest = JSON.parse(JSON.stringify(payload));
-    expect(parsed).toEqual(payload);
-  });
-
-  it('round-trips through JSON with optional filePath', () => {
-    const payload: TabCreateRequest = {
-      workspaceId: 'ws-1',
-      tabType: 'editor',
-      filePath: '/src/index.ts',
-    };
-    const parsed: TabCreateRequest = JSON.parse(JSON.stringify(payload));
-    expect(parsed).toEqual(payload);
-  });
-});
-
-describe('TabCloseRequest', () => {
-  it('round-trips through JSON', () => {
-    const payload: TabCloseRequest = { tabId: 'tab-1' };
-    const parsed: TabCloseRequest = JSON.parse(JSON.stringify(payload));
-    expect(parsed).toEqual(payload);
-  });
-});
-
-describe('TabActivateRequest', () => {
-  it('round-trips through JSON', () => {
-    const payload: TabActivateRequest = { tabId: 'tab-2' };
-    const parsed: TabActivateRequest = JSON.parse(JSON.stringify(payload));
-    expect(parsed).toEqual(payload);
-  });
-});
-
-describe('TabsListResponse', () => {
-  it('round-trips through JSON', () => {
-    const payload: TabsListResponse = {
-      tabs: [
-        {
-          id: 'tab-1',
-          tabType: 'terminal',
-          title: 'Terminal',
-          active: true,
-          order: 0,
-        },
-        {
-          id: 'tab-2',
-          tabType: 'editor',
-          title: 'index.ts',
-          active: false,
-          order: 1,
-        },
-      ],
-    };
-    const parsed: TabsListResponse = JSON.parse(JSON.stringify(payload));
-    expect(parsed).toEqual(payload);
-    expect(parsed.tabs).toHaveLength(2);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // File payloads
 // ---------------------------------------------------------------------------
 
@@ -589,14 +498,6 @@ describe('GitStatusResponse', () => {
 // Session payloads
 // ---------------------------------------------------------------------------
 
-describe('SessionInitEvent', () => {
-  it('round-trips through JSON', () => {
-    const payload: SessionInitEvent = { sessionId: 'sess-abc123' };
-    const parsed: SessionInitEvent = JSON.parse(JSON.stringify(payload));
-    expect(parsed).toEqual(payload);
-  });
-});
-
 describe('ConnectionStatusEvent', () => {
   it('round-trips through JSON', () => {
     const payload: ConnectionStatusEvent = { status: 'connected' };
@@ -623,9 +524,6 @@ describe('RequestPayload union', () => {
       { name: 'ws', cwd: '/', color: '#000' } satisfies WorkspaceCreateRequest,
       { id: 'ws-1' } satisfies WorkspaceUpdateRequest,
       { id: 'ws-1' } satisfies WorkspaceDeleteRequest,
-      { workspaceId: 'ws-1', tabType: 'terminal' } satisfies TabCreateRequest,
-      { tabId: 'tab-1' } satisfies TabCloseRequest,
-      { tabId: 'tab-1' } satisfies TabActivateRequest,
       { workspaceId: 'ws-1' } satisfies FileTreeRequest,
       { workspaceId: 'ws-1', path: '/a' } satisfies FileReadRequest,
       { workspaceId: 'ws-1', path: '/a', content: '' } satisfies FileWriteRequest,
@@ -650,7 +548,6 @@ describe('EventPayload union', () => {
       { terminalId: 't-1', data: '' } satisfies TerminalOutputEvent,
       { terminalId: 't-1', exitCode: 0 } satisfies TerminalExitEvent,
       { workspaceId: 'ws-1', path: '/a', kind: 'create' } satisfies FileChangeEvent,
-      { sessionId: 'sess-1' } satisfies SessionInitEvent,
       { status: 'disconnected' } satisfies ConnectionStatusEvent,
     ];
 
@@ -658,7 +555,6 @@ describe('EventPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 4 event types + ConnectionStatusEvent
-    expect(payloads).toHaveLength(EVENT_TYPES.length + 1);
+    expect(payloads).toHaveLength(EVENT_TYPES.length);
   });
 });

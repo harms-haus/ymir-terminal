@@ -13,17 +13,18 @@ import type { FileNode, GitStatusResponse } from '@ymir/shared';
 
 describe('GIT_STATUS_COLORS', () => {
   test('has all expected keys', () => {
-    expect(Object.keys(GIT_STATUS_COLORS).sort()).toEqual(
-      ['??', 'A', 'C', 'D', 'M', 'R'].sort(),
-    );
+    expect(Object.keys(GIT_STATUS_COLORS).sort()).toEqual(['??', 'A', 'C', 'D', 'M', 'R'].sort());
   });
 
-  test('green colors for untracked, added, renamed, copied', () => {
+  test('green colors for added, renamed, copied', () => {
     const green = '#73c991';
-    expect(GIT_STATUS_COLORS['??']).toBe(green);
     expect(GIT_STATUS_COLORS['A']).toBe(green);
     expect(GIT_STATUS_COLORS['R']).toBe(green);
     expect(GIT_STATUS_COLORS['C']).toBe(green);
+  });
+
+  test('muted color for untracked', () => {
+    expect(GIT_STATUS_COLORS['??']).toBe('#888');
   });
 
   test('gold color for modified', () => {
@@ -152,9 +153,7 @@ describe('computeDirectoryStatus', () => {
       name: 'src',
       path: '/root/src',
       isDirectory: true,
-      children: [
-        { name: 'a.ts', path: '/root/src/a.ts', isDirectory: false },
-      ],
+      children: [{ name: 'a.ts', path: '/root/src/a.ts', isDirectory: false }],
     };
     const gitPathMap = new Map<string, { status: string; staged: boolean }>();
     expect(computeDirectoryStatus(node, gitPathMap, workspaceRoot)).toBeNull();
@@ -216,9 +215,7 @@ describe('mergeDeletedFiles', () => {
         name: 'src',
         path: '/root/src',
         isDirectory: true,
-        children: [
-          { name: 'index.ts', path: '/root/src/index.ts', isDirectory: false },
-        ],
+        children: [{ name: 'index.ts', path: '/root/src/index.ts', isDirectory: false }],
       },
     ];
     const gitStatus: GitStatusResponse = {
@@ -258,9 +255,7 @@ describe('mergeDeletedFiles', () => {
         name: 'src',
         path: '/root/src',
         isDirectory: true,
-        children: [
-          { name: 'index.ts', path: '/root/src/index.ts', isDirectory: false },
-        ],
+        children: [{ name: 'index.ts', path: '/root/src/index.ts', isDirectory: false }],
       },
     ];
     const gitStatus: GitStatusResponse = {
@@ -296,17 +291,13 @@ describe('mergeDeletedFiles', () => {
   });
 
   test('returns tree unchanged when git status is null', () => {
-    const tree: FileNode[] = [
-      { name: 'a.ts', path: '/root/a.ts', isDirectory: false },
-    ];
+    const tree: FileNode[] = [{ name: 'a.ts', path: '/root/a.ts', isDirectory: false }];
     const result = mergeDeletedFiles(tree, null, workspaceRoot);
     expect(result).toBe(tree);
   });
 
   test('returns tree unchanged when no deleted files in status', () => {
-    const tree: FileNode[] = [
-      { name: 'a.ts', path: '/root/a.ts', isDirectory: false },
-    ];
+    const tree: FileNode[] = [{ name: 'a.ts', path: '/root/a.ts', isDirectory: false }];
     const gitStatus: GitStatusResponse = {
       branch: 'main',
       changes: [{ path: 'a.ts', status: 'M' }],

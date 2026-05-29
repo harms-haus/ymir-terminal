@@ -6,7 +6,7 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
@@ -33,8 +33,15 @@ mock.module('../hooks/useWorkspaces', () => ({
 // ---------------------------------------------------------------------------
 
 mock.module('./WorkspaceItem', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  WorkspaceItem: ({ workspace, isActive, onSelect }: any) => {
+  WorkspaceItem: ({
+    workspace,
+    isActive,
+    onSelect,
+  }: {
+    workspace: { id: string; name: string; color: string };
+    isActive: boolean;
+    onSelect: (id: string) => void;
+  }) => {
     return React.createElement(
       'div',
       {
@@ -84,7 +91,6 @@ function renderSidebar(
   mockUseWorkspaces.mockClear();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onWorkspaceSelect: any = mock(() => {});
   const onAddWorkspace = mock(() => {});
   const onRenameWorkspace = mock(() => {});
@@ -110,6 +116,11 @@ function renderSidebar(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('WorkspaceSidebar', () => {
   beforeEach(() => {

@@ -9,7 +9,7 @@ import { MessageRouter } from './ws/router';
 import { registerAuthHandlers } from './ws/handlers/auth';
 import { registerTerminalHandlers } from './ws/handlers/terminal';
 import { registerWorkspaceHandlers } from './ws/handlers/workspaces';
-import { registerFileHandlers } from './ws/handlers/files';
+import { registerFileHandlers } from './ws/handlers/files/index';
 import { registerGitHandlers } from './ws/handlers/git';
 import { PTYManager } from './pty/manager';
 import { stopAllWatchers } from './files/watcher';
@@ -50,7 +50,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   const router = new MessageRouter();
 
   // 6a. Auth handlers (must be first – installs auth middleware)
-  registerAuthHandlers(router, { passwordHash, signingSecret, sessionDb });
+  const cleanupAuth = registerAuthHandlers(router, { passwordHash, signingSecret, sessionDb });
 
   // 6b. Terminal handlers
   registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb: db });
@@ -112,6 +112,9 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log('\nShutting down...');
+
+    // Stop auth cleanup timer
+    cleanupAuth();
 
     // Kill all PTY processes
     ptyManager.killAll();

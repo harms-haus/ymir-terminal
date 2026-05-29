@@ -354,7 +354,12 @@ describe('ContentPane', () => {
     mockActiveTabIdState = 'tab-1';
     // Keep sendRequest pending so the loading state persists
     let resolvePending: (value: unknown) => void;
-    mockSendRequest.mockImplementation(() => new Promise((resolve) => { resolvePending = resolve; }));
+    mockSendRequest.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePending = resolve;
+        }),
+    );
 
     const { container, queryByTestId } = renderContentPane('ws-1');
 

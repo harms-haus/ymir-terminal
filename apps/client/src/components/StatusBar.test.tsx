@@ -6,7 +6,7 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 
@@ -39,6 +39,11 @@ function renderStatusBar(options: { activeWorkspaceName?: string } = {}) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('StatusBar', () => {
   beforeEach(() => {

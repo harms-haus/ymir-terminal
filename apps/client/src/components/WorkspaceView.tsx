@@ -54,23 +54,37 @@ export function WorkspaceView() {
     setFileToOpen(path);
   }, []);
 
-  const handleRenameWorkspace = useCallback((id: string, name: string) => {
-    updateWorkspace.mutate({ id, name });
-  }, [updateWorkspace]);
+  const handleFileOpened = useCallback(() => setFileToOpen(null), []);
 
-  const handleSetCwdWorkspace = useCallback((id: string, cwd: string) => {
-    updateWorkspace.mutate({ id, cwd });
-  }, [updateWorkspace]);
+  const handleRenameWorkspace = useCallback(
+    (id: string, name: string) => {
+      updateWorkspace.mutate({ id, name });
+    },
+    [updateWorkspace],
+  );
 
-  const handleChangeColorWorkspace = useCallback((id: string, color: string) => {
-    updateWorkspace.mutate({ id, color });
-    if (id === activeWorkspaceId) setAccentColor(color);
-  }, [updateWorkspace, activeWorkspaceId, setAccentColor]);
+  const handleSetCwdWorkspace = useCallback(
+    (id: string, cwd: string) => {
+      updateWorkspace.mutate({ id, cwd });
+    },
+    [updateWorkspace],
+  );
 
-  const handleRemoveWorkspace = useCallback((id: string) => {
-    deleteWorkspace.mutate({ id });
-    if (id === selectedWorkspaceId) setSelectedWorkspaceId(null);
-  }, [deleteWorkspace, selectedWorkspaceId]);
+  const handleChangeColorWorkspace = useCallback(
+    (id: string, color: string) => {
+      updateWorkspace.mutate({ id, color });
+      if (id === activeWorkspaceId) setAccentColor(color);
+    },
+    [updateWorkspace, activeWorkspaceId, setAccentColor],
+  );
+
+  const handleRemoveWorkspace = useCallback(
+    (id: string) => {
+      deleteWorkspace.mutate({ id });
+      if (id === selectedWorkspaceId) setSelectedWorkspaceId(null);
+    },
+    [deleteWorkspace, selectedWorkspaceId],
+  );
 
   return (
     <ToastProvider>
@@ -87,7 +101,11 @@ export function WorkspaceView() {
           />
         }
         rightSidebar={
-          <RightSidebar workspaceId={activeWorkspaceId} workspaceCwd={activeWorkspace?.cwd} onFileSelect={handleFileSelect} />
+          <RightSidebar
+            workspaceId={activeWorkspaceId}
+            workspaceCwd={activeWorkspace?.cwd}
+            onFileSelect={handleFileSelect}
+          />
         }
         bottomPanel={<BottomPanel workspaceId={activeWorkspaceId} />}
         footer={<StatusBar activeWorkspaceName={activeWorkspace?.name} />}
@@ -95,7 +113,7 @@ export function WorkspaceView() {
         <ContentPane
           workspaceId={activeWorkspaceId}
           fileToOpen={fileToOpen}
-          onFileOpened={() => setFileToOpen(null)}
+          onFileOpened={handleFileOpened}
         />
         <CreateWorkspaceDialog
           open={isDialogOpen}

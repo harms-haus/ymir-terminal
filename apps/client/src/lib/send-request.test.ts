@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterAll, mock } from 'bun:test';
 import { PROTOCOL_VERSION } from '@ymir/shared';
 import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 
@@ -49,6 +49,11 @@ function simulateIncoming(envelope: MessageEnvelope) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('sendRequest', () => {
   let sendRequest: typeof import('./send-request').sendRequest;
@@ -207,5 +212,81 @@ describe('sendRequest', () => {
 
     // After resolution, no handlers should be registered
     expect(messageHandlers.length).toBe(0);
+  });
+
+  // -----------------------------------------------------------------------
+  // Timeout: rejects when no response arrives within the timeout period
+  // -----------------------------------------------------------------------
+  test('rejects with timeout error when no response arrives', async () => {
+    // Use fake timers to control the timeout without waiting 10 seconds
+    const fakeTimers: Array<{ cb: () => void; delay: number }> = [];
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+
+    globalThis.setTimeout = ((cb: () => void, delay?: number) => {
+      fakeTimers.push({ cb, delay: delay ?? 0 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return fakeTimers.length as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    globalThis.clearTimeout = (() => {}) as any;
+
+    try {
+      // Bust module cache so the new fake timers are captured by sendRequest
+      const mod = await import(`./send-request?_t=${Date.now()}`);
+      const sendRequestFresh = mod.sendRequest;
+
+      const promise = sendRequestFresh('test-channel', { action: 'slow' });
+
+      // Request should have been sent
+      expect(sentEnvelopes.length).toBe(1);
+
+      // The timeout timer should have been scheduled (10_000ms)
+      expect(fakeTimers.length).toBe(1);
+      expect(fakeTimers[0].delay).toBe(10_000);
+
+      // Fire the timeout timer
+      fakeTimers[0].cb();
+
+      await expect(promise).rejects.toThrow('Request timeout');
+
+      // After timeout, handlers should be cleaned up
+      expect(messageHandlers.length).toBe(0);
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // Timeout is cleared when response arrives in time
+  // -----------------------------------------------------------------------
+  test('clears timeout when response arrives before timeout', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock spy for clearTimeout
+    const clearTimeoutSpy = mock((_id: any) => {});
+    const originalClearTimeout = globalThis.clearTimeout;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    globalThis.clearTimeout = clearTimeoutSpy as any;
+
+    try {
+      const promise = sendRequest('test-channel', { action: 'fast' });
+      const sent = sentEnvelopes[0];
+
+      // Simulate a timely response
+      simulateIncoming({
+        v: 1,
+        type: 'response',
+        id: sent.id,
+        payload: { result: 'ok' },
+      });
+
+      await promise;
+
+      // clearTimeout should have been called to cancel the pending timeout
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+    } finally {
+      globalThis.clearTimeout = originalClearTimeout;
+    }
   });
 });

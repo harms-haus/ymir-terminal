@@ -99,7 +99,7 @@ interface MessageEnvelope {
   id: string; // UUID for correlating request ↔ response
   channel: string; // e.g. "auth", "terminal.create", "file.tree"
   payload: unknown; // request/response body
-  error?: { code: string; message: string };
+  error?: ErrorResponse; // code is typed as ErrorCode (union), not plain string
 }
 ```
 
@@ -111,29 +111,28 @@ interface MessageEnvelope {
 
 ### Channel Reference
 
-| Channel            | Direction | Description                    |
-| ------------------ | --------- | ------------------------------ |
-| `auth`             | request   | Authenticate with password     |
-| `terminal.create`  | request   | Spawn a new PTY                |
-| `terminal.input`   | request   | Send keystrokes (base64)       |
-| `terminal.resize`  | request   | Resize terminal dimensions     |
-| `terminal.close`   | request   | Kill a PTY                     |
-| `terminal.output`  | event     | PTY output (base64)            |
-| `workspace.list`   | request   | List saved workspaces          |
-| `workspace.create` | request   | Create a workspace             |
-| `workspace.update` | request   | Update workspace settings      |
-| `workspace.delete` | request   | Delete a workspace             |
-| `tab.create`       | request   | Open a new tab                 |
-| `tab.close`        | request   | Close a tab                    |
-| `tab.activate`     | request   | Focus a tab                    |
-| `file.tree`        | request   | Get directory listing          |
-| `file.read`        | request   | Read file contents             |
-| `file.write`       | request   | Write file contents            |
-| `file.create`      | request   | Create file or directory       |
-| `file.delete`      | request   | Delete file or directory       |
-| `file.rename`      | request   | Rename/mmove a file            |
-| `file.change`      | event     | Filesystem change notification |
-| `git.status`       | request   | Get git status for a path      |
+| Channel             | Direction | Description                         |
+| ------------------- | --------- | ----------------------------------- |
+| `auth`              | request   | Authenticate with password          |
+| `terminal.create`   | request   | Spawn a new PTY                     |
+| `terminal.input`    | request   | Send keystrokes (base64)            |
+| `terminal.resize`   | request   | Resize terminal dimensions          |
+| `terminal.close`    | request   | Kill a PTY                          |
+| `terminal.output`   | event     | PTY output (base64)                 |
+| `terminal.exit`     | event     | PTY process exited (with exit code) |
+| `workspace.list`    | request   | List saved workspaces               |
+| `workspace.create`  | request   | Create a workspace                  |
+| `workspace.update`  | request   | Update workspace settings           |
+| `workspace.delete`  | request   | Delete a workspace                  |
+| `file.tree`         | request   | Get directory listing               |
+| `file.read`         | request   | Read file contents                  |
+| `file.write`        | request   | Write file contents                 |
+| `file.create`       | request   | Create file or directory            |
+| `file.delete`       | request   | Delete file or directory            |
+| `file.rename`       | request   | Rename/mmove a file                 |
+| `file.change`       | event     | Filesystem change notification      |
+| `git.status`        | request   | Get git status for a path           |
+| `connection.status` | event     | Connection status change            |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 
@@ -152,25 +151,28 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 
 ### `packages/shared` — `@ymir/shared`
 
-| File                   | Purpose                                  |
-| ---------------------- | ---------------------------------------- |
-| `protocol/types.ts`    | Envelope types (`MessageEnvelope`, etc.) |
-| `protocol/payloads.ts` | Request type constants and payload types |
-| `protocol/panes.ts`    | Split pane tree types                    |
-| `constants.ts`         | Default ports, paths, timeouts           |
-| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`   |
+| File                   | Purpose                                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                     |
+| `protocol/payloads.ts` | Request/event type constants, payload types, `ConnectionStatusEvent`                                  |
+| `protocol/panes.ts`    | Split pane tree types                                                                                 |
+| `constants.ts`         | Default ports, paths, timeouts                                                                        |
+| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `delay`, `clamp`, `expandTilde`, `getConfigPath`, `getDbPath` |
 
 ### `apps/server` — `@ymir/server`
 
-| Directory      | Purpose                                            |
-| -------------- | -------------------------------------------------- |
-| `auth/`        | Password hashing (Argon2id), JWT sign/verify       |
-| `db/`          | Persistent DB (workspaces), session DB (tabs)      |
-| `pty/`         | PTY manager — spawn, resize, write, kill           |
-| `files/`       | File scanner, CRUD operations, filesystem watcher  |
-| `git/`         | Git status reader (`git status --porcelain`)       |
-| `ws/`          | WebSocket server, message router, connection state |
-| `ws/handlers/` | Channel handlers (auth, terminal, files, git, ws)  |
+| Directory            | Purpose                                                       |
+| -------------------- | ------------------------------------------------------------- |
+| `auth/`              | Password hashing (Argon2id), JWT sign/verify                  |
+| `db/`                | Persistent DB (workspaces), session DB (tabs)                 |
+| `lib/`               | Shared handler validation (`handler-validation.ts`)           |
+| `pty/`               | PTY manager — spawn, resize, write, kill                      |
+| `files/`             | File scanner, CRUD operations, filesystem watcher             |
+| `git/`               | Git status reader (`git status --porcelain`)                  |
+| `ws/`                | WebSocket server, message router, connection state            |
+| `ws/handlers/`       | Channel handlers (auth, terminal, files, git, ws)             |
+| `ws/handlers/files/` | File handlers split into `tree`, `crud`, `language`, `shared` |
+| `test-helpers/`      | Shared server test utilities (`mock-utils.ts`)                |
 
 **Handler registration pattern:**
 
@@ -182,34 +184,51 @@ export function registerTerminalHandlers(router: MessageRouter, deps: { ... }): 
 }
 ```
 
-Handlers are registered in `server.ts` and receive the parsed envelope plus the authenticated `ClientConnection`.
+Handlers are registered in `server.ts` and receive the parsed envelope plus the authenticated `ClientConnection`. Shared validation helpers (`validateTerminalOwnership`, `resolveWorkspaceOrError`, `resolveSafePathOrError`) live in `lib/handler-validation.ts` and are used by multiple handler modules.
+
+**File handler structure:** The file handlers are split into focused modules under `ws/handlers/files/`:
+
+| Module        | Responsibility                                           |
+| ------------- | -------------------------------------------------------- |
+| `tree.ts`     | File tree reading, directory scanning                    |
+| `crud.ts`     | File create, write, delete, rename                       |
+| `language.ts` | Language detection from file extensions/filenames        |
+| `shared.ts`   | Shared utilities (`safePath`, `resolveWorkspace`, types) |
+| `index.ts`    | Re-exports `registerFileHandlers`                        |
 
 ### `apps/client` — `@ymir/client`
 
-| Directory     | Purpose                                     |
-| ------------- | ------------------------------------------- |
-| `components/` | React UI components (see below)             |
-| `hooks/`      | Custom React hooks for state and data       |
-| `lib/`        | WebSocket client, request helper, git-tree-status utilities |
-| `routes/`     | TanStack Router route definitions           |
-| `utils/`      | Path helpers                                |
+| Directory       | Purpose                                                                            |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `components/`   | React UI components (see below)                                                    |
+| `hooks/`        | Custom React hooks for state and data (incl. `useCreateTerminalTab`)               |
+| `lib/`          | WebSocket client, request helper, git-tree-status, theme constants, context styles |
+| `routes/`       | TanStack Router route definitions                                                  |
+| `test-helpers/` | Shared client test utilities (`mock-setup.ts`)                                     |
 
 **Key components:**
 
-| Component       | Role                                                      |
-| --------------- | ---------------------------------------------------------- |
-| `AppLayout`     | IDE shell with resizable left/center/right                |
-| `SplitPaneView` | Recursive split pane renderer                             |
-| `Terminal`      | xterm.js terminal emulator                                |
-| `CodeEditor`    | CodeMirror 6 editor instance                              |
-| `FileTree`      | Directory tree with context menu and inline git status    |
-| `RightSidebar`  | Resizable explorer panel (FileTree 70% / GitPanel 30%)    |
-| `GitPanel`      | Git status display                                        |
-| `LoginPage`     | Password authentication form                              |
-| `BottomPanel`   | Terminal panel at bottom of layout                        |
-| `StatusBar`     | Connection status, workspace info                         |
-| `TabBar`        | Editor/terminal tab strip                                 |
-| `ToastProvider` | Toast notification system                                 |
+| Component                  | Role                                                          |
+| -------------------------- | ------------------------------------------------------------- |
+| `AppLayout`                | IDE shell with resizable left/center/right                    |
+| `SplitPaneView`            | Recursive split pane renderer                                 |
+| `Terminal`                 | xterm.js terminal emulator                                    |
+| `CodeEditor`               | CodeMirror 6 editor instance                                  |
+| `EditorPane`               | Extracted editor pane (file loading, save, retry)             |
+| `ContentPane`              | Tab content area coordinator (renders EditorPane or Terminal) |
+| `PaneContextMenu`          | Context menu for pane operations                              |
+| `WorkspaceSidebar`         | Sidebar listing workspaces                                    |
+| `WorkspaceItem`            | Individual workspace item with context menu                   |
+| `CreateWorkspaceDialog`    | Dialog for creating new workspaces                            |
+| `FileTree`                 | Directory tree with context menu and inline git status        |
+| `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)        |
+| `RightSidebar`             | Resizable explorer panel (FileTree 70% / GitPanel 30%)        |
+| `GitPanel`                 | Git status display                                            |
+| `LoginPage`                | Password authentication form                                  |
+| `BottomPanel`              | Terminal panel at bottom of layout                            |
+| `StatusBar`                | Connection status, workspace info                             |
+| `TabBar`                   | Editor/terminal tab strip                                     |
+| `ToastProvider`            | Toast notification system                                     |
 
 ## Testing
 
@@ -262,14 +281,14 @@ Both `file.tree` and `git.status` are fetched when a workspace is selected. The 
 
 `FileTree` decorates nodes with colored git status indicators:
 
-| Status | Color      | Behavior                                    |
-| ------ | ---------- | ------------------------------------------- |
-| `??`   | Green      | Untracked file — colored dot                |
-| `A`    | Green      | Added — colored dot                         |
-| `R`    | Green      | Renamed — colored dot                       |
-| `C`    | Green      | Copied — colored dot                        |
-| `M`    | Gold       | Modified — colored dot                      |
-| `D`    | Dark red   | Deleted — colored dot, strikethrough name   |
+| Status | Color    | Behavior                                  |
+| ------ | -------- | ----------------------------------------- |
+| `??`   | Grey     | Untracked file — colored dot              |
+| `A`    | Green    | Added — colored dot                       |
+| `R`    | Green    | Renamed — colored dot                     |
+| `C`    | Green    | Copied — colored dot                      |
+| `M`    | Gold     | Modified — colored dot                    |
+| `D`    | Dark red | Deleted — colored dot, strikethrough name |
 
 **Directory aggregation:** Directories show a gold dot when any descendant has uncommitted changes, computed recursively via `computeDirectoryStatus`.
 
@@ -277,12 +296,12 @@ Both `file.tree` and `git.status` are fetched when a workspace is selected. The 
 
 The git status logic lives in `lib/git-tree-status.ts`:
 
-| Export                 | Purpose                                                          |
-| ---------------------- | ---------------------------------------------------------------- |
-| `GIT_STATUS_COLORS`    | Status code → hex color mapping                                  |
-| `buildGitPathMap`      | Converts `GitStatusResponse` into a `Map<relativePath, status>`  |
-| `computeDirectoryStatus` | Recursively checks if any descendant has changes               |
-| `mergeDeletedFiles`    | Merges synthetic nodes for deleted files into the tree           |
+| Export                   | Purpose                                                           |
+| ------------------------ | ----------------------------------------------------------------- |
+| `GIT_STATUS_COLORS`      | Status code → hex color mapping (re-exported from `lib/theme.ts`) |
+| `buildGitPathMap`        | Converts `GitStatusResponse` into a `Map<relativePath, status>`   |
+| `computeDirectoryStatus` | Recursively checks if any descendant has changes                  |
+| `mergeDeletedFiles`      | Merges synthetic nodes for deleted files into the tree            |
 
 ### Accessibility
 

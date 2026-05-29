@@ -1,4 +1,12 @@
 import { useConnectionStatus } from '../hooks/useConnectionStatus';
+import {
+  COLOR_ACCENT,
+  COLOR_ERROR,
+  COLOR_STATUS_CONNECTED,
+  COLOR_STATUS_DISCONNECTED,
+  COLOR_STATUS_RECONNECTING,
+  COLOR_TEXT_BRIGHT,
+} from '../lib/theme';
 
 interface StatusBarProps {
   activeWorkspaceName?: string;
@@ -7,7 +15,11 @@ interface StatusBarProps {
 export function StatusBar({ activeWorkspaceName }: StatusBarProps) {
   const { isConnected, isReconnecting } = useConnectionStatus();
 
-  const statusColor = isConnected ? '#4caf50' : isReconnecting ? '#ff9800' : '#f44336';
+  const statusColor = isConnected
+    ? COLOR_STATUS_CONNECTED
+    : isReconnecting
+      ? COLOR_STATUS_RECONNECTING
+      : COLOR_STATUS_DISCONNECTED;
   const statusText = isConnected
     ? 'Connected'
     : isReconnecting
@@ -19,8 +31,8 @@ export function StatusBar({ activeWorkspaceName }: StatusBarProps) {
       data-testid="status-bar"
       style={{
         height: '22px',
-        background: '#007acc',
-        color: '#fff',
+        background: COLOR_ACCENT,
+        color: COLOR_TEXT_BRIGHT,
         display: 'flex',
         alignItems: 'center',
         padding: '0 8px',
@@ -37,7 +49,7 @@ export function StatusBar({ activeWorkspaceName }: StatusBarProps) {
         <span>{statusText}</span>
       </div>
       {!isConnected && (
-        <span style={{ color: '#e06050', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <span style={{ color: COLOR_ERROR, display: 'flex', alignItems: 'center', gap: '4px' }}>
           ⚠ Reconnecting...
         </span>
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { wsClient } from '../lib/ws-client';
 import type { MessageEnvelope } from '@ymir/shared';
 
@@ -12,18 +12,16 @@ export function useFileChange(
   workspaceId: string | null,
   callback: (event: FileChangeEvent) => void,
 ) {
-  const stableCallback = useCallback((e: FileChangeEvent) => callback(e), [callback]);
-
   useEffect(() => {
     if (!workspaceId) return;
 
     const unsub = wsClient.onMessage((envelope: MessageEnvelope) => {
       const payload = envelope.payload as FileChangeEvent | undefined;
       if (envelope.channel === 'file.change' && payload?.workspaceId === workspaceId) {
-        stableCallback(payload);
+        callback(payload);
       }
     });
 
     return unsub;
-  }, [workspaceId, stableCallback]);
+  }, [workspaceId, callback]);
 }

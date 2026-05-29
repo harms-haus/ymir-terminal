@@ -35,7 +35,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
   const doGetWorkspace = deps._mocks?.getWorkspace ?? dbGetWorkspace;
 
   // --- git.status ---------------------------------------------------------
-  router.handle('git.status', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('git.status', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<GitStatusRequest>;
     const payload = req.payload;
 
@@ -45,7 +45,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
         ErrorCodes.INVALID_MESSAGE,
         'Missing required field: workspaceId',
       );
-      (conn as ClientConnection).send(err);
+      conn.send(err);
       return;
     }
 
@@ -56,7 +56,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
         ErrorCodes.WORKSPACE_NOT_FOUND,
         `Workspace not found: ${payload.workspaceId}`,
       );
-      (conn as ClientConnection).send(err);
+      conn.send(err);
       return;
     }
 
@@ -68,6 +68,6 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       staged: result?.staged ?? [],
     } satisfies GitStatusResponse);
 
-    (conn as ClientConnection).send(resp);
+    conn.send(resp);
   });
 }

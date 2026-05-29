@@ -570,6 +570,116 @@ describe('WSClient', () => {
   });
 
   // -----------------------------------------------------------------------
+  // Pending messages are flushed when connection opens
+  // -----------------------------------------------------------------------
+  test('pending messages are flushed when connection opens', () => {
+    const { wsClient } = wsClientModule;
+
+    const envelope1: MessageEnvelope = {
+      v: PROTOCOL_VERSION,
+      type: 'request',
+      id: 'pending-1',
+      payload: { action: 'a' },
+    };
+    const envelope2: MessageEnvelope = {
+      v: PROTOCOL_VERSION,
+      type: 'request',
+      id: 'pending-2',
+      payload: { action: 'b' },
+    };
+
+    wsClient.connect('ws://localhost:8080');
+    const ws = MockWebSocket.instances[0];
+
+    // Do NOT open yet — messages should be queued
+    wsClient.send(envelope1);
+    wsClient.send(envelope2);
+
+    // Nothing sent on the wire yet
+    expect(ws.sent.length).toBe(0);
+
+    // Now open the connection — pending messages should flush
+    ws.simulateOpen();
+
+    expect(ws.sent.length).toBe(2);
+    const sent1 = JSON.parse(ws.sent[0]);
+    const sent2 = JSON.parse(ws.sent[1]);
+    // Check the envelope fields (token may or may not be present from prior tests)
+    expect(sent1.id).toBe('pending-1');
+    expect(sent1.payload).toEqual({ action: 'a' });
+    expect(sent1.type).toBe('request');
+    expect(sent1.v).toBe(PROTOCOL_VERSION);
+    expect(sent2.id).toBe('pending-2');
+    expect(sent2.payload).toEqual({ action: 'b' });
+    expect(sent2.type).toBe('request');
+    expect(sent2.v).toBe(PROTOCOL_VERSION);
+  });
+
+  // -----------------------------------------------------------------------
+  // Pending messages are capped at MAX_PENDING_MESSAGES (100)
+  // -----------------------------------------------------------------------
+  test('pending messages are capped at max pending limit', () => {
+    const { wsClient } = wsClientModule;
+
+    wsClient.connect('ws://localhost:8080');
+    const ws = MockWebSocket.instances[0];
+    // Do NOT open — keep it in CONNECTING state so sends are queued
+
+    // Enqueue 101 messages
+    for (let i = 0; i < 101; i++) {
+      wsClient.send({
+        v: PROTOCOL_VERSION,
+        type: 'request',
+        id: `msg-${i}`,
+        payload: { i },
+      });
+    }
+
+    // Only the last 100 should be kept (the first was shifted out)
+    // Open the connection to flush
+    ws.simulateOpen();
+
+    expect(ws.sent.length).toBe(100);
+
+    // The first message sent should be msg-1 (msg-0 was dropped)
+    const first = JSON.parse(ws.sent[0]);
+    expect(first.id).toBe('msg-1');
+
+    // The last message sent should be msg-100
+    const last = JSON.parse(ws.sent[99]);
+    expect(last.id).toBe('msg-100');
+  });
+
+  // -----------------------------------------------------------------------
+  // Pending messages are cleared on disconnect
+  // -----------------------------------------------------------------------
+  test('pending messages are cleared on disconnect', () => {
+    const { wsClient } = wsClientModule;
+
+    wsClient.connect('ws://localhost:8080');
+    const _ws = MockWebSocket.instances[0];
+
+    // Queue messages while not open
+    wsClient.send({
+      v: PROTOCOL_VERSION,
+      type: 'request',
+      id: 'pending-msg',
+      payload: {},
+    });
+
+    // Disconnect without opening
+    wsClient.disconnect();
+
+    // Reconnect and open — previously pending messages should be gone
+    wsClient.connect('ws://localhost:8080');
+    const ws2 = MockWebSocket.instances[1];
+    ws2.simulateOpen();
+
+    // Nothing should have been sent from the old queue
+    expect(ws2.sent.length).toBe(0);
+  });
+
+  // -----------------------------------------------------------------------
   // Malformed JSON in onmessage does not crash and no handler is called
   // -----------------------------------------------------------------------
   test('malformed JSON in onmessage does not crash and no handler is called', () => {

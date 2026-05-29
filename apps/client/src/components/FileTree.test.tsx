@@ -193,9 +193,7 @@ describe('FileTree', () => {
   // 7. File alignment spacer
   // -----------------------------------------------------------------------
   test('file nodes have an alignment spacer span', () => {
-    const singleFileTree = [
-      { name: 'readme.md', path: '/readme.md', isDirectory: false },
-    ];
+    const singleFileTree = [{ name: 'readme.md', path: '/readme.md', isDirectory: false }];
     const { getByTestId } = renderFileTree(singleFileTree);
 
     const node = getByTestId('tree-node-/readme.md');
@@ -210,9 +208,7 @@ describe('FileTree', () => {
   // 8. Modified file git status circle
   // -----------------------------------------------------------------------
   test('modified file shows gold git status circle', () => {
-    const singleFileTree = [
-      { name: 'a.txt', path: '/root/a.txt', isDirectory: false },
-    ];
+    const singleFileTree = [{ name: 'a.txt', path: '/root/a.txt', isDirectory: false }];
     const gitStatus = {
       branch: 'main',
       changes: [{ path: 'a.txt', status: 'M' }],
@@ -233,9 +229,7 @@ describe('FileTree', () => {
   // 9. Deleted file styling
   // -----------------------------------------------------------------------
   test('deleted file shows red circle and strikethrough name', () => {
-    const singleFileTree = [
-      { name: 'gone.ts', path: '/root/gone.ts', isDirectory: false },
-    ];
+    const singleFileTree = [{ name: 'gone.ts', path: '/root/gone.ts', isDirectory: false }];
     const gitStatus = {
       branch: 'main',
       changes: [{ path: 'gone.ts', status: 'D' }],
@@ -271,9 +265,7 @@ describe('FileTree', () => {
         name: 'src',
         path: '/root/src',
         isDirectory: true,
-        children: [
-          { name: 'changed.ts', path: '/root/src/changed.ts', isDirectory: false },
-        ],
+        children: [{ name: 'changed.ts', path: '/root/src/changed.ts', isDirectory: false }],
       },
     ];
     const gitStatus = {
@@ -308,9 +300,7 @@ describe('FileTree', () => {
   // 12. Green circle for untracked files
   // -----------------------------------------------------------------------
   test('untracked file shows green circle', () => {
-    const singleFileTree = [
-      { name: 'new.txt', path: '/root/new.txt', isDirectory: false },
-    ];
+    const singleFileTree = [{ name: 'new.txt', path: '/root/new.txt', isDirectory: false }];
     const gitStatus = {
       branch: 'main',
       changes: [{ path: 'new.txt', status: '??' }],

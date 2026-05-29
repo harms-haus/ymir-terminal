@@ -19,16 +19,39 @@ import { createError, createResponse, createEvent, type MessageRouter } from '..
 import {
   type Database,
   createTerminalInstance,
-  getTerminalInstance,
   updateTerminalSize,
   deleteTerminalInstance,
 } from '../../db/session';
 import { getWorkspace } from '../../db/persistent';
+import { validateTerminalOwnership } from '../../lib/handler-validation';
 
 export interface TerminalDeps {
   ptyManager: PTYManager;
   sessionDb: Database;
   persistentDb: Database;
+}
+
+/**
+ * Validate that a payload contains a string `terminalId` field.
+ * Sends INVALID_MESSAGE and returns `null` on failure.
+ */
+function requireTerminalId(
+  payload: Record<string, unknown> | undefined | null,
+  clientConn: ClientConnection,
+  req: Pick<RequestEnvelope, 'id' | 'channel'>,
+  channel: string,
+): string | null {
+  const terminalId = payload?.terminalId;
+  if (!terminalId || typeof terminalId !== 'string') {
+    const err: ResponseEnvelope = createError(
+      { id: req.id, channel: req.channel ?? channel },
+      ErrorCodes.INVALID_MESSAGE,
+      'Missing or invalid terminalId',
+    );
+    clientConn.send(err);
+    return null;
+  }
+  return terminalId;
 }
 
 /**
@@ -38,9 +61,8 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
   const { ptyManager, sessionDb } = deps;
 
   // --- terminal.create ----------------------------------------------------
-  router.handle('terminal.create', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('terminal.create', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<TerminalCreateRequest>;
-    const clientConn = conn as ClientConnection;
     const payload = req.payload;
 
     const workspaceId = payload?.workspaceId;
@@ -50,7 +72,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
         ErrorCodes.INVALID_MESSAGE,
         'Missing or invalid workspaceId',
       );
-      clientConn.send(err);
+      conn.send(err);
       return;
     }
 
@@ -59,7 +81,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
 
     // Create a DB entry for the terminal instance
     const terminalId = createTerminalInstance(sessionDb, {
-      sessionId: clientConn.sessionId,
+      sessionId: conn.sessionId,
       workspaceId,
       cols,
       rows,
@@ -81,14 +103,14 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
             terminalId,
             data,
           } satisfies TerminalOutputEvent);
-          clientConn.send(evt);
+          conn.send(evt);
         },
         onExit: (exitCode) => {
           const evt = createEvent('terminal.exit', {
             terminalId,
             exitCode: exitCode ?? 0,
           } satisfies TerminalExitEvent);
-          clientConn.send(evt);
+          conn.send(evt);
           deleteTerminalInstance(sessionDb, terminalId);
         },
       });
@@ -101,7 +123,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
         ErrorCodes.INTERNAL_ERROR,
         `Failed to create terminal: ${message}`,
       );
-      clientConn.send(errResp);
+      conn.send(errResp);
       return;
     }
 
@@ -109,98 +131,40 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
       terminalId,
     } satisfies TerminalCreateResponse);
 
-    clientConn.send(resp);
+    conn.send(resp);
   });
 
   // --- terminal.input -----------------------------------------------------
-  router.handle('terminal.input', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('terminal.input', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<TerminalInputRequest>;
-    const clientConn = conn as ClientConnection;
-    const payload = req.payload;
 
-    const terminalId = payload?.terminalId;
-    if (!terminalId || typeof terminalId !== 'string') {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.input' },
-        ErrorCodes.INVALID_MESSAGE,
-        'Missing or invalid terminalId',
-      );
-      clientConn.send(err);
-      return;
-    }
+    const terminalId = requireTerminalId(req.payload, conn, req, 'terminal.input');
+    if (!terminalId) return;
 
-    // Verify terminal exists in DB
-    const instance = getTerminalInstance(sessionDb, terminalId);
-    if (!instance) {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.input' },
-        ErrorCodes.TERMINAL_NOT_FOUND,
-        `Terminal not found: ${terminalId}`,
-      );
-      clientConn.send(err);
-      return;
-    }
-
-    // Verify terminal belongs to the requesting session
-    if (instance.session_id !== clientConn.sessionId) {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.input' },
-        ErrorCodes.PERMISSION_DENIED,
-        'Terminal does not belong to this session',
-      );
-      clientConn.send(err);
+    if (!validateTerminalOwnership(sessionDb, terminalId, conn.sessionId, conn, req)) {
       return;
     }
 
     // Write base64-encoded data to the PTY
-    ptyManager.write(terminalId, payload.data ?? '');
+    ptyManager.write(terminalId, req.payload?.data ?? '');
 
     const resp: ResponseEnvelope = createResponse(req, null);
-    clientConn.send(resp);
+    conn.send(resp);
   });
 
   // --- terminal.resize ----------------------------------------------------
-  router.handle('terminal.resize', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('terminal.resize', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<TerminalResizeRequest>;
-    const clientConn = conn as ClientConnection;
-    const payload = req.payload;
 
-    const terminalId = payload?.terminalId;
-    if (!terminalId || typeof terminalId !== 'string') {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.resize' },
-        ErrorCodes.INVALID_MESSAGE,
-        'Missing or invalid terminalId',
-      );
-      clientConn.send(err);
+    const terminalId = requireTerminalId(req.payload, conn, req, 'terminal.resize');
+    if (!terminalId) return;
+
+    if (!validateTerminalOwnership(sessionDb, terminalId, conn.sessionId, conn, req)) {
       return;
     }
 
-    // Verify terminal exists in DB
-    const instance = getTerminalInstance(sessionDb, terminalId);
-    if (!instance) {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.resize' },
-        ErrorCodes.TERMINAL_NOT_FOUND,
-        `Terminal not found: ${terminalId}`,
-      );
-      clientConn.send(err);
-      return;
-    }
-
-    // Verify terminal belongs to the requesting session
-    if (instance.session_id !== clientConn.sessionId) {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.resize' },
-        ErrorCodes.PERMISSION_DENIED,
-        'Terminal does not belong to this session',
-      );
-      clientConn.send(err);
-      return;
-    }
-
-    const cols = payload?.cols ?? DEFAULT_COLS;
-    const rows = payload?.rows ?? DEFAULT_ROWS;
+    const cols = req.payload?.cols ?? DEFAULT_COLS;
+    const rows = req.payload?.rows ?? DEFAULT_ROWS;
 
     // Resize PTY
     ptyManager.resize(terminalId, cols, rows);
@@ -209,46 +173,17 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     updateTerminalSize(sessionDb, terminalId, cols, rows);
 
     const resp: ResponseEnvelope = createResponse(req, null);
-    clientConn.send(resp);
+    conn.send(resp);
   });
 
   // --- terminal.close -----------------------------------------------------
-  router.handle('terminal.close', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('terminal.close', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<TerminalCloseRequest>;
-    const clientConn = conn as ClientConnection;
-    const payload = req.payload;
 
-    const terminalId = payload?.terminalId;
-    if (!terminalId || typeof terminalId !== 'string') {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.close' },
-        ErrorCodes.INVALID_MESSAGE,
-        'Missing or invalid terminalId',
-      );
-      clientConn.send(err);
-      return;
-    }
+    const terminalId = requireTerminalId(req.payload, conn, req, 'terminal.close');
+    if (!terminalId) return;
 
-    // Verify terminal exists in DB
-    const instance = getTerminalInstance(sessionDb, terminalId);
-    if (!instance) {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.close' },
-        ErrorCodes.TERMINAL_NOT_FOUND,
-        `Terminal not found: ${terminalId}`,
-      );
-      clientConn.send(err);
-      return;
-    }
-
-    // Verify terminal belongs to the requesting session
-    if (instance.session_id !== clientConn.sessionId) {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'terminal.close' },
-        ErrorCodes.PERMISSION_DENIED,
-        'Terminal does not belong to this session',
-      );
-      clientConn.send(err);
+    if (!validateTerminalOwnership(sessionDb, terminalId, conn.sessionId, conn, req)) {
       return;
     }
 
@@ -259,6 +194,6 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     deleteTerminalInstance(sessionDb, terminalId);
 
     const resp: ResponseEnvelope = createResponse(req, null);
-    clientConn.send(resp);
+    conn.send(resp);
   });
 }

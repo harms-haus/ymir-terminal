@@ -45,7 +45,7 @@ export const ErrorCodes = {
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
 export interface ErrorResponse {
-  code: string;
+  code: ErrorCode;
   message: string;
   details?: unknown;
 }

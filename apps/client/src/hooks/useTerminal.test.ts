@@ -6,7 +6,7 @@ try {
   // Already registered
 }
 
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { PROTOCOL_VERSION, type MessageEnvelope } from '@ymir/shared';
 
@@ -83,6 +83,11 @@ function getLastSentEnvelope(): MessageEnvelope {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('useTerminal', () => {
   beforeEach(() => {

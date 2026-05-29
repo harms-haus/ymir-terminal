@@ -1,5 +1,17 @@
 import React, { useState, useCallback, type FormEvent } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import {
+  COLOR_BG_CARD,
+  COLOR_BG_ERROR_CARD,
+  COLOR_BG_LOGIN,
+  COLOR_BORDER_CARD,
+  COLOR_BORDER_ERROR_CARD,
+  COLOR_BTN_PRIMARY,
+  COLOR_SPINNER_TRACK,
+  COLOR_TEXT_CARD,
+  COLOR_TEXT_CARD_MUTED,
+  COLOR_TEXT_ERROR_CARD,
+} from '../lib/theme';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -11,13 +23,13 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    backgroundColor: '#0d1117',
-    color: '#e6edf3',
+    backgroundColor: COLOR_BG_LOGIN,
+    color: COLOR_TEXT_CARD,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif',
   },
   card: {
-    backgroundColor: '#161b22',
-    border: '1px solid #30363d',
+    backgroundColor: COLOR_BG_CARD,
+    border: `1px solid ${COLOR_BORDER_CARD}`,
     borderRadius: '12px',
     padding: '40px',
     width: '100%',
@@ -29,11 +41,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     margin: '0 0 8px 0',
     textAlign: 'center' as const,
-    color: '#e6edf3',
+    color: COLOR_TEXT_CARD,
   },
   subtitle: {
     fontSize: '14px',
-    color: '#8b949e',
+    color: COLOR_TEXT_CARD_MUTED,
     margin: '0 0 32px 0',
     textAlign: 'center' as const,
   },
@@ -45,16 +57,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     fontWeight: 500,
     marginBottom: '8px',
-    color: '#e6edf3',
+    color: COLOR_TEXT_CARD,
   },
   input: {
     width: '100%',
     padding: '10px 12px',
     fontSize: '14px',
-    backgroundColor: '#0d1117',
-    border: '1px solid #30363d',
+    backgroundColor: COLOR_BG_LOGIN,
+    border: `1px solid ${COLOR_BORDER_CARD}`,
     borderRadius: '6px',
-    color: '#e6edf3',
+    color: COLOR_TEXT_CARD,
     outline: 'none',
     boxSizing: 'border-box',
   },
@@ -63,7 +75,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '10px 16px',
     fontSize: '14px',
     fontWeight: 600,
-    backgroundColor: '#238636',
+    backgroundColor: COLOR_BTN_PRIMARY,
     color: '#ffffff',
     border: 'none',
     borderRadius: '6px',
@@ -78,18 +90,18 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'not-allowed',
   },
   errorBox: {
-    backgroundColor: '#3d1114',
-    border: '1px solid #6e2d2f',
+    backgroundColor: COLOR_BG_ERROR_CARD,
+    border: `1px solid ${COLOR_BORDER_ERROR_CARD}`,
     borderRadius: '6px',
     padding: '10px 12px',
     marginBottom: '16px',
     fontSize: '13px',
-    color: '#f85149',
+    color: COLOR_TEXT_ERROR_CARD,
   },
   spinner: {
     width: '16px',
     height: '16px',
-    border: '2px solid rgba(255, 255, 255, 0.3)',
+    border: `2px solid ${COLOR_SPINNER_TRACK}`,
     borderTopColor: '#ffffff',
     borderRadius: '50%',
     animation: 'spin 0.6s linear infinite',
@@ -127,8 +139,11 @@ export function LoginPage() {
 
   return (
     <>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={styles.container}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="login-page"] span[style*="animation: spin"] { animation: none !important; }
+}`}</style>
+      <div data-testid="login-page" style={styles.container}>
         <div style={styles.card}>
           <h1 style={styles.title}>Ymir Terminal</h1>
           <p style={styles.subtitle}>Enter your password to connect</p>

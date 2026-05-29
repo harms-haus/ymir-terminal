@@ -62,7 +62,8 @@ describe('useTabs', () => {
   test('closeTab removes the specified tab', () => {
     const { result } = renderHook(() => useTabs());
 
-    let id1 = '', id2 = '';
+    let id1 = '',
+      id2 = '';
     act(() => {
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
@@ -86,7 +87,8 @@ describe('useTabs', () => {
   test('activateTab sets the active tab', () => {
     const { result } = renderHook(() => useTabs());
 
-    let id1 = '', id2 = '';
+    let id1 = '',
+      id2 = '';
     act(() => {
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
@@ -109,7 +111,8 @@ describe('useTabs', () => {
   test('closing the active tab switches to the previous tab', () => {
     const { result } = renderHook(() => useTabs());
 
-    let id2 = '', id3 = '';
+    let id2 = '',
+      id3 = '';
     act(() => {
       result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
@@ -134,7 +137,8 @@ describe('useTabs', () => {
   test('closing the first active tab switches to the next tab', () => {
     const { result } = renderHook(() => useTabs());
 
-    let id1 = '', id2 = '';
+    let id1 = '',
+      id2 = '';
     act(() => {
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
@@ -239,7 +243,8 @@ describe('useTabs', () => {
   test('closing a non-active tab does not change activeTabId', () => {
     const { result } = renderHook(() => useTabs());
 
-    let id1 = '', id3 = '';
+    let id1 = '',
+      id3 = '';
     act(() => {
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       result.current.createTab({ type: 'terminal', title: 'Terminal 2' });

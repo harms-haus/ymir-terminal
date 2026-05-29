@@ -1,5 +1,6 @@
 import {
   ErrorCodes,
+  type ErrorCode,
   PROTOCOL_VERSION,
   type EventEnvelope,
   type MessageEnvelope,
@@ -7,6 +8,7 @@ import {
   type RequestEnvelope,
   type ResponseEnvelope,
 } from '@ymir/shared';
+import type { ClientConnection } from './connection';
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -60,7 +62,10 @@ export function parseMessage(raw: string): MessageEnvelope {
 /**
  * Create a success response paired to a prior request by `id`.
  */
-export function createResponse<T = unknown>(request: RequestEnvelope, payload: T): ResponseEnvelope<T> {
+export function createResponse<T = unknown>(
+  request: RequestEnvelope,
+  payload: T,
+): ResponseEnvelope<T> {
   return {
     v: PROTOCOL_VERSION,
     type: 'response',
@@ -75,7 +80,7 @@ export function createResponse<T = unknown>(request: RequestEnvelope, payload: T
  */
 export function createError(
   request: Pick<RequestEnvelope, 'id' | 'channel'>,
-  code: string,
+  code: ErrorCode,
   message: string,
 ): ResponseEnvelope {
   return {
@@ -104,7 +109,7 @@ export function createEvent(channel: string, payload: unknown): EventEnvelope {
 // Router
 // ---------------------------------------------------------------------------
 
-export type RouteHandler = (conn: unknown, envelope: MessageEnvelope) => Promise<void>;
+export type RouteHandler = (conn: ClientConnection, envelope: MessageEnvelope) => Promise<void>;
 
 export class MessageRouter {
   private handlers = new Map<string, RouteHandler>();
@@ -122,7 +127,7 @@ export class MessageRouter {
    * @returns An error `ResponseEnvelope` if no handler is registered for the
    *          channel, or `null` when dispatch succeeds.
    */
-  async route(conn: unknown, envelope: MessageEnvelope): Promise<ResponseEnvelope | null> {
+  async route(conn: ClientConnection, envelope: MessageEnvelope): Promise<ResponseEnvelope | null> {
     const handler = this.handlers.get(envelope.channel ?? '');
 
     if (!handler) {

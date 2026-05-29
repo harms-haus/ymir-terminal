@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-function-type */
-import { describe, expect, it, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, expect, it, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { PTYManager } from './manager';
 import { toBase64 } from '@ymir/shared';
 
@@ -8,6 +8,11 @@ const mockExistsSync = mock((_path: string) => true);
 mock.module('./fs', () => ({
   existsSync: mockExistsSync,
 }));
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('PTYManager', () => {
   let manager: PTYManager;

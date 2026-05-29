@@ -6,7 +6,7 @@ try {
   // Already registered (e.g. when run alongside other test files)
 }
 
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
 import { renderHook, act } from '@testing-library/react';
 import type { ConnectionStatus } from '../lib/ws-client';
 
@@ -48,6 +48,11 @@ function simulateStatusChange(status: ConnectionStatus) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// Cleanup: restore all mocked modules so other test files see the originals
+afterAll(() => {
+  mock.restore();
+});
 
 describe('useConnectionStatus', () => {
   beforeEach(() => {

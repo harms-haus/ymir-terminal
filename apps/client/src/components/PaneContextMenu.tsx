@@ -1,4 +1,10 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import { COLOR_BORDER, COLOR_DANGER, COLOR_TEXT_DIM } from '../lib/theme';
+import {
+  getContextMenuCss,
+  getMenuContainerStyle,
+  menuItemStyle,
+} from '../lib/context-menu-styles';
 
 interface PaneContextMenuProps {
   paneId: string;
@@ -21,63 +27,33 @@ export function PaneContextMenu({
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenu.Content
-          data-testid="pane-context-menu"
-          style={{
-            background: '#252526',
-            border: '1px solid #333',
-            borderRadius: '4px',
-            padding: '4px 0',
-            minWidth: '160px',
-            zIndex: 1000,
-          }}
-        >
-          <style>{`
-            [data-testid="pane-context-menu"] [role="menuitem"]:focus-visible {
-              outline: 2px solid #007acc;
-              outline-offset: -2px;
-            }
-            [data-testid="pane-context-menu"] [role="menuitem"]:hover {
-              background: #094771;
-            }
-          `}</style>
+        <ContextMenu.Content data-testid="pane-context-menu" style={getMenuContainerStyle()}>
+          <style>{getContextMenuCss('pane-context-menu')}</style>
           <ContextMenu.Item
             data-testid="split-right"
             onSelect={() => onSplitRight?.(paneId)}
-            style={{
-              padding: '6px 12px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              color: '#ccc',
-              outline: 'none',
-            }}
+            style={menuItemStyle}
           >
             Split Right
           </ContextMenu.Item>
           <ContextMenu.Item
             data-testid="split-down"
             onSelect={() => onSplitDown?.(paneId)}
-            style={{
-              padding: '6px 12px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              color: '#ccc',
-              outline: 'none',
-            }}
+            style={menuItemStyle}
           >
             Split Down
           </ContextMenu.Item>
-          <ContextMenu.Separator style={{ height: '1px', background: '#333', margin: '4px 0' }} />
+          <ContextMenu.Separator
+            style={{ height: '1px', background: COLOR_BORDER, margin: '4px 0' }}
+          />
           <ContextMenu.Item
             data-testid="close-pane"
             disabled={isOnlyPane}
             onSelect={() => onClosePane?.(paneId)}
             style={{
-              padding: '6px 12px',
+              ...menuItemStyle,
               cursor: isOnlyPane ? 'not-allowed' : 'pointer',
-              fontSize: '13px',
-              color: isOnlyPane ? '#666' : '#c74e39',
-              outline: 'none',
+              color: isOnlyPane ? COLOR_TEXT_DIM : COLOR_DANGER,
             }}
           >
             Close Pane

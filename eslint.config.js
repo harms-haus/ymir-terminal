@@ -19,6 +19,18 @@ module.exports = [
   // Base: typescript-eslint recommended
   ...tsEslint.configs.recommended,
 
+  // Allow _-prefixed unused vars (standard convention for intentionally
+  // unused parameters in callbacks, mocks, and destructuring)
+  {
+    files: ["**/*.{ts,tsx,js,jsx}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+
   // React config for client app
   {
     files: ["apps/client/**"],

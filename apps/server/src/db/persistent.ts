@@ -124,5 +124,3 @@ export function setConfigValue(db: Database, key: string, value: string): void {
   );
   stmt.run({ $key: key, $value: value });
 }
-
-

@@ -1,6 +1,7 @@
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPage } from './LoginPage';
+import { COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BORDER, COLOR_TEXT } from '../lib/theme';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -27,8 +28,8 @@ export function AppLayout({
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: '#1e1e1e',
-        color: '#ccc',
+        background: COLOR_BG_PRIMARY,
+        color: COLOR_TEXT,
       }}
     >
       <Group orientation="horizontal" style={{ flex: 1, minHeight: 0 }}>
@@ -37,11 +38,13 @@ export function AppLayout({
           defaultSize="15%"
           minSize="10%"
           maxSize="80%"
-          style={{ background: '#252526', borderRight: '1px solid #333' }}
+          style={{ background: COLOR_BG_SECONDARY, borderRight: `1px solid ${COLOR_BORDER}` }}
         >
-          <nav aria-label="Workspaces" data-testid="left-sidebar">{leftSidebar ?? 'Left Sidebar'}</nav>
+          <nav aria-label="Workspaces" data-testid="left-sidebar">
+            {leftSidebar ?? 'Left Sidebar'}
+          </nav>
         </Panel>
-        <Separator style={{ width: '2px', background: '#333' }} />
+        <Separator style={{ width: '2px', background: COLOR_BORDER }} />
 
         {/* Center - main content with bottom panel */}
         <Panel defaultSize="55%" minSize="30%">
@@ -51,27 +54,29 @@ export function AppLayout({
                 {children ?? null}
               </main>
             </Panel>
-            <Separator style={{ height: '2px', background: '#333' }} />
+            <Separator style={{ height: '2px', background: COLOR_BORDER }} />
             <Panel
               defaultSize="25%"
               minSize="10%"
               maxSize="90%"
-              style={{ background: '#252526', borderTop: '1px solid #333' }}
+              style={{ background: COLOR_BG_SECONDARY, borderTop: `1px solid ${COLOR_BORDER}` }}
             >
               <div data-testid="bottom-panel">{bottomPanel ?? 'Bottom Panel'}</div>
             </Panel>
           </Group>
         </Panel>
-        <Separator style={{ width: '2px', background: '#333' }} />
+        <Separator style={{ width: '2px', background: COLOR_BORDER }} />
 
         {/* Right sidebar - file tree */}
         <Panel
           defaultSize="30%"
           minSize="15%"
           maxSize="80%"
-          style={{ background: '#252526', borderLeft: '1px solid #333' }}
+          style={{ background: COLOR_BG_SECONDARY, borderLeft: `1px solid ${COLOR_BORDER}` }}
         >
-          <aside aria-label="Explorer" data-testid="right-sidebar" style={{ height: '100%' }}>{rightSidebar ?? 'Right Sidebar'}</aside>
+          <aside aria-label="Explorer" data-testid="right-sidebar" style={{ height: '100%' }}>
+            {rightSidebar ?? 'Right Sidebar'}
+          </aside>
         </Panel>
       </Group>
       {footer}

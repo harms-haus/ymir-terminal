@@ -1,13 +1,8 @@
 import type { FileNode, GitStatusResponse } from '@ymir/shared';
+import { GIT_STATUS_COLORS as _GIT_STATUS_COLORS } from './theme';
 
-export const GIT_STATUS_COLORS: Record<string, string> = {
-  '??': '#73c991', // green — untracked/new
-  A: '#73c991', // green — added
-  M: '#e2c08d', // gold — modified
-  R: '#73c991', // green — renamed
-  C: '#73c991', // green — copied
-  D: '#c74e39', // dark red — deleted
-};
+// Re-export GIT_STATUS_COLORS from the centralized theme module.
+export const GIT_STATUS_COLORS = _GIT_STATUS_COLORS;
 
 export function buildGitPathMap(
   gitStatus: GitStatusResponse | null,
@@ -26,6 +21,19 @@ export function buildGitPathMap(
   return map;
 }
 
+const STATUS_PRIORITY: Record<string, number> = {
+  D: 4,
+  A: 3,
+  M: 2,
+  R: 1,
+  C: 1,
+  '??': 0,
+};
+
+function highestPriorityStatus(a: string, b: string): string {
+  return (STATUS_PRIORITY[a] ?? -1) >= (STATUS_PRIORITY[b] ?? -1) ? a : b;
+}
+
 export function computeDirectoryStatus(
   node: FileNode,
   gitPathMap: Map<string, { status: string; staged: boolean }>,
@@ -33,21 +41,26 @@ export function computeDirectoryStatus(
 ): string | null {
   if (!node.isDirectory) {
     const relativePath = node.path.slice(workspaceRoot.length + 1);
-    if (gitPathMap.has(relativePath)) {
-      return 'M';
+    const entry = gitPathMap.get(relativePath);
+    if (entry) {
+      return entry.status;
     }
     return null;
   }
 
+  let aggregated: string | null = null;
+
   if (node.children) {
     for (const child of node.children) {
-      if (computeDirectoryStatus(child, gitPathMap, workspaceRoot) !== null) {
-        return 'M';
+      const childStatus = computeDirectoryStatus(child, gitPathMap, workspaceRoot);
+      if (childStatus !== null) {
+        aggregated =
+          aggregated === null ? childStatus : highestPriorityStatus(aggregated, childStatus);
       }
     }
   }
 
-  return null;
+  return aggregated;
 }
 
 export function mergeDeletedFiles(

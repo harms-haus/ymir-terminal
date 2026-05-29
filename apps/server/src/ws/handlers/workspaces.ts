@@ -85,7 +85,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
   const doStopWatcher = _mocks?.stopWorkspaceWatcher ?? stopWorkspaceWatcher;
 
   // --- workspace.list -----------------------------------------------------
-  router.handle('workspace.list', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('workspace.list', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope;
 
     const workspaces = doList(persistentDb);
@@ -95,11 +95,11 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       workspaces: summaries,
     });
 
-    (conn as ClientConnection).send(resp);
+    conn.send(resp);
   });
 
   // --- workspace.create ---------------------------------------------------
-  router.handle('workspace.create', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('workspace.create', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<WorkspaceCreateRequest>;
     const payload = req.payload;
 
@@ -115,7 +115,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
         ErrorCodes.INVALID_MESSAGE,
         'Missing required fields: name, cwd, color',
       );
-      (conn as ClientConnection).send(err);
+      conn.send(err);
       return;
     }
 
@@ -145,11 +145,11 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       workspace: toSummary(workspace),
     });
 
-    (conn as ClientConnection).send(resp);
+    conn.send(resp);
   });
 
   // --- workspace.update ---------------------------------------------------
-  router.handle('workspace.update', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('workspace.update', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<WorkspaceUpdateRequest>;
     const payload = req.payload;
 
@@ -159,7 +159,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
         ErrorCodes.INVALID_MESSAGE,
         'Missing required field: id',
       );
-      (conn as ClientConnection).send(err);
+      conn.send(err);
       return;
     }
 
@@ -177,7 +177,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
         ErrorCodes.WORKSPACE_NOT_FOUND,
         `Workspace not found: ${payload.id}`,
       );
-      (conn as ClientConnection).send(err);
+      conn.send(err);
       return;
     }
 
@@ -185,11 +185,11 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       workspace: toSummary(workspace),
     });
 
-    (conn as ClientConnection).send(resp);
+    conn.send(resp);
   });
 
   // --- workspace.delete ---------------------------------------------------
-  router.handle('workspace.delete', async (conn: unknown, envelope: MessageEnvelope) => {
+  router.handle('workspace.delete', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<WorkspaceDeleteRequest>;
     const payload = req.payload;
 
@@ -199,7 +199,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
         ErrorCodes.INVALID_MESSAGE,
         'Missing required field: id',
       );
-      (conn as ClientConnection).send(err);
+      conn.send(err);
       return;
     }
 
@@ -217,12 +217,12 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
         ErrorCodes.WORKSPACE_NOT_FOUND,
         `Workspace not found: ${payload.id}`,
       );
-      (conn as ClientConnection).send(err);
+      conn.send(err);
       return;
     }
 
     const resp: ResponseEnvelope = createResponse(req, { deleted: true });
 
-    (conn as ClientConnection).send(resp);
+    conn.send(resp);
   });
 }

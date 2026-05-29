@@ -1,5 +1,6 @@
 import { useWorkspaces } from '../hooks/useWorkspaces';
 import { WorkspaceItem } from './WorkspaceItem';
+import { COLOR_TEXT_DIM, COLOR_TEXT_MUTED } from '../lib/theme';
 
 interface WorkspaceSidebarProps {
   activeWorkspaceId: string | null;
@@ -36,7 +37,7 @@ export function WorkspaceSidebar({
           padding: '4px 8px',
         }}
       >
-        <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#888' }}>
+        <span style={{ fontSize: '11px', textTransform: 'uppercase', color: COLOR_TEXT_MUTED }}>
           Workspaces
         </span>
         <button
@@ -46,7 +47,7 @@ export function WorkspaceSidebar({
           style={{
             background: 'none',
             border: 'none',
-            color: '#888',
+            color: COLOR_TEXT_MUTED,
             cursor: 'pointer',
             fontSize: '16px',
             borderRadius: '4px',
@@ -55,9 +56,9 @@ export function WorkspaceSidebar({
           +
         </button>
       </div>
-      {isLoading && <div style={{ color: '#666', padding: '8px' }}>Loading...</div>}
+      {isLoading && <div style={{ color: COLOR_TEXT_DIM, padding: '8px' }}>Loading...</div>}
       {workspaces?.length === 0 && (
-        <div style={{ color: '#666', padding: '8px', fontSize: '12px' }}>No workspaces</div>
+        <div style={{ color: COLOR_TEXT_DIM, padding: '8px', fontSize: '12px' }}>No workspaces</div>
       )}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {workspaces?.map((ws: import('@ymir/shared').WorkspaceSummary) => (
