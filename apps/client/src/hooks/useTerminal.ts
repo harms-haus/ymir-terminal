@@ -4,6 +4,8 @@ import { toBase64, fromBase64, PROTOCOL_VERSION } from '@ymir/shared';
 import type { MessageEnvelope } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 
+const decoder = new TextDecoder();
+
 export function useTerminal(terminalId: string | null) {
   const outputHandlers = useRef<((data: string) => void)[]>([]);
 
@@ -13,7 +15,7 @@ export function useTerminal(terminalId: string | null) {
       const payload = envelope.payload as { terminalId: string; data: string } | undefined;
       if (envelope.channel === 'terminal.output' && payload?.terminalId === terminalId) {
         const decoded = fromBase64(payload.data);
-        const text = new TextDecoder().decode(decoded);
+        const text = decoder.decode(decoded);
         outputHandlers.current.forEach((h) => h(text));
       }
     });

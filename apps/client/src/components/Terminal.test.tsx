@@ -21,6 +21,7 @@ const mockLoadAddon = mock(() => {});
 
 const mockFocus = mock(() => {});
 
+let capturedOnTitleChangeHandler: ((title: string) => void) | null = null;
 const mockTerminalInstance = {
   cols: 80,
   rows: 24,
@@ -31,6 +32,10 @@ const mockTerminalInstance = {
   write: mock(() => {}),
   onData: mock(() => ({ dispose: mock(() => {}) })),
   onResize: mock(() => ({ dispose: mock(() => {}) })),
+  onTitleChange: mock((handler: (title: string) => void) => {
+    capturedOnTitleChangeHandler = handler;
+    return { dispose: mock(() => {}) };
+  }),
 };
 
 const MockTerminal = mock(() => mockTerminalInstance);
@@ -52,7 +57,11 @@ mock.module('ghostty-web', () => ({
 // ---------------------------------------------------------------------------
 
 const mockSendData = mock(() => {});
-const mockOnOutput = mock(() => () => {});
+let capturedOnOutputHandler: ((data: string) => void) | null = null;
+const mockOnOutput = mock((handler: (data: string) => void) => {
+  capturedOnOutputHandler = handler;
+  return () => {};
+});
 const mockResizeTerminal = mock(() => {});
 const mockCreateTerminal = mock(() => Promise.resolve({ terminalId: 'test-terminal' }));
 const mockCloseTerminal = mock(() => {});
@@ -78,15 +87,19 @@ function renderTerminal(
     terminalId?: string;
     cols?: number;
     rows?: number;
+    onTitleChange?: (title: string) => void;
+    onCwdChange?: (cwd: string) => void;
   } = {},
 ) {
-  const { terminalId = 'test-terminal', cols, rows } = options;
+  const { terminalId = 'test-terminal', cols, rows, onTitleChange, onCwdChange } = options;
 
   return render(
     React.createElement(Terminal, {
       terminalId,
       ...(cols !== undefined && { cols }),
       ...(rows !== undefined && { rows }),
+      ...(onTitleChange !== undefined && { onTitleChange }),
+      ...(onCwdChange !== undefined && { onCwdChange }),
     }),
   );
 }
@@ -110,10 +123,13 @@ describe('Terminal', () => {
     MockFitAddon.mockClear();
     mockInit.mockClear();
     mockTerminalInstance.onData.mockClear();
+    mockTerminalInstance.onTitleChange.mockClear();
     mockOnOutput.mockClear();
     mockSendData.mockClear();
     mockResizeTerminal.mockClear();
     mockFocus.mockClear();
+    capturedOnOutputHandler = null;
+    capturedOnTitleChangeHandler = null;
   });
 
   afterEach(() => {
@@ -248,5 +264,53 @@ describe('Terminal', () => {
     const container = getByTestId('terminal-style-test');
     expect(container.style.width).toBe('100%');
     expect(container.style.height).toBe('100%');
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. Calls onTitleChange when ghostty terminal fires title change event
+  // -----------------------------------------------------------------------
+  test('calls onTitleChange when ghostty terminal fires title change event', async () => {
+    const onTitleChange = mock(() => {});
+    renderTerminal({ onTitleChange });
+
+    await waitFor(() => {
+      expect(mockTerminalInstance.onTitleChange).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capturedOnTitleChangeHandler).toBeTruthy();
+    capturedOnTitleChangeHandler!('my-title');
+    expect(onTitleChange).toHaveBeenCalledWith('my-title');
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. Calls onCwdChange when OSC 7 sequence is detected in output
+  // -----------------------------------------------------------------------
+  test('calls onCwdChange when OSC 7 sequence is detected in output', async () => {
+    const onCwdChange = mock(() => {});
+    renderTerminal({ onCwdChange });
+
+    await waitFor(() => {
+      expect(mockOnOutput).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capturedOnOutputHandler).toBeTruthy();
+    capturedOnOutputHandler!('\x1b]7;file://localhost/home/user/projects\x07some other data');
+    expect(onCwdChange).toHaveBeenCalledWith('/home/user/projects');
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. Does not call onCwdChange when no OSC 7 in output
+  // -----------------------------------------------------------------------
+  test('does not call onCwdChange when no OSC 7 in output', async () => {
+    const onCwdChange = mock(() => {});
+    renderTerminal({ onCwdChange });
+
+    await waitFor(() => {
+      expect(mockOnOutput).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capturedOnOutputHandler).toBeTruthy();
+    capturedOnOutputHandler!('just regular output');
+    expect(onCwdChange).not.toHaveBeenCalled();
   });
 });

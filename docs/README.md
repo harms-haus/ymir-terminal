@@ -38,9 +38,11 @@ Bun Server
 | Language    | TypeScript (strict mode)                                              |
 | Backend     | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                       |
 | Frontend    | React 19, TanStack Router, TanStack Query, Vite                       |
-| Terminal    | `@xterm/xterm` + `@xterm/addon-fit`                                   |
+| Terminal    | `ghostty-web` + `ghostty-web FitAddon`                                  |
 | Code Editor | CodeMirror 6 (`@codemirror/lang-*`)                                   |
 | Auth        | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry |
+| DnD         | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer |
+| Context Menu | `@radix-ui/react-context-menu`                                        |
 | Styling     | Inline CSS, `react-resizable-panels` for IDE layout                   |
 | Testing     | `bun:test`, Testing Library (React), happy-dom                        |
 
@@ -202,7 +204,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | --------------- | ---------------------------------------------------------------------------------- |
 | `components/`   | React UI components (see below)                                                    |
 | `hooks/`        | Custom React hooks for state and data (incl. `useCreateTerminalTab`)               |
-| `lib/`          | WebSocket client, request helper, git-tree-status, theme constants, context styles |
+| `lib/`          | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles |
 | `routes/`       | TanStack Router route definitions                                                  |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`)                                     |
 
@@ -212,10 +214,10 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | -------------------------- | ------------------------------------------------------------- |
 | `AppLayout`                | IDE shell with resizable left/center/right                    |
 | `SplitPaneView`            | Recursive split pane renderer                                 |
-| `Terminal`                 | xterm.js terminal emulator                                    |
+| `Terminal`                 | ghostty-web terminal emulator with OSC 7 CWD and title tracking |
 | `CodeEditor`               | CodeMirror 6 editor instance                                  |
 | `EditorPane`               | Extracted editor pane (file loading, save, retry)             |
-| `ContentPane`              | Tab content area coordinator (renders EditorPane or Terminal) |
+| `ContentPane`              | `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation |
 | `PaneContextMenu`          | Context menu for pane operations                              |
 | `WorkspaceSidebar`         | Sidebar listing workspaces                                    |
 | `WorkspaceItem`            | Individual workspace item with context menu                   |
@@ -225,9 +227,11 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `RightSidebar`             | Resizable explorer panel (FileTree 70% / GitPanel 30%)        |
 | `GitPanel`                 | Git status display                                            |
 | `LoginPage`                | Password authentication form                                  |
-| `BottomPanel`              | Terminal panel at bottom of layout                            |
+| `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable` |
+| `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename) |
+| `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation |
+| `WorkspaceView`            | Top-level workspace view with `DragDropProvider` for cross-pane terminal tab DnD |
 | `StatusBar`                | Connection status, workspace info                             |
-| `TabBar`                   | Editor/terminal tab strip                                     |
 | `ToastProvider`            | Toast notification system                                     |
 
 ## Testing
@@ -303,9 +307,125 @@ The git status logic lives in `lib/git-tree-status.ts`:
 | `computeDirectoryStatus` | Recursively checks if any descendant has changes                  |
 | `mergeDeletedFiles`      | Merges synthetic nodes for deleted files into the tree            |
 
+## Tab System
+
+The tab system manages terminal and editor tabs across two tab strips: the **content pane** (editors + terminals) and the **bottom panel** (terminals only). Both panes share the same `useTabs` hook internally and the `TabBar` component for rendering.
+
+### Tab Interface
+
+```typescript
+interface Tab {
+  id: string;
+  type: 'terminal' | 'editor';
+  title: string;
+  terminalId?: string;
+  filePath?: string;
+  cwd?: string;           // tracked via OSC 7 for terminal tabs
+  paneLayout?: unknown;
+}
+```
+
+### `useTabs` Hook
+
+Each pane (`ContentPane`, `BottomPanel`) owns an independent `useTabs` instance:
+
+| Method            | Description                                                                     |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `createTab`       | Create a tab (terminal or editor) and activate it                               |
+| `closeTab`        | Close a tab; activate the previous tab (or the next, or null)                   |
+| `activateTab`     | Set a tab as active                                                             |
+| `updateTabTitle`  | Update a tab's display title                                                    |
+| `updateTabCwd`    | Update a terminal tab's working directory (from OSC 7 parsing)                  |
+| `reorderTabs`     | Move a tab from one index to another (used by DnD)                              |
+| `closeTabsRight`  | Close all tabs to the right of a given tab                                      |
+| `closeOtherTabs`  | Close all tabs except the given one                                              |
+
+`closeTab` uses a ref (`activeTabIdRef`) to avoid stale closures when computing which tab to activate next.
+
+### TabBar Component
+
+`TabBar` renders a sortable, context-menu-equipped tab strip. It supports two visual variants via the `variant` prop:
+
+| Variant    | Used by         | Styling                                                              |
+| ---------- | --------------- | -------------------------------------------------------------------- |
+| `content`  | `ContentPane`   | Inactive tabs use `COLOR_TAB_INACTIVE` background, 13px font         |
+| `bottom`   | `BottomPanel`   | Inactive tabs are transparent, 12px font, accent underline on active |
+
+Each tab is a `SortableTab` (memoized) wired to `@dnd-kit/react`'s `useSortable` with a `group` identifier (`"content"` or `"bottom"`). This group is used by the `DragDropProvider` in `WorkspaceView` to distinguish same-pane reorders from cross-pane transfers.
+
+**Features:**
+
+- **Context menu** — right-click opens `TabContextMenu` (Close, Close Others, Close to the Right, Rename)
+- **Middle-click close** — `onAuxClick` with `button === 1` closes the tab
+- **Inline rename** — double-triggered from context menu; commits on Enter/blur, cancels on Escape
+- **Tooltips** — terminal tabs show `cwd`, editor tabs show `filePath`
+- **Active accent line** — 2px `var(--accent)` top border on the active tab
+
+### Drag-and-Drop Architecture
+
+```
+WorkspaceView (DragDropProvider)
+├── onDragOver → same-group reorder via move() helper
+│   ├── group="content" → ContentPane.reorderTabs()
+│   └── group="bottom"  → BottomPanel.reorderTabs()
+└── onDragEnd → cross-group transfer
+    ├── sourcePane.removeTerminalTab(id) → { terminalId, title, cwd }
+    └── targetPane.addTerminalTab(terminalId, title, cwd)
+```
+
+**Same-pane reorder:** During drag-over, `@dnd-kit/helpers`' `move()` computes the new index order. The source pane's `reorderTabs(fromIndex, toIndex)` is called to update state.
+
+**Cross-pane transfer:** On drag-end, if source and target groups differ, the tab is removed from the source pane and added to the target pane. Only terminal tabs can be transferred (editor tabs are bound to a specific pane). `removeTerminalTab` returns the terminal's data so the target pane can re-create the tab without spawning a new PTY.
+
+### Imperative Handles
+
+`ContentPane` and `BottomPanel` expose handles via `forwardRef` + `useImperativeHandle` so `WorkspaceView` can orchestrate cross-pane operations:
+
+```typescript
+interface ContentPaneHandle {
+  removeTerminalTab(tabId: string): { terminalId: string; title: string; cwd?: string } | null;
+  addTerminalTab(terminalId: string, title: string, cwd?: string): void;
+  reorderTabs(fromIndex: number, toIndex: number): void;
+  getTabs(): Tab[];
+}
+```
+
+`BottomPanelHandle` has the same shape.
+
+### OSC 7 CWD Tracking
+
+Terminal tabs track their current working directory by parsing OSC 7 escape sequences from PTY output:
+
+```
+PTY output → Terminal.onOutput callback
+           → parseOsc7Cwd(data) extracts path from OSC 7 sequence
+           → onCwdChange(cwd) callback
+           → updateTabCwd(tabId, cwd)
+```
+
+The OSC 7 format is `ESC ] 7 ; file://hostname/path ST`. The parser (`lib/osc-parser.ts`) uses a global regex to find the last match in each data chunk and returns the decoded path. This enables tooltip display of the current directory and preserves CWD when transferring tabs between panes.
+
+### Title Tracking
+
+ghostty-web emits `onTitleChange` events when the terminal title changes (e.g. via shell `PROMPT_COMMAND`). The `Terminal` component forwards these through `onTitleChange` → `updateTabTitle`, keeping the tab strip in sync with the running process.
+
+### Batch Close Behavior
+
+- **ContentPane:** Checks for dirty (unsaved) editor files before closing. Shows a per-file confirmation dialog if any tab has unsaved changes.
+- **BottomPanel:** Warns about running processes being terminated. Shows a single confirmation when closing multiple terminals.
+- Both send `terminal.close` requests to the server for each closed terminal tab.
+
 ### Accessibility
 
 - Tree nodes have `role="treeitem"`, `tabIndex={0}`, and `aria-expanded` on directories
 - Status dots include `aria-label` (e.g. "Git status: modified") and `title` tooltips
 - Children containers use `role="group"`
 - Keyboard navigation via Enter/Space
+
+#### Tab Components
+
+- `TabBar` uses `role="tablist"`; each tab has `role="tab"` with `aria-selected`
+- Keyboard navigation: **Arrow Left/Right** to move focus between tabs, **Enter/Space** to activate
+- Close buttons have `aria-label="Close tab"` and a visible focus ring (`:focus-visible` outline)
+- Context menu items are keyboard-navigable via `@radix-ui/react-context-menu` (arrow keys, Enter, Escape)
+- Tab tooltips expose `cwd` (terminal) or `filePath` (editor) via the `title` attribute

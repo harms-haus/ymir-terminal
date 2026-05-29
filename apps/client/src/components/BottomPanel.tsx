@@ -1,22 +1,37 @@
-import { useCallback } from 'react';
+import { useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTabs } from '../hooks/useTabs';
+import type { Tab } from '../hooks/useTabs';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { Terminal } from './Terminal';
+import { TabBar } from './TabBar';
 import { sendRequest } from '../lib/send-request';
-import {
-  COLOR_ACCENT,
-  COLOR_BG_PRIMARY,
-  COLOR_BG_SECONDARY,
-  COLOR_BORDER,
-  COLOR_CLOSE_BTN_HOVER_BG,
-  COLOR_TEXT_BRIGHT,
-  COLOR_TEXT_DIM,
-  COLOR_TEXT_MUTED,
-} from '../lib/theme';
+import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 
-export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
-  const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+export interface BottomPanelHandle {
+  removeTerminalTab: (tabId: string) => { terminalId: string; title: string; cwd?: string } | null;
+  addTerminalTab: (terminalId: string, title: string, cwd?: string) => void;
+  reorderTabs: (fromIndex: number, toIndex: number) => void;
+  getTabs: () => Tab[];
+}
+
+export const BottomPanel = forwardRef<BottomPanelHandle, { workspaceId: string | null }>(
+function BottomPanel({ workspaceId }: { workspaceId: string | null }, ref) {
+  const {
+    tabs,
+    activeTabId,
+    createTab,
+    closeTab,
+    activateTab,
+    updateTabTitle,
+    updateTabCwd,
+    reorderTabs,
+    closeTabsRight,
+    closeOtherTabs,
+  } = useTabs();
+
+  // Keep a ref to tabs so imperative handle always sees current state
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
 
   const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab);
 
@@ -31,6 +46,79 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
     [tabs, closeTab],
   );
 
+  const handleTitleChange = useCallback(
+    (tabId: string, title: string) => {
+      updateTabTitle(tabId, title);
+    },
+    [updateTabTitle],
+  );
+
+  const handleCwdChange = useCallback(
+    (tabId: string, cwd: string) => {
+      updateTabCwd(tabId, cwd);
+    },
+    [updateTabCwd],
+  );
+
+  const handleCloseRight = useCallback(
+    (tabId: string) => {
+      const tabIdx = tabs.findIndex((t) => t.id === tabId);
+      const tabsToClose = tabs.slice(tabIdx + 1);
+      if (tabsToClose.length > 1) {
+        if (!window.confirm(`Close ${tabsToClose.length} terminals? Running processes will be terminated.`)) return;
+      }
+      tabsToClose.forEach((t) => {
+        if (t.terminalId) {
+          sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
+        }
+      });
+      closeTabsRight(tabId);
+    },
+    [tabs, closeTabsRight],
+  );
+
+  const handleCloseOthers = useCallback(
+    (tabId: string) => {
+      const tabsToClose = tabs.filter((t) => t.id !== tabId);
+      if (tabsToClose.length > 1) {
+        if (!window.confirm(`Close ${tabsToClose.length} terminals? Running processes will be terminated.`)) return;
+      }
+      tabsToClose.forEach((t) => {
+        if (t.terminalId) {
+          sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
+        }
+      });
+      closeOtherTabs(tabId);
+    },
+    [tabs, closeOtherTabs],
+  );
+
+  const handleRenameTab = useCallback(
+    (tabId: string, newTitle: string) => {
+      updateTabTitle(tabId, newTitle);
+    },
+    [updateTabTitle],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      removeTerminalTab(tabId: string) {
+        const tab = tabsRef.current.find((t) => t.id === tabId);
+        if (!tab?.terminalId) return null;
+        const data = { terminalId: tab.terminalId, title: tab.title, cwd: tab.cwd };
+        closeTab(tabId);
+        return data;
+      },
+      addTerminalTab(terminalId: string, title: string, cwd?: string) {
+        createTab({ type: 'terminal', title, terminalId, cwd });
+      },
+      reorderTabs,
+      getTabs: () => tabsRef.current,
+    }),
+    [closeTab, createTab, reorderTabs],
+  );
+
   return (
     <div
       data-testid="bottom-panel"
@@ -41,89 +129,42 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
         background: COLOR_BG_PRIMARY,
       }}
     >
-      <style>{`
-        .tab-close-btn:hover { color: ${COLOR_TEXT_BRIGHT}; background: ${COLOR_CLOSE_BTN_HOVER_BG}; }
-        .tab-close-btn:focus-visible { outline: 1px solid ${COLOR_ACCENT}; outline-offset: -1px; }
-      `}</style>
-      {/* Tab bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          background: COLOR_BG_SECONDARY,
-          borderBottom: `1px solid ${COLOR_BORDER}`,
-          height: '35px',
-        }}
-      >
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            data-testid={`bottom-tab-${tab.id}`}
-            onClick={() => activateTab(tab.id)}
-            style={{
-              padding: '6px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: activeTabId === tab.id ? COLOR_BG_PRIMARY : 'transparent',
-              borderBottom:
-                activeTabId === tab.id ? `1px solid ${COLOR_ACCENT}` : '1px solid transparent',
-              color: activeTabId === tab.id ? COLOR_TEXT_BRIGHT : COLOR_TEXT_MUTED,
-            }}
-          >
-            <span style={{ fontSize: '12px' }}>{tab.title}</span>
-            <button
-              aria-label={`Close ${tab.title}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCloseTab(tab.id);
-              }}
-              className="tab-close-btn"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: COLOR_TEXT_MUTED,
-                cursor: 'pointer',
-                fontSize: '12px',
-                padding: '0 2px',
-                width: '24px',
-                height: '24px',
-                minWidth: '24px',
-                minHeight: '24px',
-                borderRadius: '4px',
-              }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button
-          aria-label="Open new terminal"
-          data-testid="add-bottom-terminal"
-          onClick={handleAddTerminal}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: COLOR_TEXT_MUTED,
-            cursor: 'pointer',
-            padding: '6px 12px',
-            fontSize: '14px',
-            borderRadius: '4px',
-          }}
-        >
-          +
-        </button>
-      </div>
+      <TabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onActivate={activateTab}
+        onClose={handleCloseTab}
+        onAddTerminal={handleAddTerminal}
+        canAddTerminal={!!workspaceId}
+        variant="bottom"
+        onCloseRight={handleCloseRight}
+        onCloseOthers={handleCloseOthers}
+        onRename={handleRenameTab}
+        group="bottom"
+      />
       {/* Content */}
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {activeTab?.terminalId && (
-          <Terminal key={activeTab.terminalId} terminalId={activeTab.terminalId} />
-        )}
-        {!activeTab && (
+        {tabs
+          .filter((t) => t.terminalId)
+          .map((t) => (
+            <div
+              key={t.terminalId}
+              style={{
+                height: '100%',
+                display: t.id === activeTabId ? 'block' : 'none',
+              }}
+            >
+              <Terminal
+                terminalId={t.terminalId!}
+                onTitleChange={(title: string) => handleTitleChange(t.id, title)}
+                onCwdChange={(cwd: string) => handleCwdChange(t.id, cwd)}
+              />
+            </div>
+          ))}
+        {!activeTabId && (
           <div style={{ color: COLOR_TEXT_DIM, padding: '8px', fontSize: '12px' }}>No terminal</div>
         )}
       </div>
     </div>
   );
-}
+});

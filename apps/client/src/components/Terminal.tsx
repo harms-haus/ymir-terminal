@@ -1,15 +1,18 @@
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Terminal as GhosttyTerminal, FitAddon, init } from 'ghostty-web';
 import { useTerminal } from '../hooks/useTerminal';
+import { parseOsc7Cwd } from '../lib/osc-parser';
 
 export interface TerminalProps {
   terminalId: string;
   cols?: number;
   rows?: number;
+  onTitleChange?: (title: string) => void;
+  onCwdChange?: (cwd: string) => void;
 }
 
 export const Terminal = forwardRef(function Terminal(
-  { terminalId, cols = 80, rows = 24 }: TerminalProps,
+  { terminalId, cols = 80, rows = 24, onTitleChange, onCwdChange }: TerminalProps,
   ref,
 ) {
   const { sendData, onOutput, resizeTerminal } = useTerminal(terminalId);
@@ -18,6 +21,10 @@ export const Terminal = forwardRef(function Terminal(
   const fitRef = useRef<FitAddon | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
   const ioCleanupRef = useRef<(() => void) | null>(null);
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+  const onCwdChangeRef = useRef(onCwdChange);
+  onCwdChangeRef.current = onCwdChange;
 
   useImperativeHandle(ref, () => ({
     focus() {
@@ -52,7 +59,14 @@ export const Terminal = forwardRef(function Terminal(
       const dataDisposable = term.onData((data: string) => {
         sendData(data);
       });
+      const titleDisposable = term.onTitleChange((title: string) => {
+        onTitleChangeRef.current?.(title);
+      });
       const unregisterOutput = onOutput((data: string) => {
+        const cwd = parseOsc7Cwd(data);
+        if (cwd) {
+          onCwdChangeRef.current?.(cwd);
+        }
         term.write(data);
       });
 
@@ -69,6 +83,7 @@ export const Terminal = forwardRef(function Terminal(
 
       ioCleanupRef.current = () => {
         dataDisposable?.dispose?.();
+        titleDisposable?.dispose?.();
         unregisterOutput();
       };
     };

@@ -281,4 +281,196 @@ describe('useTabs', () => {
     expect(result.current.tabs.map((t) => t.type)).toEqual(['terminal', 'editor', 'terminal']);
     expect(result.current.activeTabId).toBe(ids[2]);
   });
+
+  // -----------------------------------------------------------------------
+  // 11. updateTabTitle: updates title of existing tab
+  // -----------------------------------------------------------------------
+  test('updateTabTitle updates the title of an existing tab', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    act(() => {
+      result.current.updateTabTitle(id1!, 'Updated Title');
+    });
+
+    expect(result.current.tabs[0].title).toBe('Updated Title');
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. updateTabTitle: no-ops for non-existent tab
+  // -----------------------------------------------------------------------
+  test('updateTabTitle is a no-op for a non-existent tab', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    act(() => {
+      result.current.updateTabTitle('non-existent-id', 'New Title');
+    });
+
+    expect(result.current.tabs[0].title).toBe('Terminal 1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. updateTabCwd: sets cwd on terminal tab
+  // -----------------------------------------------------------------------
+  test('updateTabCwd sets the cwd on a terminal tab', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    act(() => {
+      result.current.updateTabCwd(id1!, '/home/user/projects');
+    });
+
+    expect(result.current.tabs[0].cwd).toBe('/home/user/projects');
+  });
+
+  // -----------------------------------------------------------------------
+  // 14. reorderTabs: moves tab from index 2 to index 0
+  // -----------------------------------------------------------------------
+  test('reorderTabs moves tab from index 2 to index 0', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.createTab({ type: 'terminal', title: 'T1' });
+      result.current.createTab({ type: 'terminal', title: 'T2' });
+      result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T1', 'T2', 'T3']);
+
+    act(() => {
+      result.current.reorderTabs(2, 0);
+    });
+
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T3', 'T1', 'T2']);
+  });
+
+  // -----------------------------------------------------------------------
+  // 15. reorderTabs: moves tab from index 0 to index 2
+  // -----------------------------------------------------------------------
+  test('reorderTabs moves tab from index 0 to index 2', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.createTab({ type: 'terminal', title: 'T1' });
+      result.current.createTab({ type: 'terminal', title: 'T2' });
+      result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T1', 'T2', 'T3']);
+
+    act(() => {
+      result.current.reorderTabs(0, 2);
+    });
+
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T2', 'T3', 'T1']);
+  });
+
+  // -----------------------------------------------------------------------
+  // 16. closeTabsRight: closes all tabs to the right of given tab
+  // -----------------------------------------------------------------------
+  test('closeTabsRight closes all tabs to the right of the given tab', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '',
+      id2 = '',
+      id3 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+      id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
+      id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    // Close tabs right of id1 (should remove T2 and T3)
+    act(() => {
+      result.current.closeTabsRight(id1!);
+    });
+
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].id).toBe(id1);
+  });
+
+  // -----------------------------------------------------------------------
+  // 17. closeTabsRight: activates the kept tab if active was among closed
+  // -----------------------------------------------------------------------
+  test('closeTabsRight activates the kept tab if active was among closed', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '',
+      id2 = '',
+      id3 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+      id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
+      id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    // id3 is active (last created)
+    expect(result.current.activeTabId).toBe(id3);
+
+    // Close tabs right of id1 — removes T2 and T3
+    act(() => {
+      result.current.closeTabsRight(id1!);
+    });
+
+    // Active should switch to id1 since id3 was closed
+    expect(result.current.activeTabId).toBe(id1);
+    expect(result.current.tabs.length).toBe(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // 18. closeOtherTabs: closes all tabs except the given one
+  // -----------------------------------------------------------------------
+  test('closeOtherTabs closes all tabs except the given one', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '',
+      id2 = '',
+      id3 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+      id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
+      id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    // Keep only id2
+    act(() => {
+      result.current.closeOtherTabs(id2!);
+    });
+
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].id).toBe(id2);
+    expect(result.current.activeTabId).toBe(id2);
+  });
+
+  // -----------------------------------------------------------------------
+  // 19. closeOtherTabs: handles being the only tab
+  // -----------------------------------------------------------------------
+  test('closeOtherTabs works when there is only one tab', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+    });
+
+    act(() => {
+      result.current.closeOtherTabs(id1!);
+    });
+
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].id).toBe(id1);
+    expect(result.current.activeTabId).toBe(id1);
+  });
 });

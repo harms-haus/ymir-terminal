@@ -1,6 +1,6 @@
 # Ymir Implementation Progress
 
-_Last updated: 2026-05-27_
+_Last updated: 2026-05-29_
 
 ## Phase Overview
 
@@ -153,3 +153,48 @@ Enhanced the right sidebar with inline git status decorations and resizable pane
 - **`workspaceCwd` prop chain**: `WorkspaceView` → `RightSidebar` → `FileTree` for relative-path git lookups
 - **Accessibility**: `role="tree"`/`role="treeitem"`/`role="group"`, `aria-expanded`, `aria-label` on status indicators, keyboard Enter/Space navigation
 - **`mergeDeletedFiles`**: Synthetic `FileNode` entries inserted in alphabetical order for deleted files still referenced in git status
+
+---
+
+## Terminal Tab Improvements
+
+_2026-05-29_
+
+Enhanced terminal tabs with dynamic titles, context menus, drag-and-drop reordering, and cross-pane tab transfers.
+
+### New Files
+
+- **`lib/osc-parser.ts`** — OSC 7 CWD parser
+- **`lib/osc-parser.test.ts`** — Tests for OSC parser
+- **`components/TabContextMenu.tsx`** — Right-click tab context menu
+- **`components/TabContextMenu.test.tsx`** — Tests for tab context menu
+
+### Modified Files
+
+- **`hooks/useTabs.ts`** — Added `cwd` field, `updateTabTitle`, `updateTabCwd`, `reorderTabs`, `closeTabsRight`, `closeOtherTabs`
+- **`components/Terminal.tsx`** — Added `onTitleChange`/`onCwdChange` callbacks
+- **`components/TabBar.tsx`** — Added `variant` prop, context menu integration, middle-click close, accent color line, inline rename, DnD sortable via `@dnd-kit`, ARIA tab roles, keyboard navigation
+- **`components/ContentPane.tsx`** — `forwardRef` with imperative handle, batch close handlers
+- **`components/BottomPanel.tsx`** — Refactored to use shared `TabBar`, `forwardRef`, batch close confirmation
+- **`components/WorkspaceView.tsx`** — `DragDropProvider` wrapping for cross-pane DnD
+- **`hooks/useTerminal.ts`** — `TextDecoder` reuse for efficiency
+
+### New Dependencies
+
+- `@dnd-kit/react` ^0.4.0
+- `@dnd-kit/helpers` ^0.4.0
+
+### Features
+
+1. Terminal tab name shows current command (via ghostty `onTitleChange`)
+2. Hover tooltip shows CWD for terminal tabs
+3. Middle-click to close tabs
+4. Right-click context menu: Close, Close Others, Close to the Right, Rename
+5. Drag tabs to reorder within tab bars
+6. Drag terminal tabs between ContentPane and BottomPanel
+7. Focused tab shows workspace accent color line at top
+8. ARIA tab roles and keyboard navigation
+
+### Test Coverage
+
+- **112 client tests** across 8 test files — all passing

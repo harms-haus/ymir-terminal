@@ -151,6 +151,41 @@ mock.module('sonner', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock @dnd-kit
+// ---------------------------------------------------------------------------
+
+let mockOnDragOver: ((event: unknown) => void) | null = null;
+let mockOnDragEnd: ((event: unknown) => void) | null = null;
+
+mock.module('@dnd-kit/react', () => ({
+  DragDropProvider: ({ children, onDragOver, onDragEnd }: { children: React.ReactNode; onDragOver?: (e: unknown) => void; onDragEnd?: (e: unknown) => void }) => {
+    mockOnDragOver = onDragOver ?? null;
+    mockOnDragEnd = onDragEnd ?? null;
+    return children;
+  },
+  DragOverlay: ({ children }: { children: React.ReactNode }) => children,
+  useDroppable: () => ({ ref: () => {}, droppable: {}, isDropTarget: false }),
+}));
+
+mock.module('@dnd-kit/react/sortable', () => ({
+  useSortable: () => ({
+    ref: () => {},
+    isDragging: false,
+    isDropping: false,
+    isDragSource: false,
+    isDropTarget: false,
+    sortable: {},
+    handleRef: () => {},
+    sourceRef: () => {},
+    targetRef: () => {},
+  }),
+}));
+
+mock.module('@dnd-kit/helpers', () => ({
+  move: (items: unknown[]) => items,
+}));
+
+// ---------------------------------------------------------------------------
 // Import after mocking
 // ---------------------------------------------------------------------------
 
@@ -258,5 +293,16 @@ describe('WorkspaceView', () => {
 
     const statusBar = getByTestId('status-bar');
     expect(statusBar.textContent).toContain('Project Alpha');
+  });
+
+  // -----------------------------------------------------------------------
+  // 7. DragDropProvider wraps the layout
+  // -----------------------------------------------------------------------
+  test('DragDropProvider wraps the layout and registers handlers', () => {
+    renderWorkspaceView();
+
+    // After rendering, the DragDropProvider mock should have captured the handlers
+    expect(mockOnDragOver).toBeTruthy();
+    expect(mockOnDragEnd).toBeTruthy();
   });
 });
