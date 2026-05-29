@@ -2,7 +2,7 @@ import type { Server } from 'bun';
 import type { Database } from 'bun:sqlite';
 import { hashPassword } from './auth/password';
 import { generateSigningSecret } from './auth/jwt';
-import { initDatabase } from './db/persistent';
+import { initDatabase, getConfigValue, setConfigValue } from './db/persistent';
 import { initSessionDb, cleanupSession } from './db/session';
 import { startWebSocketServer, connections } from './ws/server';
 import { MessageRouter } from './ws/router';
@@ -30,11 +30,15 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   // 1. Hash password at startup
   const passwordHash = await hashPassword(password);
 
-  // 2. Generate JWT signing secret
-  const signingSecret = generateSigningSecret();
-
-  // 3. Init persistent DB
+  // 2. Init persistent DB
   const db: Database = initDatabase(getDbPath());
+
+  // 3. Load or generate JWT signing secret
+  let signingSecret = getConfigValue(db, 'jwt_signing_secret');
+  if (!signingSecret) {
+    signingSecret = generateSigningSecret();
+    setConfigValue(db, 'jwt_signing_secret', signingSecret);
+  }
 
   // 4. Init in-memory session DB
   const sessionDb: Database = initSessionDb();

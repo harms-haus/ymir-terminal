@@ -1,3 +1,4 @@
+import { chmodSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
 import { generateId } from '@ymir/shared';
 
@@ -24,6 +25,12 @@ export interface UpdateWorkspaceInput {
 
 export function initDatabase(dbPath: string): Database {
   const db = new Database(dbPath);
+
+  // Restrict file permissions to owner-only to protect the JWT signing secret
+  if (dbPath !== ':memory:') {
+    chmodSync(dbPath, 0o600);
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
@@ -34,6 +41,13 @@ export function initDatabase(dbPath: string): Database {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS server_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
   return db;
 }
 
@@ -97,3 +111,18 @@ export function deleteWorkspace(db: Database, id: string): boolean {
   const result = stmt.run({ $id: id });
   return result.changes > 0;
 }
+
+export function getConfigValue(db: Database, key: string): string | null {
+  const stmt = db.prepare('SELECT value FROM server_config WHERE key = $key');
+  const row = stmt.get({ $key: key }) as { value: string } | null;
+  return row?.value ?? null;
+}
+
+export function setConfigValue(db: Database, key: string, value: string): void {
+  const stmt = db.prepare(
+    'INSERT OR REPLACE INTO server_config (key, value) VALUES ($key, $value)',
+  );
+  stmt.run({ $key: key, $value: value });
+}
+
+

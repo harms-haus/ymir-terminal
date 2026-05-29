@@ -7,6 +7,8 @@ import {
   getWorkspace,
   updateWorkspace,
   deleteWorkspace,
+  getConfigValue,
+  setConfigValue,
 } from './persistent';
 
 describe('persistent database', () => {
@@ -138,5 +140,32 @@ describe('persistent database', () => {
   it('deleteWorkspace returns false for nonexistent id', () => {
     const deleted = deleteWorkspace(db, 'nonexistent-id');
     expect(deleted).toBe(false);
+  });
+
+  it('initDatabase creates the server_config table', () => {
+    const tableInfo = db
+      .query("SELECT name FROM sqlite_master WHERE type='table' AND name='server_config'")
+      .all();
+    expect(tableInfo.length).toBe(1);
+    expect(tableInfo[0].name).toBe('server_config');
+  });
+
+  it('getConfigValue returns null for a nonexistent key', () => {
+    const result = getConfigValue(db, 'nonexistent-key');
+    expect(result).toBeNull();
+  });
+
+  it('setConfigValue stores and getConfigValue retrieves the same value', () => {
+    setConfigValue(db, 'theme', 'dark');
+    const value = getConfigValue(db, 'theme');
+    expect(value).toBe('dark');
+  });
+
+  it('setConfigValue with INSERT OR REPLACE updates an existing value', () => {
+    setConfigValue(db, 'theme', 'dark');
+    expect(getConfigValue(db, 'theme')).toBe('dark');
+
+    setConfigValue(db, 'theme', 'light');
+    expect(getConfigValue(db, 'theme')).toBe('light');
   });
 });
