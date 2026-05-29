@@ -190,25 +190,26 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | ------------- | ------------------------------------------- |
 | `components/` | React UI components (see below)             |
 | `hooks/`      | Custom React hooks for state and data       |
-| `lib/`        | WebSocket client, request helper, utilities |
+| `lib/`        | WebSocket client, request helper, git-tree-status utilities |
 | `routes/`     | TanStack Router route definitions           |
 | `utils/`      | Path helpers                                |
 
 **Key components:**
 
-| Component       | Role                                       |
-| --------------- | ------------------------------------------ |
-| `AppLayout`     | IDE shell with resizable left/center/right |
-| `SplitPaneView` | Recursive split pane renderer              |
-| `Terminal`      | xterm.js terminal emulator                 |
-| `CodeEditor`    | CodeMirror 6 editor instance               |
-| `FileTree`      | Directory tree with context menu           |
-| `GitPanel`      | Git status display                         |
-| `LoginPage`     | Password authentication form               |
-| `BottomPanel`   | Terminal panel at bottom of layout         |
-| `StatusBar`     | Connection status, workspace info          |
-| `TabBar`        | Editor/terminal tab strip                  |
-| `ToastProvider` | Toast notification system                  |
+| Component       | Role                                                      |
+| --------------- | ---------------------------------------------------------- |
+| `AppLayout`     | IDE shell with resizable left/center/right                |
+| `SplitPaneView` | Recursive split pane renderer                             |
+| `Terminal`      | xterm.js terminal emulator                                |
+| `CodeEditor`    | CodeMirror 6 editor instance                              |
+| `FileTree`      | Directory tree with context menu and inline git status    |
+| `RightSidebar`  | Resizable explorer panel (FileTree 70% / GitPanel 30%)    |
+| `GitPanel`      | Git status display                                        |
+| `LoginPage`     | Password authentication form                              |
+| `BottomPanel`   | Terminal panel at bottom of layout                        |
+| `StatusBar`     | Connection status, workspace info                         |
+| `TabBar`        | Editor/terminal tab strip                                 |
+| `ToastProvider` | Toast notification system                                 |
 
 ## Testing
 
@@ -235,3 +236,57 @@ Ymir stores persistent data in SQLite:
 | Session    | In-memory (`:memory:`)   | Client sessions, tab state |
 
 The config directory is created automatically on first run.
+
+## Explorer Sidebar
+
+The right sidebar (`RightSidebar`) is a vertically resizable panel layout hosting the file tree and git status:
+
+```
+┌──────────────────┐
+│ Explorer (header)│
+├──────────────────┤
+│                  │
+│   FileTree       │  70% default, 20% min
+│   (scrollable)   │
+│                  │
+├─── (draggable) ──┤
+│   GitPanel       │  30% default, 10% min
+└──────────────────┘
+```
+
+Both `file.tree` and `git.status` are fetched when a workspace is selected. The `useFileChange` hook subscribes to `file.change` events and refreshes **both** the tree and git status on any filesystem change.
+
+`workspaceCwd` flows from `WorkspaceView` → `RightSidebar` → `FileTree` and is used to compute relative paths for git status lookups.
+
+### Inline Git Status in File Tree
+
+`FileTree` decorates nodes with colored git status indicators:
+
+| Status | Color      | Behavior                                    |
+| ------ | ---------- | ------------------------------------------- |
+| `??`   | Green      | Untracked file — colored dot                |
+| `A`    | Green      | Added — colored dot                         |
+| `R`    | Green      | Renamed — colored dot                       |
+| `C`    | Green      | Copied — colored dot                        |
+| `M`    | Gold       | Modified — colored dot                      |
+| `D`    | Dark red   | Deleted — colored dot, strikethrough name   |
+
+**Directory aggregation:** Directories show a gold dot when any descendant has uncommitted changes, computed recursively via `computeDirectoryStatus`.
+
+**Deleted files:** Since deleted files no longer exist on disk, `mergeDeletedFiles` (in `git-tree-status.ts`) inserts synthetic `FileNode` entries for them in alphabetical order so they remain visible in the tree.
+
+The git status logic lives in `lib/git-tree-status.ts`:
+
+| Export                 | Purpose                                                          |
+| ---------------------- | ---------------------------------------------------------------- |
+| `GIT_STATUS_COLORS`    | Status code → hex color mapping                                  |
+| `buildGitPathMap`      | Converts `GitStatusResponse` into a `Map<relativePath, status>`  |
+| `computeDirectoryStatus` | Recursively checks if any descendant has changes               |
+| `mergeDeletedFiles`    | Merges synthetic nodes for deleted files into the tree           |
+
+### Accessibility
+
+- Tree nodes have `role="treeitem"`, `tabIndex={0}`, and `aria-expanded` on directories
+- Status dots include `aria-label` (e.g. "Git status: modified") and `title` tooltips
+- Children containers use `role="group"`
+- Keyboard navigation via Enter/Space

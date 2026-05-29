@@ -87,7 +87,7 @@ export function WorkspaceView() {
           />
         }
         rightSidebar={
-          <RightSidebar workspaceId={activeWorkspaceId} onFileSelect={handleFileSelect} />
+          <RightSidebar workspaceId={activeWorkspaceId} workspaceCwd={activeWorkspace?.cwd} onFileSelect={handleFileSelect} />
         }
         bottomPanel={<BottomPanel workspaceId={activeWorkspaceId} />}
         footer={<StatusBar activeWorkspaceName={activeWorkspace?.name} />}

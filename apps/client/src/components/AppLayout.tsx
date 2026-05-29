@@ -71,7 +71,7 @@ export function AppLayout({
           maxSize="80%"
           style={{ background: '#252526', borderLeft: '1px solid #333' }}
         >
-          <aside aria-label="Explorer" data-testid="right-sidebar">{rightSidebar ?? 'Right Sidebar'}</aside>
+          <aside aria-label="Explorer" data-testid="right-sidebar" style={{ height: '100%' }}>{rightSidebar ?? 'Right Sidebar'}</aside>
         </Panel>
       </Group>
       {footer}

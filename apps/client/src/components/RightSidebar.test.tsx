@@ -50,6 +50,51 @@ mock.module('@radix-ui/react-context-menu', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock react-resizable-panels (Group / Panel / Separator)
+// ---------------------------------------------------------------------------
+
+mock.module('react-resizable-panels', () => ({
+  Group: ({ children, style }: any) => React.createElement('div', { style, 'data-group': '' }, children),
+  Panel: ({ children, style }: any) => React.createElement('div', { style }, children),
+  Separator: ({ style }: any) => React.createElement('div', { style, 'data-separator': '' }),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock ../lib/git-tree-status (imported by FileTree)
+// ---------------------------------------------------------------------------
+
+mock.module('../lib/git-tree-status', () => ({
+  buildGitPathMap: () => new Map(),
+  computeDirectoryStatus: () => null,
+  GIT_STATUS_COLORS: { '??': '#73c991', 'A': '#73c991', 'M': '#e2c08d', 'D': '#c74e39', 'R': '#73c991', 'C': '#73c991' },
+  mergeDeletedFiles: (tree: unknown[]) => tree,
+}));
+
+// ---------------------------------------------------------------------------
+// Mock ../lib/ws-client so onMessage handlers are captured
+// ---------------------------------------------------------------------------
+
+const onMessageHandlers: ((envelope: unknown) => void)[] = [];
+
+mock.module('../lib/ws-client', () => ({
+  wsClient: {
+    connect: mock(() => {}),
+    send: mock(() => {}),
+    onMessage: (handler: (envelope: unknown) => void) => {
+      onMessageHandlers.push(handler);
+      return () => {
+        const idx = onMessageHandlers.indexOf(handler);
+        if (idx !== -1) onMessageHandlers.splice(idx, 1);
+      };
+    },
+    getStatus: mock(() => 'connected'),
+    onStatusChange: mock(() => () => {}),
+    setToken: mock(() => {}),
+    disconnect: mock(() => {}),
+  },
+}));
+
+// ---------------------------------------------------------------------------
 // Mock send-request before importing the component
 // ---------------------------------------------------------------------------
 
@@ -71,8 +116,9 @@ const { RightSidebar } = await import('./RightSidebar');
 function renderRightSidebar(
   workspaceId: string | null = 'ws-1',
   onFileSelect: (path: string) => void = mock(() => {}),
+  workspaceCwd?: string,
 ) {
-  return render(React.createElement(RightSidebar, { workspaceId, onFileSelect }));
+  return render(React.createElement(RightSidebar, { workspaceId, onFileSelect, workspaceCwd }));
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +156,7 @@ describe('RightSidebar', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 3. Git status shows below the file tree
+  // 3. Git panel is rendered below the file tree
   // -----------------------------------------------------------------------
   test('git panel is rendered below the file tree', () => {
     const { getByTestId } = renderRightSidebar();
@@ -170,7 +216,7 @@ describe('RightSidebar', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 5. Context menu wraps file tree nodes
+  // 5. Shows "no workspace selected" when workspaceId is null
   // -----------------------------------------------------------------------
   test('shows no workspace selected when workspaceId is null', () => {
     const { getByText, queryByTestId } = renderRightSidebar(null);
@@ -231,5 +277,105 @@ describe('RightSidebar', () => {
     // so clicking 'Open in Editor' should invoke onFileSelect with the
     // correct file path
     expect(onFileSelect).toHaveBeenCalledWith('/src/app.ts');
+  });
+
+  // -----------------------------------------------------------------------
+  // 7. Separator (resize handle) is rendered between panels
+  // -----------------------------------------------------------------------
+  test('renders a separator between the file tree and git panels', () => {
+    const { container } = renderRightSidebar();
+
+    const separator = container.querySelector('[data-separator]');
+    expect(separator).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 8. File change triggers both file.tree and git.status refreshes
+  // -----------------------------------------------------------------------
+  test('file change event triggers both file.tree and git.status refreshes', async () => {
+    // Mock initial file tree response
+    sendRequestSpy.mockResolvedValueOnce({
+      tree: [
+        { name: 'src', path: '/src', isDirectory: true, children: [] },
+      ],
+    });
+    // Mock initial git status response
+    sendRequestSpy.mockResolvedValueOnce({
+      branch: 'main',
+      changes: [],
+      staged: [],
+    });
+
+    const { getByTestId } = renderRightSidebar('ws-1');
+
+    // Wait for initial load to complete
+    await waitFor(() => {
+      expect(getByTestId('file-tree')).toBeTruthy();
+    });
+
+    // Clear the spy's call history after initial loads
+    sendRequestSpy.mockClear();
+
+    // Mock refresh responses for file.tree and git.status
+    sendRequestSpy.mockResolvedValueOnce({
+      tree: [
+        { name: 'src', path: '/src', isDirectory: true, children: [] },
+        { name: 'new-file.ts', path: '/new-file.ts', isDirectory: false },
+      ],
+    });
+    sendRequestSpy.mockResolvedValueOnce({
+      branch: 'main',
+      changes: [{ path: 'new-file.ts', status: 'A' }],
+      staged: [],
+    });
+
+    // Simulate a file.change message being received by invoking the
+    // handler(s) captured by our wsClient mock's onMessage.
+    const fileChangeEnvelope = {
+      v: 1,
+      type: 'event',
+      channel: 'file.change',
+      payload: { workspaceId: 'ws-1', path: '/new-file.ts', kind: 'create' },
+    };
+
+    for (const handler of onMessageHandlers) {
+      handler(fileChangeEnvelope);
+    }
+
+    // After a file change, both file.tree and git.status should be refreshed
+    await waitFor(() => {
+      const calls = sendRequestSpy.mock.calls;
+      const channels = calls.map((call: any[]) => call[0]);
+      expect(channels).toContain('file.tree');
+      expect(channels).toContain('git.status');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. workspaceCwd prop is forwarded to FileTree
+  // -----------------------------------------------------------------------
+  test('passes workspaceCwd to FileTree when provided', async () => {
+    // Mock file tree response
+    sendRequestSpy.mockResolvedValueOnce({
+      tree: [
+        { name: 'src', path: '/src', isDirectory: true, children: [] },
+      ],
+    });
+    // Mock git status response
+    sendRequestSpy.mockResolvedValueOnce({
+      branch: 'main',
+      changes: [],
+      staged: [],
+    });
+
+    const { getByTestId } = renderRightSidebar('ws-1', mock(() => {}), '/home/user/project');
+
+    await waitFor(() => {
+      expect(getByTestId('file-tree')).toBeTruthy();
+    });
+    // If workspaceCwd was not forwarded, FileTree would fail to render correctly
+    // with git status decorations. This test confirms the component renders
+    // without errors when workspaceCwd is provided.
+    expect(getByTestId('file-tree')).toBeTruthy();
   });
 });

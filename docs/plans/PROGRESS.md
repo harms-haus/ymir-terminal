@@ -135,3 +135,21 @@ All CRITICAL and HIGH issues fixed:
 
 - **526 tests**, 0 failures, 1,356 assertions
 - 9 phases, 59 tasks — all complete
+
+---
+
+## Explorer Sidebar Git Integration
+
+_2026-05-28_
+
+Enhanced the right sidebar with inline git status decorations and resizable panels.
+
+### Changes
+
+- **`lib/git-tree-status.ts`**: New utility module — `buildGitPathMap`, `computeDirectoryStatus`, `mergeDeletedFiles`, `GIT_STATUS_COLORS`
+- **`FileTree`**: Colored status dots per file (green/gold/red), directory aggregation (gold dot for dirty trees), strikethrough text for deleted files
+- **`RightSidebar`**: Replaced static layout with `react-resizable-panels` vertical `Group` — FileTree (70%) / GitPanel (30%) with draggable separator
+- **Git auto-refresh**: `useFileChange` hook triggers both file tree and git status refresh on `file.change` events
+- **`workspaceCwd` prop chain**: `WorkspaceView` → `RightSidebar` → `FileTree` for relative-path git lookups
+- **Accessibility**: `role="tree"`/`role="treeitem"`/`role="group"`, `aria-expanded`, `aria-label` on status indicators, keyboard Enter/Space navigation
+- **`mergeDeletedFiles`**: Synthetic `FileNode` entries inserted in alphabetical order for deleted files still referenced in git status
