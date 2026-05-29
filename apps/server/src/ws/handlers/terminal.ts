@@ -86,7 +86,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
         onExit: (exitCode) => {
           const evt = createEvent('terminal.exit', {
             terminalId,
-            exitCode,
+            exitCode: exitCode ?? 0,
           } satisfies TerminalExitEvent);
           clientConn.send(evt);
           deleteTerminalInstance(sessionDb, terminalId);

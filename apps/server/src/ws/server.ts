@@ -53,7 +53,7 @@ export interface WsServerOptions {
  * - On `close`: remove the connection from the map and invoke the
  *   `onClose` callback to clean up PTY processes and session data.
  */
-export async function startWebSocketServer(options: WsServerOptions): Promise<Server> {
+export async function startWebSocketServer(options: WsServerOptions): Promise<Server<unknown>> {
   const { port, host, onMessage, onClose } = options;
 
   // Resolve the static files directory (for SPA serving)

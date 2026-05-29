@@ -24,7 +24,7 @@ import { initDatabase as initPersistentDb } from '../../db/persistent';
 function mockConn() {
   const sent: unknown[] = [];
   return {
-    sessionId: crypto.randomUUID(),
+    sessionId: crypto.randomUUID() as string,
     isAuthenticated: true,
     sent,
     send(data: unknown) {
@@ -47,6 +47,7 @@ function request<T>(channel: string, payload: T): RequestEnvelope<T> {
 /** Build a fake PTY manager with jest-style mocks. */
 function mockPtyManager() {
   return {
+    terminals: new Map<string, { terminal: unknown; process: unknown }>(),
     create: mock((...args: unknown[]) => args[0] as string) as Mock<
       (id: string, options: unknown) => string
     >,
@@ -455,8 +456,8 @@ describe('registerTerminalHandlers', () => {
 
       // Capture the onData callback passed to ptyManager.create
       let capturedOnData: ((data: string) => void) | undefined;
-      ptyManager.create.mockImplementation((id: string, options: Record<string, unknown>) => {
-        capturedOnData = options.onData as (data: string) => void;
+      ptyManager.create.mockImplementation((id: string, options: unknown) => {
+        capturedOnData = (options as Record<string, unknown>).onData as (data: string) => void;
         return id;
       });
 

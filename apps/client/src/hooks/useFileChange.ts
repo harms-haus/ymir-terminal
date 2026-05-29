@@ -18,8 +18,9 @@ export function useFileChange(
     if (!workspaceId) return;
 
     const unsub = wsClient.onMessage((envelope: MessageEnvelope) => {
-      if (envelope.channel === 'file.change' && envelope.payload?.workspaceId === workspaceId) {
-        stableCallback(envelope.payload as FileChangeEvent);
+      const payload = envelope.payload as FileChangeEvent | undefined;
+      if (envelope.channel === 'file.change' && payload?.workspaceId === workspaceId) {
+        stableCallback(payload);
       }
     });
 

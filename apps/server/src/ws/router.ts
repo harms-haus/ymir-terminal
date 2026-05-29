@@ -60,7 +60,7 @@ export function parseMessage(raw: string): MessageEnvelope {
 /**
  * Create a success response paired to a prior request by `id`.
  */
-export function createResponse(request: RequestEnvelope, payload: unknown): ResponseEnvelope {
+export function createResponse<T = unknown>(request: RequestEnvelope, payload: T): ResponseEnvelope<T> {
   return {
     v: PROTOCOL_VERSION,
     type: 'response',

@@ -22,7 +22,7 @@ describe('persistent database', () => {
     // Verify the table exists by querying its schema
     const tableInfo = db
       .query("SELECT name FROM sqlite_master WHERE type='table' AND name='workspaces'")
-      .all();
+      .all() as { name: string }[];
     expect(tableInfo.length).toBe(1);
     expect(tableInfo[0].name).toBe('workspaces');
   });
@@ -145,7 +145,7 @@ describe('persistent database', () => {
   it('initDatabase creates the server_config table', () => {
     const tableInfo = db
       .query("SELECT name FROM sqlite_master WHERE type='table' AND name='server_config'")
-      .all();
+      .all() as { name: string }[];
     expect(tableInfo.length).toBe(1);
     expect(tableInfo[0].name).toBe('server_config');
   });

@@ -112,7 +112,7 @@ describe('registerAuthHandlers', () => {
     // Should get an AUTH_REQUIRED error response
     expect(result).not.toBeNull();
     expect(result!.error).toBeDefined();
-    expect(result!.error.code).toBe(ErrorCodes.AUTH_REQUIRED);
+    expect(result!.error!.code).toBe(ErrorCodes.AUTH_REQUIRED);
     expect(conn.sent.length).toBe(1);
     const resp = conn.sent[0] as Record<string, unknown>;
     expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.AUTH_REQUIRED);
@@ -126,7 +126,7 @@ describe('registerAuthHandlers', () => {
 
     expect(result).not.toBeNull();
     expect(result!.error).toBeDefined();
-    expect(result!.error.code).toBe(ErrorCodes.AUTH_REQUIRED);
+    expect(result!.error!.code).toBe(ErrorCodes.AUTH_REQUIRED);
     expect(conn.sent.length).toBe(1);
     const resp = conn.sent[0] as Record<string, unknown>;
     expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.AUTH_REQUIRED);

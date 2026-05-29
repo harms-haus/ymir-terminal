@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync } from './fs';
 import { toBase64, fromBase64 } from '@ymir/shared';
 
 const ALLOWED_SHELLS = new Set([
@@ -29,7 +29,7 @@ export interface PTYOptions {
 }
 
 export class PTYManager {
-  private terminals = new Map<string, { terminal: unknown; process: unknown }>();
+  terminals = new Map<string, { terminal: unknown; process: unknown }>();
 
   create(id: string, options: PTYOptions): string {
     const BunTerminal = (Bun as Record<string, unknown>).Terminal as
@@ -49,7 +49,7 @@ export class PTYManager {
       cols: options.cols,
       rows: options.rows,
       data(_term: unknown, data: Buffer) {
-        options.onData(toBase64(data));
+        options.onData(toBase64(data as Uint8Array));
       },
     });
 
@@ -105,7 +105,7 @@ export class PTYManager {
     const entry = this.terminals.get(id);
     if (!entry) throw new Error(`Terminal ${id} not found`);
     const decoded = fromBase64(base64Data);
-    (entry.terminal as { write: (data: string) => void }).write(decoded);
+    (entry.terminal as { write: (data: Uint8Array | string) => void }).write(decoded);
   }
 
   resize(id: string, cols: number, rows: number): void {

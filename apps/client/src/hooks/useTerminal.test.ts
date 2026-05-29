@@ -127,7 +127,7 @@ describe('useTerminal', () => {
     expect(envelope.payload).toHaveProperty('terminalId', 'term-1');
     expect(envelope.payload).toHaveProperty('data');
     // Verify data is base64-encoded — decode and compare
-    const encoded = envelope.payload.data as string;
+    const encoded = (envelope.payload as { terminalId: string; data: string }).data;
     const binary = atob(encoded);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {

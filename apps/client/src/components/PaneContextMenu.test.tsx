@@ -87,7 +87,7 @@ function renderPaneContextMenu(
         onSplitRight,
         onSplitDown,
         onClosePane,
-      },
+      } as React.Attributes & React.ComponentProps<typeof PaneContextMenu>,
       React.createElement('div', { 'data-testid': 'trigger' }, 'Trigger'),
     ),
   );

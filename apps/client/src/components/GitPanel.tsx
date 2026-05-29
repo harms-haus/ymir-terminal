@@ -1,4 +1,4 @@
-import type { GitStatusResponse } from '@ymir/shared';
+import type { GitStatusResponse, GitFileChange } from '@ymir/shared';
 
 interface GitPanelProps {
   gitStatus: GitStatusResponse | null;
@@ -38,7 +38,7 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
       {gitStatus.staged.length > 0 && (
         <div data-testid="git-staged" style={{ marginBottom: '8px' }}>
           <div style={{ color: '#888', marginBottom: '4px' }}>Staged Changes</div>
-          {gitStatus.staged.map((f, i) => (
+          {gitStatus.staged.map((f: GitFileChange, i: number) => (
             <div
               key={i}
               style={{
@@ -73,7 +73,7 @@ export function GitPanel({ gitStatus }: GitPanelProps) {
       {gitStatus.changes.length > 0 && (
         <div data-testid="git-changes">
           <div style={{ color: '#888', marginBottom: '4px' }}>Changes</div>
-          {gitStatus.changes.map((f, i) => (
+          {gitStatus.changes.map((f: GitFileChange, i: number) => (
             <div
               key={i}
               style={{

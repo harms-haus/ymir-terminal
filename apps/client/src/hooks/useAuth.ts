@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { wsClient } from '../lib/ws-client';
 import { PROTOCOL_VERSION } from '@ymir/shared';
-import type { MessageEnvelope } from '@ymir/shared';
+import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,9 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             settled = true;
             unsub();
 
-            if (response.error) {
+            const resp = response as ResponseEnvelope;
+            if (resp.error) {
               isLoggingInRef.current = false;
-              reject(new Error(response.error.message || 'Authentication failed'));
+              reject(new Error(resp.error.message || 'Authentication failed'));
               return;
             }
 
@@ -154,7 +155,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // own errors via the login() promise.
   useEffect(() => {
     const unsub = wsClient.onMessage((msg: MessageEnvelope) => {
-      if ((msg.error?.code === 'AUTH_REQUIRED' || msg.error?.code === 'AUTH_FAILED') && msg.channel !== 'auth') {
+      const resp = msg as ResponseEnvelope;
+      if ((resp.error?.code === 'AUTH_REQUIRED' || resp.error?.code === 'AUTH_FAILED') && msg.channel !== 'auth') {
         // Token is no longer valid — clear it and force re-login
         setToken(null);
         wsClient.setToken('');

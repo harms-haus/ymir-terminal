@@ -202,7 +202,7 @@ export function registerFileHandlers(router: MessageRouter, deps: FileDeps): voi
       return;
     }
 
-    const workspace = resolveWorkspace(deps, payload as Record<string, unknown>);
+    const workspace = resolveWorkspace(deps, payload as unknown as Record<string, unknown>);
     if (!workspace) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'file.tree' },
@@ -242,7 +242,7 @@ export function registerFileHandlers(router: MessageRouter, deps: FileDeps): voi
       return;
     }
 
-    const workspace = resolveWorkspace(deps, payload as Record<string, unknown>);
+    const workspace = resolveWorkspace(deps, payload as unknown as Record<string, unknown>);
     if (!workspace) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'file.read' },
@@ -298,7 +298,7 @@ export function registerFileHandlers(router: MessageRouter, deps: FileDeps): voi
       return;
     }
 
-    const workspace = resolveWorkspace(deps, payload as Record<string, unknown>);
+    const workspace = resolveWorkspace(deps, payload as unknown as Record<string, unknown>);
     if (!workspace) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'file.write' },
@@ -348,7 +348,7 @@ export function registerFileHandlers(router: MessageRouter, deps: FileDeps): voi
       return;
     }
 
-    const workspace = resolveWorkspace(deps, payload as Record<string, unknown>);
+    const workspace = resolveWorkspace(deps, payload as unknown as Record<string, unknown>);
     if (!workspace) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'file.delete' },
@@ -399,7 +399,7 @@ export function registerFileHandlers(router: MessageRouter, deps: FileDeps): voi
       return;
     }
 
-    const workspace = resolveWorkspace(deps, payload as Record<string, unknown>);
+    const workspace = resolveWorkspace(deps, payload as unknown as Record<string, unknown>);
     if (!workspace) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'file.rename' },
@@ -451,7 +451,7 @@ export function registerFileHandlers(router: MessageRouter, deps: FileDeps): voi
       return;
     }
 
-    const workspace = resolveWorkspace(deps, payload as Record<string, unknown>);
+    const workspace = resolveWorkspace(deps, payload as unknown as Record<string, unknown>);
     if (!workspace) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'file.create' },

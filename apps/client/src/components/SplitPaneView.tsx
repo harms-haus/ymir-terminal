@@ -15,7 +15,7 @@ export function SplitPaneView({ layout, renderPane }: SplitPaneViewProps) {
   const split = layout as SplitNode;
   return (
     <Group orientation={split.direction === 'horizontal' ? 'horizontal' : 'vertical'}>
-      {split.children.map((child, i) => (
+      {split.children.map((child: LayoutNode, i: number) => (
         <Fragment key={child.id}>
           {i > 0 && (
             <Separator

@@ -113,7 +113,7 @@ function FileTreeNode({
         </div>
       </FileTreeContextMenu>
       {expanded &&
-        node.children?.map((child) => (
+        node.children?.map((child: FileNode) => (
           <FileTreeNode
             key={child.path}
             node={child}

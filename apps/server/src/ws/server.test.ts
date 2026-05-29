@@ -5,8 +5,8 @@ import { startWebSocketServer, connections } from './server';
 import type { ClientConnection } from './connection';
 import type { Server } from 'bun';
 
-let server: Server;
-let port: number;
+let server: Server<unknown>;
+let port: number | undefined;
 const HOST = '127.0.0.1';
 
 function wsUrl(): string {
@@ -15,8 +15,8 @@ function wsUrl(): string {
 
 function waitForOpen(ws: WebSocket): Promise<void> {
   return new Promise((resolve, reject) => {
-    ws.on('open', resolve);
-    ws.on('error', reject);
+    ws.on('open', () => resolve());
+    ws.on('error', (err) => reject(err));
   });
 }
 
@@ -103,7 +103,7 @@ test('disconnection is detected and connection is removed from map', async () =>
   expect(connections.size).toBe(1);
 
   const disconnectPromise = new Promise<void>((resolve) => {
-    ws.on('close', resolve);
+    ws.on('close', () => resolve());
   });
 
   ws.close();

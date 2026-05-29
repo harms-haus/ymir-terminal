@@ -19,9 +19,7 @@ export function ContentPane({
   const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeFilePath = activeTab?.filePath ?? null;
-  const { sendData, onOutput, createTerminal, resizeTerminal } = useTerminal(
-    activeTab?.type === 'terminal' ? (activeTab.terminalId ?? null) : null,
-  );
+  const { createTerminal } = useTerminal(null);
   interface FileLoadState {
     path: string;
     content: string;
@@ -33,44 +31,7 @@ export function ContentPane({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fetchRetry, setFetchRetry] = useState(0);
 
-  // Track cleanup functions for the current terminal's I/O wiring
-  const cleanupRef = useRef<(() => void) | null>(null);
-
-  // Clean up terminal I/O wiring on unmount
-  useEffect(() => {
-    return () => {
-      cleanupRef.current?.();
-      cleanupRef.current = null;
-    };
-  }, []);
-
-  const handleTerminalReady = useCallback(
-    (term: { onData: (cb: (data: string) => void) => void }) => {
-      // Clean up previous wiring
-      cleanupRef.current?.();
-
-      const dataDisposable = term.onData((data: string) => {
-        sendData(data);
-      });
-      const unregisterOutput = onOutput((data: string) => {
-        term.write(data);
-      });
-
-      cleanupRef.current = () => {
-        dataDisposable?.dispose?.();
-        unregisterOutput();
-      };
-    },
-    [sendData, onOutput],
-  );
-
-  const handleTerminalResize = useCallback(
-    (cols: number, rows: number) => {
-      resizeTerminal(cols, rows);
-    },
-    [resizeTerminal],
-  );
-
+  const terminalRefs = useRef<Map<string, { focus(): void }>>(new Map());
   const creatingRef = useRef(false);
 
   const handleAddTerminal = async () => {
@@ -180,6 +141,15 @@ export function ContentPane({
   );
 
   useEffect(() => {
+    if (activeTab?.type === 'terminal') {
+      // Small delay to ensure the terminal is visible (display changed from none to block)
+      requestAnimationFrame(() => {
+        terminalRefs.current.get(activeTabId!)?.focus();
+      });
+    }
+  }, [activeTabId, activeTab?.type]);
+
+  useEffect(() => {
     if (fileToOpen) {
       handleAddEditor(fileToOpen);
       onFileOpened?.();
@@ -200,21 +170,32 @@ export function ContentPane({
         canAddTerminal={!!workspaceId}
       />
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {activeTab?.type === 'terminal' && activeTab.terminalId && (
-          <Terminal
-            key={activeTab.terminalId}
-            terminalId={activeTab.terminalId}
-            onReady={handleTerminalReady}
-            onResize={handleTerminalResize}
-          />
-        )}
+        {tabs
+          .filter((t) => t.type === 'terminal' && t.terminalId)
+          .map((t) => (
+            <div
+              key={t.terminalId}
+              style={{
+                height: '100%',
+                display: t.id === activeTabId ? 'block' : 'none',
+              }}
+            >
+              <Terminal
+                terminalId={t.terminalId!}
+                ref={(el: { focus(): void } | null) => {
+                  if (el) terminalRefs.current.set(t.id, el);
+                  else terminalRefs.current.delete(t.id);
+                }}
+              />
+            </div>
+          ))}
         {activeTab?.type === 'editor' &&
           (() => {
             const isCurrentFile = fileLoadState?.path === activeTab.filePath;
             const isLoading = !isCurrentFile;
-            const fileError = isCurrentFile ? fileLoadState.error : null;
-            const fileContent = isCurrentFile ? fileLoadState.content : '';
-            const fileLanguage = isCurrentFile ? fileLoadState.language : null;
+            const fileError = isCurrentFile ? fileLoadState!.error : null;
+            const fileContent = isCurrentFile ? fileLoadState!.content : '';
+            const fileLanguage = isCurrentFile ? fileLoadState!.language : null;
 
             if (isLoading) {
               return (

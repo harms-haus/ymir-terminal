@@ -63,7 +63,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
       const msg = JSON.stringify(event);
       for (const conn of connections.values()) {
         if (conn.isAuthenticated) {
-          conn.ws.send(msg);
+          conn.sendRaw(msg);
         }
       }
     },
@@ -81,7 +81,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   registerGitHandlers(router, { persistentDb: db });
 
   // 7. Start WebSocket server with router as message dispatcher
-  const server: Server = await startWebSocketServer({
+  const server: Server<unknown> = await startWebSocketServer({
     port,
     host,
     staticDir,

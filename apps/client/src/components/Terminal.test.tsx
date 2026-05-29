@@ -19,12 +19,15 @@ const mockDispose = mock(() => {});
 const mockOpen = mock(() => {});
 const mockLoadAddon = mock(() => {});
 
+const mockFocus = mock(() => {});
+
 const mockTerminalInstance = {
   cols: 80,
   rows: 24,
   open: mockOpen,
   loadAddon: mockLoadAddon,
   dispose: mockDispose,
+  focus: mockFocus,
   write: mock(() => {}),
   onData: mock(() => ({ dispose: mock(() => {}) })),
   onResize: mock(() => ({ dispose: mock(() => {}) })),
@@ -44,6 +47,26 @@ mock.module('ghostty-web', () => ({
   init: mockInit,
 }));
 
+// ---------------------------------------------------------------------------
+// Mock useTerminal
+// ---------------------------------------------------------------------------
+
+const mockSendData = mock(() => {});
+const mockOnOutput = mock(() => () => {});
+const mockResizeTerminal = mock(() => {});
+const mockCreateTerminal = mock(() => Promise.resolve({ terminalId: 'test-terminal' }));
+const mockCloseTerminal = mock(() => {});
+
+mock.module('../hooks/useTerminal', () => ({
+  useTerminal: mock(() => ({
+    sendData: mockSendData,
+    onOutput: mockOnOutput,
+    createTerminal: mockCreateTerminal,
+    closeTerminal: mockCloseTerminal,
+    resizeTerminal: mockResizeTerminal,
+  })),
+}));
+
 const { Terminal } = await import('./Terminal');
 
 // ---------------------------------------------------------------------------
@@ -55,19 +78,15 @@ function renderTerminal(
     terminalId?: string;
     cols?: number;
     rows?: number;
-    onReady?: () => void;
-    onResize?: (cols: number, rows: number) => void;
   } = {},
 ) {
-  const { terminalId = 'test-terminal', cols, rows, onReady, onResize } = options;
+  const { terminalId = 'test-terminal', cols, rows } = options;
 
   return render(
     React.createElement(Terminal, {
       terminalId,
       ...(cols !== undefined && { cols }),
       ...(rows !== undefined && { rows }),
-      onReady,
-      onResize,
     }),
   );
 }
@@ -85,6 +104,11 @@ describe('Terminal', () => {
     MockTerminal.mockClear();
     MockFitAddon.mockClear();
     mockInit.mockClear();
+    mockTerminalInstance.onData.mockClear();
+    mockOnOutput.mockClear();
+    mockSendData.mockClear();
+    mockResizeTerminal.mockClear();
+    mockFocus.mockClear();
   });
 
   afterEach(() => {
@@ -111,37 +135,19 @@ describe('Terminal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 3. Calls onReady callback when terminal is initialized
+  // 3. Wires up terminal I/O on mount
   // -----------------------------------------------------------------------
-  test('calls onReady callback when terminal is initialized', async () => {
-    const onReady = mock(() => {});
-
-    renderTerminal({ onReady });
+  test('wires up terminal I/O on mount', async () => {
+    renderTerminal();
 
     await waitFor(() => {
-      expect(onReady).toHaveBeenCalledTimes(1);
+      expect(mockTerminalInstance.onData).toHaveBeenCalled();
     });
-    expect(onReady).toHaveBeenCalledWith(mockTerminalInstance);
+    expect(mockOnOutput).toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
-  // 4. Calls onResize callback when container is resized
-  // -----------------------------------------------------------------------
-  test('calls onResize callback when container is resized', async () => {
-    const onResize = mock(() => {});
-
-    renderTerminal({ onResize });
-
-    // The ResizeObserver should trigger onResize when size changes.
-    // Verify that a ResizeObserver was set up and that the terminal was opened and fit was called.
-    await waitFor(() => {
-      expect(mockOpen).toHaveBeenCalledTimes(1);
-    });
-    expect(mockFit).toHaveBeenCalled();
-  });
-
-  // -----------------------------------------------------------------------
-  // 5. Creates a Terminal instance on mount
+  // 4. Creates a Terminal instance on mount
   // -----------------------------------------------------------------------
   test('creates a Terminal instance on mount', async () => {
     renderTerminal();
@@ -152,7 +158,7 @@ describe('Terminal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 6. Disposes terminal on unmount
+  // 5. Disposes terminal on unmount
   // -----------------------------------------------------------------------
   test('disposes terminal on unmount', async () => {
     const { unmount } = renderTerminal();
@@ -169,18 +175,23 @@ describe('Terminal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 7. Passes cols and rows to Terminal constructor
+  // 6. Passes cols and rows to Terminal constructor
   // -----------------------------------------------------------------------
   test('passes cols and rows options to Terminal constructor', async () => {
     renderTerminal({ cols: 120, rows: 40 });
 
     await waitFor(() => {
-      expect(MockTerminal).toHaveBeenCalledWith({ cols: 120, rows: 40 });
+      expect(MockTerminal).toHaveBeenCalledWith({
+        cols: 120,
+        rows: 40,
+        fontFamily: "'Cascadia Code Variable', 'JetBrainsMono Nerd Font', monospace",
+        fontSize: 11,
+      });
     });
   });
 
   // -----------------------------------------------------------------------
-  // 8. Loads FitAddon
+  // 7. Loads FitAddon
   // -----------------------------------------------------------------------
   test('loads FitAddon', async () => {
     renderTerminal();
@@ -192,14 +203,35 @@ describe('Terminal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 9. Uses default cols and rows when not specified
+  // 8. Uses default cols and rows when not specified
   // -----------------------------------------------------------------------
   test('uses default cols=80 and rows=24 when not specified', async () => {
     renderTerminal();
 
     await waitFor(() => {
-      expect(MockTerminal).toHaveBeenCalledWith({ cols: 80, rows: 24 });
+      expect(MockTerminal).toHaveBeenCalledWith({
+        cols: 80,
+        rows: 24,
+        fontFamily: "'Cascadia Code Variable', 'JetBrainsMono Nerd Font', monospace",
+        fontSize: 11,
+      });
     });
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. Exposes focus() via imperative handle
+  // -----------------------------------------------------------------------
+  test('exposes focus() via imperative handle that calls term.focus()', async () => {
+    const ref = React.createRef<{ focus(): void }>();
+    render(React.createElement(Terminal, { terminalId: 'focus-test', ref }));
+
+    await waitFor(() => {
+      expect(MockTerminal).toHaveBeenCalledTimes(1);
+    });
+
+    expect(ref.current).toBeTruthy();
+    ref.current!.focus();
+    expect(mockFocus).toHaveBeenCalledTimes(1);
   });
 
   // -----------------------------------------------------------------------

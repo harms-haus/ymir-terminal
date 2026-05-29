@@ -86,7 +86,7 @@ function renderContextMenu(
         onRename,
         onDelete,
         onOpenEditor,
-      },
+      } as React.Attributes & React.ComponentProps<typeof FileTreeContextMenu>,
       React.createElement('div', { 'data-testid': 'trigger' }, 'Trigger'),
     ),
   );

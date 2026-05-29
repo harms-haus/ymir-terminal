@@ -68,9 +68,27 @@ const mockUseCreateWorkspace = mock(() => ({
   error: null,
 }));
 
+const mockUseUpdateWorkspace = mock(() => ({
+  mutate: mock(() => {}),
+  mutateAsync: mock(() => Promise.resolve()),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+
+const mockUseDeleteWorkspace = mock(() => ({
+  mutate: mock(() => {}),
+  mutateAsync: mock(() => Promise.resolve()),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+
 mock.module('../hooks/useWorkspaces', () => ({
   useWorkspaces: mockUseWorkspaces,
   useCreateWorkspace: mockUseCreateWorkspace,
+  useUpdateWorkspace: mockUseUpdateWorkspace,
+  useDeleteWorkspace: mockUseDeleteWorkspace,
 }));
 
 mock.module('../hooks/useTheme', () => ({
@@ -185,10 +203,11 @@ describe('WorkspaceView', () => {
   // 2. Workspace list is rendered in left sidebar
   // -----------------------------------------------------------------------
   test('workspace list is rendered in left sidebar', () => {
-    const { getByText } = renderWorkspaceView();
+    const { getAllByText } = renderWorkspaceView();
 
-    expect(getByText('Project Alpha')).toBeTruthy();
-    expect(getByText('Project Beta')).toBeTruthy();
+    // Project Alpha appears in sidebar + status bar (auto-selected)
+    expect(getAllByText('Project Alpha').length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText('Project Beta').length).toBeGreaterThanOrEqual(1);
   });
 
   // -----------------------------------------------------------------------
@@ -198,7 +217,7 @@ describe('WorkspaceView', () => {
     const { getByTestId } = renderWorkspaceView();
 
     // Click on workspace ws-1
-    fireEvent.click(getByTestId('workspace-ws-1'));
+    fireEvent.click(getByTestId('workspace-item-ws-1'));
 
     // The workspace name should now appear inside the status bar
     const statusBar = getByTestId('status-bar');
@@ -212,7 +231,7 @@ describe('WorkspaceView', () => {
     const { getByTestId } = renderWorkspaceView();
 
     // Click on ws-1 which has color '#ff0000'
-    fireEvent.click(getByTestId('workspace-ws-1'));
+    fireEvent.click(getByTestId('workspace-item-ws-1'));
 
     expect(mockSetAccentColor).toHaveBeenCalledWith('#ff0000');
   });
@@ -227,20 +246,12 @@ describe('WorkspaceView', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 6. Initially no workspace name is shown in status bar
+  // 6. First workspace is auto-selected and shown in status bar
   // -----------------------------------------------------------------------
-  test('initially no workspace name is shown in status bar', () => {
+  test('initially first workspace name is auto-selected in status bar', () => {
     const { getByTestId } = renderWorkspaceView();
 
     const statusBar = getByTestId('status-bar');
-    // The status bar should not contain any workspace name initially
-    const spans = statusBar.querySelectorAll('span');
-    let hasWorkspaceName = false;
-    spans.forEach((span) => {
-      if (span.textContent === 'Project Alpha' || span.textContent === 'Project Beta') {
-        hasWorkspaceName = true;
-      }
-    });
-    expect(hasWorkspaceName).toBe(false);
+    expect(statusBar.textContent).toContain('Project Alpha');
   });
 });

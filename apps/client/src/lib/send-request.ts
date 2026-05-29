@@ -1,6 +1,6 @@
 import { wsClient } from './ws-client';
 import { PROTOCOL_VERSION } from '@ymir/shared';
-import type { MessageEnvelope } from '@ymir/shared';
+import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 
 /**
  * Send a request via the WebSocket client and return a promise that resolves
@@ -33,8 +33,9 @@ export function sendRequest<T>(
       if (envelope.id === id) {
         cleanup();
 
-        if (envelope.error) {
-          reject(new Error(envelope.error.message));
+        const resp = envelope as ResponseEnvelope;
+        if (resp.error) {
+          reject(new Error(resp.error.message));
         } else {
           resolve(envelope.payload as T);
         }

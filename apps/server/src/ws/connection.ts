@@ -27,6 +27,11 @@ export class ClientConnection {
     this.ws.send(JSON.stringify(envelope));
   }
 
+  /** Send a raw string over the wire without serialization. */
+  sendRaw(data: string): void {
+    this.ws.send(data);
+  }
+
   /** Close the underlying WebSocket connection. */
   close(): void {
     this.ws.close();

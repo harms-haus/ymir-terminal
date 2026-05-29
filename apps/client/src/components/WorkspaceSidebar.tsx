@@ -60,7 +60,7 @@ export function WorkspaceSidebar({
         <div style={{ color: '#666', padding: '8px', fontSize: '12px' }}>No workspaces</div>
       )}
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {workspaces?.map((ws) => (
+        {workspaces?.map((ws: import('@ymir/shared').WorkspaceSummary) => (
           <WorkspaceItem
             key={ws.id}
             workspace={ws}

@@ -6,7 +6,7 @@ import { findEditorTab, createEditorTabOpts } from './editor-tabs';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeEditorTab(filePath: string, id = crypto.randomUUID()): Tab {
+function makeEditorTab(filePath: string, id: string = crypto.randomUUID()): Tab {
   const parts = filePath.split('/');
   return {
     id,

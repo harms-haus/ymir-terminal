@@ -10,8 +10,9 @@ export function useTerminal(terminalId: string | null) {
   useEffect(() => {
     if (!terminalId) return;
     const unsub = wsClient.onMessage((envelope: MessageEnvelope) => {
-      if (envelope.channel === 'terminal.output' && envelope.payload?.terminalId === terminalId) {
-        const decoded = fromBase64(envelope.payload.data);
+      const payload = envelope.payload as { terminalId: string; data: string } | undefined;
+      if (envelope.channel === 'terminal.output' && payload?.terminalId === terminalId) {
+        const decoded = fromBase64(payload.data);
         const text = new TextDecoder().decode(decoded);
         outputHandlers.current.forEach((h) => h(text));
       }

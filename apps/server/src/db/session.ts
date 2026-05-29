@@ -1,4 +1,6 @@
 import { Database } from 'bun:sqlite';
+
+export type { Database };
 import { randomUUID } from 'crypto';
 
 export function initSessionDb(): Database {

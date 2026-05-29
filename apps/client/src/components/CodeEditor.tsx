@@ -9,7 +9,8 @@ import { rust } from '@codemirror/lang-rust';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { useMemo, useRef } from 'react';
 
-const LANG_EXTENSIONS: Record<string, () => unknown> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const LANG_EXTENSIONS: Record<string, () => any> = {
   javascript,
   css,
   html,
@@ -27,8 +28,10 @@ interface CodeEditorProps {
 }
 
 export function CodeEditor({ content, language, onChange, onSave }: CodeEditorProps) {
-  const extensions = useMemo(() => {
-    return language && LANG_EXTENSIONS[language] ? [LANG_EXTENSIONS[language]()] : [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const extensions: any = useMemo(() => {
+    if (language && LANG_EXTENSIONS[language]) return [LANG_EXTENSIONS[language]()];
+    return [];
   }, [language]);
   const currentValueRef = useRef(content);
 

@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, mock } from 'bun:test';
 import { PROTOCOL_VERSION } from '@ymir/shared';
-import type { MessageEnvelope } from '@ymir/shared';
+import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 
 // ---------------------------------------------------------------------------
 // Mock ws-client module
@@ -103,7 +103,7 @@ describe('sendRequest', () => {
       id: sent.id,
       payload: null,
       error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' },
-    });
+    } as ResponseEnvelope);
 
     expect(promise).rejects.toThrow('Something went wrong');
   });

@@ -5,7 +5,7 @@ import { toBase64 } from '@ymir/shared';
 
 const mockExistsSync = mock((_path: string) => true);
 
-mock.module('node:fs', () => ({
+mock.module('./fs', () => ({
   existsSync: mockExistsSync,
 }));
 
@@ -45,10 +45,10 @@ describe('PTYManager', () => {
         this.written.push(data);
       }
 
-      resize(opts: { cols: number; rows: number }) {
-        this.resizeOpts = opts;
-        this.cols = opts.cols;
-        this.rows = opts.rows;
+      resize(cols: number, rows: number) {
+        this.resizeOpts = { cols, rows };
+        this.cols = cols;
+        this.rows = rows;
       }
 
       close() {

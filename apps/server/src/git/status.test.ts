@@ -4,7 +4,6 @@ import { mkdirSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { getGitStatus, isGitRepo, getCurrentBranch, type GitStatusResponse } from './status';
-
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });
 }
@@ -65,7 +64,7 @@ describe('git status', () => {
       writeFileSync(join(testDir, 'new.txt'), 'content');
       const result = getGitRepoStatus(testDir)!;
       expect(result.changes.length).toBeGreaterThanOrEqual(1);
-      const untracked = result.changes.find((c) => c.path === 'new.txt');
+      const untracked = result.changes.find((c: { path: string; status: string }) => c.path === 'new.txt');
       expect(untracked).toBeDefined();
       expect(untracked!.status).toBe('??');
     });
@@ -79,7 +78,7 @@ describe('git status', () => {
       // Modify the file (unstaged)
       appendFileSync(join(testDir, 'existing.txt'), ' modified');
       const result = getGitRepoStatus(testDir)!;
-      const modified = result.changes.find((c) => c.path === 'existing.txt');
+      const modified = result.changes.find((c: { path: string; status: string }) => c.path === 'existing.txt');
       expect(modified).toBeDefined();
       expect(modified!.status).toBe('M');
     });
@@ -89,7 +88,7 @@ describe('git status', () => {
       writeFileSync(join(testDir, 'staged.txt'), 'staged content');
       run('git add .', testDir);
       const result = getGitRepoStatus(testDir)!;
-      const staged = result.staged.find((c) => c.path === 'staged.txt');
+      const staged = result.staged.find((c: { path: string; status: string }) => c.path === 'staged.txt');
       expect(staged).toBeDefined();
       expect(staged!.status).toBe('A');
     });
@@ -108,8 +107,8 @@ describe('git status', () => {
       writeFileSync(join(testDir, 'file.txt'), 'v3');
 
       const result = getGitRepoStatus(testDir)!;
-      const staged = result.staged.find((c) => c.path === 'file.txt');
-      const changes = result.changes.find((c) => c.path === 'file.txt');
+      const staged = result.staged.find((c: { path: string; status: string }) => c.path === 'file.txt');
+      const changes = result.changes.find((c: { path: string; status: string }) => c.path === 'file.txt');
       expect(staged).toBeDefined();
       expect(staged!.status).toBe('M');
       expect(changes).toBeDefined();
@@ -125,7 +124,7 @@ describe('git status', () => {
       // Delete the file (unstaged deletion)
       run('rm to-delete.txt', testDir);
       const result = getGitRepoStatus(testDir)!;
-      const deleted = result.changes.find((c) => c.path === 'to-delete.txt');
+      const deleted = result.changes.find((c: { path: string; status: string }) => c.path === 'to-delete.txt');
       expect(deleted).toBeDefined();
       expect(deleted!.status).toBe('D');
     });
@@ -145,7 +144,7 @@ describe('git status', () => {
 
       run('git mv original.txt renamed.txt', testDir);
       const result = getGitRepoStatus(testDir)!;
-      const staged = result.staged.find((c) => c.path === 'renamed.txt');
+      const staged = result.staged.find((c: { path: string; status: string }) => c.path === 'renamed.txt');
       expect(staged).toBeDefined();
     });
   });

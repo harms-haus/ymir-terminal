@@ -7,6 +7,7 @@ import { BottomPanel } from './BottomPanel';
 import { StatusBar } from './StatusBar';
 import { ToastProvider } from './ToastProvider';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
+import type { WorkspaceSummary } from '@ymir/shared';
 import { useTheme } from '../hooks/useTheme';
 import { useWorkspaces, useUpdateWorkspace, useDeleteWorkspace } from '../hooks/useWorkspaces';
 
@@ -25,12 +26,12 @@ export function WorkspaceView() {
     return null;
   }, [selectedWorkspaceId, workspaces]);
 
-  const activeWorkspace = workspaces?.find((ws) => ws.id === activeWorkspaceId);
+  const activeWorkspace = workspaces?.find((ws: WorkspaceSummary) => ws.id === activeWorkspaceId);
 
   const handleWorkspaceSelect = useCallback(
     (id: string) => {
       setSelectedWorkspaceId(id);
-      const ws = workspaces?.find((w) => w.id === id);
+      const ws = workspaces?.find((w: WorkspaceSummary) => w.id === id);
       if (ws?.color) setAccentColor(ws.color);
     },
     [workspaces, setAccentColor],

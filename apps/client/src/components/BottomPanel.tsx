@@ -1,31 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { useTabs } from '../hooks/useTabs';
 import { useTerminal } from '../hooks/useTerminal';
 import { Terminal } from './Terminal';
 import { sendRequest } from '../lib/send-request';
-import type { Terminal as GhosttyTerminal } from 'ghostty-web';
 
 export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
   const { tabs, activeTabId, createTab, closeTab, activateTab } = useTabs();
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
-  const { sendData, onOutput, createTerminal, resizeTerminal } = useTerminal(
-    activeTab?.terminalId ?? null,
-  );
-
-  const outputUnsubRef = useRef<(() => void) | null>(null);
-  const dataDisposableRef = useRef<{ dispose?: () => void } | null>(null);
+  const { createTerminal } = useTerminal(null);
   const creatingRef = useRef(false);
-
-  // Clean up output subscription and data disposable when the active terminal changes
-  useEffect(() => {
-    return () => {
-      dataDisposableRef.current?.dispose?.();
-      dataDisposableRef.current = null;
-      outputUnsubRef.current?.();
-      outputUnsubRef.current = null;
-    };
-  }, [activeTab?.terminalId]);
 
   const handleAddTerminal = async () => {
     if (!workspaceId || creatingRef.current) return;
@@ -39,16 +23,6 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
       creatingRef.current = false;
     }
   };
-
-  const handleReady = useCallback(
-    (term: GhosttyTerminal) => {
-      dataDisposableRef.current?.dispose?.();
-      dataDisposableRef.current = term.onData((data: string) => sendData(data));
-      outputUnsubRef.current?.();
-      outputUnsubRef.current = onOutput((data: string) => term.write(data));
-    },
-    [sendData, onOutput],
-  );
 
   const handleCloseTab = useCallback(
     (tabId: string) => {
@@ -145,8 +119,6 @@ export function BottomPanel({ workspaceId }: { workspaceId: string | null }) {
           <Terminal
             key={activeTab.terminalId}
             terminalId={activeTab.terminalId}
-            onReady={handleReady}
-            onResize={resizeTerminal}
           />
         )}
         {!activeTab && (

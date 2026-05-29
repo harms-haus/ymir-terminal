@@ -10,7 +10,7 @@ import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { PROTOCOL_VERSION } from '@ymir/shared';
-import type { MessageEnvelope } from '@ymir/shared';
+import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 import { AuthProvider, useAuth } from './useAuth';
 
 // ---------------------------------------------------------------------------
@@ -221,7 +221,7 @@ describe('useAuth', () => {
         id: envelope.id!,
         payload: null,
         error: { code: 'AUTH_FAILED', message: 'Invalid password' },
-      });
+      } as ResponseEnvelope);
 
       try {
         await loginPromise;
@@ -268,7 +268,7 @@ describe('useAuth', () => {
         channel: 'data',
         payload: null,
         error: { code: 'AUTH_REQUIRED', message: 'Token expired' },
-      });
+      } as ResponseEnvelope);
     });
 
     // Token should be cleared

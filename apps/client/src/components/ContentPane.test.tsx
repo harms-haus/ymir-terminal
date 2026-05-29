@@ -258,12 +258,13 @@ describe('ContentPane', () => {
     ];
     mockActiveTabIdState = 'tab-2';
 
-    const { getByTestId, queryByTestId } = renderContentPane();
+    const { getByTestId } = renderContentPane();
 
     // Active tab's terminal should be shown
     expect(getByTestId('terminal-term-2')).toBeTruthy();
-    // Inactive tab's terminal should NOT be shown
-    expect(queryByTestId('terminal-term-1')).toBeNull();
+    // Inactive tab's terminal should be present but hidden
+    const inactiveWrapper = getByTestId('terminal-term-1').parentElement!;
+    expect(inactiveWrapper.style.display).toBe('none');
   });
 
   // -----------------------------------------------------------------------
