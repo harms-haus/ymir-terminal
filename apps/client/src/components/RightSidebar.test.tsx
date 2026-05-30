@@ -81,6 +81,15 @@ mock.module('../lib/git-tree-status', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock ./GitHistoryPanel (imported by RightSidebar)
+// ---------------------------------------------------------------------------
+
+mock.module('./GitHistoryPanel', () => ({
+  GitHistoryPanel: ({ workspaceId }: { workspaceId: string | null }) =>
+    React.createElement('div', { 'data-testid': 'git-history-panel' }, workspaceId ?? ''),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock ../lib/ws-client so onMessage handlers are captured
 // ---------------------------------------------------------------------------
 
@@ -148,14 +157,15 @@ describe('RightSidebar', () => {
   // -----------------------------------------------------------------------
   // 1. RightSidebar renders file tree section and git status section
   // -----------------------------------------------------------------------
-  test('renders file tree section and git status section', () => {
+  test('renders Project header, toggle buttons, and git history panel', () => {
     const { getByTestId, getByText } = renderRightSidebar();
 
     expect(getByTestId('right-sidebar-content')).toBeTruthy();
-    // Explorer header
-    expect(getByText('Explorer')).toBeTruthy();
-    // Git panel (null status → "Not a git repository")
-    expect(getByTestId('git-panel')).toBeTruthy();
+    // Project header
+    expect(getByTestId('toggle-file-tree')).toBeTruthy();
+    expect(getByTestId('toggle-git-changes')).toBeTruthy();
+    expect(getByTestId('git-history-panel')).toBeTruthy();
+    expect(getByText('Project')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
@@ -171,24 +181,15 @@ describe('RightSidebar', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 3. Git panel is rendered below the file tree
+  // 3. Git history panel is rendered in the bottom panel
   // -----------------------------------------------------------------------
-  test('git panel is rendered below the file tree', () => {
+  test('git history panel is rendered in the bottom panel', () => {
     const { getByTestId } = renderRightSidebar();
 
     const sidebar = getByTestId('right-sidebar-content');
-    const fileTree = getByTestId('file-tree');
-    const gitPanel = getByTestId('git-panel');
+    const gitHistory = getByTestId('git-history-panel');
 
-    // Both are in the sidebar
-    expect(sidebar.contains(fileTree)).toBe(true);
-    expect(sidebar.contains(gitPanel)).toBe(true);
-
-    // Git panel comes after file tree in DOM order
-    const allElements = Array.from(sidebar.querySelectorAll('*'));
-    const fileTreeIndex = allElements.indexOf(fileTree);
-    const gitPanelIndex = allElements.indexOf(gitPanel);
-    expect(gitPanelIndex).toBeGreaterThan(fileTreeIndex);
+    expect(sidebar.contains(gitHistory)).toBe(true);
   });
 
   // -----------------------------------------------------------------------
@@ -197,8 +198,8 @@ describe('RightSidebar', () => {
   test('clicking a file triggers onFileSelect callback', async () => {
     const onFileSelect = mock(() => {});
 
-    // Mock config.get (explorer panel sizes) — consumed on mount
-    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
+    // Mock config.get (project sidebar panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_project_sidebar_sizes', value: null });
     // Mock file tree response
     sendRequestSpy.mockResolvedValueOnce({
       tree: [
@@ -249,8 +250,8 @@ describe('RightSidebar', () => {
   test('Open in Editor context menu action calls onFileSelect with the file path', async () => {
     const onFileSelect = mock(() => {});
 
-    // Mock config.get (explorer panel sizes) — consumed on mount
-    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
+    // Mock config.get (project sidebar panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_project_sidebar_sizes', value: null });
     // Mock file tree response with a file inside a directory
     sendRequestSpy.mockResolvedValueOnce({
       tree: [
@@ -312,8 +313,8 @@ describe('RightSidebar', () => {
   // 8. File change triggers both file.tree and git.status refreshes
   // -----------------------------------------------------------------------
   test('file change event triggers both file.tree and git.status refreshes', async () => {
-    // Mock config.get (explorer panel sizes) — consumed on mount
-    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
+    // Mock config.get (project sidebar panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_project_sidebar_sizes', value: null });
     // Mock initial file tree response
     sendRequestSpy.mockResolvedValueOnce({
       tree: [{ name: 'src', path: '/src', isDirectory: true, children: [] }],
@@ -374,8 +375,8 @@ describe('RightSidebar', () => {
   // 9. workspaceCwd prop is forwarded to FileTree
   // -----------------------------------------------------------------------
   test('passes workspaceCwd to FileTree when provided', async () => {
-    // Mock config.get (explorer panel sizes) — consumed on mount
-    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
+    // Mock config.get (project sidebar panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_project_sidebar_sizes', value: null });
     // Mock file tree response
     sendRequestSpy.mockResolvedValueOnce({
       tree: [{ name: 'src', path: '/src', isDirectory: true, children: [] }],
@@ -400,5 +401,48 @@ describe('RightSidebar', () => {
     // with git status decorations. This test confirms the component renders
     // without errors when workspaceCwd is provided.
     expect(getByTestId('file-tree')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 10. Toggle switches top panel between file tree and git changes
+  // -----------------------------------------------------------------------
+  test('toggle switches top panel between file tree and git changes', async () => {
+    // Mock config.get (project sidebar sizes)
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_project_sidebar_sizes', value: null });
+    // Mock file tree response
+    sendRequestSpy.mockResolvedValueOnce({
+      tree: [{ name: 'src', path: '/src', isDirectory: true, children: [] }],
+    });
+    // Mock git status response
+    sendRequestSpy.mockResolvedValueOnce({
+      branch: 'main',
+      changes: [],
+      staged: [],
+    });
+
+    const { getByTestId, queryByTestId } = renderRightSidebar('ws-1');
+
+    // Default view shows file tree
+    await waitFor(() => {
+      expect(getByTestId('file-tree')).toBeTruthy();
+    });
+
+    // Switch to git changes
+    fireEvent.click(getByTestId('toggle-git-changes'));
+    expect(queryByTestId('file-tree')).toBeNull();
+    expect(getByTestId('git-panel')).toBeTruthy();
+
+    // Switch back to file tree
+    fireEvent.click(getByTestId('toggle-file-tree'));
+    expect(getByTestId('file-tree')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. Git history panel receives workspaceId
+  // -----------------------------------------------------------------------
+  test('git history panel receives workspaceId', () => {
+    const { getByTestId } = renderRightSidebar('ws-1');
+    const gitHistory = getByTestId('git-history-panel');
+    expect(gitHistory.textContent).toBe('ws-1');
   });
 });

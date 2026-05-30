@@ -3,13 +3,14 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 import type { GroupImperativeHandle } from 'react-resizable-panels';
 import { FileTree } from './FileTree';
 import { GitPanel } from './GitPanel';
+import { GitHistoryPanel } from './GitHistoryPanel';
 import { sendRequest } from '../lib/send-request';
 import { useFileChange } from '../hooks/useFileChange';
 import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
 import { mergeDeletedFiles } from '../lib/git-tree-status';
-import { COLOR_BORDER, COLOR_ERROR, COLOR_TEXT_MUTED, TITLE_BAR_HEIGHT } from '../lib/theme';
+import { COLOR_BORDER, COLOR_ERROR, COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_HOVER_BG, TITLE_BAR_HEIGHT } from '../lib/theme';
 
 interface RightSidebarProps {
   workspaceId: string | null;
@@ -21,17 +22,18 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [topView, setTopView] = useState<'tree' | 'changes'>('tree');
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const explorerGroupRef = useRef<GroupImperativeHandle>(null);
   const sizesLoadedRef = useRef(false);
 
-  // Load persisted explorer panel sizes on mount
+  // Load persisted project sidebar panel sizes on mount
   useEffect(() => {
-    sendRequest<{ key: string; value: string | null }>('config.get', { key: 'ui_explorer_sizes' })
+    sendRequest<{ key: string; value: string | null }>('config.get', { key: 'ui_project_sidebar_sizes' })
       .then((res) => {
         if (res.value != null) {
-          const layout = JSON.parse(res.value) as { fileTree: number; gitPanel: number };
-          if (typeof layout.fileTree === 'number' && typeof layout.gitPanel === 'number') {
+          const layout = JSON.parse(res.value) as { topPane: number; historyPane: number };
+          if (typeof layout.topPane === 'number' && typeof layout.historyPane === 'number') {
             explorerGroupRef.current?.setLayout(layout);
           }
         }
@@ -45,7 +47,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
   const handleExplorerLayoutChanged = useCallback((layout: Record<string, number>) => {
     if (!sizesLoadedRef.current) return;
     if (Object.values(layout).some((v) => v < 1)) return; // skip if collapsed
-    sendRequest('config.set', { key: 'ui_explorer_sizes', value: JSON.stringify(layout) }).catch(
+    sendRequest('config.set', { key: 'ui_project_sidebar_sizes', value: JSON.stringify(layout) }).catch(
       () => {},
     );
   }, []);
@@ -201,7 +203,43 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
           flexShrink: 0,
         }}
       >
-        Explorer
+        <span style={{ flex: 1 }}>Project</span>
+        <button
+          data-testid="toggle-file-tree"
+          title="File Explorer"
+          aria-label="File Explorer"
+          onClick={() => setTopView('tree')}
+          style={{
+            background: topView === 'tree' ? COLOR_HOVER_BG : 'transparent',
+            border: 'none',
+            color: topView === 'tree' ? COLOR_TEXT : COLOR_TEXT_MUTED,
+            cursor: 'pointer',
+            padding: '2px 6px',
+            borderRadius: '3px',
+            fontSize: '12px',
+            lineHeight: 1,
+          }}
+        >
+          📁
+        </button>
+        <button
+          data-testid="toggle-git-changes"
+          title="Git Changes"
+          aria-label="Git Changes"
+          onClick={() => setTopView('changes')}
+          style={{
+            background: topView === 'changes' ? COLOR_HOVER_BG : 'transparent',
+            border: 'none',
+            color: topView === 'changes' ? COLOR_TEXT : COLOR_TEXT_MUTED,
+            cursor: 'pointer',
+            padding: '2px 6px',
+            borderRadius: '3px',
+            fontSize: '12px',
+            lineHeight: 1,
+          }}
+        >
+          ⎇
+        </button>
       </div>
       {error && (
         <div
@@ -221,27 +259,31 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
         groupRef={explorerGroupRef}
         onLayoutChanged={handleExplorerLayoutChanged}
       >
-        <Panel id="fileTree" defaultSize="70%" minSize="20%" style={{ overflow: 'auto' }}>
-          {workspaceId ? (
-            <FileTree
-              tree={treeWithDeleted}
-              onFileSelect={onFileSelect}
-              onOpenEditor={onFileSelect}
-              workspaceId={workspaceId}
-              onNewFile={handleNewFile}
-              onNewFolder={handleNewFolder}
-              onRename={handleRename}
-              onDelete={handleDelete}
-              gitStatus={effectiveGitStatus}
-              workspaceRoot={workspaceCwd}
-            />
+        <Panel id="topPane" defaultSize="60%" minSize="20%" style={{ overflow: 'auto' }}>
+          {topView === 'tree' ? (
+            workspaceId ? (
+              <FileTree
+                tree={treeWithDeleted}
+                onFileSelect={onFileSelect}
+                onOpenEditor={onFileSelect}
+                workspaceId={workspaceId}
+                onNewFile={handleNewFile}
+                onNewFolder={handleNewFolder}
+                onRename={handleRename}
+                onDelete={handleDelete}
+                gitStatus={effectiveGitStatus}
+                workspaceRoot={workspaceCwd}
+              />
+            ) : (
+              <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>
+            )
           ) : (
-            <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>
+            <GitPanel gitStatus={effectiveGitStatus} />
           )}
         </Panel>
         <Separator style={{ height: '2px', background: COLOR_BORDER }} />
-        <Panel id="gitPanel" defaultSize="30%" minSize="10%" style={{ overflow: 'auto' }}>
-          <GitPanel gitStatus={effectiveGitStatus} />
+        <Panel id="historyPane" defaultSize="40%" minSize="10%" style={{ overflow: 'hidden' }}>
+          <GitHistoryPanel workspaceId={workspaceId} />
         </Panel>
       </Group>
     </div>

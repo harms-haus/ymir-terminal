@@ -145,6 +145,17 @@ export const COLOR_CLOSE_BTN_HOVER_BG = 'rgba(255,255,255,0.1)';
 /** Retry button background (inside error bar) */
 export const COLOR_RETRY_BTN_BG = 'rgba(255,255,255,0.2)';
 
+// ── Scrollbar ────────────────────────────────────────────────────────────────
+
+/** Scrollbar thumb color (darker than sidebar background) */
+export const COLOR_SCROLLBAR_THUMB = '#3a3a3a';
+
+/** Scrollbar thumb hover color */
+export const COLOR_SCROLLBAR_THUMB_HOVER = '#4a4a4a';
+
+/** Scrollbar width in pixels */
+export const SCROLLBAR_WIDTH = 4;
+
 // ── Preset workspace colours ────────────────────────────────────────────────
 
 export const PRESET_COLORS = [

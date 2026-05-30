@@ -43,6 +43,8 @@ Bun Server
 | Auth        | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry |
 | DnD         | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer |
 | Context Menu | `@radix-ui/react-context-menu`                                        |
+| Virtualization | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories |
+| Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API |
 | Styling     | Inline CSS, `react-resizable-panels` for IDE layout                   |
 | Testing     | `bun:test`, Testing Library (React), happy-dom                        |
 
@@ -95,12 +97,13 @@ All communication uses a JSON envelope format over a single WebSocket connection
 ### Envelope Structure
 
 ```typescript
-interface MessageEnvelope {
+interface MessageEnvelope<T = unknown> {
   v: 1; // protocol version
   type: 'request' | 'response' | 'event';
-  id: string; // UUID for correlating request ↔ response
-  channel: string; // e.g. "auth", "terminal.create", "file.tree"
-  payload: unknown; // request/response body
+  id?: string;          // Required for requests/responses; absent for events
+  channel?: string;     // Required for requests; absent for most responses/events
+  token?: string;       // Auth token; attached by the client transport layer
+  payload: T;
   error?: ErrorResponse; // code is typed as ErrorCode (union), not plain string
 }
 ```
@@ -131,9 +134,10 @@ interface MessageEnvelope {
 | `file.write`        | request   | Write file contents                 |
 | `file.create`       | request   | Create file or directory            |
 | `file.delete`       | request   | Delete file or directory            |
-| `file.rename`       | request   | Rename/mmove a file                 |
+| `file.rename`       | request   | Rename/move a file                 |
 | `file.change`       | event     | Filesystem change notification      |
 | `git.status`        | request   | Get git status for a path           |
+| `git.log`           | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`) |
 | `config.get`        | request   | Get a config value from server_config table |
 | `config.set`        | request   | Set a config value in server_config table |
 | `connection.status` | event     | Connection status change            |
@@ -158,7 +162,7 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 | File                   | Purpose                                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------------------- |
 | `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                     |
-| `protocol/payloads.ts` | Request/event type constants, payload types, `ConnectionStatusEvent`                                  |
+| `protocol/payloads.ts` | Request/event type constants, payload types (`GitLogRequest`, `GitLogItem`, `GitLogResponse`, `ConnectionStatusEvent`, etc.) |
 | `protocol/panes.ts`    | Split pane tree types                                                                                 |
 | `constants.ts`         | Default ports, paths, timeouts                                                                        |
 | `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `delay`, `clamp`, `expandTilde`, `getConfigPath`, `getDbPath` |
@@ -172,11 +176,18 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 | `lib/`               | Shared handler validation (`handler-validation.ts`)           |
 | `pty/`               | PTY manager — spawn, resize, write, kill                      |
 | `files/`             | File scanner, CRUD operations, filesystem watcher             |
-| `git/`               | Git status reader (`git status --porcelain`)                  |
+| `git/`               | Git status reader (`git status --porcelain=v1`), git log reader (`git log`) |
 | `ws/`                | WebSocket server, message router, connection state            |
 | `ws/handlers/`       | Channel handlers (auth, terminal, files, git, ws)             |
 | `ws/handlers/files/` | File handlers split into `tree`, `crud`, `language`, `shared` |
 | `test-helpers/`      | Shared server test utilities (`mock-utils.ts`)                |
+
+**Git module detail:**
+
+| File          | Responsibility                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `git/status.ts` | Reads `git status --porcelain=v1` output, returns branch name + staged/unstaged file changes       |
+| `git/log.ts`    | Async `getGitLog(dirPath, skip, limit)` — executes `git log --pretty=format` with NUL-delimited fields (`%H%x00%P%x00%an%x00%at%x00%s`), returns `GitLogItem[]`. Uses `execFile` (promisified) to avoid blocking the event loop |
 
 **Handler registration pattern:**
 
@@ -226,8 +237,9 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `CreateWorkspaceDialog`    | Dialog for creating new workspaces                            |
 | `FileTree`                 | Directory tree with context menu and inline git status        |
 | `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)        |
-| `RightSidebar`             | Resizable explorer panel (FileTree 70% / GitPanel 30%); inner split sizes persisted to server |
-| `GitPanel`                 | Git status display                                            |
+| `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split |
+| `GitPanel`                 | Git status display (staged/unstaged changes)                  |
+| `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading |
 | `LoginPage`                | Password authentication form                                  |
 | `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable` |
 | `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename) |
@@ -264,28 +276,48 @@ Ymir stores persistent data in SQLite:
 
 The config directory is created automatically on first run.
 
-The `server_config` key-value table (within the persistent database) stores UI layout persistence data — panel sizes and pane visibility — using keys like `ui_pane_visibility`, `ui_panel_sizes`, and `ui_explorer_sizes`.
+The `server_config` key-value table (within the persistent database) stores UI layout persistence data — panel sizes and pane visibility — using keys like `ui_pane_visibility`, `ui_panel_sizes`, and `ui_project_sidebar_sizes`.
 
-## Explorer Sidebar
+## Project Sidebar
 
-The right sidebar (`RightSidebar`) is a vertically resizable panel layout hosting the file tree and git status:
+The right sidebar (`RightSidebar`) is a vertically resizable panel layout with a header labeled "Project" containing two toggle buttons:
+
+- **📁 (File Explorer)** — shows the file tree in the top pane
+- **⎇ (Git Changes)** — shows staged/unstaged git changes (`GitPanel`) in the top pane
 
 ```
-┌──────────────────┐
-│ Explorer (header)│
-├──────────────────┤
-│                  │
-│   FileTree       │  70% default, 20% min
-│   (scrollable)   │
-│                  │
-├─── (draggable) ──┤
-│   GitPanel       │  30% default, 10% min
-└──────────────────┘
+┌─────────────────────────────────────┐
+│  Project              [📁] [⎇]      │  ← header with toggle buttons
+├─────────────────────────────────────┤
+│                                     │
+│  Top Pane (60%)                     │  ← FileTree OR GitPanel (toggle)
+│                                     │
+├─────────────────────────────────────┤
+│                                     │
+│  Bottom Pane (40%)                  │  ← GitHistoryPanel
+│  ●──●──●  feat: add auth           │     (virtualized git commit graph)
+│  │   └─●  fix: login bug            │
+│  ●──────●  Merge pull request       │
+│                                     │
+└─────────────────────────────────────┘
 ```
+
+Panel sizes are persisted under config key `ui_project_sidebar_sizes` as `{ topPane: number, historyPane: number }`.
 
 Both `file.tree` and `git.status` are fetched when a workspace is selected. The `useFileChange` hook subscribes to `file.change` events and refreshes **both** the tree and git status on any filesystem change.
 
 `workspaceCwd` flows from `WorkspaceView` → `RightSidebar` → `FileTree` and is used to compute relative paths for git status lookups.
+
+### Git History Panel
+
+The `GitHistoryPanel` renders a virtualized, infinitely-scrollable git commit log with an SVG lane graph:
+
+- **Pagination** — fetches commits via `git.log` requests with `{ workspaceId, skip, limit }` (page size = 50)
+- **Lane graph** — `computeLanes()` assigns each commit a lane and color, draws SVG bezier curves for branch/merge lines, and renders commit dots
+- **Virtualization** — uses `@tanstack/react-virtual` with 30px fixed row height and 10-row overscan
+- **Infinite scroll** — a sentinel element monitored by `react-intersection-observer` (`rootMargin: '200px'`) triggers the next page load
+- **Stale-fetch protection** — a generation counter (`generationRef`) discards responses from outdated workspace contexts
+- **Error recovery** — displays an inline error banner with a Retry button; errors persist until manually dismissed
 
 ### Inline Git Status in File Tree
 

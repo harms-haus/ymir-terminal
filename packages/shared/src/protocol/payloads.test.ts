@@ -38,6 +38,9 @@ import {
   type GitFileChange,
   type GitStatusRequest,
   type GitStatusResponse,
+  type GitLogRequest,
+  type GitLogItem,
+  type GitLogResponse,
   // Config
   type ConfigGetRequest,
   type ConfigGetResponse,
@@ -72,6 +75,7 @@ describe('REQUEST_TYPES', () => {
     'file.rename',
     'file.create',
     'git.status',
+    'git.log',
     'config.get',
     'config.set',
   ];
@@ -80,8 +84,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 18 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(18);
+  it('has exactly 19 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(19);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -538,6 +542,7 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', oldPath: '/a', newPath: '/b' } satisfies FileRenameRequest,
       { workspaceId: 'ws-1', path: '/a', isDirectory: false } satisfies FileCreateRequest,
       { workspaceId: 'ws-1' } satisfies GitStatusRequest,
+      { workspaceId: 'ws-1', skip: 0, limit: 50 } satisfies GitLogRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
     ];

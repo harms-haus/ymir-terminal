@@ -19,6 +19,7 @@ export const REQUEST_TYPES = [
   'file.rename',
   'file.create',
   'git.status',
+  'git.log',
   'config.get',
   'config.set',
 ] as const;
@@ -206,6 +207,29 @@ export interface GitStatusResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Git Log
+// ---------------------------------------------------------------------------
+
+export interface GitLogRequest {
+  workspaceId: string;
+  skip: number;
+  limit: number;
+}
+
+export interface GitLogItem {
+  id: string;
+  message: string;
+  author: string;
+  date: number; // Unix timestamp in seconds
+  parents: string[];
+}
+
+export interface GitLogResponse {
+  commits: GitLogItem[];
+  hasMore: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
@@ -256,6 +280,7 @@ export type RequestPayload =
   | FileRenameRequest
   | FileCreateRequest
   | GitStatusRequest
+  | GitLogRequest
   | ConfigGetRequest
   | ConfigSetRequest;
 
