@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-await GlobalRegistrator.register();
+import { setupTestDom } from '../src/test-helpers/mock-setup';
+await setupTestDom();
 import { test, expect } from 'bun:test';
 import { render } from '@testing-library/react';
 

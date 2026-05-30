@@ -16,6 +16,20 @@ Start both the client dev server (Vite) and the backend server with hot reload:
 bun run dev
 ```
 
+## Scripts
+
+| Command                  | Description                        |
+| ------------------------ | ---------------------------------- |
+| `bun run dev`            | Start concurrent server + client dev |
+| `bun run build`          | Build client for production        |
+| `bun run start`          | Start production server            |
+| `bun run test`           | Run all tests                      |
+| `bun run lint`           | Run ESLint                         |
+| `bun run lint:fix`       | Run ESLint with auto-fix           |
+| `bun run format`         | Format code with Prettier          |
+| `bun run format:check`   | Check formatting with Prettier     |
+| `bun run typecheck`      | Run TypeScript type checking       |
+
 ## Production
 
 Build the client and start the production server:
@@ -55,6 +69,10 @@ In production, static files are served from the client build output (`apps/clien
 - **Path traversal protection** — all file operations resolve paths against the workspace CWD; requests escaping the workspace are rejected
 - **Session isolation** — each client receives a unique session ID; sessions are tracked independently in the server
 - **Password max length** — passwords exceeding 128 characters are rejected before hashing
+
+## Known Limitations
+
+- **Recursive file watching on Linux** — `fs.watch` with `recursive: true` is only reliable on macOS and Windows. On Linux, changes in nested (deeply nested) directories may not be detected. A future update should replace this with manual recursive watching or a library like `chokidar`.
 
 ## Architecture
 

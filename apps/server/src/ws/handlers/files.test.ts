@@ -1,43 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
-  type RequestEnvelope,
-  PROTOCOL_VERSION,
   ErrorCodes,
   type FileTreeResponse,
   type FileReadResponse,
 } from '@ymir/shared';
+import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerFileHandlers } from './files/index';
 import type { FileDeps } from './files/index';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Create a minimal mock connection object. */
-function mockConn() {
-  const sent: unknown[] = [];
-  return {
-    sessionId: crypto.randomUUID(),
-    isAuthenticated: true,
-    sent,
-    send(data: unknown) {
-      sent.push(data);
-    },
-  };
-}
-
-/** Build a request envelope for the given channel + payload. */
-function request(channel: string, payload: unknown): RequestEnvelope {
-  return {
-    v: PROTOCOL_VERSION,
-    type: 'request',
-    id: crypto.randomUUID(),
-    channel,
-    payload,
-  } as RequestEnvelope;
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -62,12 +33,12 @@ describe('registerFileHandlers', () => {
     conn = mockConn();
 
     scanDirectoryFn = mock(() => []);
-    readFileFn = mock(() => 'file contents');
-    writeFileFn = mock(() => {});
-    deleteFileFn = mock(() => {});
-    renameFileFn = mock(() => {});
-    createFileFn = mock(() => {});
-    createDirectoryFn = mock(() => {});
+    readFileFn = mock(() => Promise.resolve('file contents'));
+    writeFileFn = mock(() => Promise.resolve());
+    deleteFileFn = mock(() => Promise.resolve());
+    renameFileFn = mock(() => Promise.resolve());
+    createFileFn = mock(() => Promise.resolve());
+    createDirectoryFn = mock(() => Promise.resolve());
     getWorkspaceFn = mock((_db: unknown, id: string) => {
       if (id === 'ws-1') {
         return { id: 'ws-1', name: 'Test', cwd: '/home/dev/project', color: '#007acc' };
@@ -205,7 +176,7 @@ describe('registerFileHandlers', () => {
   // -----------------------------------------------------------------------
   describe('file.read', () => {
     it('reads file and returns FileReadResponse { content, language }', async () => {
-      readFileFn.mockImplementation(() => 'console.log("hello");');
+      readFileFn.mockImplementation(() => Promise.resolve('console.log("hello");'));
 
       const req = request('file.read', { workspaceId: 'ws-1', path: '/home/dev/project/index.ts' });
       await router.route(conn, req);
@@ -246,7 +217,7 @@ describe('registerFileHandlers', () => {
 
       for (const [filename, expectedLang] of cases) {
         conn.sent.length = 0;
-        readFileFn.mockImplementation(() => 'content');
+        readFileFn.mockImplementation(() => Promise.resolve('content'));
 
         const req = request('file.read', {
           workspaceId: 'ws-1',

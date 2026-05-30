@@ -1,8 +1,4 @@
 import type { FileNode, GitStatusResponse } from '@ymir/shared';
-import { GIT_STATUS_COLORS as _GIT_STATUS_COLORS } from './theme';
-
-// Re-export GIT_STATUS_COLORS from the centralized theme module.
-export const GIT_STATUS_COLORS = _GIT_STATUS_COLORS;
 
 export function buildGitPathMap(
   gitStatus: GitStatusResponse | null,

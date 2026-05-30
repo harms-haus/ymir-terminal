@@ -13,6 +13,8 @@ import { createError, createResponse, type MessageRouter } from '../router';
 import type { Database } from 'bun:sqlite';
 import { getConfigValue, setConfigValue } from '../../db/persistent';
 
+const PROTECTED_CONFIG_KEYS = new Set(['jwt_signing_secret']);
+
 // ---------------------------------------------------------------------------
 // Dependencies
 // ---------------------------------------------------------------------------
@@ -49,6 +51,11 @@ export function registerConfigHandlers(router: MessageRouter, deps: ConfigDeps):
       return;
     }
 
+    if (PROTECTED_CONFIG_KEYS.has(payload.key)) {
+      conn.send(createError(req, ErrorCodes.PERMISSION_DENIED, 'Cannot read protected config key'));
+      return;
+    }
+
     const result = doGetConfigValue(deps.persistentDb, payload.key);
 
     const resp: ResponseEnvelope<ConfigGetResponse> = createResponse(req, {
@@ -77,6 +84,11 @@ export function registerConfigHandlers(router: MessageRouter, deps: ConfigDeps):
         'Missing required fields: key and value',
       );
       conn.send(err);
+      return;
+    }
+
+    if (PROTECTED_CONFIG_KEYS.has(payload.key)) {
+      conn.send(createError(req, ErrorCodes.PERMISSION_DENIED, 'Cannot modify protected config key'));
       return;
     }
 

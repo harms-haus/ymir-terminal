@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GitFileChange, GitStatusResponse } from '@ymir/shared';
@@ -9,29 +8,40 @@ export function isGitRepo(dirPath: string): boolean {
   return existsSync(join(dirPath, '.git'));
 }
 
-export function getCurrentBranch(dirPath: string): string | null {
-  try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { cwd: dirPath, encoding: 'utf-8' }).trim();
-  } catch {
-    return null;
-  }
+/**
+ * Read stdout from a Bun.spawn process as a string.
+ * Returns an empty string on failure.
+ */
+async function spawnGit(args: string[], cwd: string): Promise<string> {
+  const proc = Bun.spawn(['git', ...args], {
+    cwd,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  await proc.exited;
+  if (proc.exitCode !== 0) return '';
+  const text = await new Response(proc.stdout).text();
+  return text;
 }
 
-export function getGitStatus(dirPath: string): GitStatusResponse | null {
+export async function getCurrentBranch(dirPath: string): Promise<string | null> {
+  const out = await spawnGit(['rev-parse', '--abbrev-ref', 'HEAD'], dirPath);
+  return out.trim() || null;
+}
+
+export async function getGitStatus(dirPath: string): Promise<GitStatusResponse | null> {
   if (!isGitRepo(dirPath)) return null;
 
-  const branch = getCurrentBranch(dirPath) || 'unknown';
+  const [branchResult, statusOutput] = await Promise.all([
+    getCurrentBranch(dirPath),
+    spawnGit(['status', '--porcelain=v1'], dirPath),
+  ]);
+
+  const branch = branchResult || 'unknown';
   const changes: GitFileChange[] = [];
   const staged: GitFileChange[] = [];
 
-  let output: string;
-  try {
-    output = execSync('git status --porcelain=v1', { cwd: dirPath, encoding: 'utf-8' });
-  } catch {
-    return { branch, changes: [], staged: [] };
-  }
-
-  const lines = output.split('\n').filter((l) => l.length >= 3);
+  const lines = statusOutput.split('\n').filter((l) => l.length >= 3);
   for (const line of lines) {
     const stagedStatus = line[0];
     const unstagedStatus = line[1];

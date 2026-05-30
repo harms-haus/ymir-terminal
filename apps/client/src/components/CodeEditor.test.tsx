@@ -1,17 +1,14 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
-// Mock @uiw/react-codemirror — capture the onChange callback for direct testing
+// Override @uiw/react-codemirror mock — capture onChange callback for direct testing
 // ---------------------------------------------------------------------------
 
 let capturedOnChange: ((value: string) => void) | undefined;

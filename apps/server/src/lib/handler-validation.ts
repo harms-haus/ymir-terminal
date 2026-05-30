@@ -4,8 +4,6 @@ import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/s
 import type { ClientConnection } from '../ws/connection';
 import type { Database } from '../db/session';
 import { createError } from '../ws/router';
-import type { Workspace } from '../db/persistent';
-import { getWorkspace as dbGetWorkspace } from '../db/persistent';
 import { getTerminalInstance } from '../db/session';
 
 // ---------------------------------------------------------------------------
@@ -87,69 +85,4 @@ export function safePath(workspaceCwd: string, userInput: string): string {
   return resolved;
 }
 
-/**
- * Resolve a safe path or send a PERMISSION_DENIED error to the client.
- *
- * @returns The resolved absolute path, or `null` if an error was sent.
- */
-export function resolveSafePathOrError(
-  conn: ClientConnection,
-  req: Pick<RequestEnvelope, 'id' | 'channel'>,
-  workspaceCwd: string,
-  userInput: string,
-): string | null {
-  try {
-    return safePath(workspaceCwd, userInput);
-  } catch {
-    const err: ResponseEnvelope = createError(
-      req,
-      ErrorCodes.PERMISSION_DENIED,
-      'Path traversal detected',
-    );
-    conn.send(err);
-    return null;
-  }
-}
 
-// ---------------------------------------------------------------------------
-// Workspace resolution
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve a workspace from a handler payload.
- *
- * Extracts `workspaceId` from `payload`, looks it up via the persistent DB, and
- * returns the workspace record. On failure the appropriate error is sent on
- * `conn` and `null` is returned.
- */
-export function resolveWorkspaceOrError(
-  conn: ClientConnection,
-  req: Pick<RequestEnvelope, 'id' | 'channel'>,
-  persistentDb: Database,
-  payload: Record<string, unknown>,
-  getWorkspace: (db: Database, id: string) => Workspace | null = dbGetWorkspace,
-): Workspace | null {
-  const wsId = payload.workspaceId;
-  if (typeof wsId !== 'string' || wsId.length === 0) {
-    const err: ResponseEnvelope = createError(
-      req,
-      ErrorCodes.WORKSPACE_NOT_FOUND,
-      'Missing or invalid workspaceId',
-    );
-    conn.send(err);
-    return null;
-  }
-
-  const workspace = getWorkspace(persistentDb, wsId);
-  if (!workspace) {
-    const err: ResponseEnvelope = createError(
-      req,
-      ErrorCodes.WORKSPACE_NOT_FOUND,
-      `Workspace not found: ${wsId}`,
-    );
-    conn.send(err);
-    return null;
-  }
-
-  return workspace;
-}

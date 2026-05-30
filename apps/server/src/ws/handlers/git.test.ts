@@ -1,42 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
-  type RequestEnvelope,
-  PROTOCOL_VERSION,
   ErrorCodes,
   type GitStatusResponse,
+  type GitLogResponse,
+  type GitLogItem,
 } from '@ymir/shared';
+import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerGitHandlers } from './git';
 import type { GitDeps } from './git';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Create a minimal mock connection object. */
-function mockConn() {
-  const sent: unknown[] = [];
-  return {
-    sessionId: crypto.randomUUID(),
-    isAuthenticated: true,
-    sent,
-    send(data: unknown) {
-      sent.push(data);
-    },
-  };
-}
-
-/** Build a request envelope for the given channel + payload. */
-function request(channel: string, payload: unknown): RequestEnvelope {
-  return {
-    v: PROTOCOL_VERSION,
-    type: 'request',
-    id: crypto.randomUUID(),
-    channel,
-    payload,
-  } as RequestEnvelope;
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -46,6 +19,7 @@ describe('registerGitHandlers', () => {
   let router: MessageRouter;
   let conn: ReturnType<typeof mockConn>;
   let getGitStatusFn: ReturnType<typeof mock>;
+  let getGitLogFn: ReturnType<typeof mock>;
   let getWorkspaceFn: ReturnType<typeof mock>;
 
   beforeEach(() => {
@@ -62,7 +36,18 @@ describe('registerGitHandlers', () => {
       return null;
     });
 
-    getGitStatusFn = mock((_dirPath: string) => {
+    const fakeCommits: GitLogItem[] = [
+      { id: 'aaa', message: 'third commit', author: 'Alice <alice@example.com>', date: 1700000003, parents: ['bbb'] },
+      { id: 'bbb', message: 'second commit', author: 'Bob <bob@example.com>', date: 1700000002, parents: ['ccc'] },
+      { id: 'ccc', message: 'first commit', author: 'Alice <alice@example.com>', date: 1700000001, parents: [] },
+    ];
+
+    getGitLogFn = mock(async (_dirPath: string, _skip: number, _limit: number) => {
+      if (_dirPath === '/tmp/plain') return [];
+      return fakeCommits.slice(_skip, _skip + _limit);
+    });
+
+    getGitStatusFn = mock(async (_dirPath: string) => {
       if (_dirPath === '/tmp/plain') return null;
       return {
         branch: 'main',
@@ -78,9 +63,10 @@ describe('registerGitHandlers', () => {
       persistentDb: {} as any,
       _mocks: {
         getGitStatus: getGitStatusFn,
+        getGitLog: getGitLogFn,
         getWorkspace: getWorkspaceFn,
       },
-    };
+ };
 
     registerGitHandlers(router, deps);
   });
@@ -151,6 +137,85 @@ describe('registerGitHandlers', () => {
 
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
       const req = request('git.status', {});
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.log tests
+  // -----------------------------------------------------------------------
+  describe('git.log', () => {
+    const fakeCommits: GitLogItem[] = [
+      { id: 'aaa', message: 'third commit', author: 'Alice <alice@example.com>', date: 1700000003, parents: ['bbb'] },
+      { id: 'bbb', message: 'second commit', author: 'Bob <bob@example.com>', date: 1700000002, parents: ['ccc'] },
+      { id: 'ccc', message: 'first commit', author: 'Alice <alice@example.com>', date: 1700000001, parents: [] },
+    ];
+
+    it('returns commits with id, message, author, date for a valid workspace', async () => {
+      const req = request('git.log', { workspaceId: 'ws-1', skip: 0, limit: 10 });
+      await router.route(conn, req);
+
+      expect(getGitLogFn).toHaveBeenCalledTimes(1);
+      expect(getGitLogFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(getGitLogFn.mock.calls[0][1]).toBe(0);
+      // limit is clamped to min(10, 100) = 10
+      expect(getGitLogFn.mock.calls[0][2]).toBe(10);
+
+      expect(conn.sent.length).toBe(1);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.id).toBe(req.id);
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitLogResponse;
+      expect(payload.commits).toEqual(fakeCommits);
+      expect(payload.hasMore).toBe(false); // 3 commits < limit 10
+    });
+
+    it('respects skip and limit for pagination and sets hasMore=true when more exist', async () => {
+      const req = request('git.log', { workspaceId: 'ws-1', skip: 2, limit: 1 });
+      await router.route(conn, req);
+
+      expect(getGitLogFn).toHaveBeenCalledTimes(1);
+      expect(getGitLogFn.mock.calls[0][1]).toBe(2);
+      expect(getGitLogFn.mock.calls[0][2]).toBe(1);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      const payload = resp.payload as GitLogResponse;
+      // fakeCommits.slice(2, 3) → [{ id: 'ccc', ... }]
+      expect(payload.commits).toHaveLength(1);
+      expect(payload.commits[0].id).toBe('ccc');
+      expect(payload.commits[0].message).toBe('first commit');
+      // hasMore: commits.length (1) === limit (1) → true
+      expect(payload.hasMore).toBe(true);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.log', { workspaceId: 'nonexistent', skip: 0, limit: 10 });
+      await router.route(conn, req);
+
+      expect(getGitLogFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('returns empty commits for a non-git directory', async () => {
+      const req = request('git.log', { workspaceId: 'ws-nongit', skip: 0, limit: 10 });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitLogResponse;
+      expect(payload.commits).toEqual([]);
+      expect(payload.hasMore).toBe(false);
+    });
+
+    it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+      const req = request('git.log', { skip: 0, limit: 10 });
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;

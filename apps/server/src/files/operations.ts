@@ -1,61 +1,60 @@
-import {
-  readFileSync,
-  writeFileSync,
-  unlinkSync,
-  renameSync,
-  mkdirSync,
-  existsSync,
-} from 'node:fs';
+import { readFile as fsReadFile, writeFile as fsWriteFile, mkdir, unlink, rename, access } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-export function readFile(path: string): string {
+export async function readFile(path: string): Promise<string> {
   try {
-    return readFileSync(path, 'utf-8');
+    return await fsReadFile(path, 'utf-8');
   } catch (err) {
     throw new Error(`Failed to read file: ${path}`, { cause: err });
   }
 }
 
-export function writeFile(path: string, content: string): void {
+export async function writeFile(path: string, content: string): Promise<void> {
   try {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, content, 'utf-8');
+    await mkdir(dirname(path), { recursive: true });
+    await fsWriteFile(path, content, 'utf-8');
   } catch (err) {
     throw new Error(`Failed to write file: ${path}`, { cause: err });
   }
 }
 
-export function deleteFile(path: string): void {
+export async function deleteFile(path: string): Promise<void> {
   try {
-    unlinkSync(path);
+    await unlink(path);
   } catch (err) {
     throw new Error(`Failed to delete file: ${path}`, { cause: err });
   }
 }
 
-export function renameFile(oldPath: string, newPath: string): void {
+export async function renameFile(oldPath: string, newPath: string): Promise<void> {
   try {
-    if (existsSync(newPath)) {
+    try {
+      await access(newPath);
       throw new Error(`Destination already exists: ${newPath}`);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.startsWith('Destination already exists')) {
+        throw err;
+      }
+      // access threw because file doesn't exist — proceed
     }
-    renameSync(oldPath, newPath);
+    await rename(oldPath, newPath);
   } catch (err) {
     throw new Error(`Failed to rename file: ${oldPath} -> ${newPath}`, { cause: err });
   }
 }
 
-export function createFile(path: string): void {
+export async function createFile(path: string): Promise<void> {
   try {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, '', 'utf-8');
+    await mkdir(dirname(path), { recursive: true });
+    await fsWriteFile(path, '', 'utf-8');
   } catch (err) {
     throw new Error(`Failed to create file: ${path}`, { cause: err });
   }
 }
 
-export function createDirectory(path: string): void {
+export async function createDirectory(path: string): Promise<void> {
   try {
-    mkdirSync(path, { recursive: true });
+    await mkdir(path, { recursive: true });
   } catch (err) {
     throw new Error(`Failed to create directory: ${path}`, { cause: err });
   }

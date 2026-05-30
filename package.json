@@ -9,7 +9,8 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --build"
   },
   "workspaces": [
     "apps/*",

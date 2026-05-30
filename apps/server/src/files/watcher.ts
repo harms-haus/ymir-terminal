@@ -25,6 +25,9 @@ export function startWatcher(
     activeWatchers.delete(dirPath);
   }
 
+  // NOTE: recursive fs.watch is only reliable on macOS/Windows.
+  // On Linux, this silently fails for nested directories.
+  // TODO: Implement manual recursive watching or use a library like chokidar for Linux support.
   const watcher = watch(dirPath, { recursive: true }, (eventType, filename) => {
     if (!filename) return;
     const fullPath = join(dirPath, filename);
@@ -80,8 +83,3 @@ export function stopWorkspaceWatcher(workspaceId: string): void {
   }
 }
 
-export function stopAllWorkspaceWatchers(): void {
-  for (const [id] of activeWatchersByWorkspace) {
-    stopWorkspaceWatcher(id);
-  }
-}

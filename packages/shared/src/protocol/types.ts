@@ -78,26 +78,4 @@ export interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'ty
   payload: T;
 }
 
-// ---------------------------------------------------------------------------
-// Type guards
-// ---------------------------------------------------------------------------
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function isRequestEnvelope(value: unknown): value is RequestEnvelope<unknown> {
-  if (!isObject(value)) return false;
-  return value.type === 'request' && typeof value.id === 'string';
-}
-
-export function isResponseEnvelope(value: unknown): value is ResponseEnvelope<unknown> {
-  if (!isObject(value)) return false;
-  return value.type === 'response' && typeof value.id === 'string';
-}
-
-export function isEventEnvelope(value: unknown): value is EventEnvelope<unknown> {
-  if (!isObject(value)) return false;
-  if (value.type !== 'event') return false;
-  return 'payload' in value;
-}

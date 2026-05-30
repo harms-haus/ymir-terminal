@@ -1,0 +1,78 @@
+// ---------------------------------------------------------------------------
+// Re-exports from domain modules
+// ---------------------------------------------------------------------------
+
+export * from './auth';
+export * from './terminal';
+export * from './workspace';
+export * from './file';
+export * from './git';
+export * from './config';
+export * from './session';
+
+// ---------------------------------------------------------------------------
+// Request & event type constants
+// ---------------------------------------------------------------------------
+
+export const REQUEST_TYPES = [
+  'auth',
+  'terminal.create',
+  'terminal.input',
+  'terminal.resize',
+  'terminal.close',
+  'workspace.list',
+  'workspace.create',
+  'workspace.update',
+  'workspace.delete',
+  'file.tree',
+  'file.read',
+  'file.write',
+  'file.delete',
+  'file.rename',
+  'file.create',
+  'git.status',
+  'git.log',
+  'config.get',
+  'config.set',
+] as const;
+
+export type RequestType = (typeof REQUEST_TYPES)[number];
+
+export const EVENT_TYPES = [
+  'terminal.output',
+  'terminal.exit',
+  'file.change',
+  'connection.status',
+] as const;
+
+export type EventType = (typeof EVENT_TYPES)[number];
+
+// ---------------------------------------------------------------------------
+// Union types — exhaustive over all request / event payloads
+// ---------------------------------------------------------------------------
+
+export type RequestPayload =
+  | AuthRequest
+  | TerminalCreateRequest
+  | TerminalInputRequest
+  | TerminalResizeRequest
+  | TerminalCloseRequest
+  | WorkspaceCreateRequest
+  | WorkspaceUpdateRequest
+  | WorkspaceDeleteRequest
+  | FileTreeRequest
+  | FileReadRequest
+  | FileWriteRequest
+  | FileDeleteRequest
+  | FileRenameRequest
+  | FileCreateRequest
+  | GitStatusRequest
+  | GitLogRequest
+  | ConfigGetRequest
+  | ConfigSetRequest;
+
+export type EventPayload =
+  | TerminalOutputEvent
+  | TerminalExitEvent
+  | FileChangeEvent
+  | ConnectionStatusEvent;

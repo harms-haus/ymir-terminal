@@ -1,74 +1,11 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent, act } from '@testing-library/react';
 import React from 'react';
-
-// ---------------------------------------------------------------------------
-// Mock @dnd-kit
-// ---------------------------------------------------------------------------
-
-mock.module('@dnd-kit/react', () => ({
-  DragDropProvider: ({ children }: { children: React.ReactNode }) => children,
-  DragOverlay: ({ children }: { children: React.ReactNode }) => children,
-  useDroppable: () => ({ ref: () => {}, droppable: {}, isDropTarget: false }),
-}));
-
-mock.module('@dnd-kit/react/sortable', () => ({
-  useSortable: () => ({
-    ref: () => {},
-    isDragging: false,
-    isDropping: false,
-    isDragSource: false,
-    isDropTarget: false,
-    sortable: {},
-    handleRef: () => {},
-    sourceRef: () => {},
-    targetRef: () => {},
-  }),
-}));
-
-mock.module('@dnd-kit/helpers', () => ({
-  move: (items: unknown[]) => items,
-}));
-
-// ---------------------------------------------------------------------------
-// Mock @radix-ui/react-context-menu
-// ---------------------------------------------------------------------------
-
-mock.module('@radix-ui/react-context-menu', () => {
-  const Root = ({ children }: { children: React.ReactNode }) => children;
-  const Trigger = ({ children }: { children: React.ReactNode; asChild?: boolean }) => children;
-  const Portal = ({ children }: { children: React.ReactNode }) => children;
-  const Content = ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) =>
-    React.createElement('div', props, children);
-  const Item = ({
-    children,
-    onSelect,
-    disabled,
-    ...props
-  }: {
-    children: React.ReactNode;
-    onSelect?: () => void;
-    disabled?: boolean;
-    [key: string]: unknown;
-  }) =>
-    React.createElement(
-      'div',
-      { ...props, onClick: disabled ? undefined : onSelect },
-      children,
-    );
-  const Separator = (props: Record<string, unknown>) =>
-    React.createElement('div', props);
-
-  return { Root, Trigger, Portal, Content, Item, Separator };
-});
 
 // ---------------------------------------------------------------------------
 // Mock useTabs
@@ -142,66 +79,6 @@ const mockSendRequest = mock(() => Promise.resolve(mockSendRequestResponse));
 mock.module('../lib/send-request', () => ({
   sendRequest: mockSendRequest,
 }));
-
-// ---------------------------------------------------------------------------
-// Mock ghostty-web (Terminal's heavy native dependency) instead of Terminal
-// This avoids permanently replacing the Terminal module for other test files
-// ---------------------------------------------------------------------------
-
-mock.module('ghostty-web', () => {
-  const MockTerminal = class {
-    cols = 80;
-    rows = 24;
-    write() {
-      return this;
-    }
-    resize() {
-      return this;
-    }
-    onRender() {
-      return this;
-    }
-    onData() {
-      return { dispose() {} };
-    }
-    onResize() {
-      return { dispose() {} };
-    }
-    onTitleChange() {
-      return { dispose() {} };
-    }
-    open() {}
-    loadAddon() {}
-    dispose() {}
-  };
-  const MockFitAddon = class {
-    fit() {}
-    dispose() {}
-    activate() {}
-  };
-  return {
-    Terminal: MockTerminal,
-    FitAddon: MockFitAddon,
-    init: () => Promise.resolve(),
-  };
-});
-
-// ---------------------------------------------------------------------------
-// Mock @uiw/react-codemirror (CodeEditor's heavy dependency)
-// Provides a mock that calls onSave and exposes a data-testid
-// ---------------------------------------------------------------------------
-
-mock.module('@uiw/react-codemirror', () => {
-  const MockCodeMirror = ({ value }: { value: string }) =>
-    React.createElement(
-      'div',
-      {
-        'data-testid': 'mock-codemirror',
-      },
-      React.createElement('div', { 'data-testid': 'cm-content' }, value),
-    );
-  return { default: MockCodeMirror };
-});
 
 // Mock all the codemirror language modules (they may be imported transitively)
 mock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));

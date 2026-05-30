@@ -1,38 +1,13 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, afterEach, mock } from 'bun:test';
 import { render, cleanup, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { TabBar } from './TabBar';
 import type { Tab } from '../hooks/useTabs';
-
-// ---------------------------------------------------------------------------
-// Mock @dnd-kit
-// ---------------------------------------------------------------------------
-
-mock.module('@dnd-kit/react', () => ({
-  useDroppable: () => ({ ref: () => {}, droppable: {}, isDropTarget: false }),
-}));
-
-mock.module('@dnd-kit/react/sortable', () => ({
-  useSortable: () => ({
-    ref: () => {},
-    isDragging: false,
-    isDropping: false,
-    isDragSource: false,
-    isDropTarget: false,
-    sortable: {},
-    handleRef: () => {},
-    sourceRef: () => {},
-    targetRef: () => {},
-  }),
-}));
 
 // ---------------------------------------------------------------------------
 // Mock TabContextMenu — captures callbacks via ref + data attributes

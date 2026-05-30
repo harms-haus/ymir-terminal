@@ -1,9 +1,8 @@
-import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { useTabs } from '../hooks/useTabs';
+import { useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import type { Tab } from '../hooks/useTabs';
+import { useTerminalPane } from '../hooks/useTerminalPane';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { TabBar } from './TabBar';
-import { sendRequest } from '../lib/send-request';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 
 export interface BottomPanelHandle {
@@ -30,19 +29,22 @@ function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, 
     tabs,
     activeTabId,
     createTab,
-    closeTab,
     activateTab,
     updateTabTitle,
     updateTabCwd,
     reorderTabs,
-    closeTabsRight,
-    closeOtherTabs,
-    setDisplayTitle,
-  } = useTabs();
-
-  // Keep a ref to tabs so imperative handle always sees current state
-  const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
+    handleCloseTab,
+    handleCloseRight,
+    handleCloseOthers,
+    handleRenameTab,
+    transferTabOut,
+    receiveTab,
+    getTabs,
+    getActiveTabId,
+  } = useTerminalPane({
+    onTerminalUnregistered,
+    confirmMultipleText: 'terminals? Running processes will be terminated.',
+  });
 
   const handleTerminalCreated = useCallback(
     (terminalId: string, tabId: string) => {
@@ -53,74 +55,6 @@ function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, 
 
   const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab, handleTerminalCreated);
 
-  const handleCloseTab = useCallback(
-    (tabId: string) => {
-      const tab = tabs.find((t) => t.id === tabId);
-      if (tab?.terminalId) {
-        sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
-        onTerminalUnregistered?.(tab.terminalId);
-      }
-      closeTab(tabId);
-    },
-    [tabs, closeTab, onTerminalUnregistered],
-  );
-
-  const handleTitleChange = useCallback(
-    (tabId: string, title: string) => {
-      updateTabTitle(tabId, title);
-    },
-    [updateTabTitle],
-  );
-
-  const handleCwdChange = useCallback(
-    (tabId: string, cwd: string) => {
-      updateTabCwd(tabId, cwd);
-    },
-    [updateTabCwd],
-  );
-
-  const handleCloseRight = useCallback(
-    (tabId: string) => {
-      const tabIdx = tabs.findIndex((t) => t.id === tabId);
-      const tabsToClose = tabs.slice(tabIdx + 1);
-      if (tabsToClose.length > 1) {
-        if (!window.confirm(`Close ${tabsToClose.length} terminals? Running processes will be terminated.`)) return;
-      }
-      tabsToClose.forEach((t) => {
-        if (t.terminalId) {
-          sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
-          onTerminalUnregistered?.(t.terminalId);
-        }
-      });
-      closeTabsRight(tabId);
-    },
-    [tabs, closeTabsRight, onTerminalUnregistered],
-  );
-
-  const handleCloseOthers = useCallback(
-    (tabId: string) => {
-      const tabsToClose = tabs.filter((t) => t.id !== tabId);
-      if (tabsToClose.length > 1) {
-        if (!window.confirm(`Close ${tabsToClose.length} terminals? Running processes will be terminated.`)) return;
-      }
-      tabsToClose.forEach((t) => {
-        if (t.terminalId) {
-          sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
-          onTerminalUnregistered?.(t.terminalId);
-        }
-      });
-      closeOtherTabs(tabId);
-    },
-    [tabs, closeOtherTabs, onTerminalUnregistered],
-  );
-
-  const handleRenameTab = useCallback(
-    (tabId: string, newTitle: string) => {
-      setDisplayTitle(tabId, newTitle);
-    },
-    [setDisplayTitle],
-  );
-
   // Notify parent of activeTabId changes
   useEffect(() => {
     onActiveTabChange?.(activeTabId);
@@ -129,28 +63,15 @@ function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, 
   useImperativeHandle(
     ref,
     () => ({
-      transferTabOut(tabId: string) {
-        const tab = tabsRef.current.find((t) => t.id === tabId);
-        if (!tab?.terminalId) return null;
-        const data = { terminalId: tab.terminalId, title: tab.title, cwd: tab.cwd, customTitle: tab.customTitle };
-        closeTab(tabId);
-        return data;
-      },
-      receiveTab(terminalId: string, title: string, cwd?: string, customTitle?: string) {
-        const tabId = createTab({ type: 'terminal', title, terminalId, cwd, customTitle });
-        return tabId;
-      },
+      transferTabOut,
+      receiveTab,
       reorderTabs,
-      getTabs: () => tabsRef.current,
-      getActiveTabId: () => activeTabId ?? null,
-      updateTabTitle(tabId: string, title: string) {
-        updateTabTitle(tabId, title);
-      },
-      updateTabCwd(tabId: string, cwd: string) {
-        updateTabCwd(tabId, cwd);
-      },
+      getTabs,
+      getActiveTabId,
+      updateTabTitle,
+      updateTabCwd,
     }),
-    [closeTab, createTab, reorderTabs, activeTabId, updateTabTitle, updateTabCwd],
+    [transferTabOut, receiveTab, reorderTabs, getTabs, getActiveTabId, updateTabTitle, updateTabCwd],
   );
 
   return (

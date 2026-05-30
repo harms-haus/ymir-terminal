@@ -1,16 +1,13 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom } from '../test-helpers/mock-setup';
+await setupTestDom();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { PROTOCOL_VERSION } from '@ymir/shared';
 import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
+
 import { AuthProvider, useAuth } from './useAuth';
 
 // ---------------------------------------------------------------------------

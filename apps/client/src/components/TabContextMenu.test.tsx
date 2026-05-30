@@ -1,61 +1,11 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
-
-// ---------------------------------------------------------------------------
-// Mock @radix-ui/react-context-menu
-// ---------------------------------------------------------------------------
-
-const Root = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'ctx-root' }, children);
-
-const Trigger = ({ children }: { children: React.ReactNode; asChild?: boolean }) =>
-  React.createElement('div', { 'data-testid': 'ctx-trigger' }, children);
-
-const Portal = ({ children }: { children: React.ReactNode }) => children;
-
-const Content = ({
-  children,
-  ...props
-}: { children: React.ReactNode; [key: string]: unknown }) =>
-  React.createElement('div', props, children);
-
-const Item = ({
-  children,
-  onSelect,
-  disabled,
-  ...props
-}: {
-  children: React.ReactNode;
-  onSelect?: () => void;
-  disabled?: boolean;
-  [key: string]: unknown;
-}) =>
-  React.createElement(
-    'div',
-    { ...props, onClick: onSelect, 'aria-disabled': disabled || undefined },
-    children,
-  );
-
-const Separator = (props: { [key: string]: unknown }) =>
-  React.createElement('div', { ...props, role: 'separator' });
-
-mock.module('@radix-ui/react-context-menu', () => ({
-  Root,
-  Trigger,
-  Portal,
-  Content,
-  Item,
-  Separator,
-}));
 
 // ---------------------------------------------------------------------------
 // Import component under test (after mock)

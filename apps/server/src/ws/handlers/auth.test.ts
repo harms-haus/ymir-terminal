@@ -1,39 +1,13 @@
 import { describe, expect, it, beforeEach } from 'bun:test';
-import { type RequestEnvelope, PROTOCOL_VERSION, ErrorCodes } from '@ymir/shared';
+import { ErrorCodes } from '@ymir/shared';
+import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerAuthHandlers } from './auth';
 import { hashPassword } from '../../auth/password';
 import { generateToken, generateSigningSecret, verifyToken } from '../../auth/jwt';
 import { initSessionDb, type Database } from '../../db/session';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Create a minimal mock connection object. */
-function mockConn(overrides?: Partial<{ sessionId: string; isAuthenticated: boolean }>) {
-  const sent: unknown[] = [];
-  return {
-    sessionId: overrides?.sessionId ?? crypto.randomUUID(),
-    isAuthenticated: overrides?.isAuthenticated ?? false,
-    sent,
-    send(data: unknown) {
-      sent.push(data);
-    },
-  };
-}
-
-/** Build a request envelope for the given channel + payload. */
-function request(channel: string, payload: unknown, token?: string): RequestEnvelope {
-  return {
-    v: PROTOCOL_VERSION,
-    type: 'request',
-    id: crypto.randomUUID(),
-    channel,
-    payload,
-    ...(token ? { token } : {}),
-  } as RequestEnvelope;
-}
+// mockConn and request are imported from ../../test-helpers/mock-utils
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -48,7 +22,7 @@ describe('registerAuthHandlers', () => {
 
   beforeEach(async () => {
     router = new MessageRouter();
-    conn = mockConn();
+    conn = mockConn({ isAuthenticated: false });
     passwordHash = await hashPassword('test-password');
     signingSecret = generateSigningSecret();
     sessionDb = initSessionDb();

@@ -17,7 +17,6 @@ import {
   type TerminalExitEvent,
   // Workspace
   type WorkspaceSummary,
-  type WorkspaceListRequest,
   type WorkspaceListResponse,
   type WorkspaceCreateRequest,
   type WorkspaceCreateResponse,
@@ -531,7 +530,6 @@ describe('RequestPayload union', () => {
       { terminalId: 't-1', data: '' } satisfies TerminalInputRequest,
       { terminalId: 't-1', cols: 80, rows: 24 } satisfies TerminalResizeRequest,
       { terminalId: 't-1' } satisfies TerminalCloseRequest,
-      {} satisfies WorkspaceListRequest,
       { name: 'ws', cwd: '/', color: '#000' } satisfies WorkspaceCreateRequest,
       { id: 'ws-1' } satisfies WorkspaceUpdateRequest,
       { id: 'ws-1' } satisfies WorkspaceDeleteRequest,
@@ -552,7 +550,9 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    expect(payloads).toHaveLength(REQUEST_TYPES.length);
+    // 18 payload types (workspace.list carries no body and has no
+    // corresponding type in the RequestPayload union)
+    expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });
 });
 

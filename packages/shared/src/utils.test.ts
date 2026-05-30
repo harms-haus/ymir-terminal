@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import {
-  clamp,
-  delay,
   expandTilde,
   fromBase64,
   generateId,
-  getConfigPath,
   getDbPath,
   toBase64,
 } from './utils';
@@ -35,20 +32,6 @@ describe('toBase64 / fromBase64', () => {
   });
 });
 
-describe('clamp', () => {
-  it('returns value when within range', () => {
-    expect(clamp(5, 0, 10)).toBe(5);
-  });
-
-  it('clamps to min when below range', () => {
-    expect(clamp(-1, 0, 10)).toBe(0);
-  });
-
-  it('clamps to max when above range', () => {
-    expect(clamp(15, 0, 10)).toBe(10);
-  });
-});
-
 describe('expandTilde', () => {
   it('replaces ~/ with home directory', () => {
     const result = expandTilde('~/foo');
@@ -69,24 +52,6 @@ describe('generateId', () => {
     expect(typeof a).toBe('string');
     expect(a.length).toBeGreaterThan(0);
     expect(a).not.toBe(b);
-  });
-});
-
-describe('delay', () => {
-  it('resolves after approximately the requested delay', async () => {
-    const start = performance.now();
-    await delay(50);
-    const elapsed = performance.now() - start;
-    // Allow some tolerance for timer imprecision
-    expect(elapsed).toBeGreaterThanOrEqual(40);
-    expect(elapsed).toBeLessThan(200);
-  });
-});
-
-describe('getConfigPath', () => {
-  it('returns a path containing .config/ymir', () => {
-    const path = getConfigPath();
-    expect(path).toContain('.config/ymir');
   });
 });
 

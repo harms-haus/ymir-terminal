@@ -3,3 +3,6 @@ dist
 .output
 .env
 *.db
+*.tsbuildinfo
+.DS_Store
+*.log

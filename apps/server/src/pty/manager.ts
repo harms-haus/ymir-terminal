@@ -1,4 +1,4 @@
-import { existsSync } from './fs';
+import { existsSync } from 'node:fs';
 import { toBase64, fromBase64 } from '@ymir/shared';
 
 const ALLOWED_SHELLS = new Set([
@@ -92,6 +92,7 @@ export class PTYManager {
         env: { ...process.env },
       });
     } catch (err) {
+      (terminal as { close: () => void }).close();
       throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
     }
 

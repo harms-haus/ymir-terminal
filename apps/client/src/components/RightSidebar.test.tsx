@@ -1,82 +1,19 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, afterEach, afterAll, mock, spyOn } from 'bun:test';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
-// Mock @radix-ui/react-context-menu so context menu items render as
-// regular clickable divs (portals don't work in happy-dom)
+// Mock ../lib/git-utils (imported by FileTree)
 // ---------------------------------------------------------------------------
 
-const CmRoot = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'context-menu-root' }, children);
-
-const CmTrigger = ({ children }: { children: React.ReactNode; asChild?: boolean }) =>
-  React.createElement('div', { 'data-testid': 'context-menu-trigger' }, children);
-
-const CmPortal = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', null, children);
-
-const CmContent = ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) =>
-  React.createElement('div', props, children);
-
-const CmItem = ({
-  children,
-  onSelect,
-  ...props
-}: {
-  children: React.ReactNode;
-  onSelect?: () => void;
-  [key: string]: unknown;
-}) => React.createElement('div', { ...props, onClick: onSelect }, children);
-
-const CmSeparator = (props: { [key: string]: unknown }) =>
-  React.createElement('div', { ...props, role: 'separator' });
-
-mock.module('@radix-ui/react-context-menu', () => ({
-  Root: CmRoot,
-  Trigger: CmTrigger,
-  Portal: CmPortal,
-  Content: CmContent,
-  Item: CmItem,
-  Separator: CmSeparator,
-}));
-
-// ---------------------------------------------------------------------------
-// Mock react-resizable-panels (Group / Panel / Separator)
-// ---------------------------------------------------------------------------
-
-mock.module('react-resizable-panels', () => ({
-  Group: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
-    React.createElement('div', { style, 'data-group': '' }, children),
-  Panel: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
-    React.createElement('div', { style }, children),
-  Separator: ({ style }: { style?: React.CSSProperties }) =>
-    React.createElement('div', { style, 'data-separator': '' }),
-}));
-
-// ---------------------------------------------------------------------------
-// Mock ../lib/git-tree-status (imported by FileTree)
-// ---------------------------------------------------------------------------
-
-mock.module('../lib/git-tree-status', () => ({
+mock.module('../lib/git-utils', () => ({
   buildGitPathMap: () => new Map(),
   computeDirectoryStatus: () => null,
-  GIT_STATUS_COLORS: {
-    '??': '#73c991',
-    A: '#73c991',
-    M: '#e2c08d',
-    D: '#c74e39',
-    R: '#73c991',
-    C: '#73c991',
-  },
   mergeDeletedFiles: (tree: unknown[]) => tree,
 }));
 

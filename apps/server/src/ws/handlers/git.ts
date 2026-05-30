@@ -24,7 +24,7 @@ export interface GitDeps {
   persistentDb: Database;
   /** Internal: allows tests to inject mock functions. */
   _mocks?: {
-    getGitStatus?: (dirPath: string) => GitStatusResponse | null;
+    getGitStatus?: (dirPath: string) => Promise<GitStatusResponse | null>;
     getGitLog?: (dirPath: string, skip: number, limit: number) => Promise<import('@ymir/shared').GitLogItem[]>;
     getWorkspace?: (db: Database, id: string) => Workspace | null;
   };
@@ -65,7 +65,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const result = doGetGitStatus(workspace.cwd);
+    const result = await doGetGitStatus(workspace.cwd);
 
     const resp: ResponseEnvelope<GitStatusResponse> = createResponse(req, {
       branch: result?.branch ?? null,

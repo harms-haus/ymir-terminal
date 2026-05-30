@@ -9,7 +9,7 @@ import { useFileChange } from '../hooks/useFileChange';
 import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
-import { mergeDeletedFiles } from '../lib/git-tree-status';
+import { mergeDeletedFiles } from '../lib/git-utils';
 import { COLOR_BORDER, COLOR_ERROR, COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_HOVER_BG, TITLE_BAR_HEIGHT } from '../lib/theme';
 
 interface RightSidebarProps {

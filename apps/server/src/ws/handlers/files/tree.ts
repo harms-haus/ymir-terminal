@@ -106,7 +106,7 @@ export function registerTreeHandlers(
       return;
     }
 
-    const content = doRead(resolvedPath);
+    const content = await doRead(resolvedPath);
     const language = detectLanguage(resolvedPath);
 
     const resp: ResponseEnvelope<FileReadResponse> = createResponse(req, {

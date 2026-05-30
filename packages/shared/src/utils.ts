@@ -24,14 +24,6 @@ export function fromBase64(data: string): Uint8Array {
   return bytes;
 }
 
-export function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
 export function expandTilde(filePath: string): string {
   if (filePath.startsWith('~/')) {
     return path.join(os.homedir(), filePath.slice(2));
@@ -39,7 +31,7 @@ export function expandTilde(filePath: string): string {
   return filePath;
 }
 
-export function getConfigPath(): string {
+function getConfigPath(): string {
   return expandTilde(CONFIG_DIR);
 }
 

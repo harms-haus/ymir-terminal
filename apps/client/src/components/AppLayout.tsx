@@ -66,21 +66,9 @@ export function AppLayout({
       });
   }, [paneVisibility.left, paneVisibility.right, paneVisibility.bottom]);
 
-  const handleHorizontalLayoutChanged = useCallback((layout: { [id: string]: number }) => {
+  const handleLayoutChanged = useCallback((_layout: { [id: string]: number }) => {
     if (!sizesLoadedRef.current) return;
-    if (Object.values(layout).some((v) => v < 1)) return;
-    sendRequest('config.set', {
-      key: 'ui_panel_sizes',
-      value: JSON.stringify({
-        horizontal: horizontalGroupRef.current?.getLayout() ?? {},
-        vertical: verticalGroupRef.current?.getLayout() ?? {},
-      }),
-    }).catch(() => {});
-  }, []);
-
-  const handleVerticalLayoutChanged = useCallback((layout: { [id: string]: number }) => {
-    if (!sizesLoadedRef.current) return;
-    if (Object.values(layout).some((v) => v < 1)) return;
+    if (Object.values(_layout).some((v) => v < 1)) return;
     sendRequest('config.set', {
       key: 'ui_panel_sizes',
       value: JSON.stringify({
@@ -103,7 +91,7 @@ export function AppLayout({
       }}
     >
       {topBar}
-      <Group orientation="horizontal" groupRef={horizontalGroupRef} onLayoutChanged={handleHorizontalLayoutChanged} style={{ flex: 1, minHeight: 0 }}>
+      <Group orientation="horizontal" groupRef={horizontalGroupRef} onLayoutChanged={handleLayoutChanged} style={{ flex: 1, minHeight: 0 }}>
         {/* Left sidebar - workspace list */}
         <Panel
           id="left"
@@ -124,7 +112,7 @@ export function AppLayout({
 
         {/* Center - main content with bottom panel */}
         <Panel id="center" defaultSize="55%" minSize="30%">
-          <Group orientation="vertical" groupRef={verticalGroupRef} onLayoutChanged={handleVerticalLayoutChanged}>
+          <Group orientation="vertical" groupRef={verticalGroupRef} onLayoutChanged={handleLayoutChanged}>
             <Panel id="content" defaultSize="75%" minSize="30%">
               <main data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
                 {children ?? null}

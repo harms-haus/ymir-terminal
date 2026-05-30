@@ -1,10 +1,7 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent } from '@testing-library/react';
@@ -154,20 +151,6 @@ mock.module('./CommandBar', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock react-resizable-panels (panels just render children)
-// ---------------------------------------------------------------------------
-
-mock.module('react-resizable-panels', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Group: ({ children, style }: any) =>
-    React.createElement('div', { style, 'data-group': '' }, children),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Panel: ({ children, style }: any) => React.createElement('div', { style }, children),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Separator: ({ style }: any) => React.createElement('div', { style }),
-}));
-
-// ---------------------------------------------------------------------------
 // Mock sonner
 // ---------------------------------------------------------------------------
 
@@ -177,7 +160,7 @@ mock.module('sonner', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock @dnd-kit
+// Override @dnd-kit/react mock — capture drag handlers for testing
 // ---------------------------------------------------------------------------
 
 let mockOnDragOver: ((event: unknown) => void) | null = null;
@@ -191,24 +174,6 @@ mock.module('@dnd-kit/react', () => ({
   },
   DragOverlay: ({ children }: { children: React.ReactNode }) => children,
   useDroppable: () => ({ ref: () => {}, droppable: {}, isDropTarget: false }),
-}));
-
-mock.module('@dnd-kit/react/sortable', () => ({
-  useSortable: () => ({
-    ref: () => {},
-    isDragging: false,
-    isDropping: false,
-    isDragSource: false,
-    isDropTarget: false,
-    sortable: {},
-    handleRef: () => {},
-    sourceRef: () => {},
-    targetRef: () => {},
-  }),
-}));
-
-mock.module('@dnd-kit/helpers', () => ({
-  move: (items: unknown[]) => items,
 }));
 
 // ---------------------------------------------------------------------------

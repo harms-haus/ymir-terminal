@@ -8,6 +8,7 @@ import {
   type MessageEnvelope,
 } from '@ymir/shared';
 import { ClientConnection } from './connection';
+import { parseMessage, ProtocolError } from './router';
 import { cleanupAuthAttempts } from './handlers/auth';
 
 /** Active connections keyed by session ID. */
@@ -130,18 +131,31 @@ export async function startWebSocketServer(options: WsServerOptions): Promise<Se
 
         let parsed: MessageEnvelope;
         try {
-          parsed = JSON.parse(raw);
-        } catch {
-          conn.send({
-            v: PROTOCOL_VERSION,
-            type: 'response',
-            id: 'unknown',
-            payload: null,
-            error: {
-              code: ErrorCodes.INVALID_MESSAGE,
-              message: 'Invalid JSON',
-            },
-          } as ResponseEnvelope);
+          parsed = parseMessage(raw);
+        } catch (err) {
+          if (err instanceof ProtocolError) {
+            conn.send({
+              v: PROTOCOL_VERSION,
+              type: 'response',
+              id: 'unknown',
+              payload: null,
+              error: {
+                code: ErrorCodes.INVALID_MESSAGE,
+                message: err.message,
+              },
+            } as ResponseEnvelope);
+          } else {
+            conn.send({
+              v: PROTOCOL_VERSION,
+              type: 'response',
+              id: 'unknown',
+              payload: null,
+              error: {
+                code: ErrorCodes.INVALID_MESSAGE,
+                message: 'Invalid JSON',
+              },
+            } as ResponseEnvelope);
+          }
           return;
         }
 

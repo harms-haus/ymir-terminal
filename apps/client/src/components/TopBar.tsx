@@ -10,6 +10,7 @@ import {
   COLOR_STATUS_DISCONNECTED,
   COLOR_STATUS_RECONNECTING,
   COLOR_TEXT,
+  TOP_BAR_HEIGHT,
 } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ export function TopBar({ commandBar }: TopBarProps) {
   return (
     <div
       style={{
-        height: '38px',
+        height: `${TOP_BAR_HEIGHT}px`,
         display: 'flex',
         alignItems: 'center',
         background: COLOR_TOPBAR_BG,

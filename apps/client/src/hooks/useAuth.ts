@@ -20,7 +20,9 @@ interface AuthState {
 
 const TOKEN_KEY = 'ymir-token';
 const getWsUrl = () =>
-  'ws://' + (typeof window !== 'undefined' ? window.location.host : 'localhost:3000') + '/ws';
+  (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+  window.location.host +
+  '/ws';
 
 // ---------------------------------------------------------------------------
 // Context
@@ -69,21 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoggingInRef.current = true;
 
     try {
-      // Connect if not already connected
-      const status = wsClient.getStatus();
-      if (status === 'disconnected') {
-        wsClient.connect(getWsUrl());
-      }
-
-      // Wait for connection to open
+      // Wait for connection to open — register the handler BEFORE calling
+      // connect() to avoid a race where the WS opens before the handler is
+      // attached, causing the promise to never resolve.
       if (wsClient.getStatus() !== 'connected') {
         await new Promise<void>((resolve, reject) => {
           let unsub: (() => void) | null = null;
-
-          const timeout = setTimeout(() => {
-            unsub?.();
-            reject(new Error('Connection timed out'));
-          }, 5000);
+          let timeout: ReturnType<typeof setTimeout>;
 
           unsub = wsClient.onStatusChange((s) => {
             if (s === 'connected') {
@@ -92,6 +86,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               resolve();
             }
           });
+
+          timeout = setTimeout(() => {
+            unsub?.();
+            reject(new Error('Connection timed out'));
+          }, 5000);
+
+          // Connect AFTER the handler and timeout are registered.
+          if (wsClient.getStatus() === 'disconnected') {
+            wsClient.connect(getWsUrl());
+          }
         });
       }
 

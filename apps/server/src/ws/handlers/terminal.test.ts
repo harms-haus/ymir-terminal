@@ -1,8 +1,6 @@
 import { describe, expect, it, beforeEach, mock, type Mock } from 'bun:test';
 import {
-  PROTOCOL_VERSION,
   ErrorCodes,
-  type RequestEnvelope,
   type ResponseEnvelope,
   type EventEnvelope,
   type TerminalCreateRequest,
@@ -11,6 +9,7 @@ import {
   type TerminalResizeRequest,
   type TerminalCloseRequest,
 } from '@ymir/shared';
+import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerTerminalHandlers } from './terminal';
 import { initSessionDb, createSession, type Database } from '../../db/session';
@@ -19,30 +18,6 @@ import { initDatabase as initPersistentDb } from '../../db/persistent';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Create a minimal mock connection object. */
-function mockConn() {
-  const sent: unknown[] = [];
-  return {
-    sessionId: crypto.randomUUID() as string,
-    isAuthenticated: true,
-    sent,
-    send(data: unknown) {
-      sent.push(data);
-    },
-  };
-}
-
-/** Build a request envelope for the given channel + payload. */
-function request<T>(channel: string, payload: T): RequestEnvelope<T> {
-  return {
-    v: PROTOCOL_VERSION,
-    type: 'request',
-    id: crypto.randomUUID(),
-    channel,
-    payload,
-  } as RequestEnvelope<T>;
-}
 
 /** Build a fake PTY manager with jest-style mocks. */
 function mockPtyManager() {

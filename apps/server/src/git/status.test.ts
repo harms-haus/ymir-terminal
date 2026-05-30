@@ -32,37 +32,37 @@ describe('git status', () => {
   });
 
   describe('getCurrentBranch', () => {
-    it('returns the current branch name', () => {
+    it('returns the current branch name', async () => {
       run('git init', testDir);
       run('git config user.email "test@test.com"', testDir);
       run('git config user.name "Test"', testDir);
       writeFileSync(join(testDir, 'a.txt'), 'hello');
       run('git add .', testDir);
       run('git commit -m "initial"', testDir);
-      const branch = getCurrentBranch(testDir);
+      const branch = await getCurrentBranch(testDir);
       expect(branch === 'master' || branch === 'main').toBe(true);
     });
 
-    it('returns null for a non-git directory', () => {
-      expect(getCurrentBranch(testDir)).toBeNull();
+    it('returns null for a non-git directory', async () => {
+      expect(await getCurrentBranch(testDir)).toBeNull();
     });
   });
 
   describe('getGitStatus', () => {
-    it('returns null for a non-git directory', () => {
-      expect(getGitRepoStatus(testDir)).toBeNull();
+    it('returns null for a non-git directory', async () => {
+      expect(await getGitRepoStatus(testDir)).toBeNull();
     });
 
-    it('returns branch name in result', () => {
+    it('returns branch name in result', async () => {
       initRepo(testDir);
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       expect(result.branch === 'master' || result.branch === 'main').toBe(true);
     });
 
-    it('detects untracked files in changes', () => {
+    it('detects untracked files in changes', async () => {
       initRepo(testDir);
       writeFileSync(join(testDir, 'new.txt'), 'content');
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       expect(result.changes.length).toBeGreaterThanOrEqual(1);
       const untracked = result.changes.find(
         (c: { path: string; status: string }) => c.path === 'new.txt',
@@ -71,7 +71,7 @@ describe('git status', () => {
       expect(untracked!.status).toBe('??');
     });
 
-    it('detects modified files in changes', () => {
+    it('detects modified files in changes', async () => {
       initRepo(testDir);
       writeFileSync(join(testDir, 'existing.txt'), 'original');
       run('git add .', testDir);
@@ -79,7 +79,7 @@ describe('git status', () => {
 
       // Modify the file (unstaged)
       appendFileSync(join(testDir, 'existing.txt'), ' modified');
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       const modified = result.changes.find(
         (c: { path: string; status: string }) => c.path === 'existing.txt',
       );
@@ -87,11 +87,11 @@ describe('git status', () => {
       expect(modified!.status).toBe('M');
     });
 
-    it('detects staged files in staged', () => {
+    it('detects staged files in staged', async () => {
       initRepo(testDir);
       writeFileSync(join(testDir, 'staged.txt'), 'staged content');
       run('git add .', testDir);
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       const staged = result.staged.find(
         (c: { path: string; status: string }) => c.path === 'staged.txt',
       );
@@ -99,7 +99,7 @@ describe('git status', () => {
       expect(staged!.status).toBe('A');
     });
 
-    it('detects staged modifications separately from unstaged changes', () => {
+    it('detects staged modifications separately from unstaged changes', async () => {
       initRepo(testDir);
       writeFileSync(join(testDir, 'file.txt'), 'v1');
       run('git add .', testDir);
@@ -112,7 +112,7 @@ describe('git status', () => {
       // Then make another unstaged modification
       writeFileSync(join(testDir, 'file.txt'), 'v3');
 
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       const staged = result.staged.find(
         (c: { path: string; status: string }) => c.path === 'file.txt',
       );
@@ -125,7 +125,7 @@ describe('git status', () => {
       expect(changes!.status).toBe('M');
     });
 
-    it('detects deleted files', () => {
+    it('detects deleted files', async () => {
       initRepo(testDir);
       writeFileSync(join(testDir, 'to-delete.txt'), 'content');
       run('git add .', testDir);
@@ -133,7 +133,7 @@ describe('git status', () => {
 
       // Delete the file (unstaged deletion)
       run('rm to-delete.txt', testDir);
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       const deleted = result.changes.find(
         (c: { path: string; status: string }) => c.path === 'to-delete.txt',
       );
@@ -141,21 +141,21 @@ describe('git status', () => {
       expect(deleted!.status).toBe('D');
     });
 
-    it('returns empty arrays when working tree is clean', () => {
+    it('returns empty arrays when working tree is clean', async () => {
       initRepo(testDir);
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       expect(result.changes).toEqual([]);
       expect(result.staged).toEqual([]);
     });
 
-    it('handles renamed files', () => {
+    it('handles renamed files', async () => {
       initRepo(testDir);
       writeFileSync(join(testDir, 'original.txt'), 'content');
       run('git add .', testDir);
       run('git commit -m "add file"', testDir);
 
       run('git mv original.txt renamed.txt', testDir);
-      const result = getGitRepoStatus(testDir)!;
+      const result = (await getGitRepoStatus(testDir))!;
       const staged = result.staged.find(
         (c: { path: string; status: string }) => c.path === 'renamed.txt',
       );
@@ -178,6 +178,6 @@ function initRepo(dir: string) {
  * Wrapper to avoid name clash with the `getGitStatus` import used by
  * the `null` test (which needs the raw function to test non-git dirs).
  */
-function getGitRepoStatus(dirPath: string): GitStatusResponse | null {
+async function getGitRepoStatus(dirPath: string): Promise<GitStatusResponse | null> {
   return getGitStatus(dirPath);
 }

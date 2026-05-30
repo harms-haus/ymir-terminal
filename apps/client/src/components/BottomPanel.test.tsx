@@ -1,89 +1,11 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
 import React from 'react';
-
-// ---------------------------------------------------------------------------
-// Mock @dnd-kit
-// ---------------------------------------------------------------------------
-
-mock.module('@dnd-kit/react', () => ({
-  DragDropProvider: ({ children }: { children: React.ReactNode }) => children,
-  DragOverlay: ({ children }: { children: React.ReactNode }) => children,
-  useDroppable: () => ({ ref: () => {}, droppable: {}, isDropTarget: false }),
-}));
-
-mock.module('@dnd-kit/react/sortable', () => ({
-  useSortable: () => ({
-    ref: () => {},
-    isDragging: false,
-    isDropping: false,
-    isDragSource: false,
-    isDropTarget: false,
-    sortable: {},
-    handleRef: () => {},
-    sourceRef: () => {},
-    targetRef: () => {},
-  }),
-}));
-
-mock.module('@dnd-kit/helpers', () => ({
-  move: (items: unknown[]) => items,
-}));
-
-// ---------------------------------------------------------------------------
-// Mock @radix-ui/react-context-menu (needed by TabBar → TabContextMenu)
-// ---------------------------------------------------------------------------
-
-const CtxRoot = ({ children }: { children: React.ReactNode }) =>
-  React.createElement('div', { 'data-testid': 'ctx-root' }, children);
-
-const CtxTrigger = ({ children }: { children: React.ReactNode; asChild?: boolean }) =>
-  React.createElement('div', { 'data-testid': 'ctx-trigger' }, children);
-
-const CtxPortal = ({ children }: { children: React.ReactNode }) => children;
-
-const CtxContent = ({
-  children,
-  ...props
-}: { children: React.ReactNode; [key: string]: unknown }) =>
-  React.createElement('div', props, children);
-
-const CtxItem = ({
-  children,
-  onSelect,
-  disabled,
-  ...props
-}: {
-  children: React.ReactNode;
-  onSelect?: () => void;
-  disabled?: boolean;
-  [key: string]: unknown;
-}) =>
-  React.createElement(
-    'div',
-    { ...props, onClick: onSelect, 'aria-disabled': disabled || undefined },
-    children,
-  );
-
-const CtxSeparator = (props: { [key: string]: unknown }) =>
-  React.createElement('div', { ...props, role: 'separator' });
-
-mock.module('@radix-ui/react-context-menu', () => ({
-  Root: CtxRoot,
-  Trigger: CtxTrigger,
-  Portal: CtxPortal,
-  Content: CtxContent,
-  Item: CtxItem,
-  Separator: CtxSeparator,
-}));
 
 // ---------------------------------------------------------------------------
 // Mock useTabs
@@ -157,48 +79,6 @@ let mockSendRequest: (channel: string, payload: unknown) => Promise<unknown>;
 mock.module('../lib/send-request', () => ({
   sendRequest: (...args: [string, unknown]) => mockSendRequest(...args),
 }));
-
-// ---------------------------------------------------------------------------
-// Mock ghostty-web (heavy native dependency of Terminal)
-// ---------------------------------------------------------------------------
-
-mock.module('ghostty-web', () => {
-  const MockTerminal = class {
-    cols = 80;
-    rows = 24;
-    write() {
-      return this;
-    }
-    resize() {
-      return this;
-    }
-    onRender() {
-      return this;
-    }
-    onData() {
-      return { dispose() {} };
-    }
-    onTitleChange() {
-      return { dispose() {} };
-    }
-    onResize() {
-      return { dispose() {} };
-    }
-    open() {}
-    loadAddon() {}
-    dispose() {}
-  };
-  const MockFitAddon = class {
-    fit() {}
-    dispose() {}
-    activate() {}
-  };
-  return {
-    Terminal: MockTerminal,
-    FitAddon: MockFitAddon,
-    init: () => Promise.resolve(),
-  };
-});
 
 const { BottomPanel } = await import('./BottomPanel');
 import type { BottomPanelHandle } from './BottomPanel';

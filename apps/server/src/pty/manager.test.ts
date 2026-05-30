@@ -5,7 +5,7 @@ import { toBase64 } from '@ymir/shared';
 
 const mockExistsSync = mock((_path: string) => true);
 
-mock.module('./fs', () => ({
+mock.module('node:fs', () => ({
   existsSync: mockExistsSync,
 }));
 

@@ -2,7 +2,6 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
-  type RequestEnvelope,
   type EventEnvelope,
   PROTOCOL_VERSION,
   ErrorCodes,
@@ -11,36 +10,9 @@ import {
   type WorkspaceSummary,
   type FileChangeEvent as FileChangePayload,
 } from '@ymir/shared';
+import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerWorkspaceHandlers } from './workspaces';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Create a minimal mock connection object. */
-function mockConn() {
-  const sent: unknown[] = [];
-  return {
-    sessionId: crypto.randomUUID(),
-    isAuthenticated: true,
-    sent,
-    send(data: unknown) {
-      sent.push(data);
-    },
-  };
-}
-
-/** Build a request envelope for the given channel + payload. */
-function request(channel: string, payload: unknown): RequestEnvelope {
-  return {
-    v: PROTOCOL_VERSION,
-    type: 'request',
-    id: crypto.randomUUID(),
-    channel,
-    payload,
-  } as RequestEnvelope;
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -58,8 +30,8 @@ describe('registerWorkspaceHandlers', () => {
   let updateWorkspaceFn: ReturnType<typeof mock>;
   let deleteWorkspaceFn: ReturnType<typeof mock>;
   let getWorkspaceFn: ReturnType<typeof mock>;
-  let startWorkspaceWatcherFn: ReturnType<typeof mock>;
-  let stopWorkspaceWatcherFn: ReturnType<typeof mock>;
+  let startManagedWatcherFn: ReturnType<typeof mock>;
+  let stopManagedWatcherFn: ReturnType<typeof mock>;
   let broadcastedEvents: EventEnvelope[];
 
   beforeEach(() => {
@@ -100,8 +72,8 @@ describe('registerWorkspaceHandlers', () => {
       created_at: '2025-01-01T00:00:00Z',
       updated_at: '2025-01-01T00:00:00Z',
     }));
-    startWorkspaceWatcherFn = mock(() => {});
-    stopWorkspaceWatcherFn = mock(() => {});
+    startManagedWatcherFn = mock(() => {});
+    stopManagedWatcherFn = mock(() => {});
 
     broadcastedEvents = [];
 
@@ -117,8 +89,8 @@ describe('registerWorkspaceHandlers', () => {
         updateWorkspace: updateWorkspaceFn,
         deleteWorkspace: deleteWorkspaceFn,
         getWorkspace: getWorkspaceFn,
-        startWorkspaceWatcher: startWorkspaceWatcherFn,
-        stopWorkspaceWatcher: stopWorkspaceWatcherFn,
+        startManagedWatcher: startManagedWatcherFn,
+        stopManagedWatcher: stopManagedWatcherFn,
       },
     });
   });
@@ -273,16 +245,16 @@ describe('registerWorkspaceHandlers', () => {
       expect(callArgs[1].cwd).toBe(expectedCwd);
     });
 
-    it('starts workspace watcher and broadcasts file.change events', async () => {
-      // Capture the watcher callback passed to startWorkspaceWatcher
-      let watcherCallback: ((event: { path: string; kind: string }) => void) | undefined;
-      startWorkspaceWatcherFn.mockImplementation(
+    it('starts managed watcher and broadcasts file.change events', async () => {
+      // Capture the broadcast callback passed to startManagedWatcher
+      let capturedBroadcast: ((envelope: EventEnvelope<FileChangePayload>) => void) | undefined;
+      startManagedWatcherFn.mockImplementation(
         (
           _workspaceId: string,
-          _dirPath: string,
-          cb: (event: { path: string; kind: string }) => void,
+          _cwd: string,
+          broadcast: (envelope: EventEnvelope<FileChangePayload>) => void,
         ) => {
-          watcherCallback = cb;
+          capturedBroadcast = broadcast;
         },
       );
 
@@ -293,15 +265,25 @@ describe('registerWorkspaceHandlers', () => {
       });
       await router.route(conn, req);
 
-      // Handler should have called startWorkspaceWatcher
-      expect(startWorkspaceWatcherFn).toHaveBeenCalledTimes(1);
-      expect(startWorkspaceWatcherFn.mock.calls[0][0]).toBe('ws-1');
-      expect(startWorkspaceWatcherFn.mock.calls[0][1]).toBe('/tmp/watched');
-      expect(watcherCallback).toBeDefined();
+      // Handler should have called startManagedWatcher
+      expect(startManagedWatcherFn).toHaveBeenCalledTimes(1);
+      expect(startManagedWatcherFn.mock.calls[0][0]).toBe('ws-1');
+      expect(startManagedWatcherFn.mock.calls[0][1]).toBe('/tmp/watched');
+      expect(capturedBroadcast).toBeDefined();
 
-      // Simulate a file change event from the watcher
+      // Simulate a file change event from the watcher by calling the broadcast
+      // that startManagedWatcher would normally wrap
       broadcastedEvents = [];
-      watcherCallback!({ path: '/tmp/watched/src/index.ts', kind: 'modify' });
+      capturedBroadcast!({
+        v: PROTOCOL_VERSION,
+        type: 'event',
+        channel: 'file.change',
+        payload: {
+          workspaceId: 'ws-1',
+          path: '/tmp/watched/src/index.ts',
+          kind: 'modify',
+        },
+      });
 
       // Should have broadcast exactly one event
       expect(broadcastedEvents.length).toBe(1);

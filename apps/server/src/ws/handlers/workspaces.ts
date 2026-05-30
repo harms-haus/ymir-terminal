@@ -1,6 +1,5 @@
 import {
   ErrorCodes,
-  PROTOCOL_VERSION,
   expandTilde,
   type EventEnvelope,
   type MessageEnvelope,
@@ -27,7 +26,10 @@ import {
   type CreateWorkspaceInput,
   type UpdateWorkspaceInput,
 } from '../../db/persistent';
-import { startWorkspaceWatcher, stopWorkspaceWatcher } from '../../files/watcher';
+import {
+  startManagedWatcher,
+  stopManagedWatcher,
+} from '../../files/workspace-watcher';
 import type { Database } from 'bun:sqlite';
 
 // ---------------------------------------------------------------------------
@@ -46,12 +48,12 @@ export interface WorkspaceDeps {
     updateWorkspace?: (db: Database, id: string, input: UpdateWorkspaceInput) => Workspace | null;
     deleteWorkspace?: (db: Database, id: string) => boolean;
     getWorkspace?: (db: Database, id: string) => Workspace | null;
-    startWorkspaceWatcher?: (
+    startManagedWatcher?: (
       workspaceId: string,
-      dirPath: string,
-      callback: (event: import('../../files/watcher').FileChangeEvent) => void,
+      cwd: string,
+      broadcastEvent: (envelope: EventEnvelope<FileChangePayload>) => void,
     ) => void;
-    stopWorkspaceWatcher?: (workspaceId: string) => void;
+    stopManagedWatcher?: (workspaceId: string) => void;
   };
 }
 
@@ -81,8 +83,8 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
   const doUpdate = _mocks?.updateWorkspace ?? dbUpdateWorkspace;
   const doDelete = _mocks?.deleteWorkspace ?? dbDeleteWorkspace;
   const doGet = _mocks?.getWorkspace ?? dbGetWorkspace;
-  const doStartWatcher = _mocks?.startWorkspaceWatcher ?? startWorkspaceWatcher;
-  const doStopWatcher = _mocks?.stopWorkspaceWatcher ?? stopWorkspaceWatcher;
+  const doStartWatcher = _mocks?.startManagedWatcher ?? startManagedWatcher;
+  const doStopWatcher = _mocks?.stopManagedWatcher ?? stopManagedWatcher;
 
   // --- workspace.list -----------------------------------------------------
   router.handle('workspace.list', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -127,19 +129,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       color: payload.color,
     });
 
-    doStartWatcher(workspace.id, workspace.cwd, (fileEvent) => {
-      const event: EventEnvelope<FileChangePayload> = {
-        v: PROTOCOL_VERSION,
-        type: 'event',
-        channel: 'file.change',
-        payload: {
-          workspaceId: workspace.id,
-          path: fileEvent.path,
-          kind: fileEvent.kind,
-        },
-      };
-      deps.broadcastEvent(event);
-    });
+    doStartWatcher(workspace.id, workspace.cwd, deps.broadcastEvent);
 
     const resp: ResponseEnvelope<WorkspaceCreateResponse> = createResponse(req, {
       workspace: toSummary(workspace),
@@ -163,6 +153,9 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       return;
     }
 
+    // Capture existing workspace before update to detect cwd changes
+    const existing = doGet(persistentDb, payload.id);
+
     // Build update input from only the provided optional fields
     const input: UpdateWorkspaceInput = {};
     if (payload.name !== undefined) input.name = payload.name;
@@ -179,6 +172,13 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       );
       conn.send(err);
       return;
+    }
+
+    // If cwd changed, restart the file watcher on the new directory
+    const cwdChanged = existing != null && input.cwd !== undefined && input.cwd !== existing.cwd;
+    if (cwdChanged) {
+      doStopWatcher(payload.id);
+      doStartWatcher(payload.id, workspace.cwd, deps.broadcastEvent);
     }
 
     const resp: ResponseEnvelope = createResponse(req, {

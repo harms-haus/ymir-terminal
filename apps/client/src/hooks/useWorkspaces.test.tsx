@@ -1,10 +1,6 @@
 /// <reference lib="dom" />
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
-try {
-  await GlobalRegistrator.register();
-} catch {
-  // Already registered
-}
+import { setupTestDom, createMockAuthState } from '../test-helpers/mock-setup';
+await setupTestDom();
 
 import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
 import { renderHook, waitFor, act } from '@testing-library/react';
@@ -59,12 +55,7 @@ const { useWorkspaces, useCreateWorkspace, useDeleteWorkspace, useUpdateWorkspac
 // ---------------------------------------------------------------------------
 
 function createQueryWrapper(
-  authState = {
-    isAuthenticated: true,
-    token: 'test-token',
-    login: mock(() => {}),
-    logout: mock(() => {}),
-  },
+  authState = createMockAuthState({ isAuthenticated: true, token: 'test-token' }),
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
