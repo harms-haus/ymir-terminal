@@ -7,7 +7,7 @@ try {
 }
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
@@ -84,6 +84,7 @@ const mockUpdateTabCwd = mock(() => {});
 const mockReorderTabs = mock(() => {});
 const mockCloseTabsRight = mock(() => {});
 const mockCloseOtherTabs = mock(() => {});
+const mockSetDisplayTitle = mock(() => {});
 
 let mockTabsState: Array<{
   id: string;
@@ -106,6 +107,7 @@ mock.module('../hooks/useTabs', () => ({
     reorderTabs: mockReorderTabs,
     closeTabsRight: mockCloseTabsRight,
     closeOtherTabs: mockCloseOtherTabs,
+    setDisplayTitle: mockSetDisplayTitle,
   }),
   Tab: null, // type export, not used at runtime
 }));
@@ -218,8 +220,30 @@ import type { ContentPaneHandle } from './ContentPane';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderContentPane(workspaceId: string | null = null, ref?: React.Ref<ContentPaneHandle>) {
-  return render(React.createElement(ContentPane, { workspaceId, ref }));
+/**
+ * Simulate changing a React controlled input's value.
+ * happy-dom's fireEvent.change does not trigger React's internal change
+ * detection for controlled inputs. We directly invoke the onChange handler
+ * from React's internal props to update the component state.
+ */
+function setReactInputValue(input: HTMLInputElement, value: string) {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const reactPropsKey = Object.keys(input).find((k) => k.startsWith('__reactProps'));
+  if (!reactPropsKey) throw new Error('Could not find React internal props on input');
+  const props = (input as any)[reactPropsKey];
+  if (typeof props?.onChange !== 'function') throw new Error('onChange not found on React props');
+  act(() => {
+    props.onChange({ target: { value } });
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}
+
+function renderContentPane(
+  workspaceId: string | null = null,
+  ref?: React.Ref<ContentPaneHandle>,
+  extraProps?: Record<string, unknown>,
+) {
+  return render(React.createElement(ContentPane, { workspaceId, ref, ...extraProps }));
 }
 
 // Helper to wait for microtasks (promises) to flush
@@ -243,9 +267,11 @@ describe('ContentPane', () => {
     mockReorderTabs.mockClear();
     mockCloseTabsRight.mockClear();
     mockCloseOtherTabs.mockClear();
+    mockSetDisplayTitle.mockClear();
     mockSendData.mockClear();
     mockOnOutput.mockClear();
     mockCreateTerminal.mockClear();
+    mockCreateTerminal.mockImplementation(() => Promise.resolve('term-1'));
     mockCloseTerminal.mockClear();
     mockResizeTerminal.mockClear();
     mockSendRequest.mockClear();
@@ -259,9 +285,9 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 1. ContentPane renders with tab bar and terminal content
+  // 1. ContentPane renders with tab bar and terminal container
   // -----------------------------------------------------------------------
-  test('renders with tab bar and terminal content', () => {
+  test('renders with tab bar and terminal container', () => {
     mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
     mockActiveTabIdState = 'tab-1';
 
@@ -269,7 +295,8 @@ describe('ContentPane', () => {
 
     expect(getByTestId('content-pane')).toBeTruthy();
     expect(getByTestId('tab-bar')).toBeTruthy();
-    expect(getByTestId('terminal-term-1')).toBeTruthy();
+    // Terminals are now portaled into this container by TerminalManager
+    expect(getByTestId('terminal-container')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
@@ -328,9 +355,9 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 4. Active tab shows its content
+  // 4. Active tab is reflected in tab bar selection
   // -----------------------------------------------------------------------
-  test('active tab shows its content', () => {
+  test('active tab is reflected in tab bar selection', () => {
     mockTabsState = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
@@ -339,11 +366,12 @@ describe('ContentPane', () => {
 
     const { getByTestId } = renderContentPane();
 
-    // Active tab's terminal should be shown
-    expect(getByTestId('terminal-term-2')).toBeTruthy();
-    // Inactive tab's terminal should be present but hidden
-    const inactiveWrapper = getByTestId('terminal-term-1').parentElement!;
-    expect(inactiveWrapper.style.display).toBe('none');
+    // Tab-2 should be the active (selected) tab
+    const tab2 = getByTestId('tab-tab-2');
+    expect(tab2.getAttribute('aria-selected')).toBe('true');
+    // Tab-1 should not be active
+    const tab1 = getByTestId('tab-tab-1');
+    expect(tab1.getAttribute('aria-selected')).toBe('false');
   });
 
   // -----------------------------------------------------------------------
@@ -597,9 +625,9 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 17. removeTerminalTab imperative handle removes a terminal tab and returns its data
+  // 17. transferTabOut imperative handle removes a terminal tab and returns its data
   // -----------------------------------------------------------------------
-  test('removeTerminalTab removes terminal tab and returns data without sending terminal.close', async () => {
+  test('transferTabOut removes terminal tab and returns data without sending terminal.close', async () => {
     mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
     mockActiveTabIdState = 'tab-1';
 
@@ -608,17 +636,17 @@ describe('ContentPane', () => {
 
     await flush();
 
-    const result = ref.current?.removeTerminalTab('tab-1');
-    expect(result).toEqual({ terminalId: 'term-1', title: 'Terminal 1', cwd: undefined });
+    const result = ref.current?.transferTabOut('tab-1');
+    expect(result).toEqual({ terminalId: 'term-1', title: 'Terminal 1', cwd: undefined, customTitle: undefined });
     expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
     // Should NOT send terminal.close — the PTY stays alive during cross-pane transfer
     expect(mockSendRequest).not.toHaveBeenCalledWith('terminal.close', expect.anything());
   });
 
   // -----------------------------------------------------------------------
-  // 18. removeTerminalTab returns null for non-terminal or non-existent tabs
+  // 18. transferTabOut returns null for non-terminal or non-existent tabs
   // -----------------------------------------------------------------------
-  test('removeTerminalTab returns null for editor tabs or non-existent tabs', async () => {
+  test('transferTabOut returns null for editor tabs or non-existent tabs', async () => {
     mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
     mockActiveTabIdState = 'tab-1';
 
@@ -627,15 +655,15 @@ describe('ContentPane', () => {
 
     await flush();
 
-    expect(ref.current?.removeTerminalTab('tab-1')).toBeNull();
-    expect(ref.current?.removeTerminalTab('non-existent')).toBeNull();
+    expect(ref.current?.transferTabOut('tab-1')).toBeNull();
+    expect(ref.current?.transferTabOut('non-existent')).toBeNull();
     expect(mockCloseTab).not.toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
-  // 19. addTerminalTab imperative handle creates a terminal tab
+  // 19. receiveTab imperative handle creates a terminal tab
   // -----------------------------------------------------------------------
-  test('addTerminalTab creates a terminal tab with given data', async () => {
+  test('receiveTab creates a terminal tab with given data', async () => {
     mockTabsState = [];
     mockActiveTabIdState = null;
 
@@ -644,7 +672,7 @@ describe('ContentPane', () => {
 
     await flush();
 
-    ref.current?.addTerminalTab('term-moved', 'Moved Terminal', '/home/user');
+    ref.current?.receiveTab('term-moved', 'Moved Terminal', '/home/user');
     expect(mockCreateTab).toHaveBeenCalledWith({
       type: 'terminal',
       title: 'Moved Terminal',
@@ -672,6 +700,179 @@ describe('ContentPane', () => {
     expect(tabs).toHaveLength(2);
     expect(tabs?.[0].id).toBe('tab-1');
     expect(tabs?.[1].id).toBe('tab-2');
+  });
+
+  // -----------------------------------------------------------------------
+  // 21. Rename flow calls setDisplayTitle (not updateTabTitle)
+  // -----------------------------------------------------------------------
+  test('rename flow calls setDisplayTitle', async () => {
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mockActiveTabIdState = 'tab-1';
+
+    const { container } = renderContentPane('ws-1');
+
+    await flush();
+
+    // Find the rename context menu item for tab-1's context menu and click it
+    const renameItems = container.querySelectorAll('[data-testid="tab-menu-rename"]');
+    expect(renameItems.length).toBeGreaterThan(0);
+    fireEvent.click(renameItems[0]);
+
+    // An input should appear for inline rename
+    const input = container.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    // Change the value
+    setReactInputValue(input, 'Renamed Tab');
+
+    // Press Enter to commit
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // setDisplayTitle should be called (not updateTabTitle)
+    expect(mockSetDisplayTitle).toHaveBeenCalledTimes(1);
+    expect(mockSetDisplayTitle).toHaveBeenCalledWith('tab-1', 'Renamed Tab');
+    expect(mockUpdateTabTitle).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // 22. receiveTab returns the new tabId from createTab
+  // -----------------------------------------------------------------------
+  test('receiveTab returns the new tabId', async () => {
+    mockTabsState = [];
+    mockActiveTabIdState = null;
+
+    const ref = React.createRef<ContentPaneHandle>();
+    renderContentPane('ws-1', ref);
+
+    await flush();
+
+    const tabId = ref.current?.receiveTab('term-xfer', 'Transferred', '/home');
+    expect(typeof tabId).toBe('string');
+    expect(tabId).toBe('mock-tab-id');
+    expect(mockCreateTab).toHaveBeenCalledWith({
+      type: 'terminal',
+      title: 'Transferred',
+      terminalId: 'term-xfer',
+      cwd: '/home',
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 23. transferTabOut followed by receiveTab round-trips terminal data
+  // -----------------------------------------------------------------------
+  test('transferTabOut followed by receiveTab round-trips terminal data', async () => {
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 'term-1', cwd: '/home/user' }];
+    mockActiveTabIdState = 'tab-1';
+
+    const ref = React.createRef<ContentPaneHandle>();
+    renderContentPane('ws-1', ref);
+
+    await flush();
+
+    // Transfer out
+    const data = ref.current?.transferTabOut('tab-1');
+    expect(data).toEqual({ terminalId: 'term-1', title: 'My Term', cwd: '/home/user', customTitle: undefined });
+
+    // Receive in (simulating cross-pane transfer)
+    const newTabId = ref.current?.receiveTab(data!.terminalId, data!.title, data!.cwd, data!.customTitle);
+    expect(typeof newTabId).toBe('string');
+    expect(mockCreateTab).toHaveBeenCalledWith({
+      type: 'terminal',
+      title: 'My Term',
+      terminalId: 'term-1',
+      cwd: '/home/user',
+      customTitle: undefined,
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 24. onTerminalRegistered is called when a terminal tab is created
+  // -----------------------------------------------------------------------
+  test('onTerminalRegistered is called when a terminal tab is created', async () => {
+    const mockOnTerminalRegistered = mock(() => {});
+
+    const { getByTestId } = renderContentPane('ws-1', undefined, {
+      onTerminalRegistered: mockOnTerminalRegistered,
+    });
+
+    const addButton = getByTestId('tab-add');
+    fireEvent.click(addButton);
+
+    await flush();
+
+    expect(mockOnTerminalRegistered).toHaveBeenCalledTimes(1);
+    expect(mockOnTerminalRegistered).toHaveBeenCalledWith('term-1', 'mock-tab-id');
+  });
+
+  // -----------------------------------------------------------------------
+  // 25. onTerminalUnregistered is called when a terminal tab is closed
+  // -----------------------------------------------------------------------
+  test('onTerminalUnregistered is called when a terminal tab is closed', async () => {
+    const mockOnTerminalUnregistered = mock(() => {});
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mockActiveTabIdState = 'tab-1';
+
+    const { getByTestId } = renderContentPane('ws-1', undefined, {
+      onTerminalUnregistered: mockOnTerminalUnregistered,
+    });
+
+    await flush();
+
+    const closeButton = getByTestId('tab-close-tab-1');
+    fireEvent.click(closeButton);
+
+    expect(mockOnTerminalUnregistered).toHaveBeenCalledTimes(1);
+    expect(mockOnTerminalUnregistered).toHaveBeenCalledWith('term-1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 26. onActiveTabChange fires when activeTabId changes
+  // -----------------------------------------------------------------------
+  test('onActiveTabChange fires when activeTabId changes', async () => {
+    const mockOnActiveTabChange = mock(() => {});
+
+    const { rerender } = renderContentPane('ws-1', undefined, {
+      onActiveTabChange: mockOnActiveTabChange,
+    });
+
+    await flush();
+
+    // Initial render: activeTabId is null
+    expect(mockOnActiveTabChange).toHaveBeenCalledWith(null);
+
+    // Change mock state and rerender
+    mockActiveTabIdState = 'tab-1';
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+
+    rerender(React.createElement(ContentPane, {
+      workspaceId: 'ws-1',
+      onActiveTabChange: mockOnActiveTabChange,
+    }));
+
+    expect(mockOnActiveTabChange).toHaveBeenCalledWith('tab-1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 27. Cross-pane transfer: transferTabOut does not call onTerminalUnregistered
+  // -----------------------------------------------------------------------
+  test('cross-pane transfer: transferTabOut does not call onTerminalUnregistered', async () => {
+    const onTerminalUnregistered = mock(() => {});
+    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mockActiveTabIdState = 'tab-1';
+
+    const ref = React.createRef<ContentPaneHandle>();
+    renderContentPane('ws-1', ref, { onTerminalUnregistered });
+
+    await flush();
+
+    // Transfer the tab out (simulates cross-pane drag)
+    const result = ref.current?.transferTabOut('tab-1');
+    expect(result).toBeTruthy();
+    expect(result!.terminalId).toBe('term-1');
+
+    // onTerminalUnregistered should NOT be called during transfer
+    // (the terminal stays in the overlay; only the tab ownership changes)
+    expect(onTerminalUnregistered).not.toHaveBeenCalled();
   });
 });
 

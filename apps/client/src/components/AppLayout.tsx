@@ -61,7 +61,7 @@ export function AppLayout({
               maxSize="90%"
               style={{ background: COLOR_BG_SECONDARY, borderTop: `1px solid ${COLOR_BORDER}` }}
             >
-              <div data-testid="bottom-panel">{bottomPanel ?? 'Bottom Panel'}</div>
+              <div data-testid="bottom-panel" style={{ height: '100%' }}>{bottomPanel ?? 'Bottom Panel'}</div>
             </Panel>
           </Group>
         </Panel>

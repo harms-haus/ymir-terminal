@@ -309,8 +309,10 @@ describe('TabBar', () => {
     expect(activeTab.style.fontSize).toBe('12px');
     expect(inactiveTab.style.fontSize).toBe('12px');
 
-    // Active border-bottom uses var(--accent) — expanded to longhands
-    expect(styleHasBorderLonghands(activeTab, 'border-bottom', 'var(--accent)')).toBe(true);
+    // Active border-bottom is transparent (no accent line at bottom for bottom panel)
+    expect(styleHasBorderParts(activeTab, 'border-bottom', '1px', 'solid', 'transparent')).toBe(
+      true,
+    );
     // Inactive border-bottom is transparent — also expanded to longhands
     expect(styleHasBorderParts(inactiveTab, 'border-bottom', '1px', 'solid', 'transparent')).toBe(
       true,
@@ -547,8 +549,8 @@ describe('TabBar', () => {
     // Press Enter
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    // onRename should NOT be called (empty/whitespace)
-    expect(onRenameMock).not.toHaveBeenCalled();
+    // onRename IS called with empty string so useTabs can clear customTitle
+    expect(onRenameMock).toHaveBeenCalledWith('t1', '');
   });
 
   // -----------------------------------------------------------------------
@@ -578,8 +580,8 @@ describe('TabBar', () => {
     // Don't change the value, just press Enter
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    // onRename should NOT be called (same value)
-    expect(onRenameMock).not.toHaveBeenCalled();
+    // onRename IS called with same value so useTabs can decide
+    expect(onRenameMock).toHaveBeenCalledWith('t1', 'My Term');
   });
 
   // -----------------------------------------------------------------------
@@ -610,5 +612,55 @@ describe('TabBar', () => {
 
     const tab3 = container.querySelector('[data-testid="tab-tab-3"]') as HTMLElement;
     expect(tab3.title).toBe('/src/index.ts');
+  });
+
+  // -----------------------------------------------------------------------
+  // 20. Tab shows customTitle when set, falls back to title
+  // -----------------------------------------------------------------------
+  test('tab shows customTitle when set, falls back to title when not set', () => {
+    const tabsWithCustomTitle: Tab[] = [
+      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1', customTitle: 'My Custom Tab' },
+      { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
+    ];
+
+    const { container } = renderTabBar({ tabs: tabsWithCustomTitle, activeTabId: 'tab-1' });
+
+    // Tab with customTitle should display the custom title
+    const tab1 = container.querySelector('[data-testid="tab-tab-1"]') as HTMLElement;
+    const span1 = tab1.querySelector('span') as HTMLElement;
+    expect(span1.textContent).toBe('My Custom Tab');
+
+    // Tab without customTitle should fall back to title
+    const tab2 = container.querySelector('[data-testid="tab-tab-2"]') as HTMLElement;
+    const span2 = tab2.querySelector('span') as HTMLElement;
+    expect(span2.textContent).toBe('Terminal 2');
+  });
+
+  // -----------------------------------------------------------------------
+  // 21. Rename input pre-fills with customTitle if set
+  // -----------------------------------------------------------------------
+  test('rename input pre-fills with customTitle when set', () => {
+    const onRenameMock = mock((_tabId: string, _newTitle: string) => {});
+    const { container } = renderTabBar({
+      onRename: onRenameMock,
+      tabs: [
+        { id: 't1', type: 'terminal', title: 'Terminal 1', terminalId: 'tr1', customTitle: 'Custom Name' },
+      ],
+      activeTabId: 't1',
+    });
+
+    // Trigger rename
+    const contextMenuEl = container.querySelector(
+      '[data-testid="mock-tab-context-menu"]',
+    ) as HTMLElement;
+    act(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (contextMenuEl as any).__onRename();
+    });
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    // Input should be pre-filled with customTitle, not title
+    expect(input.value).toBe('Custom Name');
   });
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
 import type { Tab } from '../hooks/useTabs';
 import {
   COLOR_BG_PRIMARY,
@@ -69,6 +69,16 @@ const SortableTab = React.memo(function SortableTab({
   setRenameValue: (value: string) => void;
   group?: string;
 }) {
+  const renameMountTimeRef = useRef(0);
+  const isRenaming = tab.id === renamingTabId;
+
+  // Track when rename input mounts for this tab (defense against Radix FocusScope focus theft)
+  useLayoutEffect(() => {
+    if (isRenaming) {
+      renameMountTimeRef.current = Date.now();
+    }
+  }, [isRenaming]);
+
   const { ref: sortableRef, isDragging } = useSortable({
     id: tab.id,
     index: tabIdx,
@@ -97,9 +107,7 @@ const SortableTab = React.memo(function SortableTab({
   const tabFontSize = isBottom ? '12px' : '13px';
 
   const tabBorderBottom = isBottom
-    ? isActive
-      ? '1px solid var(--accent)'
-      : '1px solid transparent'
+    ? '1px solid transparent'
     : isActive
       ? `1px solid ${COLOR_BG_PRIMARY}`
       : `1px solid ${COLOR_BORDER}`;
@@ -187,13 +195,24 @@ const SortableTab = React.memo(function SortableTab({
           <input
             ref={renameInputRef}
             value={renameValue}
+            aria-label={`Rename "${tab.customTitle ?? tab.title}"`}
             autoFocus
             onChange={(e) => setRenameValue(e.target.value)}
             onKeyDown={(e) => {
+              e.stopPropagation();
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') cancelRename();
             }}
-            onBlur={commitRename}
+            onBlur={(e) => {
+              // Ignore blur events within 100ms of mount (Radix FocusScope focus theft)
+              if (Date.now() - renameMountTimeRef.current < 100) {
+                requestAnimationFrame(() => {
+                  e.target?.focus?.();
+                });
+                return;
+              }
+              commitRename();
+            }}
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
@@ -208,7 +227,7 @@ const SortableTab = React.memo(function SortableTab({
             }}
           />
         ) : (
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tab.title}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tab.customTitle ?? tab.title}</span>
         )}
         <button
           className="tab-close-btn-focus"
@@ -266,7 +285,7 @@ export function TabBar({
       const tab = tabsRef.current.find((t) => t.id === tabId);
       if (!tab) return;
       setRenamingTabId(tabId);
-      setRenameValue(tab.title);
+      setRenameValue(tab.customTitle ?? tab.title);
       requestAnimationFrame(() => {
         renameInputRef.current?.focus();
         renameInputRef.current?.select();
@@ -279,22 +298,32 @@ export function TabBar({
     if (renamingTabId === null) return;
     const trimmed = renameValue.trim();
     const tab = tabsRef.current.find((t) => t.id === renamingTabId);
-    if (tab && trimmed !== '' && trimmed !== tab.title) {
+    if (tab) {
       onRename?.(renamingTabId, trimmed);
     }
     setRenamingTabId(null);
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-testid="tab-${renamingTabId}"]`)?.focus();
+    });
   }, [renamingTabId, renameValue, onRename]);
 
   const cancelRename = useCallback(() => {
+    const tabId = renamingTabId;
     setRenamingTabId(null);
-  }, []);
+    requestAnimationFrame(() => {
+      if (tabId) {
+        document.querySelector(`[data-testid="tab-${tabId}"]`)?.focus();
+      }
+    });
+  }, [renamingTabId]);
 
   const isBottom = variant === 'bottom';
 
-  const { ref: droppableRef } = useDroppable({
+  const { ref: droppableRef, isDropTarget } = useDroppable({
     id: `tab-bar-${group || 'default'}`,
     type: 'tab-bar',
     accept: ['tab'],
+    data: { group },
   });
 
   return (
@@ -304,7 +333,9 @@ export function TabBar({
       data-testid="tab-bar"
       style={{
         height: '35px',
-        background: COLOR_BG_SECONDARY,
+        background: isDropTarget ? 'rgba(255, 255, 255, 0.04)' : COLOR_BG_SECONDARY,
+        boxShadow: isDropTarget ? 'inset 0 0 0 1px var(--accent)' : undefined,
+        transition: 'background 0.15s, box-shadow 0.15s',
         display: 'flex',
         alignItems: 'flex-end',
         borderBottom: `1px solid ${COLOR_BORDER}`,
@@ -315,6 +346,7 @@ export function TabBar({
       <style>{`
         .tab-close-btn-focus:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
         .tab-close-btn-focus:hover { background: rgba(255,255,255,0.1); }
+        [role="tab"]:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
       `}</style>
       {tabs.map((tab, tabIdx) => (
         <SortableTab

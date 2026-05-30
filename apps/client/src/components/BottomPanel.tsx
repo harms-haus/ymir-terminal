@@ -1,21 +1,31 @@
-import { useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTabs } from '../hooks/useTabs';
 import type { Tab } from '../hooks/useTabs';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
-import { Terminal } from './Terminal';
 import { TabBar } from './TabBar';
 import { sendRequest } from '../lib/send-request';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 
 export interface BottomPanelHandle {
-  removeTerminalTab: (tabId: string) => { terminalId: string; title: string; cwd?: string } | null;
-  addTerminalTab: (terminalId: string, title: string, cwd?: string) => void;
+  transferTabOut: (tabId: string) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
+  receiveTab: (terminalId: string, title: string, cwd?: string, customTitle?: string) => string;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   getTabs: () => Tab[];
+  getActiveTabId: () => string | null;
+  updateTabTitle: (tabId: string, title: string) => void;
+  updateTabCwd: (tabId: string, cwd: string) => void;
 }
 
-export const BottomPanel = forwardRef<BottomPanelHandle, { workspaceId: string | null }>(
-function BottomPanel({ workspaceId }: { workspaceId: string | null }, ref) {
+export interface BottomPanelProps {
+  workspaceId: string | null;
+  terminalContainerRef?: React.Ref<HTMLDivElement>;
+  onTerminalRegistered?: (terminalId: string, tabId: string) => void;
+  onTerminalUnregistered?: (terminalId: string) => void;
+  onActiveTabChange?: (activeTabId: string | null) => void;
+}
+
+export const BottomPanel = forwardRef<BottomPanelHandle, BottomPanelProps>(
+function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, onTerminalUnregistered, onActiveTabChange }: BottomPanelProps, ref) {
   const {
     tabs,
     activeTabId,
@@ -27,23 +37,32 @@ function BottomPanel({ workspaceId }: { workspaceId: string | null }, ref) {
     reorderTabs,
     closeTabsRight,
     closeOtherTabs,
+    setDisplayTitle,
   } = useTabs();
 
   // Keep a ref to tabs so imperative handle always sees current state
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
 
-  const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab);
+  const handleTerminalCreated = useCallback(
+    (terminalId: string, tabId: string) => {
+      onTerminalRegistered?.(terminalId, tabId);
+    },
+    [onTerminalRegistered],
+  );
+
+  const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab, handleTerminalCreated);
 
   const handleCloseTab = useCallback(
     (tabId: string) => {
       const tab = tabs.find((t) => t.id === tabId);
       if (tab?.terminalId) {
         sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
+        onTerminalUnregistered?.(tab.terminalId);
       }
       closeTab(tabId);
     },
-    [tabs, closeTab],
+    [tabs, closeTab, onTerminalUnregistered],
   );
 
   const handleTitleChange = useCallback(
@@ -70,11 +89,12 @@ function BottomPanel({ workspaceId }: { workspaceId: string | null }, ref) {
       tabsToClose.forEach((t) => {
         if (t.terminalId) {
           sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
+          onTerminalUnregistered?.(t.terminalId);
         }
       });
       closeTabsRight(tabId);
     },
-    [tabs, closeTabsRight],
+    [tabs, closeTabsRight, onTerminalUnregistered],
   );
 
   const handleCloseOthers = useCallback(
@@ -86,37 +106,51 @@ function BottomPanel({ workspaceId }: { workspaceId: string | null }, ref) {
       tabsToClose.forEach((t) => {
         if (t.terminalId) {
           sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
+          onTerminalUnregistered?.(t.terminalId);
         }
       });
       closeOtherTabs(tabId);
     },
-    [tabs, closeOtherTabs],
+    [tabs, closeOtherTabs, onTerminalUnregistered],
   );
 
   const handleRenameTab = useCallback(
     (tabId: string, newTitle: string) => {
-      updateTabTitle(tabId, newTitle);
+      setDisplayTitle(tabId, newTitle);
     },
-    [updateTabTitle],
+    [setDisplayTitle],
   );
+
+  // Notify parent of activeTabId changes
+  useEffect(() => {
+    onActiveTabChange?.(activeTabId);
+  }, [activeTabId, onActiveTabChange]);
 
   useImperativeHandle(
     ref,
     () => ({
-      removeTerminalTab(tabId: string) {
+      transferTabOut(tabId: string) {
         const tab = tabsRef.current.find((t) => t.id === tabId);
         if (!tab?.terminalId) return null;
-        const data = { terminalId: tab.terminalId, title: tab.title, cwd: tab.cwd };
+        const data = { terminalId: tab.terminalId, title: tab.title, cwd: tab.cwd, customTitle: tab.customTitle };
         closeTab(tabId);
         return data;
       },
-      addTerminalTab(terminalId: string, title: string, cwd?: string) {
-        createTab({ type: 'terminal', title, terminalId, cwd });
+      receiveTab(terminalId: string, title: string, cwd?: string, customTitle?: string) {
+        const tabId = createTab({ type: 'terminal', title, terminalId, cwd, customTitle });
+        return tabId;
       },
       reorderTabs,
       getTabs: () => tabsRef.current,
+      getActiveTabId: () => activeTabId ?? null,
+      updateTabTitle(tabId: string, title: string) {
+        updateTabTitle(tabId, title);
+      },
+      updateTabCwd(tabId: string, cwd: string) {
+        updateTabCwd(tabId, cwd);
+      },
     }),
-    [closeTab, createTab, reorderTabs],
+    [closeTab, createTab, reorderTabs, activeTabId, updateTabTitle, updateTabCwd],
   );
 
   return (
@@ -142,27 +176,22 @@ function BottomPanel({ workspaceId }: { workspaceId: string | null }, ref) {
         onRename={handleRenameTab}
         group="bottom"
       />
-      {/* Content */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {tabs
-          .filter((t) => t.terminalId)
-          .map((t) => (
-            <div
-              key={t.terminalId}
-              style={{
-                height: '100%',
-                display: t.id === activeTabId ? 'block' : 'none',
-              }}
-            >
-              <Terminal
-                terminalId={t.terminalId!}
-                onTitleChange={(title: string) => handleTitleChange(t.id, title)}
-                onCwdChange={(cwd: string) => handleCwdChange(t.id, cwd)}
-              />
-            </div>
-          ))}
+      {/* TerminalManager portals terminals into this container */}
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <div ref={terminalContainerRef} data-testid="terminal-container" style={{ height: '100%', pointerEvents: 'none' }} />
         {!activeTabId && (
-          <div style={{ color: COLOR_TEXT_DIM, padding: '8px', fontSize: '12px' }}>No terminal</div>
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              color: COLOR_TEXT_DIM,
+              padding: '8px',
+              fontSize: '12px',
+              background: COLOR_BG_PRIMARY,
+            }}
+          >
+            No terminal
+          </div>
         )}
       </div>
     </div>

@@ -28,9 +28,11 @@ describe('useTabs', () => {
     expect(result.current).toHaveProperty('createTab');
     expect(result.current).toHaveProperty('closeTab');
     expect(result.current).toHaveProperty('activateTab');
+    expect(result.current).toHaveProperty('setDisplayTitle');
     expect(typeof result.current.createTab).toBe('function');
     expect(typeof result.current.closeTab).toBe('function');
     expect(typeof result.current.activateTab).toBe('function');
+    expect(typeof result.current.setDisplayTitle).toBe('function');
   });
 
   // -----------------------------------------------------------------------
@@ -472,5 +474,228 @@ describe('useTabs', () => {
     expect(result.current.tabs.length).toBe(1);
     expect(result.current.tabs[0].id).toBe(id1);
     expect(result.current.activeTabId).toBe(id1);
+  });
+
+  // -----------------------------------------------------------------------
+  // 20. setDisplayTitle: sets customTitle on a tab
+  // -----------------------------------------------------------------------
+  test('setDisplayTitle sets customTitle on a tab', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    expect(result.current.tabs[0].customTitle).toBeUndefined();
+
+    act(() => {
+      result.current.setDisplayTitle(id1!, 'My Custom Name');
+    });
+
+    expect(result.current.tabs[0].customTitle).toBe('My Custom Name');
+    // Original title should be unchanged
+    expect(result.current.tabs[0].title).toBe('Terminal 1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 21. setDisplayTitle: empty string clears customTitle (sets to undefined)
+  // -----------------------------------------------------------------------
+  test('setDisplayTitle clears customTitle when given empty string', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    // Set a custom title first
+    act(() => {
+      result.current.setDisplayTitle(id1!, 'Custom Name');
+    });
+    expect(result.current.tabs[0].customTitle).toBe('Custom Name');
+
+    // Clear it with empty string
+    act(() => {
+      result.current.setDisplayTitle(id1!, '');
+    });
+    expect(result.current.tabs[0].customTitle).toBeUndefined();
+    // Original title unchanged
+    expect(result.current.tabs[0].title).toBe('Terminal 1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 22. setDisplayTitle: whitespace-only string clears customTitle
+  // -----------------------------------------------------------------------
+  test('setDisplayTitle clears customTitle when given whitespace-only string', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    // Set a custom title first
+    act(() => {
+      result.current.setDisplayTitle(id1!, 'Custom Name');
+    });
+    expect(result.current.tabs[0].customTitle).toBe('Custom Name');
+
+    // Clear it with whitespace
+    act(() => {
+      result.current.setDisplayTitle(id1!, '   ');
+    });
+    expect(result.current.tabs[0].customTitle).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // 23. setDisplayTitle: only affects the specified tab
+  // -----------------------------------------------------------------------
+  test('setDisplayTitle only affects the specified tab', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '',
+      id2 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+      id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
+    });
+
+    act(() => {
+      result.current.setDisplayTitle(id1!, 'Custom A');
+    });
+
+    expect(result.current.tabs[0].customTitle).toBe('Custom A');
+    expect(result.current.tabs[1].customTitle).toBeUndefined();
+    expect(result.current.tabs[1].title).toBe('Terminal 2');
+  });
+
+  // -----------------------------------------------------------------------
+  // 24. updateTabTitle does not affect customTitle
+  // -----------------------------------------------------------------------
+  test('updateTabTitle does not affect customTitle', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    // Set a custom title
+    act(() => {
+      result.current.setDisplayTitle(id1!, 'Custom Name');
+    });
+    expect(result.current.tabs[0].customTitle).toBe('Custom Name');
+
+    // Update the base title (simulating terminal title change)
+    act(() => {
+      result.current.updateTabTitle(id1!, 'user@host:~/project');
+    });
+
+    expect(result.current.tabs[0].title).toBe('user@host:~/project');
+    // customTitle should still be set
+    expect(result.current.tabs[0].customTitle).toBe('Custom Name');
+  });
+
+  // -----------------------------------------------------------------------
+  // 25. setDisplayTitle: undefined clears customTitle
+  // -----------------------------------------------------------------------
+  test('setDisplayTitle clears customTitle when given undefined', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
+    });
+
+    // Set a custom title first
+    act(() => {
+      result.current.setDisplayTitle(id1!, 'Custom Name');
+    });
+    expect(result.current.tabs[0].customTitle).toBe('Custom Name');
+
+    // Clear it with undefined
+    act(() => {
+      result.current.setDisplayTitle(id1!, undefined);
+    });
+    expect(result.current.tabs[0].customTitle).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // 26. reorderTabs: rapid consecutive calls produce correct final state
+  // -----------------------------------------------------------------------
+  test('reorderTabs: rapid consecutive calls produce correct final state', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.createTab({ type: 'terminal', title: 'T1' });
+      result.current.createTab({ type: 'terminal', title: 'T2' });
+      result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    // Start: [T1, T2, T3]
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T1', 'T2', 'T3']);
+
+    // Rapid consecutive reorders in a single act — functional updaters chain correctly
+    act(() => {
+      result.current.reorderTabs(0, 2); // [T1,T2,T3] → [T2,T3,T1]
+      result.current.reorderTabs(0, 1); // [T2,T3,T1] → [T3,T2,T1]
+    });
+
+    // Final state should reflect both reorders applied sequentially
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T3', 'T2', 'T1']);
+  });
+
+  // -----------------------------------------------------------------------
+  // 27. reorderTabs: functional updater ensures fresh state after reorder
+  // -----------------------------------------------------------------------
+  test('reorderTabs: functional updater ensures fresh state after reorder', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.createTab({ type: 'terminal', title: 'T1' });
+      result.current.createTab({ type: 'terminal', title: 'T2' });
+      result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    // Perform a reorder and immediately verify state is fresh
+    act(() => {
+      result.current.reorderTabs(2, 0);
+    });
+
+    // State should be immediately consistent — no stale index
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T3', 'T1', 'T2']);
+
+    // Another reorder on the new state
+    act(() => {
+      result.current.reorderTabs(1, 0);
+    });
+
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T1', 'T3', 'T2']);
+  });
+
+  // -----------------------------------------------------------------------
+  // 28. reorderTabs: multiple reorders with same from/to are deterministic
+  // -----------------------------------------------------------------------
+  test('reorderTabs: multiple reorders with same from/to are deterministic', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.createTab({ type: 'terminal', title: 'T1' });
+      result.current.createTab({ type: 'terminal', title: 'T2' });
+      result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    // First swap: T1↔T2
+    act(() => {
+      result.current.reorderTabs(0, 1);
+    });
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T2', 'T1', 'T3']);
+
+    // Apply the same swap again — returns to original order
+    act(() => {
+      result.current.reorderTabs(0, 1);
+    });
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['T1', 'T2', 'T3']);
   });
 });

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { COLOR_BORDER } from '../lib/theme';
 import {
@@ -27,11 +28,22 @@ export function TabContextMenu({
   onRename,
   children,
 }: TabContextMenuProps) {
+  const renameSelectedRef = useRef(false);
+
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenu.Content data-testid="tab-context-menu" style={getMenuContainerStyle()}>
+        <ContextMenu.Content
+          data-testid="tab-context-menu"
+          style={getMenuContainerStyle()}
+          onCloseAutoFocus={(e) => {
+            if (renameSelectedRef.current) {
+              e.preventDefault();
+              renameSelectedRef.current = false;
+            }
+          }}
+        >
           <style>{CONTEXT_MENU_CSS}</style>
 
           <ContextMenu.Item
@@ -70,7 +82,10 @@ export function TabContextMenu({
           />
           <ContextMenu.Item
             data-testid="tab-menu-rename"
-            onSelect={() => onRename()}
+            onSelect={() => {
+              renameSelectedRef.current = true;
+              onRename();
+            }}
             style={menuItemStyle}
           >
             Rename

@@ -2,30 +2,36 @@ import { useRef, useState, useCallback, useEffect, forwardRef, useImperativeHand
 import { useTabs } from '../hooks/useTabs';
 import type { Tab } from '../hooks/useTabs';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
-import { Terminal } from './Terminal';
 import { EditorPane } from './EditorPane';
 import { TabBar } from './TabBar';
 import { sendRequest } from '../lib/send-request';
-import { COLOR_TEXT_DIM } from '../lib/theme';
+import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 
 export interface ContentPaneHandle {
-  removeTerminalTab: (tabId: string) => { terminalId: string; title: string; cwd?: string } | null;
-  addTerminalTab: (terminalId: string, title: string, cwd?: string) => void;
+  transferTabOut: (tabId: string) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
+  receiveTab: (terminalId: string, title: string, cwd?: string, customTitle?: string) => string;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   getTabs: () => Tab[];
+  getActiveTabId: () => string | null;
+  updateTabTitle: (tabId: string, title: string) => void;
+  updateTabCwd: (tabId: string, cwd: string) => void;
 }
 
 export interface ContentPaneProps {
   workspaceId: string | null;
   fileToOpen?: string | null;
   onFileOpened?: () => void;
+  terminalContainerRef?: React.Ref<HTMLDivElement>;
+  onTerminalRegistered?: (terminalId: string, tabId: string) => void;
+  onTerminalUnregistered?: (terminalId: string) => void;
+  onActiveTabChange?: (activeTabId: string | null) => void;
 }
 
 export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(function ContentPane(
-  { workspaceId, fileToOpen, onFileOpened }: ContentPaneProps,
+  { workspaceId, fileToOpen, onFileOpened, terminalContainerRef, onTerminalRegistered, onTerminalUnregistered, onActiveTabChange }: ContentPaneProps,
   ref,
 ) {
-  const { tabs, activeTabId, createTab, closeTab, activateTab, updateTabTitle, updateTabCwd, reorderTabs, closeTabsRight, closeOtherTabs } = useTabs();
+  const { tabs, activeTabId, createTab, closeTab, activateTab, updateTabTitle, updateTabCwd, reorderTabs, closeTabsRight, closeOtherTabs, setDisplayTitle } = useTabs();
 
   // Keep a ref to tabs so imperative handle always sees current state
   const tabsRef = useRef(tabs);
@@ -34,9 +40,14 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
 
   const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(new Set());
 
-  const terminalRefs = useRef<Map<string, { focus(): void }>>(new Map());
+  const handleTerminalCreated = useCallback(
+    (terminalId: string, tabId: string) => {
+      onTerminalRegistered?.(terminalId, tabId);
+    },
+    [onTerminalRegistered],
+  );
 
-  const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab);
+  const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab, handleTerminalCreated);
 
   const handleDirtyChange = useCallback((filePath: string, dirty: boolean) => {
     setDirtyFiles((prev) => {
@@ -59,10 +70,11 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
       }
       if (tab?.terminalId) {
         sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
+        onTerminalUnregistered?.(tab.terminalId);
       }
       closeTab(tabId);
     },
-    [tabs, closeTab, dirtyFiles],
+    [tabs, closeTab, dirtyFiles, onTerminalUnregistered],
   );
 
   const handleTitleChange = useCallback(
@@ -93,11 +105,12 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
       tabsToClose.forEach((t) => {
         if (t.terminalId) {
           sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
+          onTerminalUnregistered?.(t.terminalId);
         }
       });
       closeTabsRight(tabId);
     },
-    [tabs, dirtyFiles, closeTabsRight],
+    [tabs, dirtyFiles, closeTabsRight, onTerminalUnregistered],
   );
 
   const handleCloseOthers = useCallback(
@@ -113,18 +126,19 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
       tabsToClose.forEach((t) => {
         if (t.terminalId) {
           sendRequest('terminal.close', { terminalId: t.terminalId }).catch(console.error);
+          onTerminalUnregistered?.(t.terminalId);
         }
       });
       closeOtherTabs(tabId);
     },
-    [tabs, dirtyFiles, closeOtherTabs],
+    [tabs, dirtyFiles, closeOtherTabs, onTerminalUnregistered],
   );
 
   const handleRenameTab = useCallback(
     (tabId: string, newTitle: string) => {
-      updateTabTitle(tabId, newTitle);
+      setDisplayTitle(tabId, newTitle);
     },
-    [updateTabTitle],
+    [setDisplayTitle],
   );
 
   const handleAddEditor = useCallback(
@@ -139,14 +153,10 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
     [tabs, activateTab, createTab],
   );
 
+  // Notify parent of activeTabId changes
   useEffect(() => {
-    if (activeTab?.type === 'terminal') {
-      // Small delay to ensure the terminal is visible (display changed from none to block)
-      requestAnimationFrame(() => {
-        terminalRefs.current.get(activeTabId!)?.focus();
-      });
-    }
-  }, [activeTabId, activeTab?.type]);
+    onActiveTabChange?.(activeTabId);
+  }, [activeTabId, onActiveTabChange]);
 
   useEffect(() => {
     if (fileToOpen) {
@@ -158,20 +168,34 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
   useImperativeHandle(
     ref,
     () => ({
-      removeTerminalTab(tabId: string) {
+      transferTabOut(tabId: string) {
         const tab = tabsRef.current.find((t) => t.id === tabId);
         if (!tab?.terminalId) return null;
-        const data = { terminalId: tab.terminalId, title: tab.title, cwd: tab.cwd };
+        const data = { terminalId: tab.terminalId, title: tab.title, cwd: tab.cwd, customTitle: tab.customTitle };
         closeTab(tabId);
         return data;
       },
-      addTerminalTab(terminalId: string, title: string, cwd?: string) {
-        createTab({ type: 'terminal', title, terminalId, cwd });
+      receiveTab(terminalId: string, title: string, cwd?: string, customTitle?: string) {
+        const tabId = createTab({ type: 'terminal', title, terminalId, cwd, customTitle });
+        return tabId;
       },
       reorderTabs,
       getTabs: () => tabsRef.current,
+      getActiveTabId: () => {
+        // Read from the current tabs state via ref
+        const currentTabs = tabsRef.current;
+        // activeTabId is captured in the closure but may be stale;
+        // use the internal ref pattern instead
+        return activeTabId ?? null;
+      },
+      updateTabTitle(tabId: string, title: string) {
+        updateTabTitle(tabId, title);
+      },
+      updateTabCwd(tabId: string, cwd: string) {
+        updateTabCwd(tabId, cwd);
+      },
     }),
-    [closeTab, createTab, reorderTabs],
+    [closeTab, createTab, reorderTabs, activeTabId, updateTabTitle, updateTabCwd],
   );
 
   return (
@@ -192,44 +216,29 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
         onRename={handleRenameTab}
         group="content"
       />
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {tabs
-          .filter((t) => t.type === 'terminal' && t.terminalId)
-          .map((t) => (
-            <div
-              key={t.terminalId}
-              style={{
-                height: '100%',
-                display: t.id === activeTabId ? 'block' : 'none',
-              }}
-            >
-              <Terminal
-                terminalId={t.terminalId!}
-                ref={(el: { focus(): void } | null) => {
-                  if (el) terminalRefs.current.set(t.id, el);
-                  else terminalRefs.current.delete(t.id);
-                }}
-                onTitleChange={(title: string) => handleTitleChange(t.id, title)}
-                onCwdChange={(cwd: string) => handleCwdChange(t.id, cwd)}
-              />
-            </div>
-          ))}
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {/* TerminalManager portals terminals into this container */}
+        <div ref={terminalContainerRef} data-testid="terminal-container" style={{ height: '100%', pointerEvents: 'none' }} />
         {activeTab?.type === 'editor' && activeTab.filePath && workspaceId && (
-          <EditorPane
-            key={activeTab.filePath}
-            workspaceId={workspaceId}
-            filePath={activeTab.filePath}
-            onDirtyChange={handleDirtyChange}
-          />
+          <div style={{ position: 'absolute', inset: 0, background: COLOR_BG_PRIMARY }}>
+            <EditorPane
+              key={activeTab.filePath}
+              workspaceId={workspaceId}
+              filePath={activeTab.filePath}
+              onDirtyChange={handleDirtyChange}
+            />
+          </div>
         )}
         {!activeTab && (
           <div
             style={{
+              position: 'absolute',
+              inset: 0,
               color: COLOR_TEXT_DIM,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '100%',
+              background: COLOR_BG_PRIMARY,
             }}
           >
             No tabs open

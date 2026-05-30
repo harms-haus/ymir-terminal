@@ -5,7 +5,14 @@ import type { Tab } from './useTabs';
 export function useCreateTerminalTab(
   workspaceId: string | null,
   tabs: Tab[],
-  createTab: (opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string }) => string,
+  createTab: (opts: {
+    type: 'terminal' | 'editor';
+    title: string;
+    terminalId?: string;
+    cwd?: string;
+    customTitle?: string;
+  }) => string,
+  onCreated?: (terminalId: string, tabId: string) => void,
 ) {
   const { createTerminal } = useTerminal(null);
   const creatingRef = useRef(false);
@@ -15,13 +22,14 @@ export function useCreateTerminalTab(
     creatingRef.current = true;
     try {
       const terminalId = await createTerminal(workspaceId);
-      createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}`, terminalId });
+      const tabId = createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}`, terminalId });
+      onCreated?.(terminalId, tabId);
     } catch (err) {
       console.error('Failed to create terminal:', err);
     } finally {
       creatingRef.current = false;
     }
-  }, [workspaceId, tabs.length, createTab, createTerminal]);
+  }, [workspaceId, tabs.length, createTab, createTerminal, onCreated]);
 
   return createTerminalTab;
 }
