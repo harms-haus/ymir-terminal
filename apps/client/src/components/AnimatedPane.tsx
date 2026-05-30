@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { ANIMATION_TRANSITION } from '../lib/theme';
 
 interface AnimatedPaneProps {
@@ -15,7 +15,37 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
 
-  const transition = prefersReducedMotion ? 'none' : ANIMATION_TRANSITION;
+  const reducedMotion = prefersReducedMotion;
+  const transition = reducedMotion ? 'none' : ANIMATION_TRANSITION;
+
+  const [prevVisible, setPrevVisible] = useState(visible);
+  const [overlayActive, setOverlayActive] = useState(false);
+  const justHiddenRef = useRef(false);
+
+  // Detect visibility changes during render (React "adjusting state" pattern).
+  // This avoids calling setState inside useEffect.
+  if (visible !== prevVisible) {
+    if (prevVisible && !visible) {
+      // Hiding: activate overlay and schedule collapse callback
+      justHiddenRef.current = true;
+      if (!reducedMotion) {
+        setOverlayActive(true);
+      }
+    } else if (!prevVisible && visible) {
+      // Showing again: clean up any residual overlay
+      setOverlayActive(false);
+    }
+    setPrevVisible(visible);
+  }
+
+  // Fire onCollapseReady as an external side-effect (not setState).
+  // The ref guards against spurious calls when deps change independently.
+  useEffect(() => {
+    if (justHiddenRef.current) {
+      justHiddenRef.current = false;
+      onCollapseReady?.(); // triggers panelRef.collapse() in AppLayout
+    }
+  }, [onCollapseReady, visible]);
 
   const transform = useMemo(() => {
     if (visible) return 'none';
@@ -30,8 +60,11 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
   }, [visible, direction]);
 
   const handleTransitionEnd = (e: React.TransitionEvent) => {
-    if (e.propertyName === 'transform' && !visible) {
-      onCollapseReady?.();
+    if (e.propertyName === 'transform') {
+      // Animation completed — clean up overlay
+      if (!visible) {
+        setOverlayActive(false);
+      }
     }
   };
 
@@ -44,8 +77,13 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
           transform,
           transition,
           willChange: 'transform',
+          ...(overlayActive && {
+            position: 'relative' as const,
+            zIndex: 10,
+          }),
         }}
         onTransitionEnd={handleTransitionEnd}
+        aria-hidden={!visible || undefined}
       >
         {children}
       </div>

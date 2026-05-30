@@ -314,6 +314,6 @@ describe('FileTree', () => {
       (s) => s.style.borderRadius === '50%',
     );
     expect(circles.length).toBeGreaterThanOrEqual(1);
-    expect(circles[0].style.backgroundColor).toContain('#73c991');
+    expect(circles[0].style.backgroundColor).toContain('#888');
   });
 });

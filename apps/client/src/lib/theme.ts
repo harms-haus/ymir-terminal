@@ -177,6 +177,10 @@ export const COLOR_COMMANDBAR_ACTIVE_BORDER = '#555';
 export const COLOR_COMMANDBAR_HOVER_BG = 'rgba(255,255,255,0.1)';
 export const COLOR_COMMANDBAR_SELECTED_BG = '#094771';
 
+// ── Layout sizing ──────────────────────────────────────────────────────────────
+
+export const TITLE_BAR_HEIGHT = 35;
+
 // ---------------------------------------------------------------------------
 // Animation
 // ---------------------------------------------------------------------------

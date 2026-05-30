@@ -19,6 +19,8 @@ export const REQUEST_TYPES = [
   'file.rename',
   'file.create',
   'git.status',
+  'config.get',
+  'config.set',
 ] as const;
 
 export type RequestType = (typeof REQUEST_TYPES)[number];
@@ -204,6 +206,28 @@ export interface GitStatusResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+
+export interface ConfigGetRequest {
+  key: string;
+}
+
+export interface ConfigGetResponse {
+  key: string;
+  value: string | null;
+}
+
+export interface ConfigSetRequest {
+  key: string;
+  value: string;
+}
+
+export interface ConfigSetResponse {
+  ok: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Session
 // ---------------------------------------------------------------------------
 
@@ -231,7 +255,9 @@ export type RequestPayload =
   | FileDeleteRequest
   | FileRenameRequest
   | FileCreateRequest
-  | GitStatusRequest;
+  | GitStatusRequest
+  | ConfigGetRequest
+  | ConfigSetRequest;
 
 export type EventPayload =
   | TerminalOutputEvent

@@ -38,6 +38,11 @@ import {
   type GitFileChange,
   type GitStatusRequest,
   type GitStatusResponse,
+  // Config
+  type ConfigGetRequest,
+  type ConfigGetResponse,
+  type ConfigSetRequest,
+  type ConfigSetResponse,
   // Session
   type ConnectionStatusEvent,
   // Unions
@@ -67,14 +72,16 @@ describe('REQUEST_TYPES', () => {
     'file.rename',
     'file.create',
     'git.status',
+    'config.get',
+    'config.set',
   ];
 
   it('contains all expected request types', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 16 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(16);
+  it('has exactly 18 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(18);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -531,6 +538,8 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', oldPath: '/a', newPath: '/b' } satisfies FileRenameRequest,
       { workspaceId: 'ws-1', path: '/a', isDirectory: false } satisfies FileCreateRequest,
       { workspaceId: 'ws-1' } satisfies GitStatusRequest,
+      { key: 'theme' } satisfies ConfigGetRequest,
+      { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
     ];
 
     // Ensure they all survive a JSON round-trip
@@ -539,6 +548,32 @@ describe('RequestPayload union', () => {
       expect(parsed).toEqual(p);
     }
     expect(payloads).toHaveLength(REQUEST_TYPES.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Config response payloads
+// ---------------------------------------------------------------------------
+
+describe('ConfigGetResponse', () => {
+  it('round-trips through JSON', () => {
+    const payload: ConfigGetResponse = { key: 'theme', value: 'dark' };
+    const parsed: ConfigGetResponse = JSON.parse(JSON.stringify(payload));
+    expect(parsed).toEqual(payload);
+  });
+
+  it('round-trips with null value', () => {
+    const payload: ConfigGetResponse = { key: 'unknown', value: null };
+    const parsed: ConfigGetResponse = JSON.parse(JSON.stringify(payload));
+    expect(parsed).toEqual(payload);
+  });
+});
+
+describe('ConfigSetResponse', () => {
+  it('round-trips through JSON', () => {
+    const payload: ConfigSetResponse = { ok: true };
+    const parsed: ConfigSetResponse = JSON.parse(JSON.stringify(payload));
+    expect(parsed).toEqual(payload);
   });
 });
 

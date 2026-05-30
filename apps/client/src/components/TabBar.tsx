@@ -11,6 +11,7 @@ import {
   COLOR_TEXT_BRIGHT,
   COLOR_TEXT_DIM,
   COLOR_TEXT_MUTED,
+  TITLE_BAR_HEIGHT,
 } from '../lib/theme';
 import { TabContextMenu } from './TabContextMenu';
 import { useDroppable } from '@dnd-kit/react';
@@ -175,8 +176,8 @@ const SortableTab = React.memo(function SortableTab({
           alignItems: 'center',
           gap: '6px',
           padding: '0 12px',
-          height: '35px',
-          lineHeight: '35px',
+          height: `${TITLE_BAR_HEIGHT}px`,
+          lineHeight: `${TITLE_BAR_HEIGHT}px`,
           fontSize: tabFontSize,
           cursor: 'pointer',
           background: tabBackground,
@@ -332,7 +333,7 @@ export function TabBar({
       role="tablist"
       data-testid="tab-bar"
       style={{
-        height: '35px',
+        height: `${TITLE_BAR_HEIGHT}px`,
         background: isDropTarget ? 'rgba(255, 255, 255, 0.04)' : COLOR_BG_SECONDARY,
         boxShadow: isDropTarget ? 'inset 0 0 0 1px var(--accent)' : undefined,
         transition: 'background 0.15s, box-shadow 0.15s',
@@ -383,9 +384,9 @@ export function TabBar({
           cursor: canAddTerminal ? 'pointer' : 'not-allowed',
           opacity: canAddTerminal ? undefined : 0.3,
           fontSize: '18px',
-          lineHeight: '35px',
+          lineHeight: `${TITLE_BAR_HEIGHT}px`,
           padding: '0 10px',
-          height: '35px',
+          height: `${TITLE_BAR_HEIGHT}px`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

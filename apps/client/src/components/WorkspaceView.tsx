@@ -15,6 +15,7 @@ import { PaneVisibilityProvider, usePaneVisibility } from '../hooks/usePaneVisib
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
 import type { WorkspaceSummary } from '@ymir/shared';
 import { useTheme } from '../hooks/useTheme';
+import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { useWorkspaces, useUpdateWorkspace, useDeleteWorkspace } from '../hooks/useWorkspaces';
 import { DragDropProvider } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
@@ -33,7 +34,7 @@ function WorkspaceViewInner() {
   const { setAccentColor } = useTheme();
   const updateWorkspace = useUpdateWorkspace();
   const deleteWorkspace = useDeleteWorkspace();
-  const { left: leftVisible, right: rightVisible, bottom: bottomVisible } = usePaneVisibility();
+  const { left: leftVisible, right: rightVisible, bottom: bottomVisible, loading } = usePaneVisibility();
 
   const contentPaneRef = useRef<ContentPaneHandle>(null);
   const bottomPanelRef = useRef<BottomPanelHandle>(null);
@@ -338,6 +339,27 @@ function WorkspaceViewInner() {
       };
     });
   }, [terminalRegistry, contentActiveTabId, bottomActiveTabId, callbackCache]);
+
+  // While pane visibility is loading from the server, render a placeholder to avoid layout flash
+  if (loading) {
+    return (
+      <div
+        role="status"
+        aria-label="Loading workspace"
+        style={{
+          flex: 1,
+          background: COLOR_BG_PRIMARY,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: COLOR_TEXT_DIM,
+          fontSize: '13px',
+        }}
+      >
+        Loading…
+      </div>
+    );
+  }
 
   // Build the top bar with command bar inside
   const topBar = (

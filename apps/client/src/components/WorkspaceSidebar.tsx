@@ -1,6 +1,6 @@
 import { useWorkspaces } from '../hooks/useWorkspaces';
 import { WorkspaceItem } from './WorkspaceItem';
-import { COLOR_TEXT_DIM, COLOR_TEXT_MUTED } from '../lib/theme';
+import { COLOR_BORDER, COLOR_TEXT_DIM, COLOR_TEXT_MUTED, TITLE_BAR_HEIGHT } from '../lib/theme';
 
 interface WorkspaceSidebarProps {
   activeWorkspaceId: string | null;
@@ -26,15 +26,16 @@ export function WorkspaceSidebar({
   return (
     <div
       data-testid="workspace-sidebar"
-      style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '8px' }}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       <div
         style={{
+          height: `${TITLE_BAR_HEIGHT}px`,
           display: 'flex',
+          borderBottom: `1px solid ${COLOR_BORDER}`,
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '8px',
-          padding: '4px 8px',
+          padding: '0 12px',
         }}
       >
         <span style={{ fontSize: '11px', textTransform: 'uppercase', color: COLOR_TEXT_MUTED }}>
@@ -60,7 +61,7 @@ export function WorkspaceSidebar({
       {workspaces?.length === 0 && (
         <div style={{ color: COLOR_TEXT_DIM, padding: '8px', fontSize: '12px' }}>No workspaces</div>
       )}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
         {workspaces?.map((ws: import('@ymir/shared').WorkspaceSummary) => (
           <WorkspaceItem
             key={ws.id}

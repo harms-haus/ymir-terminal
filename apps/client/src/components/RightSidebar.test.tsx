@@ -197,6 +197,8 @@ describe('RightSidebar', () => {
   test('clicking a file triggers onFileSelect callback', async () => {
     const onFileSelect = mock(() => {});
 
+    // Mock config.get (explorer panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
     // Mock file tree response
     sendRequestSpy.mockResolvedValueOnce({
       tree: [
@@ -247,6 +249,8 @@ describe('RightSidebar', () => {
   test('Open in Editor context menu action calls onFileSelect with the file path', async () => {
     const onFileSelect = mock(() => {});
 
+    // Mock config.get (explorer panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
     // Mock file tree response with a file inside a directory
     sendRequestSpy.mockResolvedValueOnce({
       tree: [
@@ -308,6 +312,8 @@ describe('RightSidebar', () => {
   // 8. File change triggers both file.tree and git.status refreshes
   // -----------------------------------------------------------------------
   test('file change event triggers both file.tree and git.status refreshes', async () => {
+    // Mock config.get (explorer panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
     // Mock initial file tree response
     sendRequestSpy.mockResolvedValueOnce({
       tree: [{ name: 'src', path: '/src', isDirectory: true, children: [] }],
@@ -368,6 +374,8 @@ describe('RightSidebar', () => {
   // 9. workspaceCwd prop is forwarded to FileTree
   // -----------------------------------------------------------------------
   test('passes workspaceCwd to FileTree when provided', async () => {
+    // Mock config.get (explorer panel sizes) — consumed on mount
+    sendRequestSpy.mockResolvedValueOnce({ key: 'ui_explorer_sizes', value: null });
     // Mock file tree response
     sendRequestSpy.mockResolvedValueOnce({
       tree: [{ name: 'src', path: '/src', isDirectory: true, children: [] }],

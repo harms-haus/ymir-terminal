@@ -1,9 +1,10 @@
-import { useRef, useEffect } from 'react';
-import { Group, Panel, Separator, type PanelImperativeHandle } from 'react-resizable-panels';
+import { useRef, useEffect, useCallback } from 'react';
+import { Group, Panel, Separator, type PanelImperativeHandle, type GroupImperativeHandle } from 'react-resizable-panels';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPage } from './LoginPage';
 import { AnimatedPane } from './AnimatedPane';
-import { COLOR_BG_PRIMARY, COLOR_BG_SECONDARY, COLOR_BORDER, COLOR_TEXT } from '../lib/theme';
+import { COLOR_BG_PRIMARY, COLOR_BORDER, COLOR_TEXT } from '../lib/theme';
+import { sendRequest } from '../lib/send-request';
 
 export interface AppLayoutProps {
   children?: React.ReactNode;
@@ -27,19 +28,67 @@ export function AppLayout({
   const leftPanelRef = useRef<PanelImperativeHandle>(null);
   const rightPanelRef = useRef<PanelImperativeHandle>(null);
   const bottomPanelRef = useRef<PanelImperativeHandle>(null);
+  const horizontalGroupRef = useRef<GroupImperativeHandle>(null);
+  const verticalGroupRef = useRef<GroupImperativeHandle>(null);
+  const sizesLoadedRef = useRef(false);
 
   useEffect(() => {
-    // When showing: expand the panel immediately, then AnimatedPane will slide content in
-    if (paneVisibility.left) {
-      leftPanelRef.current?.expand();
-    }
-    if (paneVisibility.right) {
-      rightPanelRef.current?.expand();
-    }
-    if (paneVisibility.bottom) {
-      bottomPanelRef.current?.expand();
-    }
+    if (paneVisibility.left) leftPanelRef.current?.expand();
+    else leftPanelRef.current?.collapse();
+    if (paneVisibility.right) rightPanelRef.current?.expand();
+    else rightPanelRef.current?.collapse();
+    if (paneVisibility.bottom) bottomPanelRef.current?.expand();
+    else bottomPanelRef.current?.collapse();
   }, [paneVisibility.left, paneVisibility.right, paneVisibility.bottom]);
+
+  useEffect(() => {
+    sendRequest<{ key: string; value: string | null }>('config.get', { key: 'ui_panel_sizes' })
+      .then((response) => {
+        if (response.value) {
+          const sizes = JSON.parse(response.value) as {
+            horizontal: { [id: string]: number };
+            vertical: { [id: string]: number };
+          };
+          if (sizes.horizontal) {
+            horizontalGroupRef.current?.setLayout(sizes.horizontal);
+          }
+          if (sizes.vertical) {
+            verticalGroupRef.current?.setLayout(sizes.vertical);
+          }
+          if (!paneVisibility.left) leftPanelRef.current?.collapse();
+          if (!paneVisibility.right) rightPanelRef.current?.collapse();
+          if (!paneVisibility.bottom) bottomPanelRef.current?.collapse();
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        sizesLoadedRef.current = true;
+      });
+  }, [paneVisibility.left, paneVisibility.right, paneVisibility.bottom]);
+
+  const handleHorizontalLayoutChanged = useCallback((layout: { [id: string]: number }) => {
+    if (!sizesLoadedRef.current) return;
+    if (Object.values(layout).some((v) => v < 1)) return;
+    sendRequest('config.set', {
+      key: 'ui_panel_sizes',
+      value: JSON.stringify({
+        horizontal: horizontalGroupRef.current?.getLayout() ?? {},
+        vertical: verticalGroupRef.current?.getLayout() ?? {},
+      }),
+    }).catch(() => {});
+  }, []);
+
+  const handleVerticalLayoutChanged = useCallback((layout: { [id: string]: number }) => {
+    if (!sizesLoadedRef.current) return;
+    if (Object.values(layout).some((v) => v < 1)) return;
+    sendRequest('config.set', {
+      key: 'ui_panel_sizes',
+      value: JSON.stringify({
+        horizontal: horizontalGroupRef.current?.getLayout() ?? {},
+        vertical: verticalGroupRef.current?.getLayout() ?? {},
+      }),
+    }).catch(() => {});
+  }, []);
 
   if (!isAuthenticated) return <LoginPage />;
 
@@ -54,9 +103,10 @@ export function AppLayout({
       }}
     >
       {topBar}
-      <Group orientation="horizontal" style={{ flex: 1, minHeight: 0 }}>
+      <Group orientation="horizontal" groupRef={horizontalGroupRef} onLayoutChanged={handleHorizontalLayoutChanged} style={{ flex: 1, minHeight: 0 }}>
         {/* Left sidebar - workspace list */}
         <Panel
+          id="left"
           collapsible={true}
           collapsedSize={0}
           panelRef={leftPanelRef}
@@ -70,18 +120,19 @@ export function AppLayout({
             </nav>
           </AnimatedPane>
         </Panel>
-        {paneVisibility.left && <Separator style={{ width: '2px', background: COLOR_BORDER }} />}
+        <Separator style={{ width: '2px', background: COLOR_BORDER }} />
 
         {/* Center - main content with bottom panel */}
-        <Panel defaultSize="55%" minSize="30%">
-          <Group orientation="vertical">
-            <Panel defaultSize="75%" minSize="30%">
+        <Panel id="center" defaultSize="55%" minSize="30%">
+          <Group orientation="vertical" groupRef={verticalGroupRef} onLayoutChanged={handleVerticalLayoutChanged}>
+            <Panel id="content" defaultSize="75%" minSize="30%">
               <main data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
                 {children ?? null}
               </main>
             </Panel>
-            {paneVisibility.bottom && <Separator style={{ height: '2px', background: COLOR_BORDER }} />}
+            <Separator style={{ height: '2px', background: COLOR_BORDER }} />
             <Panel
+              id="bottom"
               collapsible={true}
               collapsedSize={0}
               panelRef={bottomPanelRef}
@@ -95,10 +146,11 @@ export function AppLayout({
             </Panel>
           </Group>
         </Panel>
-        {paneVisibility.right && <Separator style={{ width: '2px', background: COLOR_BORDER }} />}
+        <Separator style={{ width: '2px', background: COLOR_BORDER }} />
 
         {/* Right sidebar - file tree */}
         <Panel
+          id="right"
           collapsible={true}
           collapsedSize={0}
           panelRef={rightPanelRef}

@@ -134,6 +134,8 @@ interface MessageEnvelope {
 | `file.rename`       | request   | Rename/mmove a file                 |
 | `file.change`       | event     | Filesystem change notification      |
 | `git.status`        | request   | Get git status for a path           |
+| `config.get`        | request   | Get a config value from server_config table |
+| `config.set`        | request   | Set a config value in server_config table |
 | `connection.status` | event     | Connection status change            |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
@@ -203,7 +205,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | Directory       | Purpose                                                                            |
 | --------------- | ---------------------------------------------------------------------------------- |
 | `components/`   | React UI components (see below)                                                    |
-| | `hooks/`        | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility`, `useFileSearch`)               |
+| | `hooks/`        | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useFileSearch`) |
 | | `lib/`          | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles, command definitions (`commands.ts`) |
 | `routes/`       | TanStack Router route definitions                                                  |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`)                                     |
@@ -212,7 +214,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 
 | Component                  | Role                                                          |
 | -------------------------- | ------------------------------------------------------------- |
-| `AppLayout`                | IDE shell with resizable left/center/right panels, collapsible via `paneVisibility` prop with slide animations (`AnimatedPane`); `topBar` prop renders the top bar; separators are conditionally rendered based on pane visibility                    |
+| `AppLayout`                | IDE shell with resizable left/center/right panels, collapsible via `paneVisibility` prop with slide animations (`AnimatedPane`); `topBar` prop renders the top bar; separators are conditionally rendered based on pane visibility; panel sizes are persisted to server via `config.set` and restored on load via `groupRef.setLayout()` |
 | `SplitPaneView`            | Recursive split pane renderer                                 |
 | `Terminal`                 | ghostty-web terminal emulator with OSC 7 CWD and title tracking |
 | `CodeEditor`               | CodeMirror 6 editor instance                                  |
@@ -224,7 +226,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `CreateWorkspaceDialog`    | Dialog for creating new workspaces                            |
 | `FileTree`                 | Directory tree with context menu and inline git status        |
 | `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)        |
-| `RightSidebar`             | Resizable explorer panel (FileTree 70% / GitPanel 30%)        |
+| `RightSidebar`             | Resizable explorer panel (FileTree 70% / GitPanel 30%); inner split sizes persisted to server |
 | `GitPanel`                 | Git status display                                            |
 | `LoginPage`                | Password authentication form                                  |
 | `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable` |
@@ -257,10 +259,12 @@ Ymir stores persistent data in SQLite:
 
 | Database   | Location                 | Purpose                    |
 | ---------- | ------------------------ | -------------------------- |
-| Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash  |
+| Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash, UI layout state |
 | Session    | In-memory (`:memory:`)   | Client sessions, tab state |
 
 The config directory is created automatically on first run.
+
+The `server_config` key-value table (within the persistent database) stores UI layout persistence data — panel sizes and pane visibility — using keys like `ui_pane_visibility`, `ui_panel_sizes`, and `ui_explorer_sizes`.
 
 ## Explorer Sidebar
 

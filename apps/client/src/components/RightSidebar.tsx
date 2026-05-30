@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
+import type { GroupImperativeHandle } from 'react-resizable-panels';
 import { FileTree } from './FileTree';
 import { GitPanel } from './GitPanel';
 import { sendRequest } from '../lib/send-request';
@@ -8,7 +9,7 @@ import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
 import { mergeDeletedFiles } from '../lib/git-tree-status';
-import { COLOR_BORDER, COLOR_ERROR, COLOR_TEXT_MUTED } from '../lib/theme';
+import { COLOR_BORDER, COLOR_ERROR, COLOR_TEXT_MUTED, TITLE_BAR_HEIGHT } from '../lib/theme';
 
 interface RightSidebarProps {
   workspaceId: string | null;
@@ -21,6 +22,33 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const explorerGroupRef = useRef<GroupImperativeHandle>(null);
+  const sizesLoadedRef = useRef(false);
+
+  // Load persisted explorer panel sizes on mount
+  useEffect(() => {
+    sendRequest<{ key: string; value: string | null }>('config.get', { key: 'ui_explorer_sizes' })
+      .then((res) => {
+        if (res.value != null) {
+          const layout = JSON.parse(res.value) as { fileTree: number; gitPanel: number };
+          if (typeof layout.fileTree === 'number' && typeof layout.gitPanel === 'number') {
+            explorerGroupRef.current?.setLayout(layout);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        sizesLoadedRef.current = true;
+      });
+  }, []);
+
+  const handleExplorerLayoutChanged = useCallback((layout: Record<string, number>) => {
+    if (!sizesLoadedRef.current) return;
+    if (Object.values(layout).some((v) => v < 1)) return; // skip if collapsed
+    sendRequest('config.set', { key: 'ui_explorer_sizes', value: JSON.stringify(layout) }).catch(
+      () => {},
+    );
+  }, []);
 
   function handleAsyncError(err: unknown) {
     setError(err instanceof Error ? err.message : 'Operation failed');
@@ -162,11 +190,15 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
     >
       <div
         style={{
-          padding: '8px 12px',
+          height: `${TITLE_BAR_HEIGHT}px`,
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 12px',
           borderBottom: `1px solid ${COLOR_BORDER}`,
           fontSize: '11px',
-          textTransform: 'uppercase',
+          textTransform: 'uppercase' as const,
           color: COLOR_TEXT_MUTED,
+          flexShrink: 0,
         }}
       >
         Explorer
@@ -183,8 +215,13 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
           {error}
         </div>
       )}
-      <Group orientation="vertical" style={{ flex: 1, minHeight: 0 }}>
-        <Panel defaultSize="70%" minSize="20%" style={{ overflow: 'auto' }}>
+      <Group
+        orientation="vertical"
+        style={{ flex: 1, minHeight: 0 }}
+        groupRef={explorerGroupRef}
+        onLayoutChanged={handleExplorerLayoutChanged}
+      >
+        <Panel id="fileTree" defaultSize="70%" minSize="20%" style={{ overflow: 'auto' }}>
           {workspaceId ? (
             <FileTree
               tree={treeWithDeleted}
@@ -203,7 +240,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
           )}
         </Panel>
         <Separator style={{ height: '2px', background: COLOR_BORDER }} />
-        <Panel defaultSize="30%" minSize="10%" style={{ overflow: 'auto' }}>
+        <Panel id="gitPanel" defaultSize="30%" minSize="10%" style={{ overflow: 'auto' }}>
           <GitPanel gitStatus={effectiveGitStatus} />
         </Panel>
       </Group>
