@@ -32,9 +32,7 @@ describe('registerConfigHandlers', () => {
   // config.get — existing key
   // -----------------------------------------------------------------------
   it('config.get existing key', async () => {
-    persistentDb.run(
-      "INSERT INTO server_config (key, value) VALUES ('test-key', 'test-value')",
-    );
+    persistentDb.run("INSERT INTO server_config (key, value) VALUES ('test-key', 'test-value')");
 
     const req = request('config.get', { key: 'test-key' });
     await router.route(conn, req);
@@ -118,9 +116,7 @@ describe('registerConfigHandlers', () => {
     expect(conn.sent.length).toBe(1);
     const resp = conn.sent[0] as Record<string, unknown>;
     expect(resp.error).toBeDefined();
-    expect((resp.error as Record<string, unknown>).code).toBe(
-      ErrorCodes.INVALID_MESSAGE,
-    );
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
   });
 
   // -----------------------------------------------------------------------
@@ -133,9 +129,7 @@ describe('registerConfigHandlers', () => {
     expect(conn.sent.length).toBe(1);
     const resp = conn.sent[0] as Record<string, unknown>;
     expect(resp.error).toBeDefined();
-    expect((resp.error as Record<string, unknown>).code).toBe(
-      ErrorCodes.PERMISSION_DENIED,
-    );
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
   });
 
   // -----------------------------------------------------------------------
@@ -148,9 +142,7 @@ describe('registerConfigHandlers', () => {
     expect(conn.sent.length).toBe(1);
     const resp = conn.sent[0] as Record<string, unknown>;
     expect(resp.error).toBeDefined();
-    expect((resp.error as Record<string, unknown>).code).toBe(
-      ErrorCodes.PERMISSION_DENIED,
-    );
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
   });
 
   // -----------------------------------------------------------------------
@@ -174,8 +166,6 @@ describe('registerConfigHandlers', () => {
     // Also verify the connection received the error
     expect(unauthConn.sent.length).toBe(1);
     const resp = unauthConn.sent[0] as Record<string, unknown>;
-    expect((resp.error as Record<string, unknown>).code).toBe(
-      ErrorCodes.AUTH_REQUIRED,
-    );
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.AUTH_REQUIRED);
   });
 });

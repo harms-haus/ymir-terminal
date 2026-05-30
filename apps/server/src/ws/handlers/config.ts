@@ -41,7 +41,12 @@ export function registerConfigHandlers(router: MessageRouter, deps: ConfigDeps):
     const req = envelope as RequestEnvelope<ConfigGetRequest>;
     const payload = req.payload;
 
-    if (payload == null || typeof payload !== 'object' || typeof payload.key !== 'string' || payload.key === '') {
+    if (
+      payload == null ||
+      typeof payload !== 'object' ||
+      typeof payload.key !== 'string' ||
+      payload.key === ''
+    ) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'config.get' },
         ErrorCodes.INVALID_MESSAGE,
@@ -88,7 +93,9 @@ export function registerConfigHandlers(router: MessageRouter, deps: ConfigDeps):
     }
 
     if (PROTECTED_CONFIG_KEYS.has(payload.key)) {
-      conn.send(createError(req, ErrorCodes.PERMISSION_DENIED, 'Cannot modify protected config key'));
+      conn.send(
+        createError(req, ErrorCodes.PERMISSION_DENIED, 'Cannot modify protected config key'),
+      );
       return;
     }
 

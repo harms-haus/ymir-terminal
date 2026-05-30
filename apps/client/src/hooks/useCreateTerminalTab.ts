@@ -22,7 +22,11 @@ export function useCreateTerminalTab(
     creatingRef.current = true;
     try {
       const terminalId = await createTerminal(workspaceId);
-      const tabId = createTab({ type: 'terminal', title: `Terminal ${tabs.length + 1}`, terminalId });
+      const tabId = createTab({
+        type: 'terminal',
+        title: `Terminal ${tabs.length + 1}`,
+        terminalId,
+      });
       onCreated?.(terminalId, tabId);
     } catch (err) {
       console.error('Failed to create terminal:', err);

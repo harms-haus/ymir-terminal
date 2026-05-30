@@ -15,13 +15,24 @@ const execFileAsync = promisify(execFile);
  * @param limit - Maximum number of commits to return (clamped to [1, 100] by caller)
  * @returns Array of git log items, or empty array on error/not-a-repo
  */
-export async function getGitLog(dirPath: string, skip: number, limit: number): Promise<GitLogItem[]> {
+export async function getGitLog(
+  dirPath: string,
+  skip: number,
+  limit: number,
+): Promise<GitLogItem[]> {
   if (!existsSync(join(dirPath, '.git'))) return [];
 
   try {
     const { stdout } = await execFileAsync(
       'git',
-      ['log', '--topo-order', `--pretty=format:%H%x00%P%x00%an%x00%at%x00%s`, `--skip=${skip}`, `-n`, `${limit}`],
+      [
+        'log',
+        '--topo-order',
+        `--pretty=format:%H%x00%P%x00%an%x00%at%x00%s`,
+        `--skip=${skip}`,
+        `-n`,
+        `${limit}`,
+      ],
       { cwd: dirPath, maxBuffer: 10 * 1024 * 1024 },
     );
 

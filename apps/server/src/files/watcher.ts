@@ -82,4 +82,3 @@ export function stopWorkspaceWatcher(workspaceId: string): void {
     activeWatchersByWorkspace.delete(workspaceId);
   }
 }
-

@@ -130,7 +130,12 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     (tabId: string) => {
       const tab = tabsRef.current.find((t) => t.id === tabId);
       if (!tab?.terminalId) return null;
-      const data = { terminalId: tab.terminalId, title: tab.title, cwd: tab.cwd, customTitle: tab.customTitle };
+      const data = {
+        terminalId: tab.terminalId,
+        title: tab.title,
+        cwd: tab.cwd,
+        customTitle: tab.customTitle,
+      };
       closeTab(tabId);
       return data;
     },

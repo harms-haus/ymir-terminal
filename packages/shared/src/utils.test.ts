@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import {
-  expandTilde,
-  fromBase64,
-  generateId,
-  getDbPath,
-  toBase64,
-} from './utils';
+import { expandTilde, fromBase64, generateId, getDbPath, toBase64 } from './utils';
 
 describe('toBase64 / fromBase64', () => {
   it('roundtrips a string through base64', () => {

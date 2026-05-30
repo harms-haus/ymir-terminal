@@ -18,17 +18,17 @@ bun run dev
 
 ## Scripts
 
-| Command                  | Description                        |
-| ------------------------ | ---------------------------------- |
-| `bun run dev`            | Start concurrent server + client dev |
-| `bun run build`          | Build client for production        |
-| `bun run start`          | Start production server            |
-| `bun run test`           | Run all tests                      |
-| `bun run lint`           | Run ESLint                         |
-| `bun run lint:fix`       | Run ESLint with auto-fix           |
-| `bun run format`         | Format code with Prettier          |
-| `bun run format:check`   | Check formatting with Prettier     |
-| `bun run typecheck`      | Run TypeScript type checking       |
+| Command                | Description                          |
+| ---------------------- | ------------------------------------ |
+| `bun run dev`          | Start concurrent server + client dev |
+| `bun run build`        | Build client for production          |
+| `bun run start`        | Start production server              |
+| `bun run test`         | Run all tests                        |
+| `bun run lint`         | Run ESLint                           |
+| `bun run lint:fix`     | Run ESLint with auto-fix             |
+| `bun run format`       | Format code with Prettier            |
+| `bun run format:check` | Check formatting with Prettier       |
+| `bun run typecheck`    | Run TypeScript type checking         |
 
 ## Production
 

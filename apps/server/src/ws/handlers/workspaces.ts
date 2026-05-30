@@ -26,10 +26,7 @@ import {
   type CreateWorkspaceInput,
   type UpdateWorkspaceInput,
 } from '../../db/persistent';
-import {
-  startManagedWatcher,
-  stopManagedWatcher,
-} from '../../files/workspace-watcher';
+import { startManagedWatcher, stopManagedWatcher } from '../../files/workspace-watcher';
 import type { Database } from 'bun:sqlite';
 
 // ---------------------------------------------------------------------------

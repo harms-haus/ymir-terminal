@@ -89,57 +89,48 @@ export function useTabs() {
     });
   }, []);
 
-  const closeTabsRight = useCallback(
-    (tabId: string) => {
-      setTabs((prev) => {
-        const idx = prev.findIndex((t) => t.id === tabId);
-        if (idx === -1) return prev;
-        const kept = prev.slice(0, idx + 1);
-        tabsRef.current = kept;
-        const closedIds = new Set(prev.slice(idx + 1).map((t) => t.id));
-        if (closedIds.has(activeTabIdRef.current as string)) {
-          setActiveTabId(tabId);
-        }
-        return kept;
-      });
-    },
-    [],
-  );
+  const closeTabsRight = useCallback((tabId: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === tabId);
+      if (idx === -1) return prev;
+      const kept = prev.slice(0, idx + 1);
+      tabsRef.current = kept;
+      const closedIds = new Set(prev.slice(idx + 1).map((t) => t.id));
+      if (closedIds.has(activeTabIdRef.current as string)) {
+        setActiveTabId(tabId);
+      }
+      return kept;
+    });
+  }, []);
 
-  const closeOtherTabs = useCallback(
-    (tabId: string) => {
-      setTabs((prev) => {
-        const remaining = prev.filter((t) => t.id === tabId);
-        tabsRef.current = remaining;
-        if (!prev.find((t) => t.id === activeTabIdRef.current) || activeTabIdRef.current !== tabId) {
-          setActiveTabId(tabId);
-        }
-        return remaining;
-      });
-    },
-    [],
-  );
+  const closeOtherTabs = useCallback((tabId: string) => {
+    setTabs((prev) => {
+      const remaining = prev.filter((t) => t.id === tabId);
+      tabsRef.current = remaining;
+      if (!prev.find((t) => t.id === activeTabIdRef.current) || activeTabIdRef.current !== tabId) {
+        setActiveTabId(tabId);
+      }
+      return remaining;
+    });
+  }, []);
 
   const activateTab = useCallback((tabId: string) => setActiveTabId(tabId), []);
 
-  const setDisplayTitle = useCallback(
-    (tabId: string, customTitle: string | undefined) => {
-      setTabs((prev) => {
-        const next = prev.map((t) => {
-          if (t.id !== tabId) return t;
-          const trimmed = customTitle?.trim();
-          // Clear custom title if empty or same as live terminal title
-          if (!trimmed || trimmed === t.title) {
-            return { ...t, customTitle: undefined };
-          }
-          return { ...t, customTitle: trimmed };
-        });
-        tabsRef.current = next;
-        return next;
+  const setDisplayTitle = useCallback((tabId: string, customTitle: string | undefined) => {
+    setTabs((prev) => {
+      const next = prev.map((t) => {
+        if (t.id !== tabId) return t;
+        const trimmed = customTitle?.trim();
+        // Clear custom title if empty or same as live terminal title
+        if (!trimmed || trimmed === t.title) {
+          return { ...t, customTitle: undefined };
+        }
+        return { ...t, customTitle: trimmed };
       });
-    },
-    [],
-  );
+      tabsRef.current = next;
+      return next;
+    });
+  }, []);
 
   return {
     tabs,

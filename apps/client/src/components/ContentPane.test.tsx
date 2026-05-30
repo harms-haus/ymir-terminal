@@ -514,7 +514,12 @@ describe('ContentPane', () => {
     await flush();
 
     const result = ref.current?.transferTabOut('tab-1');
-    expect(result).toEqual({ terminalId: 'term-1', title: 'Terminal 1', cwd: undefined, customTitle: undefined });
+    expect(result).toEqual({
+      terminalId: 'term-1',
+      title: 'Terminal 1',
+      cwd: undefined,
+      customTitle: undefined,
+    });
     expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
     // Should NOT send terminal.close — the PTY stays alive during cross-pane transfer
     expect(mockSendRequest).not.toHaveBeenCalledWith('terminal.close', expect.anything());
@@ -638,7 +643,9 @@ describe('ContentPane', () => {
   // 23. transferTabOut followed by receiveTab round-trips terminal data
   // -----------------------------------------------------------------------
   test('transferTabOut followed by receiveTab round-trips terminal data', async () => {
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 'term-1', cwd: '/home/user' }];
+    mockTabsState = [
+      { id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 'term-1', cwd: '/home/user' },
+    ];
     mockActiveTabIdState = 'tab-1';
 
     const ref = React.createRef<ContentPaneHandle>();
@@ -648,10 +655,20 @@ describe('ContentPane', () => {
 
     // Transfer out
     const data = ref.current?.transferTabOut('tab-1');
-    expect(data).toEqual({ terminalId: 'term-1', title: 'My Term', cwd: '/home/user', customTitle: undefined });
+    expect(data).toEqual({
+      terminalId: 'term-1',
+      title: 'My Term',
+      cwd: '/home/user',
+      customTitle: undefined,
+    });
 
     // Receive in (simulating cross-pane transfer)
-    const newTabId = ref.current?.receiveTab(data!.terminalId, data!.title, data!.cwd, data!.customTitle);
+    const newTabId = ref.current?.receiveTab(
+      data!.terminalId,
+      data!.title,
+      data!.cwd,
+      data!.customTitle,
+    );
     expect(typeof newTabId).toBe('string');
     expect(mockCreateTab).toHaveBeenCalledWith({
       type: 'terminal',
@@ -721,10 +738,12 @@ describe('ContentPane', () => {
     mockActiveTabIdState = 'tab-1';
     mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
 
-    rerender(React.createElement(ContentPane, {
-      workspaceId: 'ws-1',
-      onActiveTabChange: mockOnActiveTabChange,
-    }));
+    rerender(
+      React.createElement(ContentPane, {
+        workspaceId: 'ws-1',
+        onActiveTabChange: mockOnActiveTabChange,
+      }),
+    );
 
     expect(mockOnActiveTabChange).toHaveBeenCalledWith('tab-1');
   });

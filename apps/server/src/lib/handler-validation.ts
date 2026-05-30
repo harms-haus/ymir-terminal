@@ -84,5 +84,3 @@ export function safePath(workspaceCwd: string, userInput: string): string {
 
   return resolved;
 }
-
-

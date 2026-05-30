@@ -106,10 +106,10 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
     (e: React.KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, resultCount - 1));
+        setSelectedIndex((prev) => Math.min(prev + 1, resultCount - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (resultCount > 0) selectItem(selectedIndex);
@@ -196,7 +196,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
         aria-label="Search files and commands"
         autoFocus
         value={query}
-        onChange={e => setQuery(e.target.value)}
+        onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Search files by name... (/ for commands)"
         style={{
@@ -252,7 +252,9 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
                 >
                   <div style={{ color: COLOR_TEXT_BRIGHT, fontSize: '13px' }}>{cmd.label}</div>
                   {cmd.description && (
-                    <div style={{ color: COLOR_TEXT_MUTED, fontSize: '11px' }}>{cmd.description}</div>
+                    <div style={{ color: COLOR_TEXT_MUTED, fontSize: '11px' }}>
+                      {cmd.description}
+                    </div>
                   )}
                 </div>
               ))

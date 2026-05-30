@@ -18,6 +18,8 @@ export function searchCommands(query: string): Command[] {
   if (!query) return getAllCommands();
   const lower = query.toLowerCase();
   return commands
-    .filter(cmd => cmd.label.toLowerCase().includes(lower) || cmd.id.toLowerCase().includes(lower))
+    .filter(
+      (cmd) => cmd.label.toLowerCase().includes(lower) || cmd.id.toLowerCase().includes(lower),
+    )
     .sort((a, b) => a.label.localeCompare(b.label));
 }

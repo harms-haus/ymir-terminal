@@ -3,11 +3,7 @@ import {
   type EventEnvelope,
   type FileChangeEvent as FileChangePayload,
 } from '@ymir/shared';
-import {
-  startWorkspaceWatcher,
-  stopWorkspaceWatcher,
-  type FileChangeEvent,
-} from './watcher';
+import { startWorkspaceWatcher, stopWorkspaceWatcher, type FileChangeEvent } from './watcher';
 
 /**
  * Start a managed file watcher for a workspace that broadcasts `file.change`

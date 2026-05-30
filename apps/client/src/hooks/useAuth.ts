@@ -20,9 +20,7 @@ interface AuthState {
 
 const TOKEN_KEY = 'ymir-token';
 const getWsUrl = () =>
-  (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-  window.location.host +
-  '/ws';
+  (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
 
 // ---------------------------------------------------------------------------
 // Context

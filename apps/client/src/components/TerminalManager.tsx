@@ -32,9 +32,7 @@ export function TerminalManager({
 }: TerminalManagerProps) {
   // Stable ref callbacks: tabId -> ref callback. Created once per tabId to
   // avoid React tearing down and rebuilding the ref on every render.
-  const refCallbackCache = useRef<Map<string, (el: { focus(): void } | null) => void>>(
-    new Map(),
-  );
+  const refCallbackCache = useRef<Map<string, (el: { focus(): void } | null) => void>>(new Map());
 
   // Clean up stale entries for terminals no longer in the list
   const currentTabIds = new Set(terminals.map((t) => t.tabId));

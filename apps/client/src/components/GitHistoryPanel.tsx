@@ -1,20 +1,9 @@
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-  memo,
-} from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { sendRequest } from '../lib/send-request';
 import type { GitLogItem, GitLogResponse } from '@ymir/shared';
-import {
-  COLOR_TEXT,
-  COLOR_TEXT_MUTED,
-  COLOR_ERROR,
-} from '../lib/theme';
+import { COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_ERROR } from '../lib/theme';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -81,10 +70,7 @@ function computeLanes(commits: GitLogItem[]): LaneInfo[] {
 
   // Map: lane number → { targetHash, colorIndex }
   // Represents lanes waiting for a specific parent commit to appear
-  const activeLanes = new Map<
-    number,
-    { targetHash: string; colorIndex: number }
-  >();
+  const activeLanes = new Map<number, { targetHash: string; colorIndex: number }>();
 
   const freeLanes: number[] = [];
   let nextLane = 0;
@@ -191,9 +177,7 @@ function computeLanes(commits: GitLogItem[]): LaneInfo[] {
  * commit above to a parent below that aren't the current row's own lane).
  * Used to draw pass-through vertical lines in the per-row SVG.
  */
-function computeActiveLanes(
-  laneData: LaneInfo[],
-): ActiveLane[][] {
+function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
   const n = laneData.length;
   if (n === 0) return [];
 
@@ -277,11 +261,7 @@ const CommitRow = memo(function CommitRow({
   return (
     <div style={{ display: 'flex', height: ROW_HEIGHT, ...style }}>
       {/* Graph column */}
-      <svg
-        width={graphWidth}
-        height={ROW_HEIGHT}
-        style={{ flexShrink: 0 }}
-      >
+      <svg width={graphWidth} height={ROW_HEIGHT} style={{ flexShrink: 0 }}>
         {/* Pass-through vertical lines */}
         {activeLanes.map((al) => {
           const x = al.lane * LANE_WIDTH + GRAPH_LEFT_PADDING;
@@ -303,8 +283,7 @@ const CommitRow = memo(function CommitRow({
         {linesDown.map((seg, idx) => {
           const fromX = seg.fromLane * LANE_WIDTH + GRAPH_LEFT_PADDING;
           const toX = seg.toLane * LANE_WIDTH + GRAPH_LEFT_PADDING;
-          const segColor =
-            COLOR_PALETTE[seg.colorIndex % COLOR_PALETTE.length];
+          const segColor = COLOR_PALETTE[seg.colorIndex % COLOR_PALETTE.length];
 
           if (seg.fromLane === seg.toLane) {
             // Same lane — vertical line from center to bottom
@@ -456,10 +435,7 @@ export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
 
   // ── Active lanes per row ───────────────────────────────────────────────
 
-  const activeLanesPerRow = useMemo(
-    () => computeActiveLanes(laneData),
-    [laneData],
-  );
+  const activeLanesPerRow = useMemo(() => computeActiveLanes(laneData), [laneData]);
 
   // ── Virtualizer ──────────────────────────────────────────────────────
 
@@ -483,7 +459,16 @@ export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
       }}
     >
       {error && (
-        <div style={{ padding: 8, color: COLOR_ERROR, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            padding: 8,
+            color: COLOR_ERROR,
+            fontSize: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
           <span style={{ flex: 1 }}>{error}</span>
           <button
             onClick={() => loadCommitsRef.current()}
@@ -509,9 +494,7 @@ export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
           </div>
         )}
         {workspaceId && commits.length === 0 && !loading && (
-          <div style={{ padding: 8, color: COLOR_TEXT_MUTED, fontSize: 12 }}>
-            No commits
-          </div>
+          <div style={{ padding: 8, color: COLOR_TEXT_MUTED, fontSize: 12 }}>No commits</div>
         )}
         <div
           style={{
@@ -542,9 +525,7 @@ export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
         </div>
         <div ref={sentinelRef} style={{ height: 1 }} />
         {loading && (
-          <div style={{ padding: 8, color: COLOR_TEXT_MUTED, fontSize: 12 }}>
-            Loading…
-          </div>
+          <div style={{ padding: 8, color: COLOR_TEXT_MUTED, fontSize: 12 }}>Loading…</div>
         )}
       </div>
     </div>

@@ -77,5 +77,3 @@ export interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'ty
   type: 'event';
   payload: T;
 }
-
-

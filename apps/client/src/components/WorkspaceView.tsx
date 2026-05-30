@@ -34,7 +34,12 @@ function WorkspaceViewInner() {
   const { setAccentColor } = useTheme();
   const updateWorkspace = useUpdateWorkspace();
   const deleteWorkspace = useDeleteWorkspace();
-  const { left: leftVisible, right: rightVisible, bottom: bottomVisible, loading } = usePaneVisibility();
+  const {
+    left: leftVisible,
+    right: rightVisible,
+    bottom: bottomVisible,
+    loading,
+  } = usePaneVisibility();
 
   const contentPaneRef = useRef<ContentPaneHandle>(null);
   const bottomPanelRef = useRef<BottomPanelHandle>(null);
@@ -199,35 +204,57 @@ function WorkspaceViewInner() {
   );
 
   const handleDragEnd = useCallback(
-    (event: { canceled: boolean; operation: { source?: { id?: string; group?: string } | null; target?: { id?: string; group?: string } | null } }) => {
+    (event: {
+      canceled: boolean;
+      operation: {
+        source?: { id?: string; group?: string } | null;
+        target?: { id?: string; group?: string } | null;
+      };
+    }) => {
       if (event.canceled) return;
       const source = event.operation.source;
       const target = event.operation.target;
-      if (!source?.id || !(target?.group ?? (target as unknown as { data?: { group?: string } })?.data?.group)) return;
+      if (
+        !source?.id ||
+        !(target?.group ?? (target as unknown as { data?: { group?: string } })?.data?.group)
+      )
+        return;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sourceGroup = (source as any).initialGroup ?? source.group;
-      const targetGroup = target!.group ?? (target! as unknown as { data?: { group?: string } })?.data?.group;
+      const targetGroup =
+        target!.group ?? (target! as unknown as { data?: { group?: string } })?.data?.group;
 
       // Only handle cross-pane transfers
       if (sourceGroup === targetGroup) return;
 
       // Determine source and target panes
-      const sourcePane = sourceGroup === 'content' ? contentPaneRef.current : bottomPanelRef.current;
-      const targetPane = targetGroup === 'content' ? contentPaneRef.current : bottomPanelRef.current;
+      const sourcePane =
+        sourceGroup === 'content' ? contentPaneRef.current : bottomPanelRef.current;
+      const targetPane =
+        targetGroup === 'content' ? contentPaneRef.current : bottomPanelRef.current;
       if (!sourcePane || !targetPane) return;
 
       // Transfer the tab: remove from source pane, add to target pane
       const removed = sourcePane.transferTabOut(source.id as string);
       if (!removed) return;
 
-      const newTabId = targetPane.receiveTab(removed.terminalId, removed.title, removed.cwd, removed.customTitle);
+      const newTabId = targetPane.receiveTab(
+        removed.terminalId,
+        removed.title,
+        removed.cwd,
+        removed.customTitle,
+      );
 
       // Update terminal ownership — no unmount, just update the portal target
-      const newOwningPane = (targetGroup === 'content' ? 'content' : 'bottom') as 'content' | 'bottom';
+      const newOwningPane = (targetGroup === 'content' ? 'content' : 'bottom') as
+        | 'content'
+        | 'bottom';
       setTerminalRegistry((prev) =>
         prev.map((t) =>
-          t.terminalId === removed.terminalId ? { ...t, tabId: newTabId, owningPane: newOwningPane } : t,
+          t.terminalId === removed.terminalId
+            ? { ...t, tabId: newTabId, owningPane: newOwningPane }
+            : t,
         ),
       );
     },

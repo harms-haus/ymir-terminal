@@ -1,5 +1,11 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { Group, Panel, Separator, type PanelImperativeHandle, type GroupImperativeHandle } from 'react-resizable-panels';
+import {
+  Group,
+  Panel,
+  Separator,
+  type PanelImperativeHandle,
+  type GroupImperativeHandle,
+} from 'react-resizable-panels';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPage } from './LoginPage';
 import { AnimatedPane } from './AnimatedPane';
@@ -91,7 +97,12 @@ export function AppLayout({
       }}
     >
       {topBar}
-      <Group orientation="horizontal" groupRef={horizontalGroupRef} onLayoutChanged={handleLayoutChanged} style={{ flex: 1, minHeight: 0 }}>
+      <Group
+        orientation="horizontal"
+        groupRef={horizontalGroupRef}
+        onLayoutChanged={handleLayoutChanged}
+        style={{ flex: 1, minHeight: 0 }}
+      >
         {/* Left sidebar - workspace list */}
         <Panel
           id="left"
@@ -102,7 +113,11 @@ export function AppLayout({
           minSize="10%"
           maxSize="80%"
         >
-          <AnimatedPane direction="left" visible={paneVisibility.left} onCollapseReady={() => leftPanelRef.current?.collapse()}>
+          <AnimatedPane
+            direction="left"
+            visible={paneVisibility.left}
+            onCollapseReady={() => leftPanelRef.current?.collapse()}
+          >
             <nav aria-label="Workspaces" data-testid="left-sidebar">
               {leftSidebar ?? 'Left Sidebar'}
             </nav>
@@ -112,7 +127,11 @@ export function AppLayout({
 
         {/* Center - main content with bottom panel */}
         <Panel id="center" defaultSize="55%" minSize="30%">
-          <Group orientation="vertical" groupRef={verticalGroupRef} onLayoutChanged={handleLayoutChanged}>
+          <Group
+            orientation="vertical"
+            groupRef={verticalGroupRef}
+            onLayoutChanged={handleLayoutChanged}
+          >
             <Panel id="content" defaultSize="75%" minSize="30%">
               <main data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
                 {children ?? null}
@@ -128,8 +147,14 @@ export function AppLayout({
               minSize="10%"
               maxSize="90%"
             >
-              <AnimatedPane direction="bottom" visible={paneVisibility.bottom} onCollapseReady={() => bottomPanelRef.current?.collapse()}>
-                <div data-testid="bottom-panel" style={{ height: '100%' }}>{bottomPanel ?? 'Bottom Panel'}</div>
+              <AnimatedPane
+                direction="bottom"
+                visible={paneVisibility.bottom}
+                onCollapseReady={() => bottomPanelRef.current?.collapse()}
+              >
+                <div data-testid="bottom-panel" style={{ height: '100%' }}>
+                  {bottomPanel ?? 'Bottom Panel'}
+                </div>
               </AnimatedPane>
             </Panel>
           </Group>
@@ -146,7 +171,11 @@ export function AppLayout({
           minSize="15%"
           maxSize="80%"
         >
-          <AnimatedPane direction="right" visible={paneVisibility.right} onCollapseReady={() => rightPanelRef.current?.collapse()}>
+          <AnimatedPane
+            direction="right"
+            visible={paneVisibility.right}
+            onCollapseReady={() => rightPanelRef.current?.collapse()}
+          >
             <aside aria-label="Explorer" data-testid="right-sidebar" style={{ height: '100%' }}>
               {rightSidebar ?? 'Right Sidebar'}
             </aside>

@@ -29,10 +29,15 @@ export function registerCrudHandlers(
   router.handle('file.write', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<FileWriteRequest>;
     await handleFileRequest(
-      conn, req, deps, req.payload as unknown as Record<string, unknown>,
+      conn,
+      req,
+      deps,
+      req.payload as unknown as Record<string, unknown>,
       ['workspaceId', 'path', 'content'],
       ['path'],
-      async ({ path }) => { await doWrite(path, req.payload.content); },
+      async ({ path }) => {
+        await doWrite(path, req.payload.content);
+      },
     );
   });
 
@@ -40,10 +45,15 @@ export function registerCrudHandlers(
   router.handle('file.delete', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<FileDeleteRequest>;
     await handleFileRequest(
-      conn, req, deps, req.payload as unknown as Record<string, unknown>,
+      conn,
+      req,
+      deps,
+      req.payload as unknown as Record<string, unknown>,
       ['workspaceId', 'path'],
       ['path'],
-      async ({ path }) => { await doDelete(path); },
+      async ({ path }) => {
+        await doDelete(path);
+      },
     );
   });
 
@@ -51,10 +61,15 @@ export function registerCrudHandlers(
   router.handle('file.rename', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<FileRenameRequest>;
     await handleFileRequest(
-      conn, req, deps, req.payload as unknown as Record<string, unknown>,
+      conn,
+      req,
+      deps,
+      req.payload as unknown as Record<string, unknown>,
       ['workspaceId', 'oldPath', 'newPath'],
       ['oldPath', 'newPath'],
-      async ({ oldPath, newPath }) => { await doRename(oldPath, newPath); },
+      async ({ oldPath, newPath }) => {
+        await doRename(oldPath, newPath);
+      },
     );
   });
 
@@ -62,7 +77,10 @@ export function registerCrudHandlers(
   router.handle('file.create', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<FileCreateRequest>;
     await handleFileRequest(
-      conn, req, deps, req.payload as unknown as Record<string, unknown>,
+      conn,
+      req,
+      deps,
+      req.payload as unknown as Record<string, unknown>,
       ['workspaceId', 'path'],
       ['path'],
       async ({ path }) => {

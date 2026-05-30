@@ -7,7 +7,9 @@ import { TabBar } from './TabBar';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 
 export interface ContentPaneHandle {
-  transferTabOut: (tabId: string) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
+  transferTabOut: (
+    tabId: string,
+  ) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
   receiveTab: (terminalId: string, title: string, cwd?: string, customTitle?: string) => string;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   getTabs: () => Tab[];
@@ -27,7 +29,15 @@ export interface ContentPaneProps {
 }
 
 export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(function ContentPane(
-  { workspaceId, fileToOpen, onFileOpened, terminalContainerRef, onTerminalRegistered, onTerminalUnregistered, onActiveTabChange }: ContentPaneProps,
+  {
+    workspaceId,
+    fileToOpen,
+    onFileOpened,
+    terminalContainerRef,
+    onTerminalRegistered,
+    onTerminalUnregistered,
+    onActiveTabChange,
+  }: ContentPaneProps,
   ref,
 ) {
   const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(new Set());
@@ -59,7 +69,12 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
     [onTerminalRegistered],
   );
 
-  const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab, handleTerminalCreated);
+  const handleAddTerminal = useCreateTerminalTab(
+    workspaceId,
+    tabs,
+    createTab,
+    handleTerminalCreated,
+  );
 
   const handleDirtyChange = useCallback((filePath: string, dirty: boolean) => {
     setDirtyFiles((prev) => {
@@ -106,7 +121,15 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
       updateTabTitle,
       updateTabCwd,
     }),
-    [transferTabOut, receiveTab, reorderTabs, getTabs, getActiveTabId, updateTabTitle, updateTabCwd],
+    [
+      transferTabOut,
+      receiveTab,
+      reorderTabs,
+      getTabs,
+      getActiveTabId,
+      updateTabTitle,
+      updateTabCwd,
+    ],
   );
 
   return (
@@ -129,7 +152,11 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
       />
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         {/* TerminalManager portals terminals into this container */}
-        <div ref={terminalContainerRef} data-testid="terminal-container" style={{ height: '100%', pointerEvents: 'none' }} />
+        <div
+          ref={terminalContainerRef}
+          data-testid="terminal-container"
+          style={{ height: '100%', pointerEvents: 'none' }}
+        />
         {activeTab?.type === 'editor' && activeTab.filePath && workspaceId && (
           <div style={{ position: 'absolute', inset: 0, background: COLOR_BG_PRIMARY }}>
             <EditorPane

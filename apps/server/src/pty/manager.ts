@@ -96,7 +96,12 @@ export class PTYManager {
       throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
     }
 
-    this.terminals.set(id, { terminal, process: proc, lastCols: options.cols, lastRows: options.rows });
+    this.terminals.set(id, {
+      terminal,
+      process: proc,
+      lastCols: options.cols,
+      lastRows: options.rows,
+    });
 
     proc.exited
       .then((code: number) => {

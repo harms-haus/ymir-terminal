@@ -6,7 +6,9 @@ import { TabBar } from './TabBar';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 
 export interface BottomPanelHandle {
-  transferTabOut: (tabId: string) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
+  transferTabOut: (
+    tabId: string,
+  ) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
   receiveTab: (terminalId: string, title: string, cwd?: string, customTitle?: string) => string;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   getTabs: () => Tab[];
@@ -23,8 +25,16 @@ export interface BottomPanelProps {
   onActiveTabChange?: (activeTabId: string | null) => void;
 }
 
-export const BottomPanel = forwardRef<BottomPanelHandle, BottomPanelProps>(
-function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, onTerminalUnregistered, onActiveTabChange }: BottomPanelProps, ref) {
+export const BottomPanel = forwardRef<BottomPanelHandle, BottomPanelProps>(function BottomPanel(
+  {
+    workspaceId,
+    terminalContainerRef,
+    onTerminalRegistered,
+    onTerminalUnregistered,
+    onActiveTabChange,
+  }: BottomPanelProps,
+  ref,
+) {
   const {
     tabs,
     activeTabId,
@@ -53,7 +63,12 @@ function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, 
     [onTerminalRegistered],
   );
 
-  const handleAddTerminal = useCreateTerminalTab(workspaceId, tabs, createTab, handleTerminalCreated);
+  const handleAddTerminal = useCreateTerminalTab(
+    workspaceId,
+    tabs,
+    createTab,
+    handleTerminalCreated,
+  );
 
   // Notify parent of activeTabId changes
   useEffect(() => {
@@ -71,7 +86,15 @@ function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, 
       updateTabTitle,
       updateTabCwd,
     }),
-    [transferTabOut, receiveTab, reorderTabs, getTabs, getActiveTabId, updateTabTitle, updateTabCwd],
+    [
+      transferTabOut,
+      receiveTab,
+      reorderTabs,
+      getTabs,
+      getActiveTabId,
+      updateTabTitle,
+      updateTabCwd,
+    ],
   );
 
   return (
@@ -99,7 +122,11 @@ function BottomPanel({ workspaceId, terminalContainerRef, onTerminalRegistered, 
       />
       {/* TerminalManager portals terminals into this container */}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <div ref={terminalContainerRef} data-testid="terminal-container" style={{ height: '100%', pointerEvents: 'none' }} />
+        <div
+          ref={terminalContainerRef}
+          data-testid="terminal-container"
+          style={{ height: '100%', pointerEvents: 'none' }}
+        />
         {!activeTabId && (
           <div
             style={{

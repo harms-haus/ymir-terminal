@@ -25,7 +25,11 @@ export interface GitDeps {
   /** Internal: allows tests to inject mock functions. */
   _mocks?: {
     getGitStatus?: (dirPath: string) => Promise<GitStatusResponse | null>;
-    getGitLog?: (dirPath: string, skip: number, limit: number) => Promise<import('@ymir/shared').GitLogItem[]>;
+    getGitLog?: (
+      dirPath: string,
+      skip: number,
+      limit: number,
+    ) => Promise<import('@ymir/shared').GitLogItem[]>;
     getWorkspace?: (db: Database, id: string) => Workspace | null;
   };
 }
@@ -82,30 +86,36 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     const payload = req.payload;
 
     if (!payload || typeof payload.workspaceId !== 'string') {
-      conn.send(createError(
-        { id: req.id, channel: req.channel ?? 'git.log' },
-        ErrorCodes.INVALID_MESSAGE,
-        'Missing or invalid workspaceId',
-      ));
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.log' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid workspaceId',
+        ),
+      );
       return;
     }
 
     if (typeof payload.skip !== 'number' || typeof payload.limit !== 'number') {
-      conn.send(createError(
-        { id: req.id, channel: req.channel ?? 'git.log' },
-        ErrorCodes.INVALID_MESSAGE,
-        'Missing or invalid skip/limit',
-      ));
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.log' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid skip/limit',
+        ),
+      );
       return;
     }
 
     const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
     if (!workspace) {
-      conn.send(createError(
-        { id: req.id, channel: req.channel ?? 'git.log' },
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-        'Workspace not found',
-      ));
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.log' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          'Workspace not found',
+        ),
+      );
       return;
     }
 

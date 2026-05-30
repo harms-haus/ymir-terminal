@@ -37,9 +37,27 @@ describe('registerGitHandlers', () => {
     });
 
     const fakeCommits: GitLogItem[] = [
-      { id: 'aaa', message: 'third commit', author: 'Alice <alice@example.com>', date: 1700000003, parents: ['bbb'] },
-      { id: 'bbb', message: 'second commit', author: 'Bob <bob@example.com>', date: 1700000002, parents: ['ccc'] },
-      { id: 'ccc', message: 'first commit', author: 'Alice <alice@example.com>', date: 1700000001, parents: [] },
+      {
+        id: 'aaa',
+        message: 'third commit',
+        author: 'Alice <alice@example.com>',
+        date: 1700000003,
+        parents: ['bbb'],
+      },
+      {
+        id: 'bbb',
+        message: 'second commit',
+        author: 'Bob <bob@example.com>',
+        date: 1700000002,
+        parents: ['ccc'],
+      },
+      {
+        id: 'ccc',
+        message: 'first commit',
+        author: 'Alice <alice@example.com>',
+        date: 1700000001,
+        parents: [],
+      },
     ];
 
     getGitLogFn = mock(async (_dirPath: string, _skip: number, _limit: number) => {
@@ -66,7 +84,7 @@ describe('registerGitHandlers', () => {
         getGitLog: getGitLogFn,
         getWorkspace: getWorkspaceFn,
       },
- };
+    };
 
     registerGitHandlers(router, deps);
   });
@@ -149,9 +167,27 @@ describe('registerGitHandlers', () => {
   // -----------------------------------------------------------------------
   describe('git.log', () => {
     const fakeCommits: GitLogItem[] = [
-      { id: 'aaa', message: 'third commit', author: 'Alice <alice@example.com>', date: 1700000003, parents: ['bbb'] },
-      { id: 'bbb', message: 'second commit', author: 'Bob <bob@example.com>', date: 1700000002, parents: ['ccc'] },
-      { id: 'ccc', message: 'first commit', author: 'Alice <alice@example.com>', date: 1700000001, parents: [] },
+      {
+        id: 'aaa',
+        message: 'third commit',
+        author: 'Alice <alice@example.com>',
+        date: 1700000003,
+        parents: ['bbb'],
+      },
+      {
+        id: 'bbb',
+        message: 'second commit',
+        author: 'Bob <bob@example.com>',
+        date: 1700000002,
+        parents: ['ccc'],
+      },
+      {
+        id: 'ccc',
+        message: 'first commit',
+        author: 'Alice <alice@example.com>',
+        date: 1700000001,
+        parents: [],
+      },
     ];
 
     it('returns commits with id, message, author, date for a valid workspace', async () => {

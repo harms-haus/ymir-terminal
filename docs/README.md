@@ -32,21 +32,21 @@ Bun Server
 
 ## Tech Stack
 
-| Layer       | Technology                                                            |
-| ----------- | --------------------------------------------------------------------- |
-| Runtime     | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner   |
-| Language    | TypeScript (strict mode)                                              |
-| Backend     | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                       |
-| Frontend    | React 19, TanStack Router, TanStack Query, Vite                       |
-| Terminal    | `ghostty-web` + `ghostty-web FitAddon`                                  |
-| Code Editor | CodeMirror 6 (`@codemirror/lang-*`)                                   |
-| Auth        | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry |
-| DnD         | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer |
-| Context Menu | `@radix-ui/react-context-menu`                                        |
-| Virtualization | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories |
-| Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API |
-| Styling     | Inline CSS, `react-resizable-panels` for IDE layout                   |
-| Testing     | `bun:test`, Testing Library (React), happy-dom                        |
+| Layer           | Technology                                                                              |
+| --------------- | --------------------------------------------------------------------------------------- |
+| Runtime         | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner                     |
+| Language        | TypeScript (strict mode)                                                                |
+| Backend         | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                                         |
+| Frontend        | React 19, TanStack Router, TanStack Query, Vite                                         |
+| Terminal        | `ghostty-web` + `ghostty-web FitAddon`                                                  |
+| Code Editor     | CodeMirror 6 (`@codemirror/lang-*`)                                                     |
+| Auth            | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry                   |
+| DnD             | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer          |
+| Context Menu    | `@radix-ui/react-context-menu`                                                          |
+| Virtualization  | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories |
+| Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API     |
+| Styling         | Inline CSS, `react-resizable-panels` for IDE layout                                     |
+| Testing         | `bun:test`, Testing Library (React), happy-dom                                          |
 
 ## Getting Started
 
@@ -100,9 +100,9 @@ All communication uses a JSON envelope format over a single WebSocket connection
 interface MessageEnvelope<T = unknown> {
   v: 1; // protocol version
   type: 'request' | 'response' | 'event';
-  id?: string;          // Required for requests/responses; absent for events
-  channel?: string;     // Required for requests; absent for most responses/events
-  token?: string;       // Auth token; attached by the client transport layer
+  id?: string; // Required for requests/responses; absent for events
+  channel?: string; // Required for requests; absent for most responses/events
+  token?: string; // Auth token; attached by the client transport layer
   payload: T;
   error?: ErrorResponse; // code is typed as ErrorCode (union), not plain string
 }
@@ -116,31 +116,31 @@ interface MessageEnvelope<T = unknown> {
 
 ### Channel Reference
 
-| Channel             | Direction | Description                         |
-| ------------------- | --------- | ----------------------------------- |
-| `auth`              | request   | Authenticate with password          |
-| `terminal.create`   | request   | Spawn a new PTY                     |
-| `terminal.input`    | request   | Send keystrokes (base64)            |
-| `terminal.resize`   | request   | Resize terminal dimensions          |
-| `terminal.close`    | request   | Kill a PTY                          |
-| `terminal.output`   | event     | PTY output (base64)                 |
-| `terminal.exit`     | event     | PTY process exited (with exit code) |
-| `workspace.list`    | request   | List saved workspaces               |
-| `workspace.create`  | request   | Create a workspace                  |
-| `workspace.update`  | request   | Update workspace settings           |
-| `workspace.delete`  | request   | Delete a workspace                  |
-| `file.tree`         | request   | Get directory listing               |
-| `file.read`         | request   | Read file contents                  |
-| `file.write`        | request   | Write file contents                 |
-| `file.create`       | request   | Create file or directory            |
-| `file.delete`       | request   | Delete file or directory            |
-| `file.rename`       | request   | Rename/move a file                 |
-| `file.change`       | event     | Filesystem change notification      |
-| `git.status`        | request   | Get git status for a path           |
+| Channel             | Direction | Description                                                                       |
+| ------------------- | --------- | --------------------------------------------------------------------------------- |
+| `auth`              | request   | Authenticate with password                                                        |
+| `terminal.create`   | request   | Spawn a new PTY                                                                   |
+| `terminal.input`    | request   | Send keystrokes (base64)                                                          |
+| `terminal.resize`   | request   | Resize terminal dimensions                                                        |
+| `terminal.close`    | request   | Kill a PTY                                                                        |
+| `terminal.output`   | event     | PTY output (base64)                                                               |
+| `terminal.exit`     | event     | PTY process exited (with exit code)                                               |
+| `workspace.list`    | request   | List saved workspaces                                                             |
+| `workspace.create`  | request   | Create a workspace                                                                |
+| `workspace.update`  | request   | Update workspace settings                                                         |
+| `workspace.delete`  | request   | Delete a workspace                                                                |
+| `file.tree`         | request   | Get directory listing                                                             |
+| `file.read`         | request   | Read file contents                                                                |
+| `file.write`        | request   | Write file contents                                                               |
+| `file.create`       | request   | Create file or directory                                                          |
+| `file.delete`       | request   | Delete file or directory                                                          |
+| `file.rename`       | request   | Rename/move a file                                                                |
+| `file.change`       | event     | Filesystem change notification                                                    |
+| `git.status`        | request   | Get git status for a path                                                         |
 | `git.log`           | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`) |
-| `config.get`        | request   | Get a config value from server_config table |
-| `config.set`        | request   | Set a config value in server_config table |
-| `connection.status` | event     | Connection status change            |
+| `config.get`        | request   | Get a config value from server_config table                                       |
+| `config.set`        | request   | Set a config value in server_config table                                         |
+| `connection.status` | event     | Connection status change                                                          |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 
@@ -159,34 +159,34 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 
 ### `packages/shared` — `@ymir/shared`
 
-| File                   | Purpose                                                                                               |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                     |
+| File                   | Purpose                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                                            |
 | `protocol/payloads.ts` | Request/event type constants, payload types (`GitLogRequest`, `GitLogItem`, `GitLogResponse`, `ConnectionStatusEvent`, etc.) |
-| `protocol/panes.ts`    | Split pane tree types                                                                                 |
-| `constants.ts`         | Default ports, paths, timeouts                                                                        |
-| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `delay`, `clamp`, `expandTilde`, `getConfigPath`, `getDbPath` |
+| `protocol/panes.ts`    | Split pane tree types                                                                                                        |
+| `constants.ts`         | Default ports, paths, timeouts                                                                                               |
+| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `delay`, `clamp`, `expandTilde`, `getConfigPath`, `getDbPath`                        |
 
 ### `apps/server` — `@ymir/server`
 
-| Directory            | Purpose                                                       |
-| -------------------- | ------------------------------------------------------------- |
-| `auth/`              | Password hashing (Argon2id), JWT sign/verify                  |
-| `db/`                | Persistent DB (workspaces), session DB (tabs)                 |
-| `lib/`               | Shared handler validation (`handler-validation.ts`)           |
-| `pty/`               | PTY manager — spawn, resize, write, kill                      |
-| `files/`             | File scanner, CRUD operations, filesystem watcher             |
+| Directory            | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `auth/`              | Password hashing (Argon2id), JWT sign/verify                                |
+| `db/`                | Persistent DB (workspaces), session DB (tabs)                               |
+| `lib/`               | Shared handler validation (`handler-validation.ts`)                         |
+| `pty/`               | PTY manager — spawn, resize, write, kill                                    |
+| `files/`             | File scanner, CRUD operations, filesystem watcher                           |
 | `git/`               | Git status reader (`git status --porcelain=v1`), git log reader (`git log`) |
-| `ws/`                | WebSocket server, message router, connection state            |
-| `ws/handlers/`       | Channel handlers (auth, terminal, files, git, ws)             |
-| `ws/handlers/files/` | File handlers split into `tree`, `crud`, `language`, `shared` |
-| `test-helpers/`      | Shared server test utilities (`mock-utils.ts`)                |
+| `ws/`                | WebSocket server, message router, connection state                          |
+| `ws/handlers/`       | Channel handlers (auth, terminal, files, git, ws)                           |
+| `ws/handlers/files/` | File handlers split into `tree`, `crud`, `language`, `shared`               |
+| `test-helpers/`      | Shared server test utilities (`mock-utils.ts`)                              |
 
 **Git module detail:**
 
-| File          | Responsibility                                                                                   |
-| ------------- | ------------------------------------------------------------------------------------------------ |
-| `git/status.ts` | Reads `git status --porcelain=v1` output, returns branch name + staged/unstaged file changes       |
+| File            | Responsibility                                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git/status.ts` | Reads `git status --porcelain=v1` output, returns branch name + staged/unstaged file changes                                                                                                                                    |
 | `git/log.ts`    | Async `getGitLog(dirPath, skip, limit)` — executes `git log --pretty=format` with NUL-delimited fields (`%H%x00%P%x00%an%x00%at%x00%s`), returns `GitLogItem[]`. Uses `execFile` (promisified) to avoid blocking the event loop |
 
 **Handler registration pattern:**
@@ -213,42 +213,42 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 
 ### `apps/client` — `@ymir/client`
 
-| Directory       | Purpose                                                                            |
-| --------------- | ---------------------------------------------------------------------------------- |
-| `components/`   | React UI components (see below)                                                    |
-| | `hooks/`        | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useFileSearch`) |
-| | `lib/`          | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles, command definitions (`commands.ts`) |
-| `routes/`       | TanStack Router route definitions                                                  |
-| `test-helpers/` | Shared client test utilities (`mock-setup.ts`)                                     |
+| Directory       | Purpose                                        |
+| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/`   | React UI components (see below)                |
+|                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useFileSearch`) |
+|                 | `lib/`                                         | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles, command definitions (`commands.ts`)                     |
+| `routes/`       | TanStack Router route definitions              |
+| `test-helpers/` | Shared client test utilities (`mock-setup.ts`) |
 
 **Key components:**
 
-| Component                  | Role                                                          |
-| -------------------------- | ------------------------------------------------------------- |
+| Component                  | Role                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AppLayout`                | IDE shell with resizable left/center/right panels, collapsible via `paneVisibility` prop with slide animations (`AnimatedPane`); `topBar` prop renders the top bar; separators are conditionally rendered based on pane visibility; panel sizes are persisted to server via `config.set` and restored on load via `groupRef.setLayout()` |
-| `SplitPaneView`            | Recursive split pane renderer                                 |
-| `Terminal`                 | ghostty-web terminal emulator with OSC 7 CWD and title tracking |
-| `CodeEditor`               | CodeMirror 6 editor instance                                  |
-| `EditorPane`               | Extracted editor pane (file loading, save, retry)             |
-| `ContentPane`              | `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation |
-| `PaneContextMenu`          | Context menu for pane operations                              |
-| `WorkspaceSidebar`         | Sidebar listing workspaces                                    |
-| `WorkspaceItem`            | Individual workspace item with context menu                   |
-| `CreateWorkspaceDialog`    | Dialog for creating new workspaces                            |
-| `FileTree`                 | Directory tree with context menu and inline git status        |
-| `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)        |
-| `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split |
-| `GitPanel`                 | Git status display (staged/unstaged changes)                  |
-| `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading |
-| `LoginPage`                | Password authentication form                                  |
-| `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable` |
-| `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename) |
-| `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation |
-| `WorkspaceView`            | Top-level workspace view that wraps content in `PaneVisibilityProvider` and composes `TopBar` with `CommandBar` for the top bar; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; `DragDropProvider` for cross-pane terminal tab DnD |
-| `TopBar`                   | Top bar with connection indicator (left), command bar slot (center), pane toggle buttons (right) |
-| `CommandBar`               | File search and command palette (activated by click or Ctrl+K, `/` prefix for commands) |
-| `AnimatedPane`             | Slide animation wrapper for collapsible panels               |
-| `ToastProvider`            | Toast notification system                                     |
+| `SplitPaneView`            | Recursive split pane renderer                                                                                                                                                                                                                                                                                                            |
+| `Terminal`                 | ghostty-web terminal emulator with OSC 7 CWD and title tracking                                                                                                                                                                                                                                                                          |
+| `CodeEditor`               | CodeMirror 6 editor instance                                                                                                                                                                                                                                                                                                             |
+| `EditorPane`               | Extracted editor pane (file loading, save, retry)                                                                                                                                                                                                                                                                                        |
+| `ContentPane`              | `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation                                                                                                                                                                                                               |
+| `PaneContextMenu`          | Context menu for pane operations                                                                                                                                                                                                                                                                                                         |
+| `WorkspaceSidebar`         | Sidebar listing workspaces                                                                                                                                                                                                                                                                                                               |
+| `WorkspaceItem`            | Individual workspace item with context menu                                                                                                                                                                                                                                                                                              |
+| `CreateWorkspaceDialog`    | Dialog for creating new workspaces                                                                                                                                                                                                                                                                                                       |
+| `FileTree`                 | Directory tree with context menu and inline git status                                                                                                                                                                                                                                                                                   |
+| `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)                                                                                                                                                                                                                                                                                   |
+| `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split                                                                                                                                                                                            |
+| `GitPanel`                 | Git status display (staged/unstaged changes)                                                                                                                                                                                                                                                                                             |
+| `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading                                                                                                                                     |
+| `LoginPage`                | Password authentication form                                                                                                                                                                                                                                                                                                             |
+| `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable`                                                                                                                                                                                                                         |
+| `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename)                                                                                                                                                                                                                                                               |
+| `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation                                                                                                                                                                                                                    |
+| `WorkspaceView`            | Top-level workspace view that wraps content in `PaneVisibilityProvider` and composes `TopBar` with `CommandBar` for the top bar; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; `DragDropProvider` for cross-pane terminal tab DnD                                                              |
+| `TopBar`                   | Top bar with connection indicator (left), command bar slot (center), pane toggle buttons (right)                                                                                                                                                                                                                                         |
+| `CommandBar`               | File search and command palette (activated by click or Ctrl+K, `/` prefix for commands)                                                                                                                                                                                                                                                  |
+| `AnimatedPane`             | Slide animation wrapper for collapsible panels                                                                                                                                                                                                                                                                                           |
+| `ToastProvider`            | Toast notification system                                                                                                                                                                                                                                                                                                                |
 
 ## Testing
 
@@ -269,10 +269,10 @@ Tests exist in every package:
 
 Ymir stores persistent data in SQLite:
 
-| Database   | Location                 | Purpose                    |
-| ---------- | ------------------------ | -------------------------- |
+| Database   | Location                 | Purpose                                    |
+| ---------- | ------------------------ | ------------------------------------------ |
 | Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash, UI layout state |
-| Session    | In-memory (`:memory:`)   | Client sessions, tab state |
+| Session    | In-memory (`:memory:`)   | Client sessions, tab state                 |
 
 The config directory is created automatically on first run.
 
@@ -358,9 +358,9 @@ interface Tab {
   title: string;
   terminalId?: string;
   filePath?: string;
-  cwd?: string;           // tracked via OSC 7 for terminal tabs
+  cwd?: string; // tracked via OSC 7 for terminal tabs
   paneLayout?: unknown;
-  customTitle?: string;   // set when a user renames a tab
+  customTitle?: string; // set when a user renames a tab
 }
 ```
 
@@ -368,16 +368,16 @@ interface Tab {
 
 Each pane (`ContentPane`, `BottomPanel`) owns an independent `useTabs` instance:
 
-| Method            | Description                                                                     |
-| ----------------- | ------------------------------------------------------------------------------- |
-| `createTab`       | Create a tab (terminal or editor) and activate it                               |
-| `closeTab`        | Close a tab; activate the previous tab (or the next, or null)                   |
-| `activateTab`     | Set a tab as active                                                             |
-| `updateTabTitle`  | Update a tab's display title                                                    |
-| `updateTabCwd`    | Update a terminal tab's working directory (from OSC 7 parsing)                  |
-| `reorderTabs`     | Move a tab from one index to another (used by DnD)                              |
-| `closeTabsRight`  | Close all tabs to the right of a given tab                                      |
-| `closeOtherTabs`  | Close all tabs except the given one                                              |
+| Method           | Description                                                    |
+| ---------------- | -------------------------------------------------------------- |
+| `createTab`      | Create a tab (terminal or editor) and activate it              |
+| `closeTab`       | Close a tab; activate the previous tab (or the next, or null)  |
+| `activateTab`    | Set a tab as active                                            |
+| `updateTabTitle` | Update a tab's display title                                   |
+| `updateTabCwd`   | Update a terminal tab's working directory (from OSC 7 parsing) |
+| `reorderTabs`    | Move a tab from one index to another (used by DnD)             |
+| `closeTabsRight` | Close all tabs to the right of a given tab                     |
+| `closeOtherTabs` | Close all tabs except the given one                            |
 
 `closeTab` uses a ref (`activeTabIdRef`) to avoid stale closures when computing which tab to activate next.
 
@@ -385,10 +385,10 @@ Each pane (`ContentPane`, `BottomPanel`) owns an independent `useTabs` instance:
 
 `TabBar` renders a sortable, context-menu-equipped tab strip. It supports two visual variants via the `variant` prop:
 
-| Variant    | Used by         | Styling                                                              |
-| ---------- | --------------- | -------------------------------------------------------------------- |
-| `content`  | `ContentPane`   | Inactive tabs use `COLOR_TAB_INACTIVE` background, 13px font         |
-| `bottom`   | `BottomPanel`   | Inactive tabs are transparent, 12px font, accent underline on active |
+| Variant   | Used by       | Styling                                                              |
+| --------- | ------------- | -------------------------------------------------------------------- |
+| `content` | `ContentPane` | Inactive tabs use `COLOR_TAB_INACTIVE` background, 13px font         |
+| `bottom`  | `BottomPanel` | Inactive tabs are transparent, 12px font, accent underline on active |
 
 Each tab is a `SortableTab` (memoized) wired to `@dnd-kit/react`'s `useSortable` with a `group` identifier (`"content"` or `"bottom"`). This group is used by the `DragDropProvider` in `WorkspaceView` to distinguish same-pane reorders from cross-pane transfers.
 
@@ -422,7 +422,9 @@ WorkspaceView (DragDropProvider)
 
 ```typescript
 interface ContentPaneHandle {
-  transferTabOut(tabId: string): { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
+  transferTabOut(
+    tabId: string,
+  ): { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
   receiveTab(terminalId: string, title: string, cwd?: string, customTitle?: string): string;
   reorderTabs(fromIndex: number, toIndex: number): void;
   getTabs(): Tab[];

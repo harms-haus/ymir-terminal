@@ -204,13 +204,16 @@ Enhanced terminal tabs with dynamic titles, context menus, drag-and-drop reorder
 ## 2026-05-30 — Project Sidebar Redesign & Git History
 
 ### Summary
+
 Redesigned the right sidebar (renamed 'Project sidebar') with a toggleable top pane (FileTree/GitPanel) and a new git history panel with commit graph visualization and infinite scroll.
 
 ### Files Created
+
 - `apps/client/src/components/GitHistoryPanel.tsx` — Virtualized git commit history with SVG lane graph and infinite scroll
 - `apps/server/src/git/log.ts` — Server-side git log command wrapper (async)
 
 ### Files Modified
+
 - `packages/shared/src/protocol/payloads.ts` — Added `git.log` channel, `GitLogRequest`, `GitLogItem`, `GitLogResponse` types
 - `packages/shared/src/protocol/payloads.test.ts` — Updated for new protocol types
 - `apps/client/src/components/RightSidebar.tsx` — Added toggle buttons, switchable top pane, replaced bottom pane with GitHistoryPanel
@@ -221,10 +224,12 @@ Redesigned the right sidebar (renamed 'Project sidebar') with a toggleable top p
 - `apps/client/package.json` — Added `@tanstack/react-virtual`, `react-intersection-observer`
 
 ### New Dependencies
+
 - `@tanstack/react-virtual@^3.13` — Virtualized list rendering
 - `react-intersection-observer@^10.0` — Infinite scroll
 
 ### Features
+
 - **Toggle top pane**: Switch between file tree and git changes via header buttons
 - **Git history panel**: Bottom pane shows commit history with SVG lane graph (custom per-row renderer)
 - **Virtualized rendering**: Only visible rows are in the DOM (via @tanstack/react-virtual)

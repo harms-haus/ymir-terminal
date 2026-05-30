@@ -42,10 +42,9 @@ export function PaneVisibilityProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const res = await sendRequest<{ key: string; value: string | null }>(
-          'config.get',
-          { key: 'ui_pane_visibility' },
-        );
+        const res = await sendRequest<{ key: string; value: string | null }>('config.get', {
+          key: 'ui_pane_visibility',
+        });
 
         if (cancelled) return;
 
@@ -92,15 +91,15 @@ export function PaneVisibilityProvider({ children }: { children: ReactNode }) {
   }, [visibility, loading]);
 
   const toggleLeft = useCallback(() => {
-    setVisibility(prev => ({ ...prev, left: !prev.left }));
+    setVisibility((prev) => ({ ...prev, left: !prev.left }));
   }, []);
 
   const toggleRight = useCallback(() => {
-    setVisibility(prev => ({ ...prev, right: !prev.right }));
+    setVisibility((prev) => ({ ...prev, right: !prev.right }));
   }, []);
 
   const toggleBottom = useCallback(() => {
-    setVisibility(prev => ({ ...prev, bottom: !prev.bottom }));
+    setVisibility((prev) => ({ ...prev, bottom: !prev.bottom }));
   }, []);
 
   return (

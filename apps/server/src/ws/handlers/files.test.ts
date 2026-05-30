@@ -1,10 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
-import {
-  ErrorCodes,
-  type FileTreeResponse,
-  type FileReadResponse,
-} from '@ymir/shared';
+import { ErrorCodes, type FileTreeResponse, type FileReadResponse } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerFileHandlers } from './files/index';

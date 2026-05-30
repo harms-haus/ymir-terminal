@@ -228,7 +228,9 @@ const SortableTab = React.memo(function SortableTab({
             }}
           />
         ) : (
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tab.customTitle ?? tab.title}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {tab.customTitle ?? tab.title}
+          </span>
         )}
         <button
           className="tab-close-btn-focus"
@@ -281,19 +283,16 @@ export function TabBar({
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
 
-  const startRename = useCallback(
-    (tabId: string) => {
-      const tab = tabsRef.current.find((t) => t.id === tabId);
-      if (!tab) return;
-      setRenamingTabId(tabId);
-      setRenameValue(tab.customTitle ?? tab.title);
-      requestAnimationFrame(() => {
-        renameInputRef.current?.focus();
-        renameInputRef.current?.select();
-      });
-    },
-    [],
-  );
+  const startRename = useCallback((tabId: string) => {
+    const tab = tabsRef.current.find((t) => t.id === tabId);
+    if (!tab) return;
+    setRenamingTabId(tabId);
+    setRenameValue(tab.customTitle ?? tab.title);
+    requestAnimationFrame(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    });
+  }, []);
 
   const commitRename = useCallback(() => {
     if (renamingTabId === null) return;

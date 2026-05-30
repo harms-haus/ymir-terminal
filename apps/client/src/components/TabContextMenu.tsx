@@ -58,9 +58,7 @@ export function TabContextMenu({
             disabled={!canCloseOthers}
             onSelect={() => onCloseOthers()}
             style={
-              canCloseOthers
-                ? menuItemStyle
-                : { ...menuItemStyle, opacity: 0.5, cursor: 'default' }
+              canCloseOthers ? menuItemStyle : { ...menuItemStyle, opacity: 0.5, cursor: 'default' }
             }
           >
             Close Others
@@ -70,9 +68,7 @@ export function TabContextMenu({
             disabled={!canCloseRight}
             onSelect={() => onCloseRight()}
             style={
-              canCloseRight
-                ? menuItemStyle
-                : { ...menuItemStyle, opacity: 0.5, cursor: 'default' }
+              canCloseRight ? menuItemStyle : { ...menuItemStyle, opacity: 0.5, cursor: 'default' }
             }
           >
             Close to the Right

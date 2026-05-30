@@ -3,10 +3,7 @@ import { resolve } from 'node:path';
 import { ErrorCodes } from '@ymir/shared';
 import { mockConn, createMockSessionDb } from '../test-helpers/mock-utils';
 import { safePath, validateTerminalOwnership } from './handler-validation';
-import {
-  createSession,
-  createTerminalInstance,
-} from '../db/session';
+import { createSession, createTerminalInstance } from '../db/session';
 
 // ---------------------------------------------------------------------------
 // safePath
@@ -19,15 +16,11 @@ describe('safePath', () => {
   });
 
   it('throws on path traversal', () => {
-    expect(() => safePath('/workspace', '../../etc/passwd')).toThrow(
-      'Path traversal detected',
-    );
+    expect(() => safePath('/workspace', '../../etc/passwd')).toThrow('Path traversal detected');
   });
 
   it('throws on absolute path outside workspace', () => {
-    expect(() => safePath('/workspace', '/etc/passwd')).toThrow(
-      'Path traversal detected',
-    );
+    expect(() => safePath('/workspace', '/etc/passwd')).toThrow('Path traversal detected');
   });
 
   it('resolves workspace root (".") correctly', () => {
@@ -71,13 +64,7 @@ describe('validateTerminalOwnership', () => {
     const sessionId = createSession(db);
     const conn = mockConn({ sessionId });
 
-    const result = validateTerminalOwnership(
-      db,
-      crypto.randomUUID(),
-      sessionId,
-      conn,
-      req,
-    );
+    const result = validateTerminalOwnership(db, crypto.randomUUID(), sessionId, conn, req);
 
     expect(result).toBeNull();
     expect(conn.sent).toHaveLength(1);

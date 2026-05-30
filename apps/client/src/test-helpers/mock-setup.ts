@@ -251,8 +251,10 @@ export function setupAllMocks(): void {
     const CtxContent = ({
       children,
       ...props
-    }: { children: React.ReactNode; [key: string]: unknown }) =>
-      React.createElement('div', props, children);
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement('div', props, children);
 
     const CtxItem = ({
       children,
@@ -267,7 +269,11 @@ export function setupAllMocks(): void {
     }) =>
       React.createElement(
         'div',
-        { ...props, onClick: disabled ? undefined : onSelect, 'aria-disabled': disabled || undefined },
+        {
+          ...props,
+          onClick: disabled ? undefined : onSelect,
+          'aria-disabled': disabled || undefined,
+        },
         children,
       );
 
@@ -383,25 +389,12 @@ export function setupAllMocks(): void {
 
   // --- react-resizable-panels -----------------------------------------------
   bunMock.module('react-resizable-panels', () => ({
-    Group: ({
-      children,
-      style,
-    }: {
-      children: React.ReactNode;
-      style?: React.CSSProperties;
-    }) => React.createElement('div', { style, 'data-group': '' }, children),
-    Panel: ({
-      children,
-      style,
-    }: {
-      children: React.ReactNode;
-      style?: React.CSSProperties;
-    }) => React.createElement('div', { style }, children),
-    Separator: ({
-      style,
-    }: {
-      style?: React.CSSProperties;
-    }) => React.createElement('div', { style, 'data-separator': '' }),
+    Group: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
+      React.createElement('div', { style, 'data-group': '' }, children),
+    Panel: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
+      React.createElement('div', { style }, children),
+    Separator: ({ style }: { style?: React.CSSProperties }) =>
+      React.createElement('div', { style, 'data-separator': '' }),
   }));
 }
 
@@ -439,11 +432,7 @@ export function renderWithProviders(
     React.createElement(
       AuthContext.Provider,
       { value: authState },
-      React.createElement(
-        QueryClientProvider,
-        { client: queryClient },
-        ui,
-      ),
+      React.createElement(QueryClientProvider, { client: queryClient }, ui),
     ),
   );
 }

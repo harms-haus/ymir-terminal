@@ -390,9 +390,7 @@ describe('BottomPanel', () => {
 
     const { container } = renderBottomPanel();
 
-    const closeOthersItems = container.querySelectorAll(
-      '[data-testid="tab-menu-close-others"]',
-    );
+    const closeOthersItems = container.querySelectorAll('[data-testid="tab-menu-close-others"]');
     expect(closeOthersItems.length).toBe(2);
     // Click the first context menu's close-others (for tab-1)
     fireEvent.click(closeOthersItems[0]);
@@ -444,7 +442,12 @@ describe('BottomPanel', () => {
     });
 
     const result = ref.current?.transferTabOut('tab-1');
-    expect(result).toEqual({ terminalId: 't1', title: 'Terminal 1', cwd: undefined, customTitle: undefined });
+    expect(result).toEqual({
+      terminalId: 't1',
+      title: 'Terminal 1',
+      cwd: undefined,
+      customTitle: undefined,
+    });
     expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
     // Should NOT send terminal.close — the PTY stays alive during cross-pane transfer
     expect(mockSendRequest).not.toHaveBeenCalledWith('terminal.close', expect.anything());
@@ -546,10 +549,20 @@ describe('BottomPanel', () => {
 
     // Transfer out
     const data = ref.current?.transferTabOut('tab-1');
-    expect(data).toEqual({ terminalId: 't1', title: 'My Term', cwd: undefined, customTitle: undefined });
+    expect(data).toEqual({
+      terminalId: 't1',
+      title: 'My Term',
+      cwd: undefined,
+      customTitle: undefined,
+    });
 
     // Receive in (simulating cross-pane transfer)
-    const newTabId = ref.current?.receiveTab(data!.terminalId, data!.title, data!.cwd, data!.customTitle);
+    const newTabId = ref.current?.receiveTab(
+      data!.terminalId,
+      data!.title,
+      data!.cwd,
+      data!.customTitle,
+    );
     expect(typeof newTabId).toBe('string');
     expect(newTabId).toBeTruthy();
     expect(mockCreateTab).toHaveBeenCalledWith({
@@ -621,10 +634,12 @@ describe('BottomPanel', () => {
     mockActiveTabId = 'tab-1';
     mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
 
-    rerender(React.createElement(BottomPanel, {
-      workspaceId: 'ws-1',
-      onActiveTabChange: mockOnActiveTabChange,
-    }));
+    rerender(
+      React.createElement(BottomPanel, {
+        workspaceId: 'ws-1',
+        onActiveTabChange: mockOnActiveTabChange,
+      }),
+    );
 
     expect(mockOnActiveTabChange).toHaveBeenCalledWith('tab-1');
   });

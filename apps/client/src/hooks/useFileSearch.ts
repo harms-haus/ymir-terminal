@@ -46,7 +46,7 @@ export function useFileSearch(workspaceId: string | null) {
   useEffect(() => {
     if (!workspaceId) return;
     sendRequest<{ tree: FileNode[] }>('file.tree', { workspaceId })
-      .then(res => {
+      .then((res) => {
         setFiles(flattenTree(res.tree));
       })
       .catch(() => {
@@ -60,14 +60,12 @@ export function useFileSearch(workspaceId: string | null) {
     if (effectiveFiles.length === 0) return [];
 
     const fuzzResults = fuzzysort.go(query, effectiveFiles, { key: 'filename' });
-    return fuzzResults
-      .slice(0, 50)
-      .map(r => ({
-        path: r.obj.path,
-        filename: r.obj.filename,
-        directory: r.obj.directory,
-        score: r.score,
-      }));
+    return fuzzResults.slice(0, 50).map((r) => ({
+      path: r.obj.path,
+      filename: r.obj.filename,
+      directory: r.obj.directory,
+      score: r.score,
+    }));
   }, [query, effectiveFiles]);
 
   return { query, setQuery, results };

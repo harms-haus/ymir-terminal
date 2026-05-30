@@ -46,7 +46,7 @@ const { CommandBar } = await import('./CommandBar');
  */
 function setReactInputValue(input: HTMLInputElement, value: string) {
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  const reactPropsKey = Object.keys(input).find(k => k.startsWith('__reactProps'));
+  const reactPropsKey = Object.keys(input).find((k) => k.startsWith('__reactProps'));
   if (!reactPropsKey) throw new Error('Could not find React internal props on input');
   const props = (input as any)[reactPropsKey];
   if (typeof props?.onChange !== 'function') throw new Error('onChange not found on React props');

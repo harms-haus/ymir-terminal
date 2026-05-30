@@ -146,7 +146,15 @@ export function TopBar({ commandBar }: TopBarProps) {
         >
           <svg viewBox="0 0 16 16" width="16" height="16">
             <rect x="1" y="1" width="7" height="14" fill="currentColor" />
-            <rect x="8" y="1" width="7" height="14" fill="none" stroke="currentColor" strokeWidth="1" />
+            <rect
+              x="8"
+              y="1"
+              width="7"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
           </svg>
         </button>
 
@@ -178,7 +186,15 @@ export function TopBar({ commandBar }: TopBarProps) {
           }}
         >
           <svg viewBox="0 0 16 16" width="16" height="16">
-            <rect x="1" y="1" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1" />
+            <rect
+              x="1"
+              y="1"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
             <rect x="1" y="8" width="14" height="7" fill="currentColor" />
           </svg>
         </button>
@@ -211,7 +227,15 @@ export function TopBar({ commandBar }: TopBarProps) {
           }}
         >
           <svg viewBox="0 0 16 16" width="16" height="16">
-            <rect x="1" y="1" width="7" height="14" fill="none" stroke="currentColor" strokeWidth="1" />
+            <rect
+              x="1"
+              y="1"
+              width="7"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
             <rect x="8" y="1" width="7" height="14" fill="currentColor" />
           </svg>
         </button>

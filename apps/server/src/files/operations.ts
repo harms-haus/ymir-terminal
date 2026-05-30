@@ -1,4 +1,11 @@
-import { readFile as fsReadFile, writeFile as fsWriteFile, mkdir, unlink, rename, access } from 'node:fs/promises';
+import {
+  readFile as fsReadFile,
+  writeFile as fsWriteFile,
+  mkdir,
+  unlink,
+  rename,
+  access,
+} from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 export async function readFile(path: string): Promise<string> {

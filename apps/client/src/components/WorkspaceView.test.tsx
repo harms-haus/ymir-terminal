@@ -167,7 +167,15 @@ let mockOnDragOver: ((event: unknown) => void) | null = null;
 let mockOnDragEnd: ((event: unknown) => void) | null = null;
 
 mock.module('@dnd-kit/react', () => ({
-  DragDropProvider: ({ children, onDragOver, onDragEnd }: { children: React.ReactNode; onDragOver?: (e: unknown) => void; onDragEnd?: (e: unknown) => void }) => {
+  DragDropProvider: ({
+    children,
+    onDragOver,
+    onDragEnd,
+  }: {
+    children: React.ReactNode;
+    onDragOver?: (e: unknown) => void;
+    onDragEnd?: (e: unknown) => void;
+  }) => {
     mockOnDragOver = onDragOver ?? null;
     mockOnDragEnd = onDragEnd ?? null;
     return children;

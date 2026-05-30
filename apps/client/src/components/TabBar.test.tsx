@@ -63,7 +63,13 @@ const sampleTabs: Tab[] = [
 ];
 
 const sampleTabsWithCwd: Tab[] = [
-  { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1', cwd: '/home/user/project' },
+  {
+    id: 'tab-1',
+    type: 'terminal',
+    title: 'Terminal 1',
+    terminalId: 'term-1',
+    cwd: '/home/user/project',
+  },
   { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
   { id: 'tab-3', type: 'editor', title: 'index.ts', filePath: '/src/index.ts' },
 ];
@@ -301,10 +307,7 @@ describe('TabBar', () => {
     const onClose = mock(() => {});
     const { getByTestId } = renderTabBar({ onClose });
 
-    fireEvent(
-      getByTestId('tab-tab-2'),
-      new MouseEvent('auxclick', { bubbles: true, button: 1 }),
-    );
+    fireEvent(getByTestId('tab-tab-2'), new MouseEvent('auxclick', { bubbles: true, button: 1 }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledWith('tab-2');
@@ -387,9 +390,7 @@ describe('TabBar', () => {
     const onRenameMock = mock((_tabId: string, _newTitle: string) => {});
     const { container } = renderTabBar({
       onRename: onRenameMock,
-      tabs: [
-        { id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' },
-      ],
+      tabs: [{ id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' }],
       activeTabId: 't1',
     });
 
@@ -423,9 +424,7 @@ describe('TabBar', () => {
     const onRenameMock = mock((_tabId: string, _newTitle: string) => {});
     const { container } = renderTabBar({
       onRename: onRenameMock,
-      tabs: [
-        { id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' },
-      ],
+      tabs: [{ id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' }],
       activeTabId: 't1',
     });
 
@@ -463,9 +462,7 @@ describe('TabBar', () => {
     const onRenameMock = mock((_tabId: string, _newTitle: string) => {});
     const { container } = renderTabBar({
       onRename: onRenameMock,
-      tabs: [
-        { id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' },
-      ],
+      tabs: [{ id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' }],
       activeTabId: 't1',
     });
 
@@ -501,9 +498,7 @@ describe('TabBar', () => {
     const onRenameMock = mock((_tabId: string, _newTitle: string) => {});
     const { container } = renderTabBar({
       onRename: onRenameMock,
-      tabs: [
-        { id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' },
-      ],
+      tabs: [{ id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' }],
       activeTabId: 't1',
     });
 
@@ -535,9 +530,7 @@ describe('TabBar', () => {
     const onRenameMock = mock((_tabId: string, _newTitle: string) => {});
     const { container } = renderTabBar({
       onRename: onRenameMock,
-      tabs: [
-        { id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' },
-      ],
+      tabs: [{ id: 't1', type: 'terminal', title: 'My Term', terminalId: 'tr1' }],
       activeTabId: 't1',
     });
 
@@ -594,7 +587,13 @@ describe('TabBar', () => {
   // -----------------------------------------------------------------------
   test('tab shows customTitle when set, falls back to title when not set', () => {
     const tabsWithCustomTitle: Tab[] = [
-      { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1', customTitle: 'My Custom Tab' },
+      {
+        id: 'tab-1',
+        type: 'terminal',
+        title: 'Terminal 1',
+        terminalId: 'term-1',
+        customTitle: 'My Custom Tab',
+      },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
     ];
 
@@ -619,7 +618,13 @@ describe('TabBar', () => {
     const { container } = renderTabBar({
       onRename: onRenameMock,
       tabs: [
-        { id: 't1', type: 'terminal', title: 'Terminal 1', terminalId: 'tr1', customTitle: 'Custom Name' },
+        {
+          id: 't1',
+          type: 'terminal',
+          title: 'Terminal 1',
+          terminalId: 'tr1',
+          customTitle: 'Custom Name',
+        },
       ],
       activeTabId: 't1',
     });

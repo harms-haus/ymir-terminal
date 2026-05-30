@@ -10,7 +10,14 @@ import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
 import { mergeDeletedFiles } from '../lib/git-utils';
-import { COLOR_BORDER, COLOR_ERROR, COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_HOVER_BG, TITLE_BAR_HEIGHT } from '../lib/theme';
+import {
+  COLOR_BORDER,
+  COLOR_ERROR,
+  COLOR_TEXT,
+  COLOR_TEXT_MUTED,
+  COLOR_HOVER_BG,
+  TITLE_BAR_HEIGHT,
+} from '../lib/theme';
 
 interface RightSidebarProps {
   workspaceId: string | null;
@@ -29,7 +36,9 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
 
   // Load persisted project sidebar panel sizes on mount
   useEffect(() => {
-    sendRequest<{ key: string; value: string | null }>('config.get', { key: 'ui_project_sidebar_sizes' })
+    sendRequest<{ key: string; value: string | null }>('config.get', {
+      key: 'ui_project_sidebar_sizes',
+    })
       .then((res) => {
         if (res.value != null) {
           const layout = JSON.parse(res.value) as { topPane: number; historyPane: number };
@@ -47,9 +56,10 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
   const handleExplorerLayoutChanged = useCallback((layout: Record<string, number>) => {
     if (!sizesLoadedRef.current) return;
     if (Object.values(layout).some((v) => v < 1)) return; // skip if collapsed
-    sendRequest('config.set', { key: 'ui_project_sidebar_sizes', value: JSON.stringify(layout) }).catch(
-      () => {},
-    );
+    sendRequest('config.set', {
+      key: 'ui_project_sidebar_sizes',
+      value: JSON.stringify(layout),
+    }).catch(() => {});
   }, []);
 
   function handleAsyncError(err: unknown) {
