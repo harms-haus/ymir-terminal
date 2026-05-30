@@ -70,13 +70,14 @@ export const Terminal = forwardRef(function Terminal(
         term.write(data);
       });
 
+      const resizeDisposable = term.onResize(({ cols, rows }) => {
+        resizeTerminal(cols, rows);
+      });
+
       const observer = new ResizeObserver(() => {
         // Don't fit when hidden (display:none → 0×0)
         if (!containerRef.current || containerRef.current.offsetWidth === 0) return;
         fit.fit();
-        if (term.cols > 0 && term.rows > 0) {
-          resizeTerminal(term.cols, term.rows);
-        }
       });
       observer.observe(containerRef.current!);
       observerRef.current = observer;
@@ -84,6 +85,7 @@ export const Terminal = forwardRef(function Terminal(
       ioCleanupRef.current = () => {
         dataDisposable?.dispose?.();
         titleDisposable?.dispose?.();
+        resizeDisposable?.dispose?.();
         unregisterOutput();
       };
     };

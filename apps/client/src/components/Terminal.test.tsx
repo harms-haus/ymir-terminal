@@ -22,6 +22,7 @@ const mockLoadAddon = mock(() => {});
 const mockFocus = mock(() => {});
 
 let capturedOnTitleChangeHandler: ((title: string) => void) | null = null;
+let capturedOnResizeHandler: ((event: { cols: number; rows: number }) => void) | null = null;
 const mockTerminalInstance = {
   cols: 80,
   rows: 24,
@@ -31,7 +32,10 @@ const mockTerminalInstance = {
   focus: mockFocus,
   write: mock(() => {}),
   onData: mock(() => ({ dispose: mock(() => {}) })),
-  onResize: mock(() => ({ dispose: mock(() => {}) })),
+  onResize: mock((handler: (event: { cols: number; rows: number }) => void) => {
+    capturedOnResizeHandler = handler;
+    return { dispose: mock(() => {}) };
+  }),
   onTitleChange: mock((handler: (title: string) => void) => {
     capturedOnTitleChangeHandler = handler;
     return { dispose: mock(() => {}) };
@@ -128,6 +132,8 @@ describe('Terminal', () => {
     mockSendData.mockClear();
     mockResizeTerminal.mockClear();
     mockFocus.mockClear();
+    mockTerminalInstance.onResize.mockClear();
+    capturedOnResizeHandler = null;
     capturedOnOutputHandler = null;
     capturedOnTitleChangeHandler = null;
   });
@@ -312,5 +318,102 @@ describe('Terminal', () => {
     expect(capturedOnOutputHandler).toBeTruthy();
     capturedOnOutputHandler!('just regular output');
     expect(onCwdChange).not.toHaveBeenCalled();
+  });
+
+  // =========================================================================
+  // Resize flow
+  // =========================================================================
+
+  describe('resize flow', () => {
+    let resizeObserverCallback: ResizeObserverCallback | null = null;
+    let originalResizeObserver: typeof ResizeObserver;
+
+    beforeEach(() => {
+      // Capture ResizeObserver callback
+      resizeObserverCallback = null;
+      originalResizeObserver = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = class {
+        constructor(cb: ResizeObserverCallback) {
+          resizeObserverCallback = cb;
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      } as any;
+    });
+
+    afterEach(() => {
+      globalThis.ResizeObserver = originalResizeObserver;
+      resizeObserverCallback = null;
+    });
+
+    async function setupResizeTest(terminalId = 'resize-test') {
+      const result = renderTerminal({ terminalId });
+
+      // Wait for async setup to create the ResizeObserver and register onResize
+      await waitFor(() => {
+        expect(resizeObserverCallback).toBeTruthy();
+        expect(capturedOnResizeHandler).toBeTruthy();
+      });
+
+      // Ensure container reports non-zero offsetWidth so the callback proceeds
+      const container = result.getByTestId(`terminal-${terminalId}`);
+      Object.defineProperty(container, 'offsetWidth', { value: 100, configurable: true });
+
+      return result;
+    }
+
+    // -------------------------------------------------------------------
+    // 1. Calls resizeTerminal when term.onResize fires with new dims
+    // -------------------------------------------------------------------
+    test('calls resizeTerminal when term.onResize fires with new dimensions', async () => {
+      await setupResizeTest();
+
+      // Simulate the terminal firing onResize (happens internally when fit.fit()
+      // causes a dimension change)
+      capturedOnResizeHandler!({ cols: 120, rows: 40 });
+
+      expect(mockResizeTerminal).toHaveBeenCalledTimes(1);
+      expect(mockResizeTerminal).toHaveBeenCalledWith(120, 40);
+    });
+
+    // -------------------------------------------------------------------
+    // 2. Calls resizeTerminal for each onResize event (no debounce)
+    // -------------------------------------------------------------------
+    test('calls resizeTerminal for each onResize event (no manual debounce)', async () => {
+      await setupResizeTest();
+
+      // The onResize event fires synchronously from within fit.fit(), so each
+      // call results in an immediate resizeTerminal call
+      capturedOnResizeHandler!({ cols: 100, rows: 30 });
+      capturedOnResizeHandler!({ cols: 120, rows: 40 });
+      capturedOnResizeHandler!({ cols: 100, rows: 30 });
+
+      expect(mockResizeTerminal).toHaveBeenCalledTimes(3);
+      expect(mockResizeTerminal).toHaveBeenNthCalledWith(1, 100, 30);
+      expect(mockResizeTerminal).toHaveBeenNthCalledWith(2, 120, 40);
+      expect(mockResizeTerminal).toHaveBeenNthCalledWith(3, 100, 30);
+    });
+
+    // -------------------------------------------------------------------
+    // 3. Registers onResize handler on mount
+    // -------------------------------------------------------------------
+    test('registers onResize handler on mount', async () => {
+      await setupResizeTest();
+
+      expect(mockTerminalInstance.onResize).toHaveBeenCalledTimes(1);
+    });
+
+    // -------------------------------------------------------------------
+    // 4. ResizeObserver still calls fit.fit() on container resize
+    // -------------------------------------------------------------------
+    test('ResizeObserver calls fit.fit() on container resize', async () => {
+      await setupResizeTest();
+
+      const fitCallCount = mockFit.mock.calls.length;
+      resizeObserverCallback!([], {} as ResizeObserver);
+
+      expect(mockFit).toHaveBeenCalledTimes(fitCallCount + 1);
+    });
   });
 });

@@ -37,6 +37,7 @@ describe('PTYManager', () => {
       dataCallback: Function;
       written: Buffer[] = [];
       resizeOpts: { cols: number; rows: number } | null = null;
+      resizeCalls: { cols: number; rows: number }[] = [];
       closed = false;
 
       constructor(opts: any) {
@@ -52,6 +53,7 @@ describe('PTYManager', () => {
 
       resize(cols: number, rows: number) {
         this.resizeOpts = { cols, rows };
+        this.resizeCalls.push({ cols, rows });
         this.cols = cols;
         this.rows = rows;
       }
@@ -204,6 +206,87 @@ describe('PTYManager', () => {
 
   it('resize() throws if terminal not found', () => {
     expect(() => manager.resize('nonexistent', 120, 40)).toThrow('Terminal nonexistent not found');
+  });
+
+  it('resize() is a no-op when cols and rows match initial dimensions', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-noop-init', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.resize('test-noop-init', 80, 24);
+
+    const terminal = mockTerminalInstances[0];
+    expect(terminal.resizeCalls).toHaveLength(0);
+    expect(terminal.resizeOpts).toBeNull();
+  });
+
+  it('resize() applies when dimensions change', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-resize-change', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.resize('test-resize-change', 120, 40);
+
+    const terminal = mockTerminalInstances[0];
+    expect(terminal.resizeCalls).toHaveLength(1);
+    expect(terminal.resizeOpts).toEqual({ cols: 120, rows: 40 });
+  });
+
+  it('resize() is a no-op when cols and rows match previously resized dimensions', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-noop-duplicate', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.resize('test-noop-duplicate', 120, 40);
+    manager.resize('test-noop-duplicate', 120, 40);
+
+    const terminal = mockTerminalInstances[0];
+    expect(terminal.resizeCalls).toHaveLength(1);
+    expect(terminal.resizeCalls[0]).toEqual({ cols: 120, rows: 40 });
+  });
+
+  it('resize() applies when only cols changes', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-resize-cols', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.resize('test-resize-cols', 100, 24);
+
+    const terminal = mockTerminalInstances[0];
+    expect(terminal.resizeCalls).toHaveLength(1);
+    expect(terminal.resizeOpts).toEqual({ cols: 100, rows: 24 });
+  });
+
+  it('resize() applies when only rows changes', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-resize-rows', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.resize('test-resize-rows', 80, 30);
+
+    const terminal = mockTerminalInstances[0];
+    expect(terminal.resizeCalls).toHaveLength(1);
+    expect(terminal.resizeOpts).toEqual({ cols: 80, rows: 30 });
   });
 
   it('kill() closes terminal and kills process', () => {

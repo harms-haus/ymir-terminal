@@ -29,7 +29,16 @@ export interface PTYOptions {
 }
 
 export class PTYManager {
-  terminals = new Map<string, { terminal: unknown; process: unknown }>();
+  terminals = new Map<
+    string,
+    {
+      terminal: unknown;
+      process: { pid: number; kill: (sig: string) => void; exited: Promise<number> };
+      lastCols?: number;
+      lastRows?: number;
+      exited?: boolean;
+    }
+  >();
 
   create(id: string, options: PTYOptions): string {
     const BunTerminal = (Bun as Record<string, unknown>).Terminal as
@@ -71,11 +80,11 @@ export class PTYManager {
       | ((
           cmd: string[],
           opts: { terminal: unknown; cwd: string; env: Record<string, string | undefined> },
-        ) => { kill: () => void; exited: Promise<number> })
+        ) => { pid: number; kill: (sig: string) => void; exited: Promise<number> })
       | undefined;
     if (!bunSpawn) throw new Error('Bun.spawn is not available');
 
-    let proc: { kill: () => void; exited: Promise<number> };
+    let proc: { pid: number; kill: (sig: string) => void; exited: Promise<number> };
     try {
       proc = bunSpawn([shell], {
         terminal,
@@ -86,14 +95,18 @@ export class PTYManager {
       throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
     }
 
-    this.terminals.set(id, { terminal, process: proc });
+    this.terminals.set(id, { terminal, process: proc, lastCols: options.cols, lastRows: options.rows });
 
     proc.exited
       .then((code: number) => {
+        const entry = this.terminals.get(id);
+        if (entry) entry.exited = true;
         this.terminals.delete(id);
         options.onExit?.(code);
       })
       .catch(() => {
+        const entry = this.terminals.get(id);
+        if (entry) entry.exited = true;
         this.terminals.delete(id);
         options.onExit?.(null);
       });
@@ -115,11 +128,26 @@ export class PTYManager {
     const safeRows = Math.floor(rows);
     if (!Number.isFinite(safeCols) || safeCols < 1 || !Number.isFinite(safeRows) || safeRows < 1)
       return;
+    if (safeCols === entry.lastCols && safeRows === entry.lastRows) return;
     try {
       (entry.terminal as { resize: (cols: number, rows: number) => void }).resize(
         safeCols,
         safeRows,
       );
+      entry.lastCols = safeCols;
+      entry.lastRows = safeRows;
+
+      // Bun.Terminal.resize() does not send SIGWINCH to the child process.
+      // Send it manually so the shell redraws its prompt.
+      // Guard against TOCTOU: if the process has already exited (but the
+      // microtask to delete the Map entry hasn't run yet), skip SIGWINCH to
+      // avoid signalling a recycled PID.
+      if (entry.exited) return;
+      try {
+        process.kill(entry.process.pid, 'SIGWINCH');
+      } catch {
+        // Process may have exited; ignore ESRCH
+      }
     } catch (err) {
       console.warn(`resize(${id}, ${safeCols}, ${safeRows}) failed:`, err);
     }
@@ -129,7 +157,7 @@ export class PTYManager {
     const entry = this.terminals.get(id);
     if (!entry) return;
     (entry.terminal as { close: () => void }).close();
-    (entry.process as { kill: () => void }).kill();
+    entry.process.kill('SIGTERM');
     this.terminals.delete(id);
   }
 
