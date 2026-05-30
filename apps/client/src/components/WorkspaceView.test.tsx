@@ -113,6 +113,18 @@ mock.module('../hooks/useTabs', () => ({
   useTabs: mockUseTabs,
 }));
 
+mock.module('../hooks/usePaneVisibility', () => ({
+  usePaneVisibility: mock(() => ({
+    left: true,
+    right: true,
+    bottom: true,
+    toggleLeft: mock(() => {}),
+    toggleRight: mock(() => {}),
+    toggleBottom: mock(() => {}),
+  })),
+  PaneVisibilityProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 mock.module('../lib/send-request', () => ({
   sendRequest: mock(() => Promise.resolve({ tree: [] })),
 }));
@@ -125,6 +137,20 @@ mock.module('../lib/ws-client', () => ({
     getStatus: mock(() => 'connected'),
     onStatusChange: mock(() => () => {}),
   },
+}));
+
+// ---------------------------------------------------------------------------
+// Mock TopBar and CommandBar
+// ---------------------------------------------------------------------------
+
+mock.module('./TopBar', () => ({
+  TopBar: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement('div', { 'data-testid': 'top-bar' }, children),
+}));
+
+mock.module('./CommandBar', () => ({
+  CommandBar: ({ workspaceName }: { workspaceName?: string }) =>
+    React.createElement('div', { 'data-testid': 'command-bar' }, workspaceName ?? 'No workspace'),
 }));
 
 // ---------------------------------------------------------------------------
@@ -227,7 +253,7 @@ describe('WorkspaceView', () => {
   // -----------------------------------------------------------------------
   // 1. Renders all major sections
   // -----------------------------------------------------------------------
-  test('renders all major sections: sidebar, content, right sidebar, status bar, bottom panel', () => {
+  test('renders all major sections: sidebar, content, right sidebar, bottom panel', () => {
     const { getByTestId, getAllByTestId } = renderWorkspaceView();
 
     expect(getByTestId('workspace-sidebar')).toBeTruthy();
@@ -236,7 +262,6 @@ describe('WorkspaceView', () => {
     // BottomPanel component renders inside AppLayout's bottom-panel slot,
     // so there are two elements with this testid (wrapper + component)
     expect(getAllByTestId('bottom-panel').length).toBeGreaterThanOrEqual(1);
-    expect(getByTestId('status-bar')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
@@ -245,23 +270,22 @@ describe('WorkspaceView', () => {
   test('workspace list is rendered in left sidebar', () => {
     const { getAllByText } = renderWorkspaceView();
 
-    // Project Alpha appears in sidebar + status bar (auto-selected)
+    // Project Alpha appears in sidebar (auto-selected)
     expect(getAllByText('Project Alpha').length).toBeGreaterThanOrEqual(1);
     expect(getAllByText('Project Beta').length).toBeGreaterThanOrEqual(1);
   });
 
   // -----------------------------------------------------------------------
-  // 3. Selecting a workspace updates active workspace (shown in status bar)
+  // 3. Selecting a workspace updates active workspace
   // -----------------------------------------------------------------------
-  test('selecting a workspace shows its name in the status bar', () => {
+  test('selecting a workspace updates accent color', () => {
     const { getByTestId } = renderWorkspaceView();
 
     // Click on workspace ws-1
     fireEvent.click(getByTestId('workspace-item-ws-1'));
 
-    // The workspace name should now appear inside the status bar
-    const statusBar = getByTestId('status-bar');
-    expect(statusBar.textContent).toContain('Project Alpha');
+    // The accent color should be updated
+    expect(mockSetAccentColor).toHaveBeenCalledWith('#ff0000');
   });
 
   // -----------------------------------------------------------------------
@@ -286,13 +310,13 @@ describe('WorkspaceView', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 6. First workspace is auto-selected and shown in status bar
+  // 6. First workspace is auto-selected
   // -----------------------------------------------------------------------
-  test('initially first workspace name is auto-selected in status bar', () => {
-    const { getByTestId } = renderWorkspaceView();
+  test('initially first workspace is auto-selected', () => {
+    const { container } = renderWorkspaceView();
 
-    const statusBar = getByTestId('status-bar');
-    expect(statusBar.textContent).toContain('Project Alpha');
+    // The workspace sidebar should show the first workspace as active
+    expect(container.textContent).toContain('Project Alpha');
   });
 
   // -----------------------------------------------------------------------

@@ -157,3 +157,30 @@ export const PRESET_COLORS = [
   '#ce9178',
   '#b5cea8',
 ] as const;
+
+// ---------------------------------------------------------------------------
+// Top bar
+// ---------------------------------------------------------------------------
+
+export const COLOR_TOPBAR_BG = '#1e1e1e'; // Matches COLOR_BG_PRIMARY — like empty editor pane
+export const COLOR_TOPBAR_BORDER = '#333';
+export const COLOR_TOPBAR_HOVER_BG = 'rgba(255,255,255,0.08)';
+export const COLOR_TOPBAR_ACTIVE_BG = 'rgba(255,255,255,0.15)';
+
+// ---------------------------------------------------------------------------
+// Command bar
+// ---------------------------------------------------------------------------
+
+export const COLOR_COMMANDBAR_BG = 'rgba(255,255,255,0.06)';
+export const COLOR_COMMANDBAR_BORDER = '#444';
+export const COLOR_COMMANDBAR_ACTIVE_BORDER = '#555';
+export const COLOR_COMMANDBAR_HOVER_BG = 'rgba(255,255,255,0.1)';
+export const COLOR_COMMANDBAR_SELECTED_BG = '#094771';
+
+// ---------------------------------------------------------------------------
+// Animation
+// ---------------------------------------------------------------------------
+
+export const ANIMATION_DURATION_MS = 260;
+export const ANIMATION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
+export const ANIMATION_TRANSITION = 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)';

@@ -8,8 +8,10 @@ import { BottomPanel } from './BottomPanel';
 import type { BottomPanelHandle } from './BottomPanel';
 import { TerminalManager } from './TerminalManager';
 import type { TerminalEntry, PaneBounds } from './TerminalManager';
-import { StatusBar } from './StatusBar';
+import { TopBar } from './TopBar';
+import { CommandBar } from './CommandBar';
 import { ToastProvider } from './ToastProvider';
+import { PaneVisibilityProvider, usePaneVisibility } from '../hooks/usePaneVisibility';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
 import type { WorkspaceSummary } from '@ymir/shared';
 import { useTheme } from '../hooks/useTheme';
@@ -23,7 +25,7 @@ interface TerminalRegistryEntry {
   owningPane: 'content' | 'bottom';
 }
 
-export function WorkspaceView() {
+function WorkspaceViewInner() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [fileToOpen, setFileToOpen] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export function WorkspaceView() {
   const { setAccentColor } = useTheme();
   const updateWorkspace = useUpdateWorkspace();
   const deleteWorkspace = useDeleteWorkspace();
+  const { left: leftVisible, right: rightVisible, bottom: bottomVisible } = usePaneVisibility();
 
   const contentPaneRef = useRef<ContentPaneHandle>(null);
   const bottomPanelRef = useRef<BottomPanelHandle>(null);
@@ -266,6 +269,10 @@ export function WorkspaceView() {
 
   const handleFileOpened = useCallback(() => setFileToOpen(null), []);
 
+  const handleCommandBarFileSelect = useCallback((path: string) => {
+    setFileToOpen(path);
+  }, []);
+
   const handleRenameWorkspace = useCallback(
     (id: string, name: string) => {
       updateWorkspace.mutate({ id, name });
@@ -332,65 +339,87 @@ export function WorkspaceView() {
     });
   }, [terminalRegistry, contentActiveTabId, bottomActiveTabId, callbackCache]);
 
+  // Build the top bar with command bar inside
+  const topBar = (
+    <TopBar
+      commandBar={
+        <CommandBar
+          workspaceId={activeWorkspaceId}
+          workspaceName={activeWorkspace?.name}
+          onFileSelect={handleCommandBarFileSelect}
+        />
+      }
+    />
+  );
+
+  return (
+    <div ref={wrapperRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
+      <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+        <AppLayout
+          topBar={topBar}
+          paneVisibility={{ left: leftVisible, right: rightVisible, bottom: bottomVisible }}
+          leftSidebar={
+            <WorkspaceSidebar
+              activeWorkspaceId={activeWorkspaceId}
+              onWorkspaceSelect={handleWorkspaceSelect}
+              onAddWorkspace={handleAddWorkspace}
+              onRenameWorkspace={handleRenameWorkspace}
+              onSetCwdWorkspace={handleSetCwdWorkspace}
+              onRemoveWorkspace={handleRemoveWorkspace}
+              onChangeColorWorkspace={handleChangeColorWorkspace}
+            />
+          }
+          rightSidebar={
+            <RightSidebar
+              workspaceId={activeWorkspaceId}
+              workspaceCwd={activeWorkspace?.cwd}
+              onFileSelect={handleFileSelect}
+            />
+          }
+          bottomPanel={
+            <BottomPanel
+              ref={bottomPanelRef}
+              workspaceId={activeWorkspaceId}
+              terminalContainerRef={bottomTerminalRef}
+              onTerminalRegistered={handleBottomTerminalRegistered}
+              onTerminalUnregistered={handleTerminalUnregistered}
+              onActiveTabChange={setBottomActiveTabId}
+            />
+          }
+        >
+          <ContentPane
+            ref={contentPaneRef}
+            workspaceId={activeWorkspaceId}
+            fileToOpen={fileToOpen}
+            onFileOpened={handleFileOpened}
+            terminalContainerRef={contentTerminalRef}
+            onTerminalRegistered={handleContentTerminalRegistered}
+            onTerminalUnregistered={handleTerminalUnregistered}
+            onActiveTabChange={setContentActiveTabId}
+          />
+          <CreateWorkspaceDialog
+            open={isDialogOpen}
+            onClose={() => setIsDialogOpen(false)}
+            onCreated={handleWorkspaceCreated}
+          />
+        </AppLayout>
+      </DragDropProvider>
+      <TerminalManager
+        terminals={terminalEntries}
+        contentBounds={containerBounds.content}
+        bottomBounds={containerBounds.bottom}
+        terminalRefs={terminalRefsMap}
+      />
+    </div>
+  );
+}
+
+export function WorkspaceView() {
   return (
     <ToastProvider>
-      <div ref={wrapperRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
-        <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-          <AppLayout
-            leftSidebar={
-              <WorkspaceSidebar
-                activeWorkspaceId={activeWorkspaceId}
-                onWorkspaceSelect={handleWorkspaceSelect}
-                onAddWorkspace={handleAddWorkspace}
-                onRenameWorkspace={handleRenameWorkspace}
-                onSetCwdWorkspace={handleSetCwdWorkspace}
-                onRemoveWorkspace={handleRemoveWorkspace}
-                onChangeColorWorkspace={handleChangeColorWorkspace}
-              />
-            }
-            rightSidebar={
-              <RightSidebar
-                workspaceId={activeWorkspaceId}
-                workspaceCwd={activeWorkspace?.cwd}
-                onFileSelect={handleFileSelect}
-              />
-            }
-            bottomPanel={
-              <BottomPanel
-                ref={bottomPanelRef}
-                workspaceId={activeWorkspaceId}
-                terminalContainerRef={bottomTerminalRef}
-                onTerminalRegistered={handleBottomTerminalRegistered}
-                onTerminalUnregistered={handleTerminalUnregistered}
-                onActiveTabChange={setBottomActiveTabId}
-              />
-            }
-            footer={<StatusBar activeWorkspaceName={activeWorkspace?.name} />}
-          >
-            <ContentPane
-              ref={contentPaneRef}
-              workspaceId={activeWorkspaceId}
-              fileToOpen={fileToOpen}
-              onFileOpened={handleFileOpened}
-              terminalContainerRef={contentTerminalRef}
-              onTerminalRegistered={handleContentTerminalRegistered}
-              onTerminalUnregistered={handleTerminalUnregistered}
-              onActiveTabChange={setContentActiveTabId}
-            />
-            <CreateWorkspaceDialog
-              open={isDialogOpen}
-              onClose={() => setIsDialogOpen(false)}
-              onCreated={handleWorkspaceCreated}
-            />
-          </AppLayout>
-        </DragDropProvider>
-        <TerminalManager
-          terminals={terminalEntries}
-          contentBounds={containerBounds.content}
-          bottomBounds={containerBounds.bottom}
-          terminalRefs={terminalRefsMap}
-        />
-      </div>
+      <PaneVisibilityProvider>
+        <WorkspaceViewInner />
+      </PaneVisibilityProvider>
     </ToastProvider>
   );
 }

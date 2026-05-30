@@ -203,8 +203,8 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | Directory       | Purpose                                                                            |
 | --------------- | ---------------------------------------------------------------------------------- |
 | `components/`   | React UI components (see below)                                                    |
-| `hooks/`        | Custom React hooks for state and data (incl. `useCreateTerminalTab`)               |
-| `lib/`          | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles |
+| | `hooks/`        | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility`, `useFileSearch`)               |
+| | `lib/`          | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles, command definitions (`commands.ts`) |
 | `routes/`       | TanStack Router route definitions                                                  |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`)                                     |
 
@@ -212,7 +212,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 
 | Component                  | Role                                                          |
 | -------------------------- | ------------------------------------------------------------- |
-| `AppLayout`                | IDE shell with resizable left/center/right                    |
+| `AppLayout`                | IDE shell with resizable left/center/right panels, collapsible via `paneVisibility` prop with slide animations (`AnimatedPane`); `topBar` prop renders the top bar; separators are conditionally rendered based on pane visibility                    |
 | `SplitPaneView`            | Recursive split pane renderer                                 |
 | `Terminal`                 | ghostty-web terminal emulator with OSC 7 CWD and title tracking |
 | `CodeEditor`               | CodeMirror 6 editor instance                                  |
@@ -230,8 +230,10 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable` |
 | `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename) |
 | `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation |
-| `WorkspaceView`            | Top-level workspace view with `DragDropProvider` for cross-pane terminal tab DnD |
-| `StatusBar`                | Connection status, workspace info                             |
+| `WorkspaceView`            | Top-level workspace view that wraps content in `PaneVisibilityProvider` and composes `TopBar` with `CommandBar` for the top bar; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; `DragDropProvider` for cross-pane terminal tab DnD |
+| `TopBar`                   | Top bar with connection indicator (left), command bar slot (center), pane toggle buttons (right) |
+| `CommandBar`               | File search and command palette (activated by click or Ctrl+K, `/` prefix for commands) |
+| `AnimatedPane`             | Slide animation wrapper for collapsible panels               |
 | `ToastProvider`            | Toast notification system                                     |
 
 ## Testing
@@ -322,6 +324,7 @@ interface Tab {
   filePath?: string;
   cwd?: string;           // tracked via OSC 7 for terminal tabs
   paneLayout?: unknown;
+  customTitle?: string;   // set when a user renames a tab
 }
 ```
 
@@ -369,13 +372,13 @@ WorkspaceView (DragDropProvider)
 │   ├── group="content" → ContentPane.reorderTabs()
 │   └── group="bottom"  → BottomPanel.reorderTabs()
 └── onDragEnd → cross-group transfer
-    ├── sourcePane.removeTerminalTab(id) → { terminalId, title, cwd }
-    └── targetPane.addTerminalTab(terminalId, title, cwd)
+    ├── sourcePane.transferTabOut(id) → { terminalId, title, cwd }
+    └── targetPane.receiveTab(terminalId, title, cwd)
 ```
 
 **Same-pane reorder:** During drag-over, `@dnd-kit/helpers`' `move()` computes the new index order. The source pane's `reorderTabs(fromIndex, toIndex)` is called to update state.
 
-**Cross-pane transfer:** On drag-end, if source and target groups differ, the tab is removed from the source pane and added to the target pane. Only terminal tabs can be transferred (editor tabs are bound to a specific pane). `removeTerminalTab` returns the terminal's data so the target pane can re-create the tab without spawning a new PTY.
+**Cross-pane transfer:** On drag-end, if source and target groups differ, the tab is removed from the source pane and added to the target pane. Only terminal tabs can be transferred (editor tabs are bound to a specific pane). `transferTabOut` returns the terminal's data so the target pane can re-create the tab without spawning a new PTY.
 
 ### Imperative Handles
 
@@ -383,10 +386,13 @@ WorkspaceView (DragDropProvider)
 
 ```typescript
 interface ContentPaneHandle {
-  removeTerminalTab(tabId: string): { terminalId: string; title: string; cwd?: string } | null;
-  addTerminalTab(terminalId: string, title: string, cwd?: string): void;
+  transferTabOut(tabId: string): { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
+  receiveTab(terminalId: string, title: string, cwd?: string, customTitle?: string): string;
   reorderTabs(fromIndex: number, toIndex: number): void;
   getTabs(): Tab[];
+  getActiveTabId(): string | null;
+  updateTabTitle(tabId: string, title: string): void;
+  updateTabCwd(tabId: string, cwd: string): void;
 }
 ```
 

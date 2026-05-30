@@ -20,11 +20,13 @@ function renderAppLayout(
   options: {
     isAuthenticated?: boolean;
     children?: React.ReactNode;
+    paneVisibility?: { left: boolean; right: boolean; bottom: boolean };
   } = {},
 ) {
   const {
     isAuthenticated = true,
     children = React.createElement('div', { 'data-testid': 'child-content' }, 'Child'),
+    paneVisibility = { left: true, right: true, bottom: true },
   } = options;
 
   const contextValue = {
@@ -38,7 +40,7 @@ function renderAppLayout(
     React.createElement(
       AuthContext.Provider,
       { value: contextValue },
-      React.createElement(AppLayout, null, children),
+      React.createElement(AppLayout, { paneVisibility }, children),
     ),
   );
 
