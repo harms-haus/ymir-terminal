@@ -235,7 +235,7 @@ function computeActiveLanes(
       if (j === undefined) continue; // parent not in visible range
 
       const seg = info.linesDown[p];
-      for (let r = i + 1; r < j; r++) {
+      for (let r = i + 1; r <= j; r++) {
         rowSets[r].add(seg.fromLane);
         rowSets[r].add(seg.toLane);
       }
@@ -244,8 +244,7 @@ function computeActiveLanes(
 
   // Convert sets to ActiveLane arrays
   for (let i = 0; i < n; i++) {
-    const ownLane = laneData[i].lane;
-    const lanes = Array.from(rowSets[i]).filter((l) => l !== ownLane);
+    const lanes = Array.from(rowSets[i]);
     active[i] = lanes.map((l) => ({
       lane: l,
       colorIndex: laneColorMap.get(l) ?? 0,

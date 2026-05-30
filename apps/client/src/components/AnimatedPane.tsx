@@ -79,7 +79,6 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
           willChange: 'transform',
           ...(overlayActive && {
             position: 'relative' as const,
-            zIndex: 10,
           }),
         }}
         onTransitionEnd={handleTransitionEnd}

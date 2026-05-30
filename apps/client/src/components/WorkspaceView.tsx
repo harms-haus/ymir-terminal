@@ -91,7 +91,7 @@ function WorkspaceViewInner() {
     updateBounds();
 
     return () => observer.disconnect();
-  }, []);
+  }, [loading]);
 
   // Track active tab IDs from both panes (synced via callbacks)
   const [contentActiveTabId, setContentActiveTabId] = useState<string | null>(null);
