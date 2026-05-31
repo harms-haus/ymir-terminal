@@ -379,7 +379,14 @@ export function setupAllMocks(): void {
         },
         React.createElement('div', { 'data-testid': 'cm-content' }, value),
       );
-    return { default: MockCodeMirror };
+    // EditorView stub — matches the real static API used by production code
+    // (e.g. EditorView.editable.of(false) in DiffViewer)
+    const EditorView = {
+      editable: { of: (val: boolean) => ({ tag: 'editable', value: val }) },
+      lineWrapping: {},
+    };
+
+    return { default: MockCodeMirror, EditorView };
   });
 
   // --- @codemirror language modules ----------------------------------------
