@@ -1,7 +1,9 @@
 import { spawnGit } from './status';
 import type { GitBranch } from '@ymir/shared';
 
-export async function listBranches(dirPath: string): Promise<{ branches: GitBranch[]; current: string | null }> {
+export async function listBranches(
+  dirPath: string,
+): Promise<{ branches: GitBranch[]; current: string | null }> {
   const output = await spawnGit(['branch', '--no-color', '--list'], dirPath);
 
   const branches: GitBranch[] = [];

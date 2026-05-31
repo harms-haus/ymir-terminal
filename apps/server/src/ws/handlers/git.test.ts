@@ -303,10 +303,12 @@ describe('registerGitHandlers', () => {
   // -----------------------------------------------------------------------
   describe('git.repoDiscovery', () => {
     it('returns repos for valid workspace', async () => {
-      const discoverReposFn = mock(async (_cwd: string): Promise<GitRepoInfo[]> => [
-        { path: '.', name: 'project', branch: 'main', hasRemote: true, ahead: 0, behind: 0 },
-        { path: 'libs/sub', name: 'sub', branch: 'dev', hasRemote: false, ahead: 1, behind: 2 },
-      ]);
+      const discoverReposFn = mock(
+        async (_cwd: string): Promise<GitRepoInfo[]> => [
+          { path: '.', name: 'project', branch: 'main', hasRemote: true, ahead: 0, behind: 0 },
+          { path: 'libs/sub', name: 'sub', branch: 'dev', hasRemote: false, ahead: 1, behind: 2 },
+        ],
+      );
 
       const localRouter = new MessageRouter();
       const localConn = mockConn();
@@ -384,7 +386,11 @@ describe('registerGitHandlers', () => {
     });
 
     it('returns INVALID_MESSAGE for missing files or empty files array', async () => {
-      const req1 = request('git.stage', { workspaceId: 'ws-1', repoPath: 'packages/app', files: [] });
+      const req1 = request('git.stage', {
+        workspaceId: 'ws-1',
+        repoPath: 'packages/app',
+        files: [],
+      });
       await router.route(conn, req1);
       const resp1 = conn.sent[0] as Record<string, unknown>;
       expect((resp1.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);

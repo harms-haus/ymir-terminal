@@ -23,7 +23,11 @@ const mockBranches: GitBranch[] = [
 const onCheckout = mock(() => {});
 const onCreateBranch = mock(() => {});
 
-function renderSelector(overrides?: { branches?: GitBranch[]; current?: string | null; disabled?: boolean }) {
+function renderSelector(overrides?: {
+  branches?: GitBranch[];
+  current?: string | null;
+  disabled?: boolean;
+}) {
   return render(
     React.createElement(GitBranchSelector, {
       branches: overrides?.branches ?? mockBranches,

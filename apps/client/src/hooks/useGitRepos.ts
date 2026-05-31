@@ -32,12 +32,8 @@ export function useGitRepos(
   workspaceCwd: string | null,
 ): UseGitReposReturn {
   const [repos, setRepos] = useState<GitRepoInfo[]>([]);
-  const [repoStatuses, setRepoStatuses] = useState<Map<string, GitStatusResponse>>(
-    new Map(),
-  );
-  const [repoBranches, setRepoBranches] = useState<Map<string, GitBranch[]>>(
-    new Map(),
-  );
+  const [repoStatuses, setRepoStatuses] = useState<Map<string, GitStatusResponse>>(new Map());
+  const [repoBranches, setRepoBranches] = useState<Map<string, GitBranch[]>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pushLoading, setPushLoading] = useState<Map<string, boolean>>(new Map());
@@ -140,10 +136,10 @@ export function useGitRepos(
           });
           return;
         }
-        const branchesRes = await sendRequest<GitBranchesResponse>(
-          'git.branches',
-          { workspaceId, repoPath },
-        ).catch(() => ({ branches: [] as GitBranch[], current: null }));
+        const branchesRes = await sendRequest<GitBranchesResponse>('git.branches', {
+          workspaceId,
+          repoPath,
+        }).catch(() => ({ branches: [] as GitBranch[], current: null }));
         if (gen !== generationRef.current) return;
         setRepoStatuses((prev) => {
           const m = new Map(prev);

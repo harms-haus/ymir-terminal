@@ -37,10 +37,7 @@ import {
   createBranch as nativeCreateBranch,
   checkoutBranch as nativeCheckoutBranch,
 } from '../../git/branches';
-import {
-  pushBranch as nativePushBranch,
-  fetchRemote as nativeFetchRemote,
-} from '../../git/remote';
+import { pushBranch as nativePushBranch, fetchRemote as nativeFetchRemote } from '../../git/remote';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../db/persistent';
 import { getWorkspace as dbGetWorkspace } from '../../db/persistent';
@@ -57,7 +54,9 @@ export interface GitDeps {
     getGitStatus?: (dirPath: string) => Promise<GitStatusResponse | null>;
     getGitStatusEnhanced?: (
       dirPath: string,
-    ) => Promise<(GitStatusResponse & { hasRemote: boolean; ahead: number; behind: number }) | null>;
+    ) => Promise<
+      (GitStatusResponse & { hasRemote: boolean; ahead: number; behind: number }) | null
+    >;
     getGitLog?: (
       dirPath: string,
       skip: number,
@@ -211,44 +210,37 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
   });
 
   // --- git.repoDiscovery --------------------------------------------------
-  router.handle(
-    'git.repoDiscovery',
-    async (conn: ClientConnection, envelope: MessageEnvelope) => {
-      const req = envelope as RequestEnvelope<GitRepoDiscoveryRequest>;
-      const payload = req.payload;
+  router.handle('git.repoDiscovery', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitRepoDiscoveryRequest>;
+    const payload = req.payload;
 
-      if (
-        !payload ||
-        typeof payload !== 'object' ||
-        typeof payload.workspaceId !== 'string'
-      ) {
-        conn.send(
-          createError(
-            { id: req.id, channel: req.channel ?? 'git.repoDiscovery' },
-            ErrorCodes.INVALID_MESSAGE,
-            'Missing required field: workspaceId',
-          ),
-        );
-        return;
-      }
+    if (!payload || typeof payload !== 'object' || typeof payload.workspaceId !== 'string') {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.repoDiscovery' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing required field: workspaceId',
+        ),
+      );
+      return;
+    }
 
-      const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
-      if (!workspace) {
-        conn.send(
-          createError(
-            { id: req.id, channel: req.channel ?? 'git.repoDiscovery' },
-            ErrorCodes.WORKSPACE_NOT_FOUND,
-            `Workspace not found: ${payload.workspaceId}`,
-          ),
-        );
-        return;
-      }
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.repoDiscovery' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
 
-      const repos = await doDiscoverRepos(workspace.cwd);
-      const resp = createResponse(req, { repos } satisfies GitRepoDiscoveryResponse);
-      conn.send(resp);
-    },
-  );
+    const repos = await doDiscoverRepos(workspace.cwd);
+    const resp = createResponse(req, { repos } satisfies GitRepoDiscoveryResponse);
+    conn.send(resp);
+  });
 
   // --- git.stage ----------------------------------------------------------
   router.handle('git.stage', async (conn: ClientConnection, envelope: MessageEnvelope) => {

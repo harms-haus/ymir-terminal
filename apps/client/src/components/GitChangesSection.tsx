@@ -43,7 +43,12 @@ export function GitChangesSection({
           staged.length > 0 ? (
             <button
               data-testid="git-unstage-all-button"
-              onClick={() => onUnstageFiles(repoPath, staged.map((f) => f.path))}
+              onClick={() =>
+                onUnstageFiles(
+                  repoPath,
+                  staged.map((f) => f.path),
+                )
+              }
               style={{
                 background: 'transparent',
                 color: COLOR_TEXT_MUTED,
@@ -76,7 +81,10 @@ export function GitChangesSection({
               <button
                 onClick={() => {
                   if (window.confirm('Discard all unstaged changes? This cannot be undone.')) {
-                    onDiscardFiles(repoPath, changes.map((f) => f.path));
+                    onDiscardFiles(
+                      repoPath,
+                      changes.map((f) => f.path),
+                    );
                   }
                 }}
                 style={{
@@ -90,7 +98,12 @@ export function GitChangesSection({
                 Discard All
               </button>
               <button
-                onClick={() => onStageFiles(repoPath, changes.map((f) => f.path))}
+                onClick={() =>
+                  onStageFiles(
+                    repoPath,
+                    changes.map((f) => f.path),
+                  )
+                }
                 style={{
                   background: 'transparent',
                   color: COLOR_TEXT_MUTED,
@@ -183,10 +196,7 @@ function CollapsibleSection({
             </span>
           )}
         </span>
-        <div
-          style={{ display: 'flex', gap: 8 }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div style={{ display: 'flex', gap: 8 }} onClick={(e) => e.stopPropagation()}>
           {renderActions()}
         </div>
       </div>

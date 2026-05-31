@@ -26,9 +26,7 @@ export async function pushBranch(dirPath: string, branch: string): Promise<void>
   try {
     await spawnGitStrict(['push', 'origin', branch], dirPath);
   } catch (error) {
-    throw new Error(
-      `Push failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    throw new Error(`Push failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -36,8 +34,6 @@ export async function fetchRemote(dirPath: string): Promise<void> {
   try {
     await spawnGitStrict(['fetch'], dirPath);
   } catch (error) {
-    throw new Error(
-      `Fetch failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    throw new Error(`Fetch failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

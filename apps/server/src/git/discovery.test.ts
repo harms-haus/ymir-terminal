@@ -24,7 +24,10 @@ describe('discoverRepos', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `ymir-discovery-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = join(
+      tmpdir(),
+      `ymir-discovery-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
     mkdirSync(testDir, { recursive: true });
   });
 
@@ -52,11 +55,8 @@ describe('discoverRepos', () => {
     const repos = await discoverRepos(testDir);
     expect(repos).toHaveLength(2);
 
-    const paths = repos.map(r => r.path).sort();
-    expect(paths).toEqual([
-      'projects/proj-a',
-      'projects/proj-b',
-    ]);
+    const paths = repos.map((r) => r.path).sort();
+    expect(paths).toEqual(['projects/proj-a', 'projects/proj-b']);
   });
 
   it('skips ignored directories like node_modules', async () => {

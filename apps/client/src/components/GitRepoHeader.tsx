@@ -111,7 +111,7 @@ export function GitRepoHeader({
                 ...(fetchLoading ? { opacity: 0.6, cursor: 'default' } : {}),
               }}
               onMouseEnter={(e) => {
-                if (!fetchLoading) (e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER);
+                if (!fetchLoading) e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = COLOR_GIT_ACTION_BG;
@@ -130,7 +130,7 @@ export function GitRepoHeader({
                 ...(pushLoading ? { opacity: 0.6, cursor: 'default' } : {}),
               }}
               onMouseEnter={(e) => {
-                if (!pushLoading) (e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER);
+                if (!pushLoading) e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = COLOR_GIT_ACTION_BG;
@@ -188,7 +188,10 @@ export function GitRepoHeader({
               <div
                 role="menuitem"
                 tabIndex={-1}
-                onClick={() => { toast.info('Not yet implemented'); setMoreMenuOpen(false); }}
+                onClick={() => {
+                  toast.info('Not yet implemented');
+                  setMoreMenuOpen(false);
+                }}
                 style={{
                   padding: '4px 8px',
                   cursor: 'pointer',
@@ -196,15 +199,22 @@ export function GitRepoHeader({
                   color: COLOR_TEXT,
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = undefined as unknown as string; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = undefined as unknown as string;
+                }}
               >
                 Pull
               </div>
               <div
                 role="menuitem"
                 tabIndex={-1}
-                onClick={() => { toast.info('Not yet implemented'); setMoreMenuOpen(false); }}
+                onClick={() => {
+                  toast.info('Not yet implemented');
+                  setMoreMenuOpen(false);
+                }}
                 style={{
                   padding: '4px 8px',
                   cursor: 'pointer',
@@ -212,15 +222,22 @@ export function GitRepoHeader({
                   color: COLOR_TEXT,
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = undefined as unknown as string; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = undefined as unknown as string;
+                }}
               >
                 Push
               </div>
               <div
                 role="menuitem"
                 tabIndex={-1}
-                onClick={() => { toast.info('Not yet implemented'); setMoreMenuOpen(false); }}
+                onClick={() => {
+                  toast.info('Not yet implemented');
+                  setMoreMenuOpen(false);
+                }}
                 style={{
                   padding: '4px 8px',
                   cursor: 'pointer',
@@ -228,15 +245,22 @@ export function GitRepoHeader({
                   color: COLOR_TEXT,
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = undefined as unknown as string; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = undefined as unknown as string;
+                }}
               >
                 Commit
               </div>
               <div
                 role="menuitem"
                 tabIndex={-1}
-                onClick={() => { toast.info('Not yet implemented'); setMoreMenuOpen(false); }}
+                onClick={() => {
+                  toast.info('Not yet implemented');
+                  setMoreMenuOpen(false);
+                }}
                 style={{
                   padding: '4px 8px',
                   cursor: 'pointer',
@@ -244,8 +268,12 @@ export function GitRepoHeader({
                   color: COLOR_TEXT,
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = undefined as unknown as string; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = undefined as unknown as string;
+                }}
               >
                 Branch
               </div>
@@ -253,7 +281,10 @@ export function GitRepoHeader({
               <div
                 role="menuitem"
                 tabIndex={-1}
-                onClick={() => { toast.info('Not yet implemented'); setMoreMenuOpen(false); }}
+                onClick={() => {
+                  toast.info('Not yet implemented');
+                  setMoreMenuOpen(false);
+                }}
                 style={{
                   padding: '4px 8px',
                   cursor: 'pointer',
@@ -261,8 +292,12 @@ export function GitRepoHeader({
                   color: COLOR_TEXT,
                   whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = undefined as unknown as string; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = undefined as unknown as string;
+                }}
               >
                 Stash
               </div>

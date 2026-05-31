@@ -2,11 +2,7 @@ import { useGitRepos } from '../hooks/useGitRepos';
 import { GitRepoHeader } from './GitRepoHeader';
 import { GitCommitInput } from './GitCommitInput';
 import { GitChangesSection } from './GitChangesSection';
-import {
-  COLOR_TEXT_DIM,
-  COLOR_ERROR,
-  COLOR_BORDER
-} from '../lib/theme';
+import { COLOR_TEXT_DIM, COLOR_ERROR, COLOR_BORDER } from '../lib/theme';
 
 interface GitPanelProps {
   workspaceId: string | null;
@@ -42,9 +38,20 @@ export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor }: GitPanelPr
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }} data-testid="git-panel">
+    <div
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      data-testid="git-panel"
+    >
       {git.error && (
-        <div style={{ padding: '6px 8px', color: COLOR_ERROR, fontSize: 12, background: 'rgba(255,0,0,0.1)', borderBottom: `1px solid ${COLOR_ERROR}` }}>
+        <div
+          style={{
+            padding: '6px 8px',
+            color: COLOR_ERROR,
+            fontSize: 12,
+            background: 'rgba(255,0,0,0.1)',
+            borderBottom: `1px solid ${COLOR_ERROR}`,
+          }}
+        >
           {git.error}
         </div>
       )}
@@ -54,7 +61,14 @@ export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor }: GitPanelPr
         const hasStagedFiles = (status?.staged?.length ?? 0) > 0;
 
         return (
-          <div key={repo.path || '.'} style={{ display: 'flex', flexDirection: 'column', borderBottom: `1px solid ${COLOR_BORDER}` }}>
+          <div
+            key={repo.path || '.'}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              borderBottom: `1px solid ${COLOR_BORDER}`,
+            }}
+          >
             <GitRepoHeader
               repoInfo={repo}
               branches={branches}

@@ -41,8 +41,8 @@ export interface GitLogResponse {
 }
 
 export interface GitRepoInfo {
-  path: string;        // relative path from workspace root
-  name: string;        // directory name
+  path: string; // relative path from workspace root
+  name: string; // directory name
   branch: string | null;
   hasRemote: boolean;
   ahead: number;

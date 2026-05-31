@@ -21,9 +21,7 @@ async function spawnGitOrThrow(args: string[], cwd: string): Promise<string> {
   const stdout = await new Response(proc.stdout).text();
   if (proc.exitCode !== 0) {
     const stderr = await new Response(proc.stderr).text();
-    throw new Error(
-      `git ${args.join(' ')} failed (exit ${proc.exitCode}): ${stderr.trim()}`,
-    );
+    throw new Error(`git ${args.join(' ')} failed (exit ${proc.exitCode}): ${stderr.trim()}`);
   }
   return stdout;
 }

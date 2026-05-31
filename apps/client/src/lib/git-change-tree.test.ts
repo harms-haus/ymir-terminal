@@ -8,19 +8,11 @@ function file(path: string, status: GitFileChange['status'] = 'M'): GitFileChang
   return { path, status };
 }
 
-function dir(
-  name: string,
-  path: string,
-  children: ChangeTreeNode[],
-): ChangeTreeNode {
+function dir(name: string, path: string, children: ChangeTreeNode[]): ChangeTreeNode {
   return { name, path, isDirectory: true, children };
 }
 
-function leaf(
-  name: string,
-  path: string,
-  status: GitFileChange['status'] = 'M',
-): ChangeTreeNode {
+function leaf(name: string, path: string, status: GitFileChange['status'] = 'M'): ChangeTreeNode {
   return { name, path, isDirectory: false, status };
 }
 
@@ -57,11 +49,7 @@ describe('buildChangeTree', () => {
   });
 
   test('files in same directory → grouped under one directory node', () => {
-    const changes = [
-      file('src/a.ts'),
-      file('src/b.ts'),
-      file('src/c.ts'),
-    ];
+    const changes = [file('src/a.ts'), file('src/b.ts'), file('src/c.ts')];
     const result = buildChangeTree(changes);
 
     expect(result).toEqual([
@@ -95,11 +83,7 @@ describe('buildChangeTree', () => {
   });
 
   test('mixed depths', () => {
-    const changes = [
-      file('a.ts', 'M'),
-      file('src/b.ts', 'A'),
-      file('src/lib/c.ts', 'D'),
-    ];
+    const changes = [file('a.ts', 'M'), file('src/b.ts', 'A'), file('src/lib/c.ts', 'D')];
     const result = buildChangeTree(changes);
 
     expect(result).toEqual([

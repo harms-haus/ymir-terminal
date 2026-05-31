@@ -38,7 +38,10 @@ describe('git operations', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `ymir-git-ops-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = join(
+      tmpdir(),
+      `ymir-git-ops-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
     mkdirSync(testDir, { recursive: true });
   });
 
@@ -191,9 +194,7 @@ describe('git operations', () => {
     it('throws when commit message is empty', async () => {
       initRepo(testDir);
       await expect(commitChanges(testDir, '')).rejects.toThrow('Commit message cannot be empty');
-      await expect(commitChanges(testDir, '   ')).rejects.toThrow(
-        'Commit message cannot be empty',
-      );
+      await expect(commitChanges(testDir, '   ')).rejects.toThrow('Commit message cannot be empty');
     });
   });
 });

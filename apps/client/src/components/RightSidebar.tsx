@@ -289,7 +289,11 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
               <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>
             )
           ) : (
-            <GitPanel workspaceId={workspaceId} workspaceCwd={workspaceCwd ?? null} onOpenEditor={onFileSelect} />
+            <GitPanel
+              workspaceId={workspaceId}
+              workspaceCwd={workspaceCwd ?? null}
+              onOpenEditor={onFileSelect}
+            />
           )}
         </Panel>
         <Separator style={{ height: '2px', background: COLOR_BORDER }} />

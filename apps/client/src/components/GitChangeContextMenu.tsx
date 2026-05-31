@@ -101,10 +101,7 @@ export function GitChangeContextMenu({
               >
                 View Diff
               </ContextMenu.Item>
-              <ContextMenu.Item
-                onSelect={() => onOpenEditor?.(path)}
-                style={menuItemStyle}
-              >
+              <ContextMenu.Item onSelect={() => onOpenEditor?.(path)} style={menuItemStyle}>
                 Open in Editor
               </ContextMenu.Item>
             </>

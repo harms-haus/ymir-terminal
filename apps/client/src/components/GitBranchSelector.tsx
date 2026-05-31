@@ -130,7 +130,16 @@ export function GitBranchSelector({
         closeDropdown();
       }
     },
-    [isCreating, newBranchName, highlightedIndex, branches, totalItems, onCheckout, onCreateBranch, closeDropdown],
+    [
+      isCreating,
+      newBranchName,
+      highlightedIndex,
+      branches,
+      totalItems,
+      onCheckout,
+      onCreateBranch,
+      closeDropdown,
+    ],
   );
 
   const handleCreateClick = useCallback(() => {

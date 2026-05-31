@@ -4,9 +4,23 @@ import type { GitRepoInfo } from '@ymir/shared';
 import { isGitRepo, getCurrentBranch, hasRemote, getAheadBehind } from './status';
 
 const SKIP_DIRS = new Set([
-  'node_modules', 'dist', 'build', 'target', '.next', '.nuxt',
-  'coverage', '.cache', '__pycache__', 'vendor', 'Pods',
-  '.tox', '.venv', 'venv', 'env', '.idea', '.vscode'
+  'node_modules',
+  'dist',
+  'build',
+  'target',
+  '.next',
+  '.nuxt',
+  'coverage',
+  '.cache',
+  '__pycache__',
+  'vendor',
+  'Pods',
+  '.tox',
+  '.venv',
+  'venv',
+  'env',
+  '.idea',
+  '.vscode',
 ]);
 
 export async function discoverRepos(workspaceCwd: string, maxDepth = 5): Promise<GitRepoInfo[]> {
@@ -20,7 +34,7 @@ async function walkDir(
   workspaceCwd: string,
   depth: number,
   maxDepth: number,
-  repos: GitRepoInfo[]
+  repos: GitRepoInfo[],
 ): Promise<void> {
   if (depth > maxDepth) return;
 
@@ -32,7 +46,7 @@ async function walkDir(
     const [branch, remote, tracking] = await Promise.all([
       getCurrentBranch(currentDir),
       hasRemote(currentDir),
-      getAheadBehind(currentDir)
+      getAheadBehind(currentDir),
     ]);
 
     repos.push({
@@ -40,7 +54,7 @@ async function walkDir(
       name: basename(currentDir),
       branch,
       hasRemote: remote,
-      ...tracking
+      ...tracking,
     });
 
     // Stop at repo boundary
@@ -51,13 +65,13 @@ async function walkDir(
   try {
     const entries = await readdir(currentDir, { withFileTypes: true });
     const subdirs = entries
-      .filter(e => e.isDirectory() && !e.name.startsWith('.'))
-      .map(e => join(currentDir, e.name));
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .map((e) => join(currentDir, e.name));
 
     const BATCH_SIZE = 10;
     for (let i = 0; i < subdirs.length; i += BATCH_SIZE) {
       const batch = subdirs.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(dir => walkDir(dir, workspaceCwd, depth + 1, maxDepth, repos)));
+      await Promise.all(batch.map((dir) => walkDir(dir, workspaceCwd, depth + 1, maxDepth, repos)));
     }
   } catch {
     // Permission denied or other FS error

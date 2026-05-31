@@ -46,6 +46,21 @@ function setMessage(textarea: HTMLTextAreaElement, value: string) {
   });
 }
 
+function ctrlEnter(textarea: HTMLElement) {
+  const reactPropsKey = Object.keys(textarea).find((k) => k.startsWith('__reactProps'));
+  if (!reactPropsKey) throw new Error('Could not find React internal props on textarea');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const props = (textarea as any)[reactPropsKey];
+  act(() => {
+    props.onKeyDown({
+      key: 'Enter',
+      ctrlKey: true,
+      metaKey: false,
+      preventDefault: () => {},
+    });
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -56,41 +71,41 @@ describe('GitCommitInput', () => {
     onCommit.mockClear();
   });
 
-  it('renders textarea and commit button', () => {
+  it('renders textarea', () => {
     const { getByTestId } = renderInput();
     expect(getByTestId('git-commit-input')).toBeTruthy();
-    expect(getByTestId('git-commit-button')).toBeTruthy();
   });
 
-  it('button click calls onCommit', () => {
+  it('Ctrl+Enter calls onCommit', () => {
     const { getByTestId } = renderInput();
     const textarea = getByTestId('git-commit-input') as HTMLTextAreaElement;
     setMessage(textarea, 'feat: add new feature');
 
-    const button = getByTestId('git-commit-button') as HTMLButtonElement;
-    expect(button.disabled).toBe(false);
-    fireEvent.click(button);
+    ctrlEnter(textarea);
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith('feat: add new feature');
   });
 
   it('disabled state prevents commit', () => {
     const { getByTestId } = renderInput({ disabled: true });
-    const button = getByTestId('git-commit-button') as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    fireEvent.click(button);
+    const textarea = getByTestId('git-commit-input') as HTMLTextAreaElement;
+    setMessage(textarea, 'feat: add new feature');
+
+    ctrlEnter(textarea);
     expect(onCommit).not.toHaveBeenCalled();
   });
 
-  it('empty message disables button', () => {
+  it('empty message prevents commit', () => {
     const { getByTestId } = renderInput();
-    const button = getByTestId('git-commit-button') as HTMLButtonElement;
-    // Initial state: empty message → button disabled
-    expect(button.disabled).toBe(true);
-
-    // Set whitespace-only message → still disabled
     const textarea = getByTestId('git-commit-input') as HTMLTextAreaElement;
+
+    // Initial state: empty message → no commit
+    ctrlEnter(textarea);
+    expect(onCommit).not.toHaveBeenCalled();
+
+    // Whitespace-only message → still no commit
     setMessage(textarea, '   ');
-    expect(button.disabled).toBe(true);
+    ctrlEnter(textarea);
+    expect(onCommit).not.toHaveBeenCalled();
   });
 });

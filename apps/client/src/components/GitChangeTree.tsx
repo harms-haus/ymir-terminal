@@ -8,14 +8,22 @@ import { GitChangeContextMenu } from './GitChangeContextMenu';
 
 function statusLabel(status?: GitFileChangeStatus): string {
   switch (status) {
-    case 'M': return 'Modified';
-    case 'A': return 'Added';
-    case 'D': return 'Deleted';
-    case 'R': return 'Renamed';
-    case 'C': return 'Copied';
-    case '??': return 'Untracked';
-    case '?': return 'Untracked';
-    default: return 'Unknown';
+    case 'M':
+      return 'Modified';
+    case 'A':
+      return 'Added';
+    case 'D':
+      return 'Deleted';
+    case 'R':
+      return 'Renamed';
+    case 'C':
+      return 'Copied';
+    case '??':
+      return 'Untracked';
+    case '?':
+      return 'Untracked';
+    default:
+      return 'Unknown';
   }
 }
 

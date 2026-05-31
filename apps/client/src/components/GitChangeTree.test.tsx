@@ -65,9 +65,7 @@ describe('GitChangeTree', () => {
   });
 
   it('directory nodes expand/collapse on click', () => {
-    const changes: GitFileChange[] = [
-      { path: 'src/index.ts', status: 'M' },
-    ];
+    const changes: GitFileChange[] = [{ path: 'src/index.ts', status: 'M' }];
 
     const { getByTestId, queryByTestId } = renderTree(changes);
 

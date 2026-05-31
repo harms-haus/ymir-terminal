@@ -3,7 +3,14 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { getGitStatus, isGitRepo, getCurrentBranch, hasRemote, getAheadBehind, getGitStatusEnhanced } from './status';
+import {
+  getGitStatus,
+  isGitRepo,
+  getCurrentBranch,
+  hasRemote,
+  getAheadBehind,
+  getGitStatusEnhanced,
+} from './status';
 import type { GitStatusResponse } from '@ymir/shared';
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });
