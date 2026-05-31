@@ -84,6 +84,65 @@ mock.module('../lib/send-request', () => ({
   sendRequest: (...args: [string, unknown]) => mockSendRequest(...args),
 }));
 
+// ---------------------------------------------------------------------------
+// Mock TabContextMenu — faithful mock that renders menu items with
+// data-testid attributes.  Prevents leak from TabBar.test.tsx's stub mock
+// (which omits the menu items) when running all tests together.
+// ---------------------------------------------------------------------------
+
+mock.module('./TabContextMenu', () => ({
+  TabContextMenu: ({
+    canCloseRight,
+    canCloseOthers,
+    onClose,
+    onCloseRight,
+    onCloseOthers,
+    onRename,
+    children,
+  }: {
+    canCloseRight: boolean;
+    canCloseOthers: boolean;
+    onClose: () => void;
+    onCloseRight: () => void;
+    onCloseOthers: () => void;
+    onRename: () => void;
+    children: React.ReactNode;
+  }) =>
+    React.createElement(
+      'div',
+      null,
+      children,
+      React.createElement(
+        'div',
+        { 'data-testid': 'tab-menu-close', onClick: () => onClose() },
+        'Close',
+      ),
+      React.createElement(
+        'div',
+        {
+          'data-testid': 'tab-menu-close-others',
+          onClick: canCloseOthers ? () => onCloseOthers() : undefined,
+          'aria-disabled': !canCloseOthers || undefined,
+        },
+        'Close Others',
+      ),
+      React.createElement(
+        'div',
+        {
+          'data-testid': 'tab-menu-close-right',
+          onClick: canCloseRight ? () => onCloseRight() : undefined,
+          'aria-disabled': !canCloseRight || undefined,
+        },
+        'Close to the Right',
+      ),
+      React.createElement(
+        'div',
+        { 'data-testid': 'tab-menu-rename', onClick: () => onRename() },
+        'Rename',
+      ),
+    ),
+}));
+
 const { BottomPanel } = await import('./BottomPanel');
 import type { BottomPanelHandle } from './BottomPanel';
 

@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
-import { setupTestDom } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
 await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, afterEach, mock } from 'bun:test';
 import { render, cleanup, fireEvent } from '@testing-library/react';

@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
-import { setupTestDom } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
 await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, afterEach } from 'bun:test';
 import { render, cleanup } from '@testing-library/react';
@@ -78,7 +79,7 @@ describe('SplitPaneView', () => {
 
     const group = container.querySelector('[data-group]') as HTMLElement;
     expect(group).toBeTruthy();
-    expect(group.style.flexDirection).toBe('row');
+    expect(group.getAttribute('data-orientation')).toBe('horizontal');
 
     // There should be a separator between the two panels
     const separators = container.querySelectorAll('[data-separator]');
@@ -94,7 +95,7 @@ describe('SplitPaneView', () => {
 
     const group = container.querySelector('[data-group]') as HTMLElement;
     expect(group).toBeTruthy();
-    expect(group.style.flexDirection).toBe('column');
+    expect(group.getAttribute('data-orientation')).toBe('vertical');
 
     const separators = container.querySelectorAll('[data-separator]');
     expect(separators.length).toBe(1);

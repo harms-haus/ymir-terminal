@@ -3,13 +3,19 @@ import { describe, expect, it, beforeEach, afterEach, afterAll, mock } from 'bun
 import { PTYManager } from './manager';
 import { toBase64 } from '@ymir/shared';
 
+// We mock the PTYManager module dependency on existsSync by intercepting
+// at the module level. To avoid contaminating other test files' node:fs usage,
+// we create a dedicated mock module that only affects this file's import.
+// NOTE: mock.module is process-scoped in Bun 1.3.14, so this WILL affect
+// other files that import from 'node:fs'. We mitigate by restoring in afterAll.
 const mockExistsSync = mock((_path: string) => true);
 
 mock.module('node:fs', () => ({
   existsSync: mockExistsSync,
 }));
 
-// Cleanup: restore all mocked modules so other test files see the originals
+// Cleanup: restore all mocked modules so other test files see the originals.
+// This runs after ALL tests in this file complete.
 afterAll(() => {
   mock.restore();
 });

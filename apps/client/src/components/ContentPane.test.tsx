@@ -77,7 +77,7 @@ mock.module('../hooks/useTerminal', () => ({
 // Mock sendRequest
 // ---------------------------------------------------------------------------
 
-let mockSendRequestResponse: unknown = {};
+let mockSendRequestResponse: unknown = { tabs: [] };
 const mockSendRequest = mock(() => Promise.resolve(mockSendRequestResponse));
 
 mock.module('../lib/send-request', () => ({
@@ -93,6 +93,65 @@ mock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
 mock.module('@codemirror/lang-python', () => ({ python: () => {} }));
 mock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
 mock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
+
+// ---------------------------------------------------------------------------
+// Mock TabContextMenu — faithful mock that renders menu items with
+// data-testid attributes.  Prevents leak from TabBar.test.tsx's stub mock
+// (which omits the menu items) when running all tests together.
+// ---------------------------------------------------------------------------
+
+mock.module('./TabContextMenu', () => ({
+  TabContextMenu: ({
+    canCloseRight,
+    canCloseOthers,
+    onClose,
+    onCloseRight,
+    onCloseOthers,
+    onRename,
+    children,
+  }: {
+    canCloseRight: boolean;
+    canCloseOthers: boolean;
+    onClose: () => void;
+    onCloseRight: () => void;
+    onCloseOthers: () => void;
+    onRename: () => void;
+    children: React.ReactNode;
+  }) =>
+    React.createElement(
+      'div',
+      null,
+      children,
+      React.createElement(
+        'div',
+        { 'data-testid': 'tab-menu-close', onClick: () => onClose() },
+        'Close',
+      ),
+      React.createElement(
+        'div',
+        {
+          'data-testid': 'tab-menu-close-others',
+          onClick: canCloseOthers ? () => onCloseOthers() : undefined,
+          'aria-disabled': !canCloseOthers || undefined,
+        },
+        'Close Others',
+      ),
+      React.createElement(
+        'div',
+        {
+          'data-testid': 'tab-menu-close-right',
+          onClick: canCloseRight ? () => onCloseRight() : undefined,
+          'aria-disabled': !canCloseRight || undefined,
+        },
+        'Close to the Right',
+      ),
+      React.createElement(
+        'div',
+        { 'data-testid': 'tab-menu-rename', onClick: () => onRename() },
+        'Rename',
+      ),
+    ),
+}));
 
 const { ContentPane } = await import('./ContentPane');
 import type { ContentPaneHandle } from './ContentPane';
@@ -160,7 +219,7 @@ describe('ContentPane', () => {
     mockSendRequest.mockClear();
     // Reset to default implementation (returns mockSendRequestResponse)
     mockSendRequest.mockImplementation(() => Promise.resolve(mockSendRequestResponse));
-    mockSendRequestResponse = {};
+    mockSendRequestResponse = { tabs: [] };
   });
 
   afterEach(() => {

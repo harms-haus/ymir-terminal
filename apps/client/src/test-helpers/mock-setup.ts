@@ -389,8 +389,29 @@ export function setupAllMocks(): void {
 
   // --- react-resizable-panels -----------------------------------------------
   bunMock.module('react-resizable-panels', () => ({
-    Group: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
-      React.createElement('div', { style, 'data-group': '' }, children),
+    Group: ({
+      children,
+      style,
+      orientation,
+    }: {
+      children: React.ReactNode;
+      style?: React.CSSProperties;
+      orientation?: 'horizontal' | 'vertical';
+      [key: string]: unknown;
+    }) =>
+      React.createElement(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            flexDirection: orientation === 'vertical' ? 'column' : 'row',
+            ...style,
+          },
+          'data-group': '',
+          'data-orientation': orientation ?? 'horizontal',
+        },
+        children,
+      ),
     Panel: ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) =>
       React.createElement('div', { style }, children),
     Separator: ({ style }: { style?: React.CSSProperties }) =>

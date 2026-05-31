@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
-import { setupTestDom } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
 await setupTestDom();
+setupAllMocks();
 
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { render, cleanup } from '@testing-library/react';
@@ -95,10 +96,12 @@ describe('AppLayout', () => {
   test('uses Group with horizontal orientation for left/center/right', () => {
     const { container, getByTestId } = renderAppLayout();
 
-    // Verify the outer group exists and contains all three sidebar/content regions
+    // Verify the outer group exists, has horizontal orientation, and contains
+    // all three sidebar/content regions
     const groups = container.querySelectorAll('[data-group]');
     expect(groups.length).toBeGreaterThanOrEqual(1);
     const outerGroup = groups[0] as HTMLElement;
+    expect(outerGroup.getAttribute('data-orientation')).toBe('horizontal');
     expect(outerGroup.contains(getByTestId('left-sidebar'))).toBe(true);
     expect(outerGroup.contains(getByTestId('main-content'))).toBe(true);
     expect(outerGroup.contains(getByTestId('right-sidebar'))).toBe(true);
@@ -110,10 +113,12 @@ describe('AppLayout', () => {
   test('bottom panel is resizable vertically', () => {
     const { container, getByTestId } = renderAppLayout();
 
-    // Verify a nested group exists inside the center panel with content and bottom panels
+    // Verify a nested group exists inside the center panel with vertical
+    // orientation, containing content and bottom panels
     const groups = container.querySelectorAll('[data-group]');
     expect(groups.length).toBeGreaterThanOrEqual(2);
     const innerGroup = groups[1] as HTMLElement;
+    expect(innerGroup.getAttribute('data-orientation')).toBe('vertical');
     expect(innerGroup.contains(getByTestId('main-content'))).toBe(true);
     expect(innerGroup.contains(getByTestId('bottom-panel'))).toBe(true);
   });

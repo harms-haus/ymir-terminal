@@ -1,0 +1,3 @@
+[test]
+# Exclude compiled output from test discovery
+exclude = ["**/dist/**"]
