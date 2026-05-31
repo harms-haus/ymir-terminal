@@ -3,15 +3,18 @@ import type { ServerTabInfo } from '@ymir/shared';
 
 export interface Tab {
   id: string;
-  type: 'terminal' | 'editor' | 'diff';
+  type: 'terminal' | 'editor' | 'diff' | 'git-tree';
   title: string;
   workspaceId: string;
   terminalId?: string;
   filePath?: string;
   cwd?: string;
   customTitle?: string;
-  diffRef?: 'staged' | 'unstaged';
+  diffRef?: 'staged' | 'unstaged' | 'commit';
   diffRepoPath?: string;
+  repoPath?: string;
+  commitSha?: string;
+  parentSha?: string;
 }
 
 export type TabChangeEvent =
@@ -23,8 +26,11 @@ export type TabChangeEvent =
       title: string;
       filePath?: string;
       terminalId?: string;
-      diffRef?: 'staged' | 'unstaged';
+      diffRef?: 'staged' | 'unstaged' | 'commit';
       diffRepoPath?: string;
+      repoPath?: string;
+      commitSha?: string;
+      parentSha?: string;
     }
   | { type: 'close'; tabId: string }
   | { type: 'reorder'; workspaceId: string; tabIds: string[] }
@@ -89,6 +95,11 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
       workspaceId,
       terminalId: st.terminalId ?? undefined,
       filePath: st.filePath ?? undefined,
+      diffRef: st.diffRef ?? undefined,
+      diffRepoPath: st.repoPath ?? undefined,
+      repoPath: st.repoPath ?? undefined,
+      commitSha: st.commitSha ?? undefined,
+      parentSha: st.parentSha ?? undefined,
     }));
     const activeTab = sorted.find((st) => st.active);
     const newActiveTabId = activeTab?.id ?? mappedTabs[0]?.id ?? null;
@@ -111,14 +122,17 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // ---------------------------------------------------------------------------
   const createTab = useCallback(
     (opts: {
-      type: 'terminal' | 'editor' | 'diff';
+      type: 'terminal' | 'editor' | 'diff' | 'git-tree';
       title: string;
       terminalId?: string;
       filePath?: string;
       cwd?: string;
       customTitle?: string;
-      diffRef?: 'staged' | 'unstaged';
+      diffRef?: 'staged' | 'unstaged' | 'commit';
       diffRepoPath?: string;
+      repoPath?: string;
+      commitSha?: string;
+      parentSha?: string;
     }) => {
       const wsId = currentWorkspaceIdRef.current;
       if (!wsId) return '';
@@ -143,6 +157,9 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
         terminalId: opts.terminalId,
         diffRef: opts.diffRef,
         diffRepoPath: opts.diffRepoPath,
+        repoPath: opts.repoPath,
+        commitSha: opts.commitSha,
+        parentSha: opts.parentSha,
       });
       return id;
     },

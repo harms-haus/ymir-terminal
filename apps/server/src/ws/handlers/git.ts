@@ -21,6 +21,10 @@ import {
   type GitFetchRequest,
   type GitDiffDataRequest,
   type GitDiffDataResponse,
+  type GitCommitDetailsRequest,
+  type GitCommitDetailsResponse,
+  type GitCommitDiffRequest,
+  type GitCommitDiffResponse,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
@@ -40,11 +44,18 @@ import {
   checkoutBranch as nativeCheckoutBranch,
 } from '../../git/branches';
 import { pushBranch as nativePushBranch, fetchRemote as nativeFetchRemote } from '../../git/remote';
-import { getDiffData as nativeGetDiffData } from '../../git/diff';
+import { getDiffData as nativeGetDiffData, getCommitFileDiff as nativeGetCommitFileDiff } from '../../git/diff';
+import { getCommitDetails as nativeGetCommitDetails } from '../../git/commit-details';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../db/persistent';
 import { getWorkspace as dbGetWorkspace } from '../../db/persistent';
 import { join } from 'node:path';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const SHA_REGEX = /^[0-9a-f]{4,64}$/i;
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -91,6 +102,21 @@ export interface GitDeps {
       additions: number;
       deletions: number;
     }>;
+    getCommitDetails?: (
+      dirPath: string,
+      commitSha: string,
+    ) => Promise<import('../../git/commit-details').CommitDetails | null>;
+    getCommitFileDiff?: (
+      repoDir: string,
+      commitSha: string,
+      parentSha: string,
+      filePath: string,
+    ) => Promise<{
+      originalContent: string;
+      modifiedContent: string;
+      additions: number;
+      deletions: number;
+    }>;
   };
 }
 
@@ -114,6 +140,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
   const doPushBranch = deps._mocks?.pushBranch ?? nativePushBranch;
   const doFetchRemote = deps._mocks?.fetchRemote ?? nativeFetchRemote;
   const doGetDiffData = deps._mocks?.getDiffData ?? nativeGetDiffData;
+  const doGetCommitDetails = deps._mocks?.getCommitDetails ?? nativeGetCommitDetails;
+  const doGetCommitFileDiff = deps._mocks?.getCommitFileDiff ?? nativeGetCommitFileDiff;
 
   // --- git.status ---------------------------------------------------------
   router.handle('git.status', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -615,6 +643,147 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     const result = await doGetDiffData(absRepoPath, payload.filePath, payload.staged);
     conn.send(
       createResponse(req, { ...result, filePath: payload.filePath } satisfies GitDiffDataResponse),
+    );
+  });
+
+  // --- git.commitDetails ---------------------------------------------------
+  router.handle('git.commitDetails', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitCommitDetailsRequest>;
+    const payload = req.payload;
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string' ||
+      typeof payload.commitSha !== 'string'
+    ) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDetails' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid fields: workspaceId, commitSha',
+        ),
+      );
+      return;
+    }
+
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDetails' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    if (!SHA_REGEX.test(payload.commitSha)) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDetails' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Invalid commit SHA format',
+        ),
+      );
+      return;
+    }
+
+    const gitDir = payload.repoPath ? join(workspace.cwd, payload.repoPath) : workspace.cwd;
+    const result = await doGetCommitDetails(gitDir, payload.commitSha);
+    if (!result) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDetails' },
+          ErrorCodes.INVALID_MESSAGE,
+          `Commit not found: ${payload.commitSha}`,
+        ),
+      );
+      return;
+    }
+
+    const resp = createResponse(
+      req,
+      {
+        commitSha: payload.commitSha,
+        body: result.body,
+        files: result.files,
+      } satisfies GitCommitDetailsResponse,
+    );
+    conn.send(resp);
+  });
+
+  // --- git.commitDiff ------------------------------------------------------
+  router.handle('git.commitDiff', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitCommitDiffRequest>;
+    const payload = req.payload;
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string' ||
+      typeof payload.repoPath !== 'string' ||
+      typeof payload.commitSha !== 'string' ||
+      typeof payload.parentSha !== 'string' ||
+      typeof payload.filePath !== 'string'
+    ) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDiff' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid fields: workspaceId, repoPath, commitSha, parentSha, filePath',
+        ),
+      );
+      return;
+    }
+
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDiff' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    if (!SHA_REGEX.test(payload.commitSha)) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDiff' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Invalid commit SHA format',
+        ),
+      );
+      return;
+    }
+
+    if (payload.parentSha !== '' && !SHA_REGEX.test(payload.parentSha)) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.commitDiff' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Invalid parent SHA format',
+        ),
+      );
+      return;
+    }
+
+    const absRepoPath = join(workspace.cwd, payload.repoPath);
+    const result = await doGetCommitFileDiff(
+      absRepoPath,
+      payload.commitSha,
+      payload.parentSha,
+      payload.filePath,
+    );
+    conn.send(
+      createResponse(
+        req,
+        { ...result, filePath: payload.filePath } satisfies GitCommitDiffResponse,
+      ),
     );
   });
 }

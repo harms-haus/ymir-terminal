@@ -49,6 +49,8 @@ import type {
   GitPushRequest,
   GitFetchRequest,
   GitDiffDataRequest,
+  GitCommitDetailsRequest,
+  GitCommitDiffRequest,
 } from './git';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
@@ -92,6 +94,8 @@ export const REQUEST_TYPES = [
   'git.push',
   'git.fetch',
   'git.diffData',
+  'git.commitDetails',
+  'git.commitDiff',
   'config.get',
   'config.set',
   'tab.list',
@@ -144,6 +148,8 @@ export type RequestPayload =
   | GitPushRequest
   | GitFetchRequest
   | GitDiffDataRequest
+  | GitCommitDetailsRequest
+  | GitCommitDiffRequest
   | ConfigGetRequest
   | ConfigSetRequest
   | TabListRequest

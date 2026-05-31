@@ -19,6 +19,7 @@ interface GitRepoHeaderProps {
   onCreateBranch: (name: string) => void;
   onPush: (branch: string) => void;
   onFetch: () => void;
+  onOpenGitTree?: (repoPath: string) => void;
   pushLoading?: boolean;
   fetchLoading?: boolean;
 }
@@ -40,6 +41,7 @@ export function GitRepoHeader({
   onCreateBranch,
   onPush,
   onFetch,
+  onOpenGitTree,
   pushLoading = false,
   fetchLoading = false,
 }: GitRepoHeaderProps) {
@@ -144,7 +146,7 @@ export function GitRepoHeader({
           data-testid="git-graph-button"
           aria-label="Git graph"
           title="Git Graph"
-          onClick={() => toast.info('Git graph tab not yet implemented')}
+          onClick={() => onOpenGitTree?.(repoInfo.path)}
           style={actionButtonStyle}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;

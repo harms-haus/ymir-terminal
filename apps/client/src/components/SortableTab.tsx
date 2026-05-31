@@ -104,6 +104,8 @@ export const SortableTab = React.memo(function SortableTab({
     tooltipTitle = tab.filePath;
   } else if (tab.type === 'diff') {
     tooltipTitle = tab.filePath ? `${tab.filePath} (diff)` : 'Diff';
+  } else if (tab.type === 'git-tree') {
+    tooltipTitle = tab.repoPath ? `Git History — ${tab.repoPath}` : 'Git History';
   }
 
   return (

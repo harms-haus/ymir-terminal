@@ -19,7 +19,7 @@ import {
   COLOR_TEXT_BRIGHT,
   COLOR_RETRY_BTN_BG,
 } from '../lib/theme';
-import type { GitDiffDataResponse } from '@ymir/shared';
+import type { GitDiffDataResponse, GitCommitDiffResponse } from '@ymir/shared';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const LANG_EXTENSIONS: Record<string, () => any> = {
@@ -46,6 +46,8 @@ interface DiffViewerProps {
   repoPath: string;
   filePath: string;
   staged: boolean;
+  commitSha?: string;
+  parentSha?: string;
   onOpenEditor: (filePath: string) => void;
 }
 
@@ -54,6 +56,8 @@ export function DiffViewer({
   repoPath,
   filePath,
   staged,
+  commitSha,
+  parentSha,
   onOpenEditor,
 }: DiffViewerProps) {
   const [mode, setMode] = useState<DiffViewMode>('changes');
@@ -62,7 +66,9 @@ export function DiffViewer({
 
   const handleOpenEditor = useCallback(() => onOpenEditor(filePath), [onOpenEditor, filePath]);
   const generationRef = useRef(0);
-  const currentKey = `${workspaceId}:${repoPath}:${filePath}:${staged}`;
+  const currentKey = commitSha
+    ? `${workspaceId}:${repoPath}:${filePath}:${commitSha}`
+    : `${workspaceId}:${repoPath}:${filePath}:${staged}`;
 
   useEffect(() => {
     if (!workspaceId || !repoPath || !filePath) return;
@@ -71,16 +77,30 @@ export function DiffViewer({
     let cancelled = false;
     const gen = ++generationRef.current;
 
-    sendRequest<GitDiffDataResponse>(
-      'git.diffData',
-      {
-        workspaceId,
-        repoPath,
-        filePath,
-        staged,
-      },
-      { signal: controller.signal },
-    )
+    const requestPromise = commitSha
+      ? sendRequest<GitCommitDiffResponse>(
+          'git.commitDiff',
+          {
+            workspaceId,
+            repoPath,
+            commitSha,
+            parentSha: parentSha ?? '',
+            filePath,
+          },
+          { signal: controller.signal },
+        )
+      : sendRequest<GitDiffDataResponse>(
+          'git.diffData',
+          {
+            workspaceId,
+            repoPath,
+            filePath,
+            staged,
+          },
+          { signal: controller.signal },
+        );
+
+    requestPromise
       .then((result) => {
         if (cancelled || gen !== generationRef.current) return;
         setDiffState({
@@ -109,7 +129,7 @@ export function DiffViewer({
       cancelled = true;
       controller.abort();
     };
-  }, [workspaceId, repoPath, filePath, staged, fetchRetry]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workspaceId, repoPath, filePath, staged, commitSha, parentSha, fetchRetry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isCurrentKey = diffState?.key === currentKey;
   const isLoading = !isCurrentKey;
@@ -210,10 +230,11 @@ export function DiffViewer({
         mode={mode}
         onModeChange={setMode}
         onOpenEditor={handleOpenEditor}
+        commitSha={commitSha}
       />
       <div style={{ flex: 1, overflow: 'auto' }}>
         <CodeMirror
-          key={filePath}
+          key={commitSha ? `${filePath}-${commitSha}` : filePath}
           value={modifiedContent}
           height="100%"
           style={{ height: '100%' }}

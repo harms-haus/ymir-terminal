@@ -21,6 +21,7 @@ export interface DiffViewerHeaderProps {
   mode: DiffViewMode;
   onModeChange: (mode: DiffViewMode) => void;
   onOpenEditor: () => void;
+  commitSha?: string;
 }
 
 const btnStyle: React.CSSProperties = {
@@ -41,6 +42,7 @@ export function DiffViewerHeader({
   mode,
   onModeChange,
   onOpenEditor,
+  commitSha,
 }: DiffViewerHeaderProps) {
   const [hoverEditorBtn, setHoverEditorBtn] = useState(false);
 
@@ -70,7 +72,7 @@ export function DiffViewerHeader({
             maxWidth: '300px',
           }}
         >
-          {fileName}
+          {commitSha ? `${fileName} @ ${commitSha.slice(0, 7)}` : fileName}
         </span>
         <span style={{ fontSize: 12, fontFamily: 'monospace' }}>
           <span style={{ color: COLOR_DIFF_ADDITIONS }}>+{additions}</span>{' '}

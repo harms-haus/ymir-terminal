@@ -36,6 +36,10 @@ function WorkspaceViewInner() {
     repoPath: string;
     staged: boolean;
   } | null>(null);
+  const [commitToHighlight, setCommitToHighlight] = useState<{
+    commitSha?: string;
+    repoPath: string;
+  } | null>(null);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
   const updateWorkspace = useUpdateWorkspace();
@@ -316,6 +320,15 @@ function WorkspaceViewInner() {
 
   const handleDiffOpened = useCallback(() => setFileToDiff(null), []);
 
+  const handleCommitClick = useCallback((commitSha: string) => {
+    setCommitToHighlight({ commitSha, repoPath: '' });
+  }, []);
+
+  const handleOpenGitTree = useCallback((repoPath: string) => {
+    setCommitToHighlight({ repoPath });
+  }, []);
+
+  const handleCommitHighlighted = useCallback(() => setCommitToHighlight(null), []);
   const handleCommandBarFileSelect = useCallback((path: string) => {
     setFileToOpen(path);
   }, []);
@@ -448,6 +461,8 @@ function WorkspaceViewInner() {
               workspaceCwd={activeWorkspace?.cwd}
               onFileSelect={handleFileSelect}
               onOpenDiff={handleDiffFile}
+              onOpenGitTree={handleOpenGitTree}
+              onCommitClick={handleCommitClick}
             />
           }
           bottomPanel={
@@ -468,6 +483,8 @@ function WorkspaceViewInner() {
             onFileOpened={handleFileOpened}
             fileToDiff={fileToDiff}
             onDiffOpened={handleDiffOpened}
+            commitToHighlight={commitToHighlight}
+            onCommitHighlighted={handleCommitHighlighted}
             terminalContainerRef={contentTerminalRef}
             onTerminalRegistered={handleContentTerminalRegistered}
             onTerminalUnregistered={handleTerminalUnregistered}

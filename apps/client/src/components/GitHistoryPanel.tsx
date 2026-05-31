@@ -36,6 +36,7 @@ interface CommitRowProps {
   graphWidth: number;
   activeLanes: ActiveLane[];
   style?: React.CSSProperties;
+  onClick?: () => void;
 }
 
 const CommitRow = memo(function CommitRow({
@@ -43,14 +44,40 @@ const CommitRow = memo(function CommitRow({
   graphWidth,
   activeLanes,
   style,
+  onClick,
 }: CommitRowProps) {
   const { commit, lane, colorIndex, linesDown } = info;
   const color = GIT_GRAPH_COLORS[colorIndex % GIT_GRAPH_COLORS.length];
   const cx = lane * LANE_WIDTH + GRAPH_LEFT_PADDING;
   const cy = ROW_HEIGHT / 2;
+  const [hovered, setHovered] = useState(false);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick?.();
+      }
+    },
+    [onClick],
+  );
 
   return (
-    <div style={{ display: 'flex', height: ROW_HEIGHT, ...style }}>
+    <div
+      role="button"
+      tabIndex={0}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
+      onKeyDown={handleKeyDown}
+      style={{
+        display: 'flex',
+        height: ROW_HEIGHT,
+        background: hovered ? 'rgba(255,255,255,0.04)' : undefined,
+        cursor: 'pointer',
+        ...style,
+      }}
+    >
       {/* Graph column */}
       <svg width={graphWidth} height={ROW_HEIGHT} style={{ flexShrink: 0 }}>
         {/* Pass-through vertical lines */}
@@ -150,6 +177,7 @@ const CommitRow = memo(function CommitRow({
 
 interface GitHistoryPanelProps {
   workspaceId: string | null;
+  onCommitClick?: (commitSha: string) => void;
 }
 
 /**
@@ -158,7 +186,7 @@ interface GitHistoryPanelProps {
  * (@tanstack/react-virtual), custom per-row graph renderer with bezier curves,
  * and skip-based pagination via the `git.log` WebSocket channel.
  */
-export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
+export function GitHistoryPanel({ workspaceId, onCommitClick }: GitHistoryPanelProps) {
   const [commits, setCommits] = useState<GitLogItem[]>([]);
   const [skip, setSkip] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -236,6 +264,18 @@ export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
 
   const activeLanesPerRow = useMemo(() => computeActiveLanes(laneData), [laneData]);
 
+  // ── Stable click handler map (memoized by commit id via useCallback) ──
+
+  const commitClickHandlers = useMemo(() => {
+    if (!onCommitClick) return {} as Record<string, () => void>;
+    const map: Record<string, () => void> = {};
+    for (const info of laneData) {
+      const sha = info.commit.id;
+      map[sha] = () => onCommitClick(sha);
+    }
+    return map;
+  }, [laneData, onCommitClick]);
+
   // ── Virtualizer ──────────────────────────────────────────────────────
 
   const virtualizer = useVirtualizer({
@@ -311,6 +351,7 @@ export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
                 info={info}
                 graphWidth={graphWidth}
                 activeLanes={activeLanesPerRow[idx] ?? EMPTY_ACTIVE_LANES}
+                onClick={commitClickHandlers[info.commit.id]}
                 style={{
                   position: 'absolute',
                   top: 0,

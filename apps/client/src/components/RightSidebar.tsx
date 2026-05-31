@@ -24,6 +24,8 @@ interface RightSidebarProps {
   onFileSelect: (path: string) => void;
   workspaceCwd?: string;
   onOpenDiff?: (filePath: string, repoPath: string, staged: boolean) => void;
+  onOpenGitTree?: (repoPath: string) => void;
+  onCommitClick?: (commitSha: string) => void;
 }
 
 export function RightSidebar({
@@ -31,6 +33,8 @@ export function RightSidebar({
   onFileSelect,
   workspaceCwd,
   onOpenDiff,
+  onOpenGitTree,
+  onCommitClick,
 }: RightSidebarProps) {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
@@ -300,12 +304,13 @@ export function RightSidebar({
               workspaceCwd={workspaceCwd ?? null}
               onOpenEditor={onFileSelect}
               onOpenDiff={onOpenDiff}
+              onOpenGitTree={onOpenGitTree}
             />
           )}
         </Panel>
         <Separator style={{ height: '2px', background: COLOR_BORDER }} />
         <Panel id="historyPane" defaultSize="40%" minSize="10%" style={{ overflow: 'hidden' }}>
-          <GitHistoryPanel workspaceId={workspaceId} />
+          <GitHistoryPanel workspaceId={workspaceId} onCommitClick={onCommitClick} />
         </Panel>
       </Group>
     </div>

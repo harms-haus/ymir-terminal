@@ -39,12 +39,16 @@ export function initSessionDb(): Database {
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES client_sessions(id) ON DELETE CASCADE,
       workspace_id TEXT NOT NULL,
-      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor')),
+      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
       title TEXT,
       file_path TEXT,
       pane TEXT NOT NULL DEFAULT 'content' CHECK(pane IN ('content', 'bottom')),
       active INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
+      diff_ref TEXT,
+      repo_path TEXT,
+      commit_sha TEXT,
+      parent_sha TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

@@ -72,3 +72,66 @@ export async function getDiffData(
 
   return { originalContent, modifiedContent, additions, deletions };
 }
+
+export async function getCommitFileDiff(
+  repoDir: string,
+  commitSha: string,
+  parentSha: string,
+  filePath: string,
+): Promise<DiffDataResult> {
+  // --- Fetch original and modified content ---
+  let originalContent: string;
+  let modifiedContent: string;
+
+  if (parentSha === '') {
+    // Root commit with no parent
+    originalContent = '';
+    modifiedContent = await gitShow(commitSha + ':' + filePath, repoDir).catch(
+      () => '',
+    );
+  } else {
+    [originalContent, modifiedContent] = await Promise.all([
+      gitShow(parentSha + ':' + filePath, repoDir).catch(() => ''),
+      gitShow(commitSha + ':' + filePath, repoDir).catch(() => ''),
+    ]);
+  }
+
+  // --- Fetch numstat ---
+  const numstatArgs =
+    parentSha === ''
+      ? ['diff', '--numstat', '--root', commitSha, '--', filePath]
+      : ['diff', '--numstat', parentSha, commitSha, '--', filePath];
+  const numstatOutput = await spawnGit(numstatArgs, repoDir);
+
+  // --- Size guard ---
+  const totalSize = originalContent.length + modifiedContent.length;
+  if (totalSize > MAX_DIFF_CONTENT_SIZE) {
+    return {
+      originalContent: '',
+      modifiedContent: '',
+      additions: 0,
+      deletions: 0,
+    };
+  }
+
+  // --- Parse stats ---
+  let additions = 0;
+  let deletions = 0;
+
+  const trimmed = numstatOutput.trim();
+  if (trimmed) {
+    const parts = trimmed.split('\t');
+    if (parts.length >= 2 && parts[0] !== '-' && parts[1] !== '-') {
+      additions = parseInt(parts[0], 10) || 0;
+      deletions = parseInt(parts[1], 10) || 0;
+    }
+    // Binary file or parse failure: leave at 0
+  } else {
+    // No output (e.g. new file in root commit) — estimate from modified content
+    if (modifiedContent) {
+      additions = modifiedContent.split('\n').length - 1;
+    }
+  }
+
+  return { originalContent, modifiedContent, additions, deletions };
+}

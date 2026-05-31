@@ -91,13 +91,17 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
 
       return {
         id: row.id as string,
-        tabType: row.tab_type as 'terminal' | 'editor',
+        tabType: row.tab_type as 'terminal' | 'editor' | 'diff' | 'git-tree',
         title: (row.title as string | null) ?? null,
         filePath: (row.file_path as string | null) ?? null,
         terminalId,
         active: !!row.active,
         sortOrder: row.sort_order as number,
         ...(terminalAlive !== undefined ? { terminalAlive } : {}),
+        diffRef: (row.diff_ref as 'staged' | 'unstaged' | 'commit' | null) ?? undefined,
+        repoPath: (row.repo_path as string | null) ?? undefined,
+        commitSha: (row.commit_sha as string | null) ?? undefined,
+        parentSha: (row.parent_sha as string | null) ?? undefined,
       };
     });
 
@@ -115,7 +119,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       typeof payload !== 'object' ||
       typeof payload.workspaceId !== 'string' ||
       typeof payload.tabType !== 'string' ||
-      !['terminal', 'editor'].includes(payload.tabType) ||
+      !['terminal', 'editor', 'diff', 'git-tree'].includes(payload.tabType) ||
       typeof payload.title !== 'string' ||
       typeof payload.pane !== 'string' ||
       !['content', 'bottom'].includes(payload.pane)
@@ -130,7 +134,11 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     }
 
     // Validate filePath against path traversal if provided
-    if (payload.filePath != null && typeof payload.filePath === 'string') {
+    if (
+      payload.filePath != null &&
+      typeof payload.filePath === 'string' &&
+      (payload.tabType === 'editor' || payload.tabType === 'diff')
+    ) {
       const workspace = getWorkspace(persistentDb, payload.workspaceId);
       if (!workspace) {
         const err: ResponseEnvelope = createError(
@@ -172,6 +180,10 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       filePath: payload.filePath,
       pane: payload.pane,
       order,
+      diffRef: payload.diffRef,
+      repoPath: payload.diffRepoPath ?? payload.repoPath,
+      commitSha: payload.commitSha,
+      parentSha: payload.parentSha,
     });
 
     // Create pane association if terminalId is provided

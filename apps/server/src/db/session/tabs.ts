@@ -11,11 +11,15 @@ export function createTab(
     filePath?: string;
     pane?: string;
     order: number;
+    diffRef?: string;
+    repoPath?: string;
+    commitSha?: string;
+    parentSha?: string;
   },
 ): string {
   const id = randomUUID();
   const stmt = db.prepare(
-    'INSERT INTO tabs (id, session_id, workspace_id, tab_type, title, file_path, pane, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO tabs (id, session_id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
   stmt.run(
     id,
@@ -26,6 +30,10 @@ export function createTab(
     opts.filePath ?? null,
     opts.pane ?? 'content',
     opts.order,
+    opts.diffRef ?? null,
+    opts.repoPath ?? null,
+    opts.commitSha ?? null,
+    opts.parentSha ?? null,
   );
   return id;
 }

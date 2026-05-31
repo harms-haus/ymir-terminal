@@ -9,9 +9,10 @@ interface GitPanelProps {
   workspaceCwd: string | null;
   onOpenEditor?: (filePath: string) => void;
   onOpenDiff?: (filePath: string, repoPath: string, staged: boolean) => void;
+  onOpenGitTree?: (repoPath: string) => void;
 }
 
-export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff }: GitPanelProps) {
+export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff, onOpenGitTree }: GitPanelProps) {
   const git = useGitRepos(workspaceId, workspaceCwd);
 
   if (!workspaceId) {
@@ -80,6 +81,7 @@ export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff }
               onCreateBranch={(name) => git.checkout(repo.path, name, true)}
               onPush={(branch) => git.push(repo.path, branch)}
               onFetch={() => git.fetch(repo.path)}
+              onOpenGitTree={onOpenGitTree}
               pushLoading={git.pushLoading.get(repo.path)}
               fetchLoading={git.fetchLoading.get(repo.path)}
             />

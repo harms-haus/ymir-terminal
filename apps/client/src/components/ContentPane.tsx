@@ -3,6 +3,7 @@ import { useTerminalPane } from '../hooks/useTerminalPane';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { DiffViewer } from './DiffViewer';
 import { EditorPane } from './EditorPane';
+import { GitTreeTab } from './GitTreeTab';
 import { TabBar } from './TabBar';
 import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
 import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
@@ -18,6 +19,8 @@ export interface ContentPaneProps {
   onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
   onActiveTabChange?: (activeTabId: string | null) => void;
+  commitToHighlight?: { commitSha?: string; repoPath: string } | null;
+  onCommitHighlighted?: () => void;
 }
 
 export type { TerminalPanelHandle as ContentPaneHandle };
@@ -33,6 +36,8 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
     onTerminalRegistered,
     onTerminalUnregistered,
     onActiveTabChange,
+    commitToHighlight,
+    onCommitHighlighted,
   }: ContentPaneProps,
   ref,
 ) {
@@ -124,6 +129,33 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
     [tabs, activateTab, createTab],
   );
 
+  const handleAddCommitDiff = useCallback(
+    (commitSha: string, parentSha: string, filePath: string, repoPath: string) => {
+      const existing = tabs.find(
+        (t) =>
+          t.type === 'diff' &&
+          t.filePath === filePath &&
+          t.diffRef === 'commit' &&
+          t.commitSha === commitSha,
+      );
+      if (existing) {
+        activateTab(existing.id);
+        return;
+      }
+      const fileName = filePath.split('/').pop() || filePath;
+      createTab({
+        type: 'diff',
+        title: fileName,
+        filePath,
+        diffRef: 'commit',
+        diffRepoPath: repoPath,
+        commitSha,
+        parentSha,
+      });
+    },
+    [tabs, activateTab, createTab],
+  );
+
   // Notify parent of activeTabId changes
   useEffect(() => {
     onActiveTabChange?.(activeTabId);
@@ -142,6 +174,26 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
       onDiffOpened?.();
     }
   }, [fileToDiff, handleAddDiff, onDiffOpened]);
+
+  useEffect(() => {
+    if (!commitToHighlight) return;
+    // Find or create a git-tree tab for this repoPath
+    const existing = tabs.find(
+      (t) => t.type === 'git-tree' && t.repoPath === commitToHighlight.repoPath,
+    );
+    if (existing) {
+      activateTab(existing.id);
+    } else {
+      createTab({
+        type: 'git-tree',
+        title: 'Git',
+        repoPath: commitToHighlight.repoPath,
+      });
+    }
+    // Delay the clear so GitTreeTab receives the SHA in at least one render
+    const timer = setTimeout(() => onCommitHighlighted?.(), 100);
+    return () => clearTimeout(timer);
+  }, [commitToHighlight, tabs, activateTab, createTab, onCommitHighlighted]);
 
   useTerminalPanelHandle(ref, {
     transferTabOut,
@@ -208,9 +260,23 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
                 filePath={activeTab.filePath}
                 staged={activeTab.diffRef === 'staged'}
                 onOpenEditor={handleAddEditor}
+                commitSha={activeTab.diffRef === 'commit' ? activeTab.commitSha : undefined}
+                parentSha={activeTab.diffRef === 'commit' ? activeTab.parentSha : undefined}
               />
             </div>
           )}
+        {activeTab?.type === 'git-tree' && activeTab.repoPath != null && workspaceId && (
+          <div style={{ position: 'absolute', inset: 0, background: COLOR_BG_PRIMARY }}>
+            <GitTreeTab
+              workspaceId={workspaceId}
+              repoPath={activeTab.repoPath}
+              highlightCommitSha={commitToHighlight?.commitSha ?? null}
+              onOpenCommitDiff={(commitSha, parentSha, filePath) =>
+                handleAddCommitDiff(commitSha, parentSha, filePath, activeTab.repoPath!)
+              }
+            />
+          </div>
+        )}
         {!activeTab && (
           <div
             style={{
