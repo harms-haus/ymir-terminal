@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, forwardRef } from 'react';
 import { useTerminalPane } from '../hooks/useTerminalPane';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
+import { DiffViewer } from './DiffViewer';
 import { EditorPane } from './EditorPane';
 import { TabBar } from './TabBar';
 import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
@@ -11,6 +12,8 @@ export interface ContentPaneProps {
   workspaceId: string | null;
   fileToOpen?: string | null;
   onFileOpened?: () => void;
+  fileToDiff?: { filePath: string; repoPath: string; staged: boolean } | null;
+  onDiffOpened?: () => void;
   terminalContainerRef?: React.Ref<HTMLDivElement>;
   onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
@@ -24,6 +27,8 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
     workspaceId,
     fileToOpen,
     onFileOpened,
+    fileToDiff,
+    onDiffOpened,
     terminalContainerRef,
     onTerminalRegistered,
     onTerminalUnregistered,
@@ -87,12 +92,34 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
 
   const handleAddEditor = useCallback(
     (filePath: string) => {
-      const existing = tabs.find((t) => t.filePath === filePath);
+      const existing = tabs.find((t) => t.type === 'editor' && t.filePath === filePath);
       if (existing) {
         activateTab(existing.id);
         return;
       }
       createTab({ type: 'editor', title: filePath.split('/').pop() || filePath, filePath });
+    },
+    [tabs, activateTab, createTab],
+  );
+
+  const handleAddDiff = useCallback(
+    (filePath: string, repoPath: string, staged: boolean) => {
+      const diffRef = staged ? 'staged' : 'unstaged';
+      const existing = tabs.find(
+        (t) => t.type === 'diff' && t.filePath === filePath && t.diffRef === diffRef,
+      );
+      if (existing) {
+        activateTab(existing.id);
+        return;
+      }
+      const fileName = filePath.split('/').pop() || filePath;
+      createTab({
+        type: 'diff',
+        title: fileName,
+        filePath,
+        diffRef,
+        diffRepoPath: repoPath,
+      });
     },
     [tabs, activateTab, createTab],
   );
@@ -108,6 +135,13 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
       onFileOpened?.();
     }
   }, [fileToOpen, handleAddEditor, onFileOpened]);
+
+  useEffect(() => {
+    if (fileToDiff) {
+      handleAddDiff(fileToDiff.filePath, fileToDiff.repoPath, fileToDiff.staged);
+      onDiffOpened?.();
+    }
+  }, [fileToDiff, handleAddDiff, onDiffOpened]);
 
   useTerminalPanelHandle(ref, {
     transferTabOut,
@@ -151,6 +185,18 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
               workspaceId={workspaceId}
               filePath={activeTab.filePath}
               onDirtyChange={handleDirtyChange}
+            />
+          </div>
+        )}
+        {activeTab?.type === 'diff' && activeTab.filePath && workspaceId && activeTab.diffRepoPath && (
+          <div style={{ position: 'absolute', inset: 0, background: COLOR_BG_PRIMARY, display: 'flex', flexDirection: 'column' }}>
+            <DiffViewer
+              key={`${activeTab.filePath}-${activeTab.diffRef}`}
+              workspaceId={workspaceId}
+              repoPath={activeTab.diffRepoPath}
+              filePath={activeTab.filePath}
+              staged={activeTab.diffRef === 'staged'}
+              onOpenEditor={handleAddEditor}
             />
           </div>
         )}

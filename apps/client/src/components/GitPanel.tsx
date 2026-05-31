@@ -8,9 +8,10 @@ interface GitPanelProps {
   workspaceId: string | null;
   workspaceCwd: string | null;
   onOpenEditor?: (filePath: string) => void;
+  onOpenDiff?: (filePath: string, repoPath: string, staged: boolean) => void;
 }
 
-export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor }: GitPanelProps) {
+export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff }: GitPanelProps) {
   const git = useGitRepos(workspaceId, workspaceCwd);
 
   if (!workspaceId) {
@@ -59,6 +60,9 @@ export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor }: GitPanelPr
         const status = git.repoStatuses.get(repo.path);
         const branches = git.repoBranches.get(repo.path) || [];
         const hasStagedFiles = (status?.staged?.length ?? 0) > 0;
+        const handleOpenDiff = onOpenDiff
+          ? (filePath: string, staged: boolean) => onOpenDiff(filePath, repo.path, staged)
+          : undefined;
 
         return (
           <div
@@ -92,6 +96,7 @@ export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor }: GitPanelPr
               onUnstageFiles={git.unstageFiles}
               onDiscardFiles={git.discardChanges}
               onOpenEditor={onOpenEditor}
+              onOpenDiff={handleOpenDiff}
             />
           </div>
         );

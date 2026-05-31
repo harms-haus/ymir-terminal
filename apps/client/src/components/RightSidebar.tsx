@@ -23,9 +23,10 @@ interface RightSidebarProps {
   workspaceId: string | null;
   onFileSelect: (path: string) => void;
   workspaceCwd?: string;
+  onOpenDiff?: (filePath: string, repoPath: string, staged: boolean) => void;
 }
 
-export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightSidebarProps) {
+export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd, onOpenDiff }: RightSidebarProps) {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -293,6 +294,7 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
               workspaceId={workspaceId}
               workspaceCwd={workspaceCwd ?? null}
               onOpenEditor={onFileSelect}
+              onOpenDiff={onOpenDiff}
             />
           )}
         </Panel>

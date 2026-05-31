@@ -176,6 +176,23 @@ export const COLOR_GIT_BADGE_BG = 'rgba(255,255,255,0.1)';
 /** Git panel badge text */
 export const COLOR_GIT_BADGE_TEXT = '#aaa';
 
+// ── Diff viewer ─────────────────────────────────────────────────────────────
+
+/** Diff viewer header bar background */
+export const COLOR_DIFF_HEADER_BG = COLOR_BG_SECONDARY;
+
+/** Diff viewer header border */
+export const COLOR_DIFF_HEADER_BORDER = COLOR_BORDER;
+
+/** Diff additions text color */
+export const COLOR_DIFF_ADDITIONS = '#73c991';
+
+/** Diff deletions text color */
+export const COLOR_DIFF_DELETIONS = '#e06050';
+
+/** Diff viewer toggle button active background */
+export const COLOR_DIFF_TOGGLE_ACTIVE_BG = COLOR_HOVER_BG;
+
 // ── Misc ────────────────────────────────────────────────────────────────────
 
 /** Context-menu active colour swatch border */

@@ -19,6 +19,7 @@ interface GitChangesSectionProps {
   onUnstageFiles: (repoPath: string, files: string[]) => void;
   onDiscardFiles: (repoPath: string, files: string[]) => void;
   onOpenEditor?: (filePath: string) => void;
+  onOpenDiff?: (filePath: string, staged: boolean) => void;
 }
 
 export function GitChangesSection({
@@ -29,6 +30,7 @@ export function GitChangesSection({
   onUnstageFiles,
   onDiscardFiles,
   onOpenEditor,
+  onOpenDiff,
 }: GitChangesSectionProps) {
   return (
     <div
@@ -68,6 +70,7 @@ export function GitChangesSection({
           onUnstageFile={(path) => onUnstageFiles(repoPath, [path])}
           onUnstageDirectory={(path) => onUnstageFiles(repoPath, [path])}
           onOpenEditor={onOpenEditor}
+          onOpenDiff={onOpenDiff ? (fp) => onOpenDiff(fp, true) : undefined}
         />
       </CollapsibleSection>
 
@@ -125,6 +128,7 @@ export function GitChangesSection({
           onStageDirectory={(path) => onStageFiles(repoPath, [path])}
           onDiscardFile={(path) => onDiscardFiles(repoPath, [path])}
           onOpenEditor={onOpenEditor}
+          onOpenDiff={onOpenDiff ? (fp) => onOpenDiff(fp, false) : undefined}
         />
       </CollapsibleSection>
     </div>

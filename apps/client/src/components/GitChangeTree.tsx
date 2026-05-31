@@ -35,6 +35,7 @@ interface GitChangeTreeProps {
   onStageDirectory?: (path: string) => void;
   onUnstageDirectory?: (path: string) => void;
   onOpenEditor?: (path: string) => void;
+  onOpenDiff?: (path: string) => void;
   isStagedSection?: boolean;
 }
 
@@ -46,6 +47,7 @@ export function GitChangeTree({
   onStageDirectory,
   onUnstageDirectory,
   onOpenEditor,
+  onOpenDiff,
   isStagedSection,
 }: GitChangeTreeProps) {
   const tree = useMemo(() => buildChangeTree(changes), [changes]);
@@ -63,6 +65,7 @@ export function GitChangeTree({
           onStageDirectory={onStageDirectory}
           onUnstageDirectory={onUnstageDirectory}
           onOpenEditor={onOpenEditor}
+          onOpenDiff={onOpenDiff}
           isStagedSection={isStagedSection}
         />
       ))}
@@ -79,6 +82,7 @@ function ChangeTreeNodeComponent({
   onStageDirectory,
   onUnstageDirectory,
   onOpenEditor,
+  onOpenDiff,
   isStagedSection,
 }: {
   node: ChangeTreeNode;
@@ -89,6 +93,7 @@ function ChangeTreeNodeComponent({
   onStageDirectory?: (path: string) => void;
   onUnstageDirectory?: (path: string) => void;
   onOpenEditor?: (path: string) => void;
+  onOpenDiff?: (path: string) => void;
   isStagedSection?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -103,6 +108,7 @@ function ChangeTreeNodeComponent({
           onStage={isStagedSection ? undefined : onStageDirectory}
           onUnstage={isStagedSection ? onUnstageDirectory : undefined}
           onOpenEditor={onOpenEditor}
+          onOpenDiff={onOpenDiff}
         >
           <div
             data-testid={`change-dir-${node.path}`}
@@ -136,6 +142,7 @@ function ChangeTreeNodeComponent({
                 onStageDirectory={onStageDirectory}
                 onUnstageDirectory={onUnstageDirectory}
                 onOpenEditor={onOpenEditor}
+                onOpenDiff={onOpenDiff}
                 isStagedSection={isStagedSection}
               />
             ))}
@@ -156,6 +163,7 @@ function ChangeTreeNodeComponent({
       onUnstage={isStagedSection ? onUnstageFile : undefined}
       onDiscard={isStagedSection ? undefined : onDiscardFile}
       onOpenEditor={onOpenEditor}
+      onOpenDiff={onOpenDiff}
     >
       <div
         data-testid={`change-file-${node.path}`}

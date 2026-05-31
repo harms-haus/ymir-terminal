@@ -1,5 +1,4 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import { toast } from 'sonner';
 import { COLOR_ERROR } from '../lib/theme';
 import {
   getContextMenuCss,
@@ -31,7 +30,7 @@ export function GitChangeContextMenu({
   onStage,
   onUnstage,
   onDiscard,
-  onOpenDiff: _onOpenDiff,
+  onOpenDiff,
   onOpenEditor,
   children,
 }: GitChangeContextMenuProps) {
@@ -69,7 +68,7 @@ export function GitChangeContextMenu({
               <ContextMenu.Separator style={separatorStyle} />
               <ContextMenu.Item
                 data-testid="git-ctx-diff"
-                onSelect={() => toast.info('Diff viewer not yet implemented')}
+                onSelect={() => onOpenDiff?.(path)}
                 style={menuItemStyle}
               >
                 View Diff
@@ -96,7 +95,8 @@ export function GitChangeContextMenu({
               </ContextMenu.Item>
               <ContextMenu.Separator style={separatorStyle} />
               <ContextMenu.Item
-                onSelect={() => toast.info('Diff viewer not yet implemented')}
+                data-testid="git-ctx-staged-diff"
+                onSelect={() => onOpenDiff?.(path)}
                 style={menuItemStyle}
               >
                 View Diff

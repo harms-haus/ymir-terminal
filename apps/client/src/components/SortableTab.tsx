@@ -102,6 +102,8 @@ export const SortableTab = React.memo(function SortableTab({
     tooltipTitle = tab.cwd ?? 'Terminal';
   } else if (tab.type === 'editor') {
     tooltipTitle = tab.filePath;
+  } else if (tab.type === 'diff') {
+    tooltipTitle = tab.filePath ? `${tab.filePath} (diff)` : 'Diff';
   }
 
   return (

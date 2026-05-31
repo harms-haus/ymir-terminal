@@ -19,6 +19,8 @@ import {
   type GitCheckoutRequest,
   type GitPushRequest,
   type GitFetchRequest,
+  type GitDiffDataRequest,
+  type GitDiffDataResponse,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
@@ -38,6 +40,7 @@ import {
   checkoutBranch as nativeCheckoutBranch,
 } from '../../git/branches';
 import { pushBranch as nativePushBranch, fetchRemote as nativeFetchRemote } from '../../git/remote';
+import { getDiffData as nativeGetDiffData } from '../../git/diff';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../db/persistent';
 import { getWorkspace as dbGetWorkspace } from '../../db/persistent';
@@ -78,6 +81,12 @@ export interface GitDeps {
     checkoutBranch?: (dirPath: string, name: string) => Promise<void>;
     pushBranch?: (dirPath: string, branch: string) => Promise<void>;
     fetchRemote?: (dirPath: string) => Promise<void>;
+    getDiffData?: (repoDir: string, filePath: string, staged: boolean) => Promise<{
+      originalContent: string;
+      modifiedContent: string;
+      additions: number;
+      deletions: number;
+    }>;
   };
 }
 
@@ -100,6 +109,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
   const doCheckoutBranch = deps._mocks?.checkoutBranch ?? nativeCheckoutBranch;
   const doPushBranch = deps._mocks?.pushBranch ?? nativePushBranch;
   const doFetchRemote = deps._mocks?.fetchRemote ?? nativeFetchRemote;
+  const doGetDiffData = deps._mocks?.getDiffData ?? nativeGetDiffData;
 
   // --- git.status ---------------------------------------------------------
   router.handle('git.status', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -560,5 +570,45 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     const absPath = join(workspace.cwd, payload.repoPath);
     await doFetchRemote(absPath);
     conn.send(createResponse(req, {}));
+  });
+
+  // --- git.diffData --------------------------------------------------------
+  router.handle('git.diffData', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitDiffDataRequest>;
+    const payload = req.payload;
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string' ||
+      typeof payload.repoPath !== 'string' ||
+      typeof payload.filePath !== 'string' ||
+      typeof payload.staged !== 'boolean'
+    ) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.diffData' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid fields: workspaceId, repoPath, filePath, staged',
+        ),
+      );
+      return;
+    }
+
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.diffData' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    const absRepoPath = join(workspace.cwd, payload.repoPath);
+    const result = await doGetDiffData(absRepoPath, payload.filePath, payload.staged);
+    conn.send(createResponse(req, { ...result, filePath: payload.filePath } satisfies GitDiffDataResponse));
   });
 }

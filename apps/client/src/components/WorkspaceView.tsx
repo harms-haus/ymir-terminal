@@ -31,6 +31,7 @@ function WorkspaceViewInner() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [fileToOpen, setFileToOpen] = useState<string | null>(null);
+  const [fileToDiff, setFileToDiff] = useState<{ filePath: string; repoPath: string; staged: boolean } | null>(null);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
   const updateWorkspace = useUpdateWorkspace();
@@ -305,6 +306,12 @@ function WorkspaceViewInner() {
 
   const handleFileOpened = useCallback(() => setFileToOpen(null), []);
 
+  const handleDiffFile = useCallback((filePath: string, repoPath: string, staged: boolean) => {
+    setFileToDiff({ filePath, repoPath, staged });
+  }, []);
+
+  const handleDiffOpened = useCallback(() => setFileToDiff(null), []);
+
   const handleCommandBarFileSelect = useCallback((path: string) => {
     setFileToOpen(path);
   }, []);
@@ -436,6 +443,7 @@ function WorkspaceViewInner() {
               workspaceId={activeWorkspaceId}
               workspaceCwd={activeWorkspace?.cwd}
               onFileSelect={handleFileSelect}
+              onOpenDiff={handleDiffFile}
             />
           }
           bottomPanel={
@@ -454,6 +462,8 @@ function WorkspaceViewInner() {
             workspaceId={activeWorkspaceId}
             fileToOpen={fileToOpen}
             onFileOpened={handleFileOpened}
+            fileToDiff={fileToDiff}
+            onDiffOpened={handleDiffOpened}
             terminalContainerRef={contentTerminalRef}
             onTerminalRegistered={handleContentTerminalRegistered}
             onTerminalUnregistered={handleTerminalUnregistered}

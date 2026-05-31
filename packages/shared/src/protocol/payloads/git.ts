@@ -118,3 +118,18 @@ export interface GitFetchRequest {
   workspaceId: string;
   repoPath: string;
 }
+
+export interface GitDiffDataRequest {
+  workspaceId: string;
+  repoPath: string;
+  filePath: string;
+  staged: boolean;
+}
+
+export interface GitDiffDataResponse {
+  originalContent: string;
+  modifiedContent: string;
+  additions: number;
+  deletions: number;
+  filePath: string;
+}

@@ -25,6 +25,9 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
   // Track which workspaces have already been loaded from server
   const loadedWorkspacesRef = useRef<Set<string>>(new Set());
 
+  // Track diff tab IDs so we can skip server sync for ephemeral diff tabs
+  const diffTabIdsRef = useRef<Set<string>>(new Set());
+
   // Refs for options to avoid stale closures in callbacks
   const paneRef = useRef(pane);
   const onTerminalRegisteredRef = useRef(onTerminalRegistered);
@@ -55,6 +58,10 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     onTabChange: (evt) => {
       switch (evt.type) {
         case 'create':
+          if (evt.tabType === 'diff') {
+            diffTabIdsRef.current.add(evt.tabId);
+            break;
+          }
           sendRequest('tab.create', {
             workspaceId: evt.workspaceId,
             pane: paneRef.current,
@@ -65,11 +72,19 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
           }).catch(console.error);
           break;
         case 'close':
+          if (diffTabIdsRef.current.has(evt.tabId)) {
+            diffTabIdsRef.current.delete(evt.tabId);
+            break;
+          }
           sendRequest('tab.delete', { tabId: evt.tabId }).catch(console.error);
           break;
-        case 'reorder':
-          sendRequest('tab.reorder', { tabIds: evt.tabIds }).catch(console.error);
+        case 'reorder': {
+          const nonDiffIds = evt.tabIds.filter((id) => !diffTabIdsRef.current.has(id));
+          if (nonDiffIds.length > 0) {
+            sendRequest('tab.reorder', { tabIds: nonDiffIds }).catch(console.error);
+          }
           break;
+        }
         case 'activate':
           sendRequest('tab.update', { tabId: evt.tabId, active: true }).catch(console.error);
           break;

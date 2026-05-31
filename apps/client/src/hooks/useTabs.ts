@@ -3,13 +3,15 @@ import type { ServerTabInfo } from '@ymir/shared';
 
 export interface Tab {
   id: string;
-  type: 'terminal' | 'editor';
+  type: 'terminal' | 'editor' | 'diff';
   title: string;
   workspaceId: string;
   terminalId?: string;
   filePath?: string;
   cwd?: string;
   customTitle?: string;
+  diffRef?: 'staged' | 'unstaged';
+  diffRepoPath?: string;
 }
 
 export type TabChangeEvent =
@@ -21,6 +23,8 @@ export type TabChangeEvent =
       title: string;
       filePath?: string;
       terminalId?: string;
+      diffRef?: 'staged' | 'unstaged';
+      diffRepoPath?: string;
     }
   | { type: 'close'; tabId: string }
   | { type: 'reorder'; workspaceId: string; tabIds: string[] }
@@ -107,12 +111,14 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // ---------------------------------------------------------------------------
   const createTab = useCallback(
     (opts: {
-      type: 'terminal' | 'editor';
+      type: 'terminal' | 'editor' | 'diff';
       title: string;
       terminalId?: string;
       filePath?: string;
       cwd?: string;
       customTitle?: string;
+      diffRef?: 'staged' | 'unstaged';
+      diffRepoPath?: string;
     }) => {
       const wsId = currentWorkspaceIdRef.current;
       if (!wsId) return '';
@@ -135,6 +141,8 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
         title: opts.title,
         filePath: opts.filePath,
         terminalId: opts.terminalId,
+        diffRef: opts.diffRef,
+        diffRepoPath: opts.diffRepoPath,
       });
       return id;
     },
