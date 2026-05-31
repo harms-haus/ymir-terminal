@@ -74,17 +74,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // attached, causing the promise to never resolve.
       if (wsClient.getStatus() !== 'connected') {
         await new Promise<void>((resolve, reject) => {
+          const handle: { timeout: ReturnType<typeof setTimeout> | null } = { timeout: null };
           let unsub: (() => void) | null = null;
-          let timeout: ReturnType<typeof setTimeout>;
           unsub = wsClient.onStatusChange((s) => {
             if (s === 'connected') {
-              clearTimeout(timeout);
+              if (handle.timeout) clearTimeout(handle.timeout);
               unsub?.();
               resolve();
             }
           });
 
-          timeout = setTimeout(() => {
+          handle.timeout = setTimeout(() => {
             unsub?.();
             reject(new Error('Connection timed out'));
           }, 5000);
