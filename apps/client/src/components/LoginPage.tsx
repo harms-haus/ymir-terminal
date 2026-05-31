@@ -24,7 +24,7 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: '100vh',
     backgroundColor: COLOR_BG_LOGIN,
     color: COLOR_TEXT_CARD,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif',
+    fontFamily: '"Inter Variable", "JetBrainsMono Nerd Font", system-ui, sans-serif',
   },
   card: {
     ...cardStyle,

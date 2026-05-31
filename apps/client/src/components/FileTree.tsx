@@ -36,7 +36,7 @@ export function FileTree({
   const gitPathMap = useMemo(() => buildGitPathMap(gitStatus), [gitStatus]);
 
   return (
-    <div data-testid="file-tree" role="tree" style={{ fontSize: '13px', userSelect: 'none' }}>
+    <div data-testid="file-tree" role="tree" style={{ fontSize: '12px', userSelect: 'none' }}>
       {tree.map((node) => (
         <FileTreeNode
           key={node.path}
@@ -137,7 +137,7 @@ function FileTreeNode({
             }
           }}
           style={{
-            paddingLeft: `${depth * 16 + 8}px`,
+            paddingLeft: `${depth * 8 + 4}px`,
             paddingRight: '8px',
             paddingTop: '2px',
             paddingBottom: '2px',

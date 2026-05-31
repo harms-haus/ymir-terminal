@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { buildChangeTree } from '../lib/git-change-tree';
 import type { ChangeTreeNode } from '../lib/git-change-tree';
 import type { GitFileChange } from '@ymir/shared';
-import { GIT_STATUS_COLORS, COLOR_TEXT, COLOR_TEXT_MUTED } from '../lib/theme';
+import { GIT_STATUS_COLORS, COLOR_TEXT } from '../lib/theme';
 import type { GitFileChangeStatus } from '@ymir/shared';
 import { GitChangeContextMenu } from './GitChangeContextMenu';
 
@@ -53,7 +53,11 @@ export function GitChangeTree({
   const tree = useMemo(() => buildChangeTree(changes), [changes]);
 
   return (
-    <div data-testid="git-change-tree" role="tree" style={{ flex: 1, overflow: 'auto' }}>
+    <div
+      data-testid="git-change-tree"
+      role="tree"
+      style={{ flex: 1, overflow: 'auto', fontSize: '12px', userSelect: 'none' }}
+    >
       {tree.map((node) => (
         <ChangeTreeNodeComponent
           key={node.path}
@@ -118,15 +122,36 @@ function ChangeTreeNodeComponent({
             style={{
               display: 'flex',
               alignItems: 'center',
-              paddingLeft: depth * 12 + 4,
-              height: 22,
+              paddingLeft: `${depth * 8 + 6}px`,
+              paddingRight: '8px',
+              paddingTop: '2px',
+              paddingBottom: '2px',
               cursor: 'pointer',
+              gap: '4px',
+              outline: 'none',
+              overflow: 'hidden',
             }}
           >
-            <span style={{ fontSize: 10, width: 16, color: COLOR_TEXT_MUTED, flexShrink: 0 }}>
+            <span
+              style={{
+                fontSize: '10px',
+                display: 'inline-block',
+                width: '10px',
+                textAlign: 'center',
+              }}
+            >
               {expanded ? '▼' : '▶'}
             </span>
-            <span style={{ color: COLOR_TEXT_MUTED }}>{node.name}</span>
+            <span
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                minWidth: 0,
+              }}
+            >
+              {node.name}
+            </span>
           </div>
         </GitChangeContextMenu>
         {expanded && node.children && (
@@ -171,10 +196,27 @@ function ChangeTreeNodeComponent({
         style={{
           display: 'flex',
           alignItems: 'center',
-          paddingLeft: depth * 12 + 4,
-          height: 22,
+          paddingLeft: `${depth * 8 + 4}px`,
+          paddingRight: '8px',
+          paddingTop: '2px',
+          paddingBottom: '2px',
+          cursor: 'pointer',
+          gap: '4px',
+          outline: 'none',
+          overflow: 'hidden',
         }}
       >
+        <span
+          style={{
+            color: COLOR_TEXT,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+          }}
+        >
+          {node.name}
+        </span>
         <span
           aria-label={statusLabel(node.status)}
           title={statusLabel(node.status)}
@@ -187,22 +229,11 @@ function ChangeTreeNodeComponent({
             fontSize: 10,
             color: GIT_STATUS_COLORS[node.status!],
             flexShrink: 0,
-            marginRight: 4,
             fontWeight: 600,
+            marginLeft: 'auto',
           }}
         >
           {node.status === '??' ? 'U' : node.status}
-        </span>
-        <span
-          style={{
-            color: COLOR_TEXT,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            minWidth: 0,
-          }}
-        >
-          {node.name}
         </span>
       </div>
     </GitChangeContextMenu>
