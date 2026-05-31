@@ -1,10 +1,10 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import './FileTreeContextMenu.css';
-import { COLOR_BORDER, COLOR_ERROR } from '../lib/theme';
+import { COLOR_ERROR } from '../lib/theme';
 import {
   getContextMenuCss,
   getMenuContainerStyle,
   menuItemStyle,
+  separatorStyle,
 } from '../lib/context-menu-styles';
 
 interface FileTreeContextMenuProps {
@@ -17,6 +17,8 @@ interface FileTreeContextMenuProps {
   onOpenEditor?: (path: string) => void;
   children: React.ReactNode;
 }
+
+const FILE_TREE_CONTEXT_MENU_CSS = getContextMenuCss('context-menu');
 
 export function FileTreeContextMenu({
   path,
@@ -33,7 +35,7 @@ export function FileTreeContextMenu({
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content data-testid="context-menu" style={getMenuContainerStyle()}>
-          <style>{getContextMenuCss('context-menu')}</style>
+          <style>{FILE_TREE_CONTEXT_MENU_CSS}</style>
 
           {isDirectory && (
             <>
@@ -69,9 +71,7 @@ export function FileTreeContextMenu({
           >
             Rename
           </ContextMenu.Item>
-          <ContextMenu.Separator
-            style={{ height: '1px', background: COLOR_BORDER, margin: '4px 0' }}
-          />
+          <ContextMenu.Separator style={separatorStyle} />
           <ContextMenu.Item
             data-testid="menu-delete"
             onSelect={() => {

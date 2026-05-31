@@ -1,9 +1,10 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import { COLOR_BORDER, COLOR_DANGER, COLOR_TEXT_DIM } from '../lib/theme';
+import { COLOR_DANGER, COLOR_TEXT_DIM } from '../lib/theme';
 import {
   getContextMenuCss,
   getMenuContainerStyle,
   menuItemStyle,
+  separatorStyle,
 } from '../lib/context-menu-styles';
 
 interface PaneContextMenuProps {
@@ -14,6 +15,8 @@ interface PaneContextMenuProps {
   onClosePane?: (paneId: string) => void;
   children: React.ReactNode;
 }
+
+const PANE_CONTEXT_MENU_CSS = getContextMenuCss('pane-context-menu');
 
 export function PaneContextMenu({
   paneId,
@@ -28,7 +31,7 @@ export function PaneContextMenu({
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content data-testid="pane-context-menu" style={getMenuContainerStyle()}>
-          <style>{getContextMenuCss('pane-context-menu')}</style>
+          <style>{PANE_CONTEXT_MENU_CSS}</style>
           <ContextMenu.Item
             data-testid="split-right"
             onSelect={() => onSplitRight?.(paneId)}
@@ -43,9 +46,7 @@ export function PaneContextMenu({
           >
             Split Down
           </ContextMenu.Item>
-          <ContextMenu.Separator
-            style={{ height: '1px', background: COLOR_BORDER, margin: '4px 0' }}
-          />
+          <ContextMenu.Separator style={separatorStyle} />
           <ContextMenu.Item
             data-testid="close-pane"
             disabled={isOnlyPane}

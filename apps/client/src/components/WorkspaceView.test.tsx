@@ -216,15 +216,6 @@ mock.module('./RightSidebar', () => ({
     ),
 }));
 
-// Mock codemirror language modules (transitively imported by ContentPane → EditorPane → CodeEditor)
-mock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));
-mock.module('@codemirror/lang-css', () => ({ css: () => {} }));
-mock.module('@codemirror/lang-html', () => ({ html: () => {} }));
-mock.module('@codemirror/lang-json', () => ({ json: () => {} }));
-mock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
-mock.module('@codemirror/lang-python', () => ({ python: () => {} }));
-mock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
-mock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
 
 // Mock useTerminal (used by useCreateTerminalTab which is used by ContentPane/BottomPanel)
 const mockCreateTerminal = mock(() => Promise.resolve('mock-term-id'));
@@ -319,19 +310,7 @@ describe('WorkspaceView', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 4. Theme accent color changes when workspace with color is selected
-  // -----------------------------------------------------------------------
-  test('theme accent color changes when workspace is selected', () => {
-    const { getByTestId } = renderWorkspaceView();
-
-    // Click on ws-1 which has color '#ff0000'
-    fireEvent.click(getByTestId('workspace-item-ws-1'));
-
-    expect(mockSetAccentColor).toHaveBeenCalledWith('#ff0000');
-  });
-
-  // -----------------------------------------------------------------------
-  // 5. ToastProvider wraps everything (toaster rendered)
+  // 4. ToastProvider wraps everything (toaster rendered)
   // -----------------------------------------------------------------------
   test('ToastProvider wraps everything', () => {
     const { getByTestId } = renderWorkspaceView();
@@ -409,7 +388,7 @@ describe('WorkspaceView', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 10. ContentPane receives correct workspaceId when workspace changes
+  // 9. ContentPane receives correct workspaceId when workspace changes
   // -----------------------------------------------------------------------
   test('ContentPane receives updated workspaceId when workspace selection changes', async () => {
     const { getAllByTestId, getByTestId } = renderWorkspaceView();

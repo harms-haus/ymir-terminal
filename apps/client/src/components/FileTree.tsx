@@ -3,7 +3,6 @@ import type { FileNode, GitStatusResponse } from '@ymir/shared';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { buildGitPathMap, computeDirectoryStatus } from '../lib/git-utils';
 import { GIT_STATUS_COLORS } from '../lib/theme';
-import './FileTreeContextMenu.css';
 
 export type { FileNode };
 

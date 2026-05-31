@@ -3,46 +3,20 @@ import { useInView } from 'react-intersection-observer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { sendRequest } from '../lib/send-request';
 import type { GitLogItem, GitLogResponse } from '@ymir/shared';
-import { COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_ERROR } from '../lib/theme';
+import { COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_ERROR, GIT_GRAPH_COLORS } from '../lib/theme';
+import {
+  LANE_WIDTH,
+  GRAPH_LEFT_PADDING,
+  EMPTY_ACTIVE_LANES,
+  computeLanes,
+  computeActiveLanes,
+} from '../lib/git-graph';
+import type { LaneInfo, ActiveLane } from '../lib/git-graph';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50;
 const ROW_HEIGHT = 24;
-const LANE_WIDTH = 16;
-const GRAPH_LEFT_PADDING = 10;
-const COLOR_PALETTE = [
-  '#007acc',
-  '#4ec9b0',
-  '#c586c0',
-  '#dcdcaa',
-  '#e06050',
-  '#569cd6',
-  '#ce9178',
-  '#b5cea8',
-];
-
-// ── Lane allocation types ───────────────────────────────────────────────────
-
-interface LineSegment {
-  fromLane: number;
-  toLane: number;
-  colorIndex: number;
-}
-
-interface LaneInfo {
-  commit: GitLogItem;
-  lane: number;
-  colorIndex: number;
-  linesDown: LineSegment[];
-}
-
-interface ActiveLane {
-  lane: number;
-  colorIndex: number;
-}
-
-const EMPTY_ACTIVE_LANES: ActiveLane[] = [];
 
 // ── formatRelativeTime ──────────────────────────────────────────────────────
 
@@ -53,189 +27,6 @@ function formatRelativeTime(unixSeconds: number): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
   return `${Math.floor(diff / 2592000)}mo ago`;
-}
-
-// ── computeLanes ────────────────────────────────────────────────────────────
-
-/**
- * Computes lane assignments and line segments for a git commit graph.
- * Processes commits newest→oldest (top to bottom, matching display order).
- * Each active lane tracks a single target parent hash; when a commit
- * appears it claims the lowest-numbered lane waiting for it, freeing
- * the rest. First parent stays on the commit's lane; additional parents
- * (merge targets) fan out to new lanes.
- */
-function computeLanes(commits: GitLogItem[]): LaneInfo[] {
-  if (commits.length === 0) return [];
-
-  // Map: lane number → { targetHash, colorIndex }
-  // Represents lanes waiting for a specific parent commit to appear
-  const activeLanes = new Map<number, { targetHash: string; colorIndex: number }>();
-
-  const freeLanes: number[] = [];
-  let nextLane = 0;
-  let nextColorIndex = 0;
-
-  const results: LaneInfo[] = [];
-
-  function takeFreeLane(): number {
-    if (freeLanes.length > 0) return freeLanes.shift()!;
-    return nextLane++;
-  }
-
-  for (const commit of commits) {
-    // Step 1: Find which active lanes target this commit
-    const targetingLanes: number[] = [];
-    for (const [lane, info] of activeLanes) {
-      if (info.targetHash === commit.id) {
-        targetingLanes.push(lane);
-      }
-    }
-
-    // Step 2: Assign this commit a lane
-    let lane: number;
-    let colorIndex: number;
-
-    if (targetingLanes.length > 0) {
-      // Pick lowest-numbered targeting lane
-      targetingLanes.sort((a, b) => a - b);
-      lane = targetingLanes[0];
-      colorIndex = activeLanes.get(lane)!.colorIndex;
-
-      // Free other targeting lanes (they merge into this commit)
-      for (let i = 1; i < targetingLanes.length; i++) {
-        activeLanes.delete(targetingLanes[i]);
-        freeLanes.push(targetingLanes[i]);
-        freeLanes.sort((a, b) => a - b);
-      }
-
-      // Remove this lane from active (we'll re-add it for the parent below)
-      activeLanes.delete(lane);
-    } else {
-      // No child targeting this commit — it's a branch root or the first commit
-      lane = takeFreeLane();
-      colorIndex = nextColorIndex++ % COLOR_PALETTE.length;
-    }
-
-    // Step 3: For each parent, allocate a lane and add to activeLanes
-    const linesDown: LineSegment[] = [];
-    const parentLanes: {
-      parentId: string;
-      parentLane: number;
-      parentColor: number;
-    }[] = [];
-
-    for (let p = 0; p < commit.parents.length; p++) {
-      const parentId = commit.parents[p];
-
-      if (p === 0) {
-        // First parent stays on same lane
-        parentLanes.push({
-          parentId,
-          parentLane: lane,
-          parentColor: colorIndex,
-        });
-      } else {
-        // Additional parents (merge targets) get new lanes
-        const newLane = takeFreeLane();
-        const newColor = nextColorIndex++ % COLOR_PALETTE.length;
-        parentLanes.push({
-          parentId,
-          parentLane: newLane,
-          parentColor: newColor,
-        });
-      }
-    }
-
-    // Register parent lanes as active
-    for (const pl of parentLanes) {
-      activeLanes.set(pl.parentLane, {
-        targetHash: pl.parentId,
-        colorIndex: pl.parentColor,
-      });
-    }
-
-    // Build linesDown
-    for (const pl of parentLanes) {
-      linesDown.push({
-        fromLane: lane,
-        toLane: pl.parentLane,
-        colorIndex: pl.parentColor,
-      });
-    }
-
-    results.push({ commit, lane, colorIndex, linesDown });
-  }
-
-  return results;
-}
-
-// ── computeActiveLanes ──────────────────────────────────────────────────────
-
-/**
- * For each row, determines which lanes pass through (vertical lines from a
- * commit above to a parent below that aren't the current row's own lane).
- * Used to draw pass-through vertical lines in the per-row SVG.
- */
-function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
-  const n = laneData.length;
-  if (n === 0) return [];
-
-  const active: ActiveLane[][] = new Array(n);
-
-  // Build a map from hash → laneData index
-  const hashToIndex = new Map<string, number>();
-  for (let i = 0; i < n; i++) {
-    hashToIndex.set(laneData[i].commit.id, i);
-  }
-
-  // Build lane → colorIndex map
-  const laneColorMap = new Map<number, number>();
-  for (const info of laneData) {
-    if (!laneColorMap.has(info.lane)) {
-      laneColorMap.set(info.lane, info.colorIndex);
-    }
-  }
-  for (const info of laneData) {
-    for (const seg of info.linesDown) {
-      if (!laneColorMap.has(seg.toLane)) {
-        laneColorMap.set(seg.toLane, seg.colorIndex);
-      }
-    }
-  }
-
-  // For each commit at index i, look at each parent. The parent appears at
-  // some index j where j > i (commits are newest-first, parents are older).
-  // The line segment from i to j means both lanes (fromLane & toLane) are
-  // active for rows i+1 .. j-1.
-  const rowSets: Set<number>[] = new Array(n);
-  for (let i = 0; i < n; i++) rowSets[i] = new Set();
-
-  for (let i = 0; i < n; i++) {
-    const info = laneData[i];
-    for (let p = 0; p < info.commit.parents.length; p++) {
-      const parentHash = info.commit.parents[p];
-      const j = hashToIndex.get(parentHash);
-      if (j === undefined) continue; // parent not in visible range
-
-      const seg = info.linesDown[p];
-      for (let r = i + 1; r <= j; r++) {
-        rowSets[r].add(seg.fromLane);
-        rowSets[r].add(seg.toLane);
-      }
-    }
-  }
-
-  // Convert sets to ActiveLane arrays
-  for (let i = 0; i < n; i++) {
-    const lanes = Array.from(rowSets[i]);
-    active[i] = lanes.map((l) => ({
-      lane: l,
-      colorIndex: laneColorMap.get(l) ?? 0,
-    }));
-  }
-
-  return active;
 }
 
 // ── CommitRow ───────────────────────────────────────────────────────────────
@@ -254,7 +45,7 @@ const CommitRow = memo(function CommitRow({
   style,
 }: CommitRowProps) {
   const { commit, lane, colorIndex, linesDown } = info;
-  const color = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
+  const color = GIT_GRAPH_COLORS[colorIndex % GIT_GRAPH_COLORS.length];
   const cx = lane * LANE_WIDTH + GRAPH_LEFT_PADDING;
   const cy = ROW_HEIGHT / 2;
 
@@ -265,7 +56,7 @@ const CommitRow = memo(function CommitRow({
         {/* Pass-through vertical lines */}
         {activeLanes.map((al) => {
           const x = al.lane * LANE_WIDTH + GRAPH_LEFT_PADDING;
-          const c = COLOR_PALETTE[al.colorIndex % COLOR_PALETTE.length];
+          const c = GIT_GRAPH_COLORS[al.colorIndex % GIT_GRAPH_COLORS.length];
           return (
             <line
               key={`pt-${al.lane}`}
@@ -283,7 +74,7 @@ const CommitRow = memo(function CommitRow({
         {linesDown.map((seg, idx) => {
           const fromX = seg.fromLane * LANE_WIDTH + GRAPH_LEFT_PADDING;
           const toX = seg.toLane * LANE_WIDTH + GRAPH_LEFT_PADDING;
-          const segColor = COLOR_PALETTE[seg.colorIndex % COLOR_PALETTE.length];
+          const segColor = GIT_GRAPH_COLORS[seg.colorIndex % GIT_GRAPH_COLORS.length];
 
           if (seg.fromLane === seg.toLane) {
             // Same lane — vertical line from center to bottom

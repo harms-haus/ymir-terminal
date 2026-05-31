@@ -56,6 +56,7 @@ export function stopAllWatchers(): void {
   for (const [path] of activeWatchers) {
     stopWatcher(path);
   }
+  activeWatchersByWorkspace.clear();
 }
 
 // ---------------------------------------------------------------------------

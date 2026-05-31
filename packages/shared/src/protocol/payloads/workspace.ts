@@ -5,6 +5,8 @@ export interface WorkspaceSummary {
   color: string;
 }
 
+export type WorkspaceListRequest = Record<string, never>;
+
 export interface WorkspaceListResponse {
   workspaces: WorkspaceSummary[];
 }

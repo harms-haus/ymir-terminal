@@ -1,9 +1,0 @@
-[data-testid='context-menu'] [role='menuitem']:focus-visible {
-  outline: 2px solid #007acc;
-  outline-offset: -2px;
-}
-
-[role='treeitem']:focus-visible {
-  outline: 1px solid #007acc;
-  outline-offset: -1px;
-}

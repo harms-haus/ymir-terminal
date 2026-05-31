@@ -482,7 +482,7 @@ describe('GitFileChange', () => {
   it('round-trips through JSON', () => {
     const payload: GitFileChange = {
       path: '/src/index.ts',
-      status: 'modified',
+      status: 'M',
     };
     const parsed: GitFileChange = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);

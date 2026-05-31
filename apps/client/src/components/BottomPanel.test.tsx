@@ -1,10 +1,10 @@
 /// <reference lib="dom" />
-import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks, setReactInputValue } from '../test-helpers/mock-setup';
 await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
-import { render, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
@@ -144,7 +144,7 @@ mock.module('./TabContextMenu', () => ({
 }));
 
 const { BottomPanel } = await import('./BottomPanel');
-import type { BottomPanelHandle } from './BottomPanel';
+import type { TerminalPanelHandle as BottomPanelHandle } from '../hooks/useTerminalPanel';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -158,24 +158,7 @@ function renderBottomPanel(
   return render(React.createElement(BottomPanel, { workspaceId, ref, ...extraProps }));
 }
 
-/**
- * Simulate changing a React controlled input's value.
- *
- * happy-dom's fireEvent.change does not trigger React's internal change
- * detection for controlled inputs. We directly invoke the onChange handler
- * from React's internal props to update the component state.
- */
-function setReactInputValue(input: HTMLInputElement, value: string) {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const reactPropsKey = Object.keys(input).find((k) => k.startsWith('__reactProps'));
-  if (!reactPropsKey) throw new Error('Could not find React internal props on input');
-  const props = (input as any)[reactPropsKey];
-  if (typeof props?.onChange !== 'function') throw new Error('onChange not found on React props');
-  act(() => {
-    props.onChange({ target: { value } });
-  });
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-}
+
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -351,45 +334,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 7. Terminal receives onTitleChange callback
-  // -----------------------------------------------------------------------
-  test('wires onTitleChange callback to updateTabTitle', () => {
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
-
-    renderBottomPanel();
-
-    // The Terminal component is rendered, and the BottomPanel passes onTitleChange
-    // which calls updateTabTitle. Verify the mock was wired correctly by checking
-    // that the Terminal component rendered with the correct terminalId.
-    // We can verify the wiring by calling the title callback path — but since
-    // onTitleChange comes from ghostty's onTitleChange event, we verify that
-    // updateTabTitle is available and the component wired it.
-    // A more direct test: verify that the component rendered and that
-    // updateTabTitle is ready to be called.
-    expect(mockUpdateTabTitle).not.toHaveBeenCalled();
-    // Simulate a title update through the mock
-    mockUpdateTabTitle('tab-1', 'New Title');
-    expect(mockUpdateTabTitle).toHaveBeenCalledWith('tab-1', 'New Title');
-  });
-
-  // -----------------------------------------------------------------------
-  // 8. Terminal receives onCwdChange callback
-  // -----------------------------------------------------------------------
-  test('wires onCwdChange callback to updateTabCwd', () => {
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
-
-    renderBottomPanel();
-
-    // Similar to above — verify updateTabCwd is wired correctly
-    expect(mockUpdateTabCwd).not.toHaveBeenCalled();
-    mockUpdateTabCwd('tab-1', '/home/user/project');
-    expect(mockUpdateTabCwd).toHaveBeenCalledWith('tab-1', '/home/user/project');
-  });
-
-  // -----------------------------------------------------------------------
-  // 9. Terminal container is present for multiple tabs
+  // 7. Terminal container is present for multiple tabs
   // -----------------------------------------------------------------------
   test('terminal container is present for multiple tabs', () => {
     mockTabs = [
@@ -408,7 +353,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 10. Closing tabs to the right sends PTY close for each
+  // 8. Closing tabs to the right sends PTY close for each
   // -----------------------------------------------------------------------
   test('closeTabsRight sends PTY close for each closed tab', () => {
     mockTabs = [
@@ -444,7 +389,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 11. Closing other tabs sends PTY close for each
+  // 9. Closing other tabs sends PTY close for each
   // -----------------------------------------------------------------------
   test('closeOtherTabs sends PTY close for each closed tab', () => {
     mockTabs = [
@@ -466,7 +411,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 12. Rename tab calls setDisplayTitle
+  // 10. Rename tab calls setDisplayTitle
   // -----------------------------------------------------------------------
   test('rename tab calls setDisplayTitle', () => {
     mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
@@ -493,7 +438,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 13. transferTabOut imperative handle removes a terminal tab and returns data
+  // 11. transferTabOut imperative handle removes a terminal tab and returns data
   // -----------------------------------------------------------------------
   test('transferTabOut removes terminal tab and returns data without sending terminal.close', async () => {
     mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
@@ -519,7 +464,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 14. transferTabOut returns null for non-existent tabs
+  // 12. transferTabOut returns null for non-existent tabs
   // -----------------------------------------------------------------------
   test('transferTabOut returns null for non-existent tabs', async () => {
     const ref = React.createRef<BottomPanelHandle>();
@@ -534,7 +479,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 15. receiveTab imperative handle creates a terminal tab
+  // 13. receiveTab imperative handle creates a terminal tab
   // -----------------------------------------------------------------------
   test('receiveTab creates a terminal tab with given data', async () => {
     const ref = React.createRef<BottomPanelHandle>();
@@ -554,7 +499,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 16. getTabs imperative handle returns current tabs
+  // 14. getTabs imperative handle returns current tabs
   // -----------------------------------------------------------------------
   test('getTabs returns current tabs', async () => {
     mockTabs = [
@@ -577,7 +522,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 17. receiveTab returns the new tabId
+  // 15. receiveTab returns the new tabId
   // -----------------------------------------------------------------------
   test('receiveTab returns the new tabId', async () => {
     const ref = React.createRef<BottomPanelHandle>();
@@ -599,7 +544,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 18. transferTabOut followed by receiveTab round-trips terminal data
+  // 16. transferTabOut followed by receiveTab round-trips terminal data
   // -----------------------------------------------------------------------
   test('transferTabOut followed by receiveTab round-trips terminal data', async () => {
     mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 't1' }];
@@ -640,7 +585,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 19. onTerminalRegistered is called when a terminal tab is created
+  // 17. onTerminalRegistered is called when a terminal tab is created
   // -----------------------------------------------------------------------
   test('onTerminalRegistered is called when a terminal tab is created', async () => {
     const mockOnTerminalRegistered = mock(() => {});
@@ -660,7 +605,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 20. onTerminalUnregistered is called when a terminal tab is closed
+  // 18. onTerminalUnregistered is called when a terminal tab is closed
   // -----------------------------------------------------------------------
   test('onTerminalUnregistered is called when a terminal tab is closed', () => {
     const mockOnTerminalUnregistered = mock(() => {});
@@ -679,7 +624,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 21. onActiveTabChange fires when activeTabId changes
+  // 19. onActiveTabChange fires when activeTabId changes
   // -----------------------------------------------------------------------
   test('onActiveTabChange fires when activeTabId changes', async () => {
     const mockOnActiveTabChange = mock(() => {});
@@ -710,7 +655,7 @@ describe('BottomPanel', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 22. Cross-pane transfer: transferTabOut does not call onTerminalUnregistered
+  // 20. Cross-pane transfer: transferTabOut does not call onTerminalUnregistered
   // -----------------------------------------------------------------------
   test('cross-pane transfer: transferTabOut does not call onTerminalUnregistered', async () => {
     const onTerminalUnregistered = mock(() => {});

@@ -1,22 +1,11 @@
-import { useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useState, useCallback, useEffect, forwardRef } from 'react';
 import { useTerminalPane } from '../hooks/useTerminalPane';
-import type { Tab } from '../hooks/useTabs';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { EditorPane } from './EditorPane';
 import { TabBar } from './TabBar';
+import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
+import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
-
-export interface ContentPaneHandle {
-  transferTabOut: (
-    tabId: string,
-  ) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
-  receiveTab: (terminalId: string, title: string, cwd?: string, customTitle?: string) => string;
-  reorderTabs: (fromIndex: number, toIndex: number) => void;
-  getTabs: () => Tab[];
-  getActiveTabId: () => string | null;
-  updateTabTitle: (tabId: string, title: string) => void;
-  updateTabCwd: (tabId: string, cwd: string) => void;
-}
 
 export interface ContentPaneProps {
   workspaceId: string | null;
@@ -28,7 +17,9 @@ export interface ContentPaneProps {
   onActiveTabChange?: (activeTabId: string | null) => void;
 }
 
-export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(function ContentPane(
+export type { TerminalPanelHandle as ContentPaneHandle };
+
+export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(function ContentPane(
   {
     workspaceId,
     fileToOpen,
@@ -62,9 +53,7 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
     workspaceId,
     pane: 'content',
     dirtyFiles,
-    onTerminalRegistered: onTerminalRegistered
-      ? (terminalId, tabId, wsId) => onTerminalRegistered(terminalId, tabId, wsId)
-      : undefined,
+    onTerminalRegistered,
     onTerminalUnregistered,
   });
 
@@ -120,27 +109,15 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
     }
   }, [fileToOpen, handleAddEditor, onFileOpened]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      transferTabOut,
-      receiveTab,
-      reorderTabs,
-      getTabs,
-      getActiveTabId,
-      updateTabTitle,
-      updateTabCwd,
-    }),
-    [
-      transferTabOut,
-      receiveTab,
-      reorderTabs,
-      getTabs,
-      getActiveTabId,
-      updateTabTitle,
-      updateTabCwd,
-    ],
-  );
+  useTerminalPanelHandle(ref, {
+    transferTabOut,
+    receiveTab,
+    reorderTabs,
+    getTabs,
+    getActiveTabId,
+    updateTabTitle,
+    updateTabCwd,
+  });
 
   return (
     <div

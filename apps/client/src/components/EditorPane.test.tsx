@@ -26,16 +26,6 @@ mock.module('../lib/send-request', () => ({
   sendRequest: mockSendRequest,
 }));
 
-// Mock codemirror language modules (imported transitively via CodeEditor)
-mock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));
-mock.module('@codemirror/lang-css', () => ({ css: () => {} }));
-mock.module('@codemirror/lang-html', () => ({ html: () => {} }));
-mock.module('@codemirror/lang-json', () => ({ json: () => {} }));
-mock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
-mock.module('@codemirror/lang-python', () => ({ python: () => {} }));
-mock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
-mock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
-
 // ---------------------------------------------------------------------------
 // Import component under test (after mocks)
 // ---------------------------------------------------------------------------

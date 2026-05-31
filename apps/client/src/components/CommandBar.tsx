@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   COLOR_COMMANDBAR_BG,
   COLOR_COMMANDBAR_BORDER,
@@ -10,7 +10,6 @@ import {
   COLOR_TEXT_DIM,
 } from '../lib/theme';
 import { useFileSearch } from '../hooks/useFileSearch';
-import { searchCommands } from '../lib/commands';
 
 interface CommandBarProps {
   workspaceId: string | null;
@@ -36,16 +35,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
     [originalSetQuery],
   );
 
-  const isCommandMode = query.startsWith('/');
-
-  const commandResults = useMemo(() => {
-    if (!isCommandMode) return [];
-    const commandQuery = query.slice(1);
-    return searchCommands(commandQuery);
-  }, [query, isCommandMode]);
-
-  const displayResults = isCommandMode ? commandResults : results;
-  const resultCount = displayResults.length;
+  const resultCount = results.length;
 
   // Scroll selected item into view
   useEffect(() => {
@@ -65,16 +55,11 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
 
   const selectItem = useCallback(
     (index: number) => {
-      if (isCommandMode) {
-        const cmd = commandResults[index];
-        cmd?.execute?.();
-      } else {
-        const file = results[index];
-        if (file) onFileSelect(file.path);
-      }
+      const file = results[index];
+      if (file) onFileSelect(file.path);
       deactivate();
     },
-    [isCommandMode, commandResults, results, onFileSelect, deactivate],
+    [results, onFileSelect, deactivate],
   );
 
   // Keyboard shortcut: Ctrl+K / Cmd+K to activate
@@ -184,7 +169,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Search files by name... (/ for commands)"
+        placeholder="Search files by name..."
         style={{
           width: '100%',
           height: '100%',
@@ -219,40 +204,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           }}
         >
-          {isCommandMode ? (
-            commandResults.length > 0 ? (
-              commandResults.map((cmd, i) => (
-                <div
-                  key={cmd.id}
-                  data-testid="command-bar-item"
-                  role="option"
-                  aria-selected={i === selectedIndex}
-                  id={`command-bar-item-${i}`}
-                  onClick={() => selectItem(i)}
-                  onMouseEnter={() => setSelectedIndex(i)}
-                  style={{
-                    padding: '6px 12px',
-                    cursor: 'pointer',
-                    background: i === selectedIndex ? COLOR_COMMANDBAR_SELECTED_BG : undefined,
-                  }}
-                >
-                  <div style={{ color: COLOR_TEXT_BRIGHT, fontSize: '13px' }}>{cmd.label}</div>
-                  {cmd.description && (
-                    <div style={{ color: COLOR_TEXT_MUTED, fontSize: '11px' }}>
-                      {cmd.description}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div
-                data-testid="command-bar-item"
-                style={{ padding: '6px 12px', color: COLOR_TEXT_MUTED, fontSize: '13px' }}
-              >
-                No commands found
-              </div>
-            )
-          ) : results.length > 0 ? (
+          {results.length > 0 ? (
             results.map((result, i) => (
               <div
                 key={result.path}

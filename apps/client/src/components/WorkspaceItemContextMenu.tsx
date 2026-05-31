@@ -3,7 +3,6 @@ import * as ContextMenu from '@radix-ui/react-context-menu';
 import {
   COLOR_ACCENT,
   COLOR_BG_PRIMARY,
-  COLOR_BORDER,
   COLOR_ERROR,
   COLOR_SWATCH_ACTIVE_BORDER,
   COLOR_SWATCH_BORDER,
@@ -14,6 +13,7 @@ import {
   getContextMenuCss,
   getMenuContainerStyle,
   menuItemStyle,
+  separatorStyle,
 } from '../lib/context-menu-styles';
 
 interface WorkspaceItemContextMenuProps {
@@ -24,6 +24,8 @@ interface WorkspaceItemContextMenuProps {
   onChangeColor: (id: string, newColor: string) => void;
   children: React.ReactNode;
 }
+
+const WS_CONTEXT_MENU_CSS = getContextMenuCss('ws-context-menu');
 
 export function WorkspaceItemContextMenu({
   workspace,
@@ -100,7 +102,7 @@ export function WorkspaceItemContextMenu({
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content data-testid="ws-context-menu" style={getMenuContainerStyle('180px')}>
-          <style>{getContextMenuCss('ws-context-menu')}</style>
+          <style>{WS_CONTEXT_MENU_CSS}</style>
           {/* Rename */}
           {editingField === 'rename' ? (
             <div style={{ padding: '6px 12px' }}>
@@ -199,9 +201,7 @@ export function WorkspaceItemContextMenu({
             </div>
           </ContextMenu.Item>
 
-          <ContextMenu.Separator
-            style={{ height: '1px', background: COLOR_BORDER, margin: '4px 0' }}
-          />
+          <ContextMenu.Separator style={separatorStyle} />
 
           {/* Remove */}
           <ContextMenu.Item

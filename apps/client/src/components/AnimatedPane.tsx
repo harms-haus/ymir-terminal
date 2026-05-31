@@ -15,8 +15,7 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
 
-  const reducedMotion = prefersReducedMotion;
-  const transition = reducedMotion ? 'none' : ANIMATION_TRANSITION;
+  const transition = prefersReducedMotion ? 'none' : ANIMATION_TRANSITION;
 
   const [prevVisible, setPrevVisible] = useState(visible);
   const [overlayActive, setOverlayActive] = useState(false);
@@ -34,7 +33,7 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
   if (visible !== prevVisible) {
     if (prevVisible && !visible) {
       // Hiding: activate overlay and schedule collapse callback
-      if (!reducedMotion) {
+      if (!prefersReducedMotion) {
         setOverlayActive(true);
       }
     } else if (!prevVisible && visible) {

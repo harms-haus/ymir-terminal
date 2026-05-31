@@ -108,27 +108,31 @@ export const COLOR_DANGER = '#c74e39';
 
 // ── Git status colours ──────────────────────────────────────────────────────
 
-export const COLOR_GIT_MODIFIED = '#e2c08d';
-export const COLOR_GIT_ADDED = '#73c991';
-export const COLOR_GIT_DELETED = '#c74e39';
-export const COLOR_GIT_RENAMED = '#73c991';
-export const COLOR_GIT_COPIED = '#73c991';
-export const COLOR_GIT_UNTRACKED = '#888';
-
 /** Lookup table for git status letter → colour */
 export const GIT_STATUS_COLORS: Record<string, string> = {
-  M: COLOR_GIT_MODIFIED,
-  A: COLOR_GIT_ADDED,
-  D: COLOR_GIT_DELETED,
-  R: COLOR_GIT_RENAMED,
-  C: COLOR_GIT_COPIED,
-  '??': COLOR_GIT_UNTRACKED,
+  M: '#e2c08d',
+  A: '#73c991',
+  D: '#c74e39',
+  R: '#73c991',
+  C: '#73c991',
+  '??': '#888',
 };
 
-// ── Misc ────────────────────────────────────────────────────────────────────
+// ── Git graph colours ──────────────────────────────────────────────────────
 
-/** Resize separator hover colour (CSS) */
-export const COLOR_RESIZER_HOVER = '#555';
+/** Colour palette for git commit-graph lanes */
+export const GIT_GRAPH_COLORS = [
+  '#007acc',
+  '#4ec9b0',
+  '#c586c0',
+  '#dcdcaa',
+  '#e06050',
+  '#569cd6',
+  '#ce9178',
+  '#b5cea8',
+] as const;
+
+// ── Misc ────────────────────────────────────────────────────────────────────
 
 /** Context-menu active colour swatch border */
 export const COLOR_SWATCH_ACTIVE_BORDER = '#fff';
@@ -139,22 +143,10 @@ export const COLOR_SWATCH_BORDER = 'rgba(255,255,255,0.2)';
 /** Spinner track (semi-transparent white) */
 export const COLOR_SPINNER_TRACK = 'rgba(255, 255, 255, 0.3)';
 
-/** Close-btn hover background */
-export const COLOR_CLOSE_BTN_HOVER_BG = 'rgba(255,255,255,0.1)';
-
 /** Retry button background (inside error bar) */
 export const COLOR_RETRY_BTN_BG = 'rgba(255,255,255,0.2)';
 
 // ── Scrollbar ────────────────────────────────────────────────────────────────
-
-/** Scrollbar thumb color (darker than sidebar background) */
-export const COLOR_SCROLLBAR_THUMB = '#3a3a3a';
-
-/** Scrollbar thumb hover color */
-export const COLOR_SCROLLBAR_THUMB_HOVER = '#4a4a4a';
-
-/** Scrollbar width in pixels */
-export const SCROLLBAR_WIDTH = 4;
 
 // ── Preset workspace colours ────────────────────────────────────────────────
 
@@ -185,7 +177,6 @@ export const COLOR_TOPBAR_ACTIVE_BG = 'rgba(255,255,255,0.15)';
 export const COLOR_COMMANDBAR_BG = 'rgba(255,255,255,0.06)';
 export const COLOR_COMMANDBAR_BORDER = '#444';
 export const COLOR_COMMANDBAR_ACTIVE_BORDER = '#555';
-export const COLOR_COMMANDBAR_HOVER_BG = 'rgba(255,255,255,0.1)';
 export const COLOR_COMMANDBAR_SELECTED_BG = '#094771';
 
 // ── Layout sizing ──────────────────────────────────────────────────────────────
@@ -199,6 +190,4 @@ export const TOP_BAR_HEIGHT = 38;
 // Animation
 // ---------------------------------------------------------------------------
 
-export const ANIMATION_DURATION_MS = 260;
-export const ANIMATION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
 export const ANIMATION_TRANSITION = 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)';

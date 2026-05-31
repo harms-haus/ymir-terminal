@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import { COLOR_BORDER } from '../lib/theme';
 import {
   getContextMenuCss,
   getMenuContainerStyle,
   menuItemStyle,
+  separatorStyle,
 } from '../lib/context-menu-styles';
 
 const CONTEXT_MENU_CSS = getContextMenuCss('tab-context-menu');
@@ -73,9 +73,7 @@ export function TabContextMenu({
           >
             Close to the Right
           </ContextMenu.Item>
-          <ContextMenu.Separator
-            style={{ height: '1px', background: COLOR_BORDER, margin: '4px 0' }}
-          />
+          <ContextMenu.Separator style={separatorStyle} />
           <ContextMenu.Item
             data-testid="tab-menu-rename"
             onSelect={() => {

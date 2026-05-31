@@ -33,6 +33,12 @@ export function getMenuContainerStyle(minWidth: string = '160px'): React.CSSProp
   };
 }
 
+export const separatorStyle: React.CSSProperties = {
+  height: '1px',
+  background: COLOR_BORDER,
+  margin: '4px 0',
+};
+
 /**
  * Returns a CSS string for hover/focus styles scoped to the given `data-testid`.
  * Inject via a `<style>` tag inside the context menu content.

@@ -22,6 +22,7 @@ import type {
   TerminalExitEvent,
 } from './terminal';
 import type {
+  WorkspaceListRequest,
   WorkspaceCreateRequest,
   WorkspaceUpdateRequest,
   WorkspaceDeleteRequest,
@@ -98,6 +99,7 @@ export type RequestPayload =
   | TerminalInputRequest
   | TerminalResizeRequest
   | TerminalCloseRequest
+  | WorkspaceListRequest
   | WorkspaceCreateRequest
   | WorkspaceUpdateRequest
   | WorkspaceDeleteRequest

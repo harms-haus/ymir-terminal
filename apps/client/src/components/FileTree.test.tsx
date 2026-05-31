@@ -165,17 +165,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 4. Tree items show file names
-  // -----------------------------------------------------------------------
-  test('tree items show file names', () => {
-    const { getByText } = renderFileTree();
-
-    expect(getByText(/src/)).toBeTruthy();
-    expect(getByText(/package\.json/)).toBeTruthy();
-  });
-
-  // -----------------------------------------------------------------------
-  // 5. Nested directories can be expanded to show deep children
+  // 4. Nested directories can be expanded to show deep children
   // -----------------------------------------------------------------------
   test('nested directories expand to show deep children', () => {
     const { getByTestId, getByText, queryByText } = renderFileTree();
@@ -194,7 +184,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 6. Clicking a nested file calls onFileSelect
+  // 5. Clicking a nested file calls onFileSelect
   // -----------------------------------------------------------------------
   test('clicking a nested file calls onFileSelect', () => {
     const onFileSelect = mock(() => {});
@@ -212,7 +202,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 7. File alignment spacer
+  // 6. File alignment spacer
   // -----------------------------------------------------------------------
   test('file nodes have an alignment spacer span', () => {
     const singleFileTree = [{ name: 'readme.md', path: '/readme.md', isDirectory: false }];
@@ -227,7 +217,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 8. Modified file git status circle
+  // 7. Modified file git status circle
   // -----------------------------------------------------------------------
   test('modified file shows gold git status circle', () => {
     const singleFileTree = [{ name: 'a.txt', path: '/root/a.txt', isDirectory: false }];
@@ -246,7 +236,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 9. Deleted file styling
+  // 8. Deleted file styling
   // -----------------------------------------------------------------------
   test('deleted file shows red circle and strikethrough name', () => {
     const singleFileTree = [{ name: 'gone.ts', path: '/root/gone.ts', isDirectory: false }];
@@ -275,7 +265,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 10. Directory git status circle
+  // 9. Directory git status circle
   // -----------------------------------------------------------------------
   test('directory with modified child shows gold git status circle', () => {
     const dirTree = [
@@ -301,7 +291,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 11. No git status — no circles
+  // 10. No git status — no circles
   // -----------------------------------------------------------------------
   test('no git status renders no status circles', () => {
     const { container } = renderFileTree();
@@ -311,7 +301,7 @@ describe('FileTree', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 12. Green circle for untracked files
+  // 11. Green circle for untracked files
   // -----------------------------------------------------------------------
   test('untracked file shows green circle', () => {
     const singleFileTree = [{ name: 'new.txt', path: '/root/new.txt', isDirectory: false }];

@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react';
 import { useCreateWorkspace } from '../hooks/useWorkspaces';
+import { cardStyle, inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
 import {
   COLOR_BG_LOGIN,
-  COLOR_BG_CARD,
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD,
   COLOR_TEXT_CARD_MUTED,
@@ -37,43 +37,16 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     zIndex: 1000,
   },
-  card: {
-    backgroundColor: COLOR_BG_CARD,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '12px',
-    padding: '32px',
-    width: '100%',
-    maxWidth: '420px',
-    boxSizing: 'border-box',
-    color: COLOR_TEXT_CARD,
-  },
+  card: cardStyle,
   title: {
     fontSize: '20px',
     fontWeight: 600,
     margin: '0 0 24px 0',
     color: COLOR_TEXT_CARD,
   },
-  inputGroup: {
-    marginBottom: '16px',
-  },
-  label: {
-    display: 'block',
-    fontSize: '14px',
-    fontWeight: 500,
-    marginBottom: '8px',
-    color: COLOR_TEXT_CARD,
-  },
-  input: {
-    width: '100%',
-    padding: '10px 12px',
-    fontSize: '14px',
-    backgroundColor: COLOR_BG_LOGIN,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '6px',
-    color: COLOR_TEXT_CARD,
-    outline: 'none',
-    boxSizing: 'border-box',
-  },
+  inputGroup: inputGroupStyle,
+  label: labelStyle,
+  input: inputStyle,
   colorRow: {
     display: 'flex',
     alignItems: 'center',
@@ -341,7 +314,7 @@ export function CreateWorkspaceDialog({ open, onClose, onCreated }: CreateWorksp
 
   return (
     <>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @media (prefers-reduced-motion: reduce) { [data-testid="create-workspace-dialog"] span[style*="animation: spin"] { animation: none !important; } }`}</style>
+      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="create-workspace-dialog"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="create-workspace-dialog"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; }`}</style>
       <div
         data-testid="create-workspace-dialog"
         style={styles.backdrop}

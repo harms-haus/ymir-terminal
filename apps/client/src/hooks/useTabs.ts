@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import type { ServerTabInfo } from '@ymir/shared';
 
 export interface Tab {
   id: string;
@@ -8,19 +9,7 @@ export interface Tab {
   terminalId?: string;
   filePath?: string;
   cwd?: string;
-  paneLayout?: unknown; // will be defined in Phase 8
   customTitle?: string;
-}
-
-export interface ServerTabInfo {
-  id: string;
-  tabType: 'terminal' | 'editor';
-  title: string | null;
-  filePath: string | null;
-  terminalId: string | null;
-  active: boolean;
-  sortOrder: number;
-  terminalAlive?: boolean;
 }
 
 export type TabChangeEvent =

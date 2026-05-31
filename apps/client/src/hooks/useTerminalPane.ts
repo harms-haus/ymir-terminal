@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { useTabs, type ServerTabInfo } from './useTabs';
+import { useTabs } from './useTabs';
+import type { ServerTabInfo } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 
 export interface UseTerminalPaneOptions {

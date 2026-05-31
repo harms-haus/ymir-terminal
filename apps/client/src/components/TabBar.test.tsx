@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks, setReactInputValue } from '../test-helpers/mock-setup';
 await setupTestDom();
 setupAllMocks();
 
@@ -157,24 +157,7 @@ function styleHasBorderParts(
   );
 }
 
-/**
- * Simulate changing a React controlled input's value.
- *
- * happy-dom's fireEvent.change does not trigger React's internal change
- * detection for controlled inputs. We directly invoke the onChange handler
- * from React's internal props to update the component state.
- */
-function setReactInputValue(input: HTMLInputElement, value: string) {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const reactPropsKey = Object.keys(input).find((k) => k.startsWith('__reactProps'));
-  if (!reactPropsKey) throw new Error('Could not find React internal props on input');
-  const props = (input as any)[reactPropsKey];
-  if (typeof props?.onChange !== 'function') throw new Error('onChange not found on React props');
-  act(() => {
-    props.onChange({ target: { value } });
-  });
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-}
+
 
 // ---------------------------------------------------------------------------
 // Tests

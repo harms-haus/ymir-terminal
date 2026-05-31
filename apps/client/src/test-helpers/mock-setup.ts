@@ -22,7 +22,7 @@
 
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ConnectionStatus } from '../lib/ws-client';
 import type { Tab } from '../hooks/useTabs';
@@ -382,6 +382,16 @@ export function setupAllMocks(): void {
     return { default: MockCodeMirror };
   });
 
+  // --- @codemirror language modules ----------------------------------------
+  bunMock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));
+  bunMock.module('@codemirror/lang-css', () => ({ css: () => {} }));
+  bunMock.module('@codemirror/lang-html', () => ({ html: () => {} }));
+  bunMock.module('@codemirror/lang-json', () => ({ json: () => {} }));
+  bunMock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
+  bunMock.module('@codemirror/lang-python', () => ({ python: () => {} }));
+  bunMock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
+  bunMock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
+
   // --- react-intersection-observer ------------------------------------------
   bunMock.module('react-intersection-observer', () => ({
     useInView: () => ({ ref: () => {}, inView: true }),
@@ -456,4 +466,27 @@ export function renderWithProviders(
       React.createElement(QueryClientProvider, { client: queryClient }, ui),
     ),
   );
+}
+
+// ---------------------------------------------------------------------------
+// React controlled input helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Simulate changing a React controlled input's value.
+ *
+ * happy-dom's fireEvent.change does not trigger React's internal change
+ * detection for controlled inputs. We directly invoke the onChange handler
+ * from React's internal props to update the component state.
+ */
+export function setReactInputValue(input: HTMLInputElement, value: string): void {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const reactPropsKey = Object.keys(input).find((k) => k.startsWith('__reactProps'));
+  if (!reactPropsKey) throw new Error('Could not find React internal props on input');
+  const props = (input as any)[reactPropsKey];
+  if (typeof props?.onChange !== 'function') throw new Error('onChange not found on React props');
+  act(() => {
+    props.onChange({ target: { value } });
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 }

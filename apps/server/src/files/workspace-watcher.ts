@@ -1,8 +1,5 @@
-import {
-  PROTOCOL_VERSION,
-  type EventEnvelope,
-  type FileChangeEvent as FileChangePayload,
-} from '@ymir/shared';
+import { type FileChangeEvent as FileChangePayload, type EventEnvelope } from '@ymir/shared';
+import { createEvent } from '../ws/router';
 import { startWorkspaceWatcher, stopWorkspaceWatcher, type FileChangeEvent } from './watcher';
 
 /**
@@ -15,17 +12,13 @@ export function startManagedWatcher(
   broadcastEvent: (envelope: EventEnvelope<FileChangePayload>) => void,
 ): void {
   startWorkspaceWatcher(workspaceId, cwd, (fileEvent: FileChangeEvent) => {
-    const event: EventEnvelope<FileChangePayload> = {
-      v: PROTOCOL_VERSION,
-      type: 'event',
-      channel: 'file.change',
-      payload: {
+    broadcastEvent(
+      createEvent('file.change', {
         workspaceId,
         path: fileEvent.path,
         kind: fileEvent.kind,
-      },
-    };
-    broadcastEvent(event);
+      }) as EventEnvelope<FileChangePayload>,
+    );
   });
 }
 

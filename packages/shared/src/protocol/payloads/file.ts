@@ -50,5 +50,5 @@ export interface FileCreateRequest {
 export interface FileChangeEvent {
   workspaceId: string;
   path: string;
-  kind: string;
+  kind: 'create' | 'modify' | 'delete';
 }

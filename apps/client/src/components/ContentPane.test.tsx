@@ -1,10 +1,10 @@
 /// <reference lib="dom" />
-import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks, setReactInputValue } from '../test-helpers/mock-setup';
 await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
-import { render, cleanup, fireEvent, act } from '@testing-library/react';
+import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
@@ -84,15 +84,6 @@ mock.module('../lib/send-request', () => ({
   sendRequest: mockSendRequest,
 }));
 
-// Mock all the codemirror language modules (they may be imported transitively)
-mock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));
-mock.module('@codemirror/lang-css', () => ({ css: () => {} }));
-mock.module('@codemirror/lang-html', () => ({ html: () => {} }));
-mock.module('@codemirror/lang-json', () => ({ json: () => {} }));
-mock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
-mock.module('@codemirror/lang-python', () => ({ python: () => {} }));
-mock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
-mock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
 
 // ---------------------------------------------------------------------------
 // Mock TabContextMenu — faithful mock that renders menu items with
@@ -154,29 +145,13 @@ mock.module('./TabContextMenu', () => ({
 }));
 
 const { ContentPane } = await import('./ContentPane');
-import type { ContentPaneHandle } from './ContentPane';
+import type { TerminalPanelHandle as ContentPaneHandle } from '../hooks/useTerminalPanel';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Simulate changing a React controlled input's value.
- * happy-dom's fireEvent.change does not trigger React's internal change
- * detection for controlled inputs. We directly invoke the onChange handler
- * from React's internal props to update the component state.
- */
-function setReactInputValue(input: HTMLInputElement, value: string) {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const reactPropsKey = Object.keys(input).find((k) => k.startsWith('__reactProps'));
-  if (!reactPropsKey) throw new Error('Could not find React internal props on input');
-  const props = (input as any)[reactPropsKey];
-  if (typeof props?.onChange !== 'function') throw new Error('onChange not found on React props');
-  act(() => {
-    props.onChange({ target: { value } });
-  });
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-}
+
 
 function renderContentPane(
   workspaceId: string | null = null,
@@ -549,25 +524,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 16. Terminal components receive onTitleChange and onCwdChange props
-  // -----------------------------------------------------------------------
-  test('Terminal components are rendered with onTitleChange and onCwdChange callbacks', () => {
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
-
-    renderContentPane();
-
-    // The terminal is rendered - verify the callbacks are wired by checking
-    // that updateTabTitle and updateTabCwd would be called if invoked.
-    // Since the Terminal mock doesn't call these props directly,
-    // we verify the terminal rendered and the mock functions exist.
-    // A more thorough test would mock Terminal and inspect props.
-    expect(mockUpdateTabTitle).not.toHaveBeenCalled();
-    expect(mockUpdateTabCwd).not.toHaveBeenCalled();
-  });
-
-  // -----------------------------------------------------------------------
-  // 17. transferTabOut imperative handle removes a terminal tab and returns its data
+  // 16. transferTabOut imperative handle removes a terminal tab and returns its data
   // -----------------------------------------------------------------------
   test('transferTabOut removes terminal tab and returns data without sending terminal.close', async () => {
     mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
@@ -591,7 +548,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 18. transferTabOut returns null for non-terminal or non-existent tabs
+  // 17. transferTabOut returns null for non-terminal or non-existent tabs
   // -----------------------------------------------------------------------
   test('transferTabOut returns null for editor tabs or non-existent tabs', async () => {
     mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
@@ -608,7 +565,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 19. receiveTab imperative handle creates a terminal tab
+  // 18. receiveTab imperative handle creates a terminal tab
   // -----------------------------------------------------------------------
   test('receiveTab creates a terminal tab with given data', async () => {
     mockTabsState = [];
@@ -629,7 +586,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 20. getTabs imperative handle returns current tabs
+  // 19. getTabs imperative handle returns current tabs
   // -----------------------------------------------------------------------
   test('getTabs returns current tabs', async () => {
     mockTabsState = [
@@ -650,7 +607,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 21. Rename flow calls setDisplayTitle (not updateTabTitle)
+  // 20. Rename flow calls setDisplayTitle (not updateTabTitle)
   // -----------------------------------------------------------------------
   test('rename flow calls setDisplayTitle', async () => {
     mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
@@ -682,7 +639,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 22. receiveTab returns the new tabId from createTab
+  // 21. receiveTab returns the new tabId from createTab
   // -----------------------------------------------------------------------
   test('receiveTab returns the new tabId', async () => {
     mockTabsState = [];
@@ -705,7 +662,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 23. transferTabOut followed by receiveTab round-trips terminal data
+  // 22. transferTabOut followed by receiveTab round-trips terminal data
   // -----------------------------------------------------------------------
   test('transferTabOut followed by receiveTab round-trips terminal data', async () => {
     mockTabsState = [
@@ -745,7 +702,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 24. onTerminalRegistered is called when a terminal tab is created
+  // 23. onTerminalRegistered is called when a terminal tab is created
   // -----------------------------------------------------------------------
   test('onTerminalRegistered is called when a terminal tab is created', async () => {
     const mockOnTerminalRegistered = mock(() => {});
@@ -764,7 +721,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 25. onTerminalUnregistered is called when a terminal tab is closed
+  // 24. onTerminalUnregistered is called when a terminal tab is closed
   // -----------------------------------------------------------------------
   test('onTerminalUnregistered is called when a terminal tab is closed', async () => {
     const mockOnTerminalUnregistered = mock(() => {});
@@ -785,7 +742,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 26. onActiveTabChange fires when activeTabId changes
+  // 25. onActiveTabChange fires when activeTabId changes
   // -----------------------------------------------------------------------
   test('onActiveTabChange fires when activeTabId changes', async () => {
     const mockOnActiveTabChange = mock(() => {});
@@ -814,7 +771,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 27. Cross-pane transfer: transferTabOut does not call onTerminalUnregistered
+  // 26. Cross-pane transfer: transferTabOut does not call onTerminalUnregistered
   // -----------------------------------------------------------------------
   test('cross-pane transfer: transferTabOut does not call onTerminalUnregistered', async () => {
     const onTerminalUnregistered = mock(() => {});
@@ -837,7 +794,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 28. Workspace tab isolation: tabs change when workspaceId switches
+  // 27. Workspace tab isolation: tabs change when workspaceId switches
   // -----------------------------------------------------------------------
   test('workspace tab isolation: tabs change when workspaceId switches', async () => {
     // Start with ws-1, no tabs
@@ -886,7 +843,7 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 29. Editor tab workspace scoping: editor tab hidden when switching workspace
+  // 28. Editor tab workspace scoping: editor tab hidden when switching workspace
   // -----------------------------------------------------------------------
   test('editor tab workspace scoping: editor tab hidden when switching workspace', async () => {
     // Start with ws-1 with an editor tab

@@ -1,12 +1,6 @@
 import { useEffect } from 'react';
 import { wsClient } from '../lib/ws-client';
-import type { MessageEnvelope } from '@ymir/shared';
-
-interface FileChangeEvent {
-  workspaceId: string;
-  path: string;
-  kind: 'create' | 'modify' | 'delete';
-}
+import type { MessageEnvelope, FileChangeEvent } from '@ymir/shared';
 
 export function useFileChange(
   workspaceId: string | null,

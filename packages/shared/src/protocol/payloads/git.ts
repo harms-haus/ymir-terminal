@@ -1,6 +1,8 @@
+export type GitFileChangeStatus = 'M' | 'A' | 'D' | 'R' | 'C' | '?' | '??';
+
 export interface GitFileChange {
   path: string;
-  status: string;
+  status: GitFileChangeStatus;
 }
 
 export interface GitStatusRequest {
