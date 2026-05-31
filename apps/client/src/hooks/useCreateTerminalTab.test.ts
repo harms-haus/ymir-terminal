@@ -3,8 +3,9 @@ import { setupTestDom } from '../test-helpers/mock-setup';
 await setupTestDom();
 
 import { describe, test, expect, mock, beforeEach, afterAll } from 'bun:test';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // ---------------------------------------------------------------------------
 // Mock useTerminal module
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 import { setupTestDom } from '../test-helpers/mock-setup';
 await setupTestDom();
 
-import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
+import { describe, test, expect, mock, beforeEach, afterAll } from 'bun:test';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { PROTOCOL_VERSION, type MessageEnvelope } from '@ymir/shared';
 
@@ -47,12 +47,6 @@ function simulateResponse(requestId: string, payload: unknown) {
   for (const handler of [...messageHandlers]) {
     handler(response);
   }
-}
-
-function getLastSentEnvelope(): MessageEnvelope {
-  const calls = mockSend.mock.calls;
-  expect(calls.length).toBeGreaterThanOrEqual(1);
-  return calls[calls.length - 1][0] as MessageEnvelope;
 }
 
 function getAllSentEnvelopes(): MessageEnvelope[] {
@@ -746,10 +740,9 @@ describe('useTerminalPane', () => {
 
     // Create two tabs
     let tabId1: string;
-    let tabId2: string;
     act(() => {
       tabId1 = result.current.createTab({ type: 'terminal', title: 'T1', terminalId: 't-1' });
-      tabId2 = result.current.createTab({ type: 'terminal', title: 'T2', terminalId: 't-2' });
+      result.current.createTab({ type: 'terminal', title: 'T2', terminalId: 't-2' });
     });
 
     // Resolve creates
