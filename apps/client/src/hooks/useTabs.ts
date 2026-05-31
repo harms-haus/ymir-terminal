@@ -44,7 +44,9 @@ interface WorkspaceTabState {
 
 export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }) {
   const onTabChangeRef = useRef(opts?.onTabChange);
-  onTabChangeRef.current = opts?.onTabChange;
+  useEffect(() => {
+    onTabChangeRef.current = opts?.onTabChange;
+  });
 
   const [workspaceStates, setWorkspaceStates] = useState<Map<string, WorkspaceTabState>>(new Map());
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(null);

@@ -10,7 +10,7 @@ import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerTabHandlers } from './tabs';
 import { initSessionDb, createSession, type Database } from '../../db/session';
-import { initDatabase as initPersistentDb, getWorkspace } from '../../db/persistent';
+import { initDatabase as initPersistentDb } from '../../db/persistent';
 
 // ---------------------------------------------------------------------------
 // Tests
