@@ -8,7 +8,7 @@ import { COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_ERROR } from '../lib/theme';
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 50;
-const ROW_HEIGHT = 30;
+const ROW_HEIGHT = 24;
 const LANE_WIDTH = 16;
 const GRAPH_LEFT_PADDING = 10;
 const COLOR_PALETTE = [
@@ -321,15 +321,16 @@ const CommitRow = memo(function CommitRow({
         style={{
           flex: 1,
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          paddingLeft: 4,
+          alignItems: 'center',
+          paddingLeft: 8,
           paddingRight: 8,
           overflow: 'hidden',
+          gap: 6,
         }}
       >
         <div
           style={{
+            flex: 1,
             fontSize: 12,
             color: COLOR_TEXT,
             whiteSpace: 'nowrap',
@@ -339,9 +340,16 @@ const CommitRow = memo(function CommitRow({
         >
           {commit.message}
         </div>
-        <div style={{ fontSize: 10, color: COLOR_TEXT_MUTED }}>
-          {commit.author} · {formatRelativeTime(commit.date)}
-        </div>
+        <span
+          style={{
+            flexShrink: 0,
+            fontSize: 10,
+            color: COLOR_TEXT_MUTED,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {formatRelativeTime(commit.date)}
+        </span>
       </div>
     </div>
   );
@@ -431,7 +439,7 @@ export function GitHistoryPanel({ workspaceId }: GitHistoryPanelProps) {
     return Math.max(...laneData.map((l) => l.lane));
   }, [laneData]);
 
-  const graphWidth = (maxLane + 1) * LANE_WIDTH + GRAPH_LEFT_PADDING * 2;
+  const graphWidth = maxLane * LANE_WIDTH + GRAPH_LEFT_PADDING + 4 + 2;
 
   // ── Active lanes per row ───────────────────────────────────────────────
 

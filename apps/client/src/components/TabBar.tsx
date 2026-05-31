@@ -176,8 +176,8 @@ const SortableTab = React.memo(function SortableTab({
           alignItems: 'center',
           gap: '6px',
           padding: '0 12px',
-          height: `${TITLE_BAR_HEIGHT}px`,
-          lineHeight: `${TITLE_BAR_HEIGHT}px`,
+          height: `${TITLE_BAR_HEIGHT - 2}px`,
+          lineHeight: `${TITLE_BAR_HEIGHT - 2}px`,
           fontSize: tabFontSize,
           cursor: 'pointer',
           background: tabBackground,
@@ -332,8 +332,6 @@ export function TabBar({
 
   return (
     <div
-      ref={droppableRef}
-      role="tablist"
       data-testid="tab-bar"
       style={{
         height: `${TITLE_BAR_HEIGHT}px`,
@@ -344,7 +342,6 @@ export function TabBar({
         alignItems: 'flex-end',
         borderBottom: `1px solid ${COLOR_BORDER}`,
         flexShrink: 0,
-        overflowX: 'auto',
       }}
     >
       <style>{`
@@ -352,29 +349,42 @@ export function TabBar({
         .tab-close-btn-focus:hover { background: rgba(255,255,255,0.1); }
         [role="tab"]:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
       `}</style>
-      {tabs.map((tab, tabIdx) => (
-        <SortableTab
-          key={tab.id}
-          tab={tab}
-          tabs={tabs}
-          tabIdx={tabIdx}
-          totalTabs={tabs.length}
-          isActive={tab.id === activeTabId}
-          isBottom={isBottom}
-          renamingTabId={renamingTabId}
-          renameValue={renameValue}
-          renameInputRef={renameInputRef}
-          onActivate={onActivate}
-          onClose={onClose}
-          onCloseRight={onCloseRight}
-          onCloseOthers={onCloseOthers}
-          startRename={startRename}
-          commitRename={commitRename}
-          cancelRename={cancelRename}
-          setRenameValue={setRenameValue}
-          group={group}
-        />
-      ))}
+      {/* Scrollable tabs container */}
+      <div
+        ref={droppableRef}
+        role="tablist"
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'flex-end',
+          overflowX: 'auto',
+        }}
+      >
+        {tabs.map((tab, tabIdx) => (
+          <SortableTab
+            key={tab.id}
+            tab={tab}
+            tabs={tabs}
+            tabIdx={tabIdx}
+            totalTabs={tabs.length}
+            isActive={tab.id === activeTabId}
+            isBottom={isBottom}
+            renamingTabId={renamingTabId}
+            renameValue={renameValue}
+            renameInputRef={renameInputRef}
+            onActivate={onActivate}
+            onClose={onClose}
+            onCloseRight={onCloseRight}
+            onCloseOthers={onCloseOthers}
+            startRename={startRename}
+            commitRename={commitRename}
+            cancelRename={cancelRename}
+            setRenameValue={setRenameValue}
+            group={group}
+          />
+        ))}
+      </div>
+      {/* + button OUTSIDE the scroll container so it stays fixed at right edge */}
       <button
         data-testid="tab-add"
         aria-label="Add tab"
@@ -393,6 +403,7 @@ export function TabBar({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          flexShrink: 0,
         }}
       >
         +

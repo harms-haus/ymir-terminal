@@ -77,6 +77,8 @@ export function WorkspaceItem({
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              direction: 'rtl',
+              textAlign: 'left',
             }}
           >
             {workspace.cwd}

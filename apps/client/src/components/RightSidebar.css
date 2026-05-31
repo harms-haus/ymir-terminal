@@ -2,33 +2,6 @@
   background: #555 !important;
 }
 
-/* Custom scrollbar for Project Sidebar panes */
-[data-testid='right-sidebar-content'] ::-webkit-scrollbar {
-  width: 4px;
-}
-
-[data-testid='right-sidebar-content'] ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-[data-testid='right-sidebar-content'] ::-webkit-scrollbar-thumb {
-  background: #3a3a3a;
-  border-radius: 4px;
-}
-
-[data-testid='right-sidebar-content'] ::-webkit-scrollbar-thumb:hover {
-  background: #4a4a4a;
-}
-
-[data-testid='right-sidebar-content'] ::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-[data-testid='right-sidebar-content'] {
-  scrollbar-width: thin;
-  scrollbar-color: #3a3a3a transparent;
-}
-
 /* Toggle button focus indicator */
 [data-testid='right-sidebar-content'] button:focus-visible {
   outline: 2px solid #007acc;

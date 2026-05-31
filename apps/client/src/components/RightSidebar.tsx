@@ -228,9 +228,10 @@ export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd }: RightS
             borderRadius: '3px',
             fontSize: '12px',
             lineHeight: 1,
+            fontFamily: "'JetBrainsMono Nerd Font'",
           }}
         >
-          📁
+          󰙅
         </button>
         <button
           data-testid="toggle-git-changes"

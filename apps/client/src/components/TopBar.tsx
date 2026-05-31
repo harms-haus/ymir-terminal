@@ -126,8 +126,8 @@ export function TopBar({ commandBar }: TopBarProps) {
           onMouseEnter={() => setHoverWorkspace(true)}
           onMouseLeave={() => setHoverWorkspace(false)}
           style={{
-            width: '28px',
-            height: '28px',
+            width: '20px',
+            height: '20px',
             borderRadius: '4px',
             border: 'none',
             cursor: 'pointer',
@@ -147,10 +147,10 @@ export function TopBar({ commandBar }: TopBarProps) {
           <svg viewBox="0 0 16 16" width="16" height="16">
             <rect x="1" y="1" width="7" height="14" fill="currentColor" />
             <rect
-              x="8"
-              y="1"
-              width="7"
-              height="14"
+              x="8.5"
+              y="1.5"
+              width="6"
+              height="13"
               fill="none"
               stroke="currentColor"
               strokeWidth="1"
@@ -167,8 +167,8 @@ export function TopBar({ commandBar }: TopBarProps) {
           onMouseEnter={() => setHoverTerminal(true)}
           onMouseLeave={() => setHoverTerminal(false)}
           style={{
-            width: '28px',
-            height: '28px',
+            width: '20px',
+            height: '20px',
             borderRadius: '4px',
             border: 'none',
             cursor: 'pointer',
@@ -187,10 +187,10 @@ export function TopBar({ commandBar }: TopBarProps) {
         >
           <svg viewBox="0 0 16 16" width="16" height="16">
             <rect
-              x="1"
-              y="1"
-              width="14"
-              height="14"
+              x="1.5"
+              y="1.5"
+              width="13"
+              height="13"
               fill="none"
               stroke="currentColor"
               strokeWidth="1"
@@ -208,8 +208,8 @@ export function TopBar({ commandBar }: TopBarProps) {
           onMouseEnter={() => setHoverExplorer(true)}
           onMouseLeave={() => setHoverExplorer(false)}
           style={{
-            width: '28px',
-            height: '28px',
+            width: '20px',
+            height: '20px',
             borderRadius: '4px',
             border: 'none',
             cursor: 'pointer',
@@ -228,10 +228,10 @@ export function TopBar({ commandBar }: TopBarProps) {
         >
           <svg viewBox="0 0 16 16" width="16" height="16">
             <rect
-              x="1"
-              y="1"
-              width="7"
-              height="14"
+              x="1.5"
+              y="1.5"
+              width="6"
+              height="13"
               fill="none"
               stroke="currentColor"
               strokeWidth="1"
