@@ -4,7 +4,7 @@ await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, afterEach, afterAll, mock, spyOn } from 'bun:test';
-import { render, cleanup, waitFor, act } from '@testing-library/react';
+import { render, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
@@ -75,6 +75,7 @@ const mockBranches = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setupMockResponses(responses: Record<string, any>) {
   sendRequestSpy.mockImplementation((channel: string) => {
     if (responses[channel]) return Promise.resolve(responses[channel]);
@@ -162,6 +163,7 @@ describe('GitPanel', () => {
   // -----------------------------------------------------------------------
   test('shows loading state while discovering', async () => {
     // Return a promise that never resolves so loading stays true
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let resolveDiscovery: (v: any) => void;
     const pendingDiscovery = new Promise((resolve) => {
       resolveDiscovery = resolve;
@@ -292,9 +294,7 @@ describe('GitPanel', () => {
     // The hook catches it with setError. However the repos array stays empty,
     // so it will show "Not a git repository" unless repos were already loaded.
     // Let's first resolve discovery with repos, then fail on status.
-    let callCount = 0;
     sendRequestSpy.mockImplementation((channel: string) => {
-      callCount++;
       if (channel === 'git.repoDiscovery') {
         return Promise.resolve({ repos: [mockRepoInfo] });
       }

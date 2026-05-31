@@ -5,7 +5,7 @@ await setupTestDom();
 setupAllMocks();
 
 import { describe, it, expect, mock, afterEach } from 'bun:test';
-import { render, fireEvent, cleanup, act } from '@testing-library/react';
+import { render, cleanup, act } from '@testing-library/react';
 import React from 'react';
 
 const { GitCommitInput } = await import('./GitCommitInput');

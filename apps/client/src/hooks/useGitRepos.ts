@@ -29,7 +29,7 @@ export interface UseGitReposReturn {
 
 export function useGitRepos(
   workspaceId: string | null,
-  workspaceCwd: string | null,
+  _workspaceCwd: string | null,
 ): UseGitReposReturn {
   const [repos, setRepos] = useState<GitRepoInfo[]>([]);
   const [repoStatuses, setRepoStatuses] = useState<Map<string, GitStatusResponse>>(new Map());
@@ -115,7 +115,8 @@ export function useGitRepos(
   }, [workspaceId]);
 
   useEffect(() => {
-    loadData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadData();
   }, [loadData]);
 
   const refreshRepo = useCallback(
