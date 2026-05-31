@@ -214,11 +214,9 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(singleFileTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/a.txt');
-    const circles = Array.from(node.querySelectorAll('span')).filter(
-      (s) => s.style.borderRadius === '50%',
-    );
-    expect(circles.length).toBeGreaterThanOrEqual(1);
-    expect(circles[0].style.backgroundColor).toContain('#e2c08d');
+    const circle = node.querySelector('[aria-label^="Git status:"]');
+    expect(circle).toBeTruthy();
+    expect((circle as HTMLElement).style.backgroundColor).toContain('#e2c08d');
   });
 
   // -----------------------------------------------------------------------
@@ -237,11 +235,9 @@ describe('FileTree', () => {
     const node = getByTestId('tree-node-/root/gone.ts');
 
     // Red circle
-    const circles = Array.from(node.querySelectorAll('span')).filter(
-      (s) => s.style.borderRadius === '50%',
-    );
-    expect(circles.length).toBeGreaterThanOrEqual(1);
-    expect(circles[0].style.backgroundColor).toContain('#c74e39');
+    const circle = node.querySelector('[aria-label^="Git status:"]');
+    expect(circle).toBeTruthy();
+    expect((circle as HTMLElement).style.backgroundColor).toContain('#c74e39');
 
     // Strikethrough name
     const nameSpan = Array.from(node.querySelectorAll('span')).find(
@@ -273,11 +269,9 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(dirTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/src');
-    const circles = Array.from(node.querySelectorAll('span')).filter(
-      (s) => s.style.borderRadius === '50%',
-    );
-    expect(circles.length).toBeGreaterThanOrEqual(1);
-    expect(circles[0].style.backgroundColor).toContain('#e2c08d');
+    const circle = node.querySelector('[aria-label="Contains uncommitted changes"]');
+    expect(circle).toBeTruthy();
+    expect((circle as HTMLElement).style.backgroundColor).toContain('#e2c08d');
   });
 
   // -----------------------------------------------------------------------
@@ -286,10 +280,10 @@ describe('FileTree', () => {
   test('no git status renders no status circles', () => {
     const { container } = renderFileTree();
 
-    const circles = Array.from(container.querySelectorAll('span')).filter(
-      (s) => s.style.borderRadius === '50%',
+    expect(container.querySelectorAll('[aria-label^="Git status:"]').length).toBe(0);
+    expect(container.querySelectorAll('[aria-label="Contains uncommitted changes"]').length).toBe(
+      0,
     );
-    expect(circles.length).toBe(0);
   });
 
   // -----------------------------------------------------------------------
@@ -306,10 +300,8 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(singleFileTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/new.txt');
-    const circles = Array.from(node.querySelectorAll('span')).filter(
-      (s) => s.style.borderRadius === '50%',
-    );
-    expect(circles.length).toBeGreaterThanOrEqual(1);
-    expect(circles[0].style.backgroundColor).toContain('#888');
+    const circle = node.querySelector('[aria-label^="Git status:"]');
+    expect(circle).toBeTruthy();
+    expect((circle as HTMLElement).style.backgroundColor).toContain('#888');
   });
 });

@@ -46,6 +46,13 @@ import {
   // Session
   type ConnectionStatusEvent,
   // Unions
+  // Tab
+  type TabListRequest,
+  type TabCreateRequest,
+  type TabUpdateRequest,
+  type TabDeleteRequest,
+  type TabReorderRequest,
+  // Unions
   type RequestPayload,
   type EventPayload,
 } from './payloads';
@@ -75,14 +82,19 @@ describe('REQUEST_TYPES', () => {
     'git.log',
     'config.get',
     'config.set',
+    'tab.list',
+    'tab.create',
+    'tab.update',
+    'tab.delete',
+    'tab.reorder',
   ];
 
   it('contains all expected request types', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 19 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(19);
+  it('has exactly 24 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(24);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -541,6 +553,16 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', skip: 0, limit: 50 } satisfies GitLogRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
+      { workspaceId: 'ws-1' } satisfies TabListRequest,
+      {
+        workspaceId: 'ws-1',
+        pane: 'content',
+        tabType: 'terminal',
+        title: 't',
+      } satisfies TabCreateRequest,
+      { tabId: 'tab-1' } satisfies TabUpdateRequest,
+      { tabId: 'tab-1' } satisfies TabDeleteRequest,
+      { tabIds: ['tab-1', 'tab-2'] } satisfies TabReorderRequest,
     ];
 
     // Ensure they all survive a JSON round-trip
@@ -548,7 +570,7 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 18 payload types (workspace.list carries no body and has no
+    // 23 payload types (workspace.list carries no body and has no
     // corresponding type in the RequestPayload union)
     expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });

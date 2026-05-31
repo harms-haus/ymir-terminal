@@ -116,31 +116,31 @@ describe('CommandBar', () => {
   // 2. Empty results — no files found text
   // -----------------------------------------------------------------------
   test('shows no results text when query yields no matches', () => {
-    const result = renderCommandBar({ workspaceId: 'ws-1' });
-    activate(result);
+    // Pre-set the query *before* rendering so the component reads it via
+    // the mock getter on its first active render — no re-mount needed.
+    mockQuery = 'nonexistent';
+    mockSetQueryFn = mock((value: string) => {
+      mockQuery = value;
+    });
 
-    const input = result.getByTestId('command-bar-input') as HTMLInputElement;
-
-    // Type a non-command query (no leading /)
-    setReactInputValue(input, 'nonexistent');
-
-    // Verify the mock setter was invoked
-    expect(mockSetQueryFn).toHaveBeenCalledWith('nonexistent');
-
-    // The mock updates mockQuery, but React doesn't re-render because our
-    // hook mock doesn't trigger a state update. Force a re-render by
-    // re-mounting so the component reads the updated mockQuery.
-    cleanup();
-    const result2 = render(
+    const result = render(
       React.createElement(CommandBar, {
         workspaceId: 'ws-1',
         onFileSelect: () => {},
       }),
     );
-    activate(result2);
 
-    // With non-empty query and empty results, dropdown shows "No files found"
-    expect(result2.getByText(/No files found/)).toBeTruthy();
+    // Activate — clicking the trigger flips isActive to true; the component
+    // re-renders, reads mockQuery ("nonexistent") from the hook getter,
+    // and opens the dropdown because !!query is true.
+    activate(result);
+
+    // The input reflects the pre-set query
+    const input = result.getByTestId('command-bar-input') as HTMLInputElement;
+    expect(input.value).toBe('nonexistent');
+
+    // With a non-empty query and empty results, dropdown shows "No files found"
+    expect(result.getByText(/No files found/)).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
