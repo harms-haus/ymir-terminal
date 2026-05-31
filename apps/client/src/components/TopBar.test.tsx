@@ -3,7 +3,7 @@ import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
 await setupTestDom();
 setupAllMocks();
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 
@@ -56,6 +56,10 @@ function renderTopBar(commandBar?: React.ReactNode) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+afterAll(() => {
+  mock.restore();
+});
 
 describe('TopBar', () => {
   beforeEach(() => {

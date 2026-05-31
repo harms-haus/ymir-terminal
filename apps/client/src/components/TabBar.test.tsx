@@ -3,7 +3,7 @@ import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
 await setupTestDom();
 setupAllMocks();
 
-import { describe, test, expect, afterEach, mock } from 'bun:test';
+import { describe, test, expect, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { TabBar } from './TabBar';
@@ -179,6 +179,10 @@ function setReactInputValue(input: HTMLInputElement, value: string) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+afterAll(() => {
+  mock.restore();
+});
 
 describe('TabBar', () => {
   afterEach(() => {

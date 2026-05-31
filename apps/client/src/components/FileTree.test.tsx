@@ -81,6 +81,31 @@ function renderFileTreeWithGitStatus(
 }
 
 // ---------------------------------------------------------------------------
+// Helper – query by data-testid within an element (avoids CSS attribute selector
+// issues on Ubuntu's happy-dom)
+// ---------------------------------------------------------------------------
+function queryChildByTestId(parent: HTMLElement, testId: string): HTMLElement | null {
+  const all = parent.querySelectorAll('*');
+  for (const el of all) {
+    if ((el as HTMLElement).getAttribute?.('data-testid') === testId) {
+      return el as HTMLElement;
+    }
+  }
+  return null;
+}
+
+function queryAllByTestId(container: HTMLElement, testId: string): HTMLElement[] {
+  const result: HTMLElement[] = [];
+  const all = container.querySelectorAll('*');
+  for (const el of all) {
+    if ((el as HTMLElement).getAttribute?.('data-testid') === testId) {
+      result.push(el as HTMLElement);
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -215,9 +240,9 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(singleFileTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/a.txt');
-    const circle = node.querySelector('[data-testid="git-status-dot"]');
+    const circle = queryChildByTestId(node, 'git-status-dot');
     expect(circle).toBeTruthy();
-    expect((circle as HTMLElement).style.backgroundColor).toContain('#e2c08d');
+    expect(circle!.style.backgroundColor).toContain('#e2c08d');
   });
 
   // -----------------------------------------------------------------------
@@ -236,9 +261,9 @@ describe('FileTree', () => {
     const node = getByTestId('tree-node-/root/gone.ts');
 
     // Red circle
-    const circle = node.querySelector('[data-testid="git-status-dot"]');
+    const circle = queryChildByTestId(node, 'git-status-dot');
     expect(circle).toBeTruthy();
-    expect((circle as HTMLElement).style.backgroundColor).toContain('#c74e39');
+    expect(circle!.style.backgroundColor).toContain('#c74e39');
 
     // Strikethrough name
     const nameSpan = Array.from(node.querySelectorAll('span')).find(
@@ -270,9 +295,9 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(dirTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/src');
-    const circle = node.querySelector('[data-testid="dir-status-dot"]');
+    const circle = queryChildByTestId(node, 'dir-status-dot');
     expect(circle).toBeTruthy();
-    expect((circle as HTMLElement).style.backgroundColor).toContain('#e2c08d');
+    expect(circle!.style.backgroundColor).toContain('#e2c08d');
   });
 
   // -----------------------------------------------------------------------
@@ -281,8 +306,8 @@ describe('FileTree', () => {
   test('no git status renders no status circles', () => {
     const { container } = renderFileTree();
 
-    expect(container.querySelectorAll('[data-testid="git-status-dot"]').length).toBe(0);
-    expect(container.querySelectorAll('[data-testid="dir-status-dot"]').length).toBe(0);
+    expect(queryAllByTestId(container, 'git-status-dot').length).toBe(0);
+    expect(queryAllByTestId(container, 'dir-status-dot').length).toBe(0);
   });
 
   // -----------------------------------------------------------------------
@@ -299,8 +324,8 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(singleFileTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/new.txt');
-    const circle = node.querySelector('[data-testid="git-status-dot"]');
+    const circle = queryChildByTestId(node, 'git-status-dot');
     expect(circle).toBeTruthy();
-    expect((circle as HTMLElement).style.backgroundColor).toContain('#888');
+    expect(circle!.style.backgroundColor).toContain('#888');
   });
 });
