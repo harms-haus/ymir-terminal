@@ -223,7 +223,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `components/`   | React UI components (see below)                |
 |                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useFileSearch`) |
-|                 | `lib/`                                         | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles                     |
+|                 | `lib/`                                         | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles                                                          |
 | `routes/`       | TanStack Router route definitions              |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`) |
 

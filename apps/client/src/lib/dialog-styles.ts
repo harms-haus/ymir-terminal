@@ -1,10 +1,5 @@
 import type { CSSProperties } from 'react';
-import {
-  COLOR_BG_CARD,
-  COLOR_BG_LOGIN,
-  COLOR_BORDER_CARD,
-  COLOR_TEXT_CARD,
-} from './theme';
+import { COLOR_BG_CARD, COLOR_BG_LOGIN, COLOR_BORDER_CARD, COLOR_TEXT_CARD } from './theme';
 
 // ---------------------------------------------------------------------------
 // Shared styles for dialog / login cards

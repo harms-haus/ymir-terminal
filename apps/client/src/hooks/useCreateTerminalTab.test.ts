@@ -146,9 +146,7 @@ describe('useCreateTerminalTab', () => {
     );
     const createTab = mock(() => 'tab-1');
 
-    const { result } = renderHook(() =>
-      useCreateTerminalTab('workspace-1', [], createTab as any),
-    );
+    const { result } = renderHook(() => useCreateTerminalTab('workspace-1', [], createTab as any));
 
     // Fire first call (still pending)
     act(() => {

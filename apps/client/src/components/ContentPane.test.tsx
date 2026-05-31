@@ -84,7 +84,6 @@ mock.module('../lib/send-request', () => ({
   sendRequest: mockSendRequest,
 }));
 
-
 // ---------------------------------------------------------------------------
 // Mock TabContextMenu — faithful mock that renders menu items with
 // data-testid attributes.  Prevents leak from TabBar.test.tsx's stub mock
@@ -150,8 +149,6 @@ import type { TerminalPanelHandle as ContentPaneHandle } from '../hooks/useTermi
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-
 
 function renderContentPane(
   workspaceId: string | null = null,

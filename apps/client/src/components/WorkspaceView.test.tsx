@@ -216,7 +216,6 @@ mock.module('./RightSidebar', () => ({
     ),
 }));
 
-
 // Mock useTerminal (used by useCreateTerminalTab which is used by ContentPane/BottomPanel)
 const mockCreateTerminal = mock(() => Promise.resolve('mock-term-id'));
 

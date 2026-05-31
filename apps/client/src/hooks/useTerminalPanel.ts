@@ -25,8 +25,15 @@ export function useTerminalPanelHandle(
   ref: React.Ref<TerminalPanelHandle>,
   methods: TerminalPanelHandle,
 ) {
-  const { transferTabOut, receiveTab, reorderTabs, getTabs, getActiveTabId, updateTabTitle, updateTabCwd } =
-    methods;
+  const {
+    transferTabOut,
+    receiveTab,
+    reorderTabs,
+    getTabs,
+    getActiveTabId,
+    updateTabTitle,
+    updateTabCwd,
+  } = methods;
   useImperativeHandle(
     ref,
     () => ({
@@ -38,6 +45,14 @@ export function useTerminalPanelHandle(
       updateTabTitle,
       updateTabCwd,
     }),
-    [transferTabOut, receiveTab, reorderTabs, getTabs, getActiveTabId, updateTabTitle, updateTabCwd],
+    [
+      transferTabOut,
+      receiveTab,
+      reorderTabs,
+      getTabs,
+      getActiveTabId,
+      updateTabTitle,
+      updateTabCwd,
+    ],
   );
 }

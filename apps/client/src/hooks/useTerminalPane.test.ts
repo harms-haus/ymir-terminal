@@ -84,7 +84,9 @@ afterAll(() => {
 // ---------------------------------------------------------------------------
 
 describe('useTerminalPane', () => {
-  const onTerminalRegistered = mock((_terminalId: string, _tabId: string, _workspaceId: string) => {});
+  const onTerminalRegistered = mock(
+    (_terminalId: string, _tabId: string, _workspaceId: string) => {},
+  );
   const onTerminalUnregistered = mock((_terminalId: string) => {});
 
   beforeEach(() => {
@@ -495,7 +497,12 @@ describe('useTerminalPane', () => {
     if (createReq?.id) simulateResponse(createReq.id, { tabId: tabId! });
 
     // Transfer the tab out
-    let transferResult: { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
+    let transferResult: {
+      terminalId: string;
+      title: string;
+      cwd?: string;
+      customTitle?: string;
+    } | null;
     act(() => {
       transferResult = result.current.transferTabOut(tabId!);
     });
@@ -573,7 +580,12 @@ describe('useTerminalPane', () => {
 
     let receivedTabId: string;
     act(() => {
-      receivedTabId = result.current.receiveTab('term-received', 'Received Term', '/home', 'Custom');
+      receivedTabId = result.current.receiveTab(
+        'term-received',
+        'Received Term',
+        '/home',
+        'Custom',
+      );
     });
 
     expect(receivedTabId).toBeTruthy();

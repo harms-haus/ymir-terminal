@@ -37,7 +37,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [style*="animation: spin"] {
+  [style*='animation: spin'] {
     animation: none !important;
   }
 }

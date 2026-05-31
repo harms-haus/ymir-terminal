@@ -37,8 +37,6 @@ const { CommandBar } = await import('./CommandBar');
 // Helpers
 // ---------------------------------------------------------------------------
 
-
-
 function renderCommandBar(
   props: {
     workspaceId?: string | null;

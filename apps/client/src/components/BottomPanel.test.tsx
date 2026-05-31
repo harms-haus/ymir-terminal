@@ -158,8 +158,6 @@ function renderBottomPanel(
   return render(React.createElement(BottomPanel, { workspaceId, ref, ...extraProps }));
 }
 
-
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

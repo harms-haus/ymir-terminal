@@ -1,10 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import {
-  computeLanes,
-  computeActiveLanes,
-  EMPTY_ACTIVE_LANES,
-  type LaneInfo,
-} from './git-graph';
+import { computeLanes, computeActiveLanes, EMPTY_ACTIVE_LANES, type LaneInfo } from './git-graph';
 import type { GitLogItem } from '@ymir/shared';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -120,12 +115,7 @@ describe('computeLanes', () => {
 
   test('three branches from a single root', () => {
     // d, c, b all parent → a
-    const commits = [
-      commit('d', ['a']),
-      commit('c', ['a']),
-      commit('b', ['a']),
-      commit('a'),
-    ];
+    const commits = [commit('d', ['a']), commit('c', ['a']), commit('b', ['a']), commit('a')];
     const result = computeLanes(commits);
 
     // d: lane 0
@@ -161,12 +151,7 @@ describe('computeLanes', () => {
     // d is a merge: first parent c, second parent b
     // d → c → a
     //   ↘ b
-    const commits = [
-      commit('d', ['c', 'b']),
-      commit('c', ['a']),
-      commit('b'),
-      commit('a'),
-    ];
+    const commits = [commit('d', ['c', 'b']), commit('c', ['a']), commit('b'), commit('a')];
     const result = computeLanes(commits);
 
     // d: lane 0, linesDown: [lane0→lane0 for c, lane0→lane1 for b]
@@ -196,7 +181,7 @@ describe('computeLanes', () => {
       commit('d', ['b']), // branch tip
       commit('c', ['b']), // main tip
       commit('b', ['a']), // common ancestor
-      commit('a'),        // root
+      commit('a'), // root
     ];
     const result = computeLanes(commits);
 
@@ -215,9 +200,7 @@ describe('computeLanes', () => {
 
   test('color indices cycle after exceeding the palette size', () => {
     // Create 10 root commits to force colorIndex to wrap (palette size is 8)
-    const commits = Array.from({ length: 10 }, (_, i) =>
-      commit(`r${i}`),
-    );
+    const commits = Array.from({ length: 10 }, (_, i) => commit(`r${i}`));
     const result = computeLanes(commits);
 
     // Colors should be 0..7, then 0,1
@@ -234,7 +217,7 @@ describe('computeLanes', () => {
     //     a
     // Display order: d, c, b, a
     const commits = [
-      commit('d', ['b', 'c']),  // merge
+      commit('d', ['b', 'c']), // merge
       commit('c', ['a']),
       commit('b', ['a']),
       commit('a'),
@@ -261,12 +244,7 @@ describe('computeLanes', () => {
 
   test('handles octopus merge (3+ parents)', () => {
     // m merges b, c, d into one
-    const commits = [
-      commit('m', ['b', 'c', 'd']),
-      commit('b'),
-      commit('c'),
-      commit('d'),
-    ];
+    const commits = [commit('m', ['b', 'c', 'd']), commit('b'), commit('c'), commit('d')];
     const result = computeLanes(commits);
 
     // m: lane 0, first parent b on lane 0, second parent c on lane 1,
@@ -360,12 +338,7 @@ describe('computeActiveLanes', () => {
     //   d (merge: first parent b, second parent c)
     //   c → a
     //   b → a
-    const commits = [
-      commit('d', ['b', 'c']),
-      commit('c', ['a']),
-      commit('b', ['a']),
-      commit('a'),
-    ];
+    const commits = [commit('d', ['b', 'c']), commit('c', ['a']), commit('b', ['a']), commit('a')];
     const result = computeLanes(commits);
     const active = computeActiveLanes(result);
 
