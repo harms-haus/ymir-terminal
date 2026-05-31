@@ -232,13 +232,13 @@ export function createMockWorkspacesState(
  */
 export function setupAllMocks(): void {
   // --- @radix-ui/react-context-menu -----------------------------------------
-  // NOTE: `mock` is imported from 'bun:test' at call-site to avoid
+  // NOTE: `mock` is imported from 'bun:test' via require() at runtime to avoid
   // pulling in bun:test when this module is analysed by the type checker.
-  // Bun.mock is available at runtime but not in client tsconfig types.
   // Cast through unknown to satisfy both tsc and eslint.
-  const bunMock = (
-    globalThis as unknown as { mock: { module: (id: string, factory: () => unknown) => void } }
-  ).mock;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { mock: bunMock } = require('bun:test') as unknown as {
+    mock: { module: (id: string, factory: () => unknown) => void };
+  };
   bunMock.module('@radix-ui/react-context-menu', () => {
     const CtxRoot = ({ children }: { children: React.ReactNode }) =>
       React.createElement('div', { 'data-testid': 'ctx-root' }, children);

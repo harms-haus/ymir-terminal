@@ -22,6 +22,8 @@ const mockReorderTabs = mock(() => {});
 const mockCloseTabsRight = mock(() => {});
 const mockCloseOtherTabs = mock(() => {});
 const mockSetDisplayTitle = mock(() => {});
+const mockSwitchWorkspace = mock(() => {});
+const mockLoadTabs = mock(() => {});
 
 let mockTabsState: Array<{
   id: string;
@@ -45,6 +47,8 @@ mock.module('../hooks/useTabs', () => ({
     closeTabsRight: mockCloseTabsRight,
     closeOtherTabs: mockCloseOtherTabs,
     setDisplayTitle: mockSetDisplayTitle,
+    switchWorkspace: mockSwitchWorkspace,
+    loadTabs: mockLoadTabs,
   }),
   Tab: null, // type export, not used at runtime
 }));
@@ -145,6 +149,8 @@ describe('ContentPane', () => {
     mockCloseTabsRight.mockClear();
     mockCloseOtherTabs.mockClear();
     mockSetDisplayTitle.mockClear();
+    mockSwitchWorkspace.mockClear();
+    mockLoadTabs.mockClear();
     mockSendData.mockClear();
     mockOnOutput.mockClear();
     mockCreateTerminal.mockClear();
@@ -695,7 +701,7 @@ describe('ContentPane', () => {
     await flush();
 
     expect(mockOnTerminalRegistered).toHaveBeenCalledTimes(1);
-    expect(mockOnTerminalRegistered).toHaveBeenCalledWith('term-1', 'mock-tab-id');
+    expect(mockOnTerminalRegistered).toHaveBeenCalledWith('term-1', 'mock-tab-id', 'ws-1');
   });
 
   // -----------------------------------------------------------------------
@@ -769,6 +775,103 @@ describe('ContentPane', () => {
     // onTerminalUnregistered should NOT be called during transfer
     // (the terminal stays in the overlay; only the tab ownership changes)
     expect(onTerminalUnregistered).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // 28. Workspace tab isolation: tabs change when workspaceId switches
+  // -----------------------------------------------------------------------
+  test('workspace tab isolation: tabs change when workspaceId switches', async () => {
+    // Start with ws-1, no tabs
+    mockTabsState = [];
+    mockActiveTabIdState = null;
+
+    const { getByTestId, queryByTestId, rerender, container } = renderContentPane('ws-1');
+
+    // Click add terminal
+    fireEvent.click(getByTestId('tab-add'));
+    await flush();
+
+    // Mock createTab was called (the real hook would update state)
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+    expect(mockCreateTab).toHaveBeenCalled();
+
+    // Simulate what useTabs/useTerminalPane would do: add the tab to the state
+    mockTabsState = [
+      { id: 'mock-tab-id', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
+    ];
+    mockActiveTabIdState = 'mock-tab-id';
+
+    rerender(
+      React.createElement(ContentPane, { workspaceId: 'ws-1' }),
+    );
+
+    // Tab should be visible (testid = 'tab-' + tab.id)
+    expect(getByTestId('tab-mock-tab-id')).toBeTruthy();
+
+    // Switch to ws-2 — simulate the real hook behavior (empty tabs for new workspace)
+    mockTabsState = [];
+    mockActiveTabIdState = null;
+    rerender(
+      React.createElement(ContentPane, { workspaceId: 'ws-2' }),
+    );
+
+    // Should show "No tabs open" — workspace ws-2 has no tabs
+    expect(container.textContent).toContain('No tabs open');
+    expect(queryByTestId('tab-mock-tab-id')).toBeNull();
+
+    // Switch back to ws-1 — simulate tabs being restored
+    mockTabsState = [
+      { id: 'mock-tab-id', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
+    ];
+    mockActiveTabIdState = 'mock-tab-id';
+    rerender(
+      React.createElement(ContentPane, { workspaceId: 'ws-1' }),
+    );
+
+    // Tab should be restored
+    expect(getByTestId('tab-mock-tab-id')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 29. Editor tab workspace scoping: editor tab hidden when switching workspace
+  // -----------------------------------------------------------------------
+  test('editor tab workspace scoping: editor tab hidden when switching workspace', async () => {
+    // Start with ws-1 with an editor tab
+    mockTabsState = [
+      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
+    ];
+    mockActiveTabIdState = 'tab-1';
+    mockSendRequestResponse = { content: 'const x = 1;', language: 'typescript' };
+
+    const { getByTestId, queryByTestId, rerender } = renderContentPane('ws-1');
+
+    // Wait for file content to load
+    await flush();
+    expect(getByTestId('code-editor')).toBeTruthy();
+
+    // Switch to ws-2 — no tabs (simulates workspace isolation)
+    mockTabsState = [];
+    mockActiveTabIdState = null;
+    rerender(
+      React.createElement(ContentPane, { workspaceId: 'ws-2' }),
+    );
+
+    // CodeEditor should not be visible in ws-2
+    expect(queryByTestId('code-editor')).toBeNull();
+
+    // Switch back to ws-1
+    mockTabsState = [
+      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
+    ];
+    mockActiveTabIdState = 'tab-1';
+    rerender(
+      React.createElement(ContentPane, { workspaceId: 'ws-1' }),
+    );
+
+    await flush();
+
+    // CodeEditor should be visible again in ws-1
+    expect(getByTestId('code-editor')).toBeTruthy();
   });
 });
 

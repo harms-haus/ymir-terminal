@@ -51,10 +51,18 @@ const mockUseConnectionStatus = mock(() => ({
 const mockUseTabs = mock(() => ({
   tabs: [] as Array<Record<string, unknown>>,
   activeTabId: null as string | null,
-  createTab: mock(() => {}),
+  createTab: mock(() => 'mock-tab-id'),
   closeTab: mock(() => {}),
   activateTab: mock(() => {}),
-}));
+  updateTabTitle: mock(() => {}),
+  updateTabCwd: mock(() => {}),
+  reorderTabs: mock(() => {}),
+  closeTabsRight: mock(() => {}),
+  closeOtherTabs: mock(() => {}),
+  setDisplayTitle: mock(() => {}),
+  switchWorkspace: mock(() => {}),
+  loadTabs: mock(() => {}),
+}))
 
 const mockUseCreateWorkspace = mock(() => ({
   mutateAsync: mock(() =>
@@ -122,9 +130,15 @@ mock.module('../hooks/usePaneVisibility', () => ({
   PaneVisibilityProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+const mockSendRequest = mock((method: string) => {
+  if (method === 'tab.list') return Promise.resolve({ tabs: [] });
+  if (method === 'file.read') return Promise.resolve({ content: '', language: '' });
+  return Promise.resolve({ tree: [] });
+});
+
 mock.module('../lib/send-request', () => ({
-  sendRequest: mock(() => Promise.resolve({ tree: [] })),
-}));
+  sendRequest: mockSendRequest,
+}))
 
 mock.module('../lib/ws-client', () => ({
   wsClient: {
@@ -185,6 +199,43 @@ mock.module('@dnd-kit/react', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock child components with complex external dependencies
+// ---------------------------------------------------------------------------
+// NOTE: We do NOT mock ContentPane, BottomPanel, or TerminalManager here
+// because those components are tested independently, and mocking them would
+// cause cross-test contamination. Instead we mock the hooks (useTabs,
+// sendRequest, useTerminal, etc.) that these components depend on.
+// ---------------------------------------------------------------------------
+
+mock.module('./RightSidebar', () => ({
+  RightSidebar: ({ workspaceId }: { workspaceId?: string | null }) =>
+    React.createElement('div', { 'data-testid': 'right-sidebar' }, `RightSidebar: ${workspaceId ?? 'none'}`),
+}));
+
+// Mock codemirror language modules (transitively imported by ContentPane → EditorPane → CodeEditor)
+mock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));
+mock.module('@codemirror/lang-css', () => ({ css: () => {} }));
+mock.module('@codemirror/lang-html', () => ({ html: () => {} }));
+mock.module('@codemirror/lang-json', () => ({ json: () => {} }));
+mock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
+mock.module('@codemirror/lang-python', () => ({ python: () => {} }));
+mock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
+mock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
+
+// Mock useTerminal (used by useCreateTerminalTab which is used by ContentPane/BottomPanel)
+const mockCreateTerminal = mock(() => Promise.resolve('mock-term-id'));
+
+mock.module('../hooks/useTerminal', () => ({
+  useTerminal: () => ({
+    sendData: mock(() => {}),
+    onOutput: mock(() => () => {}),
+    createTerminal: mockCreateTerminal,
+    closeTerminal: mock(() => Promise.resolve()),
+    resizeTerminal: mock(() => {}),
+  }),
+}));
+
+// ---------------------------------------------------------------------------
 // Import after mocking
 // ---------------------------------------------------------------------------
 
@@ -217,6 +268,9 @@ describe('WorkspaceView', () => {
     mockUseAuth.mockClear();
     mockUseConnectionStatus.mockClear();
     mockUseTabs.mockClear();
+    mockSendRequest.mockClear();
+    mockCreateTerminal.mockClear();
+    mockCreateTerminal.mockImplementation(() => Promise.resolve('mock-term-id'));
   });
 
   afterEach(() => {
@@ -231,9 +285,8 @@ describe('WorkspaceView', () => {
 
     expect(getByTestId('workspace-sidebar')).toBeTruthy();
     expect(getByTestId('main-content')).toBeTruthy();
-    expect(getByTestId('right-sidebar')).toBeTruthy();
-    // BottomPanel component renders inside AppLayout's bottom-panel slot,
-    // so there are two elements with this testid (wrapper + component)
+    // RightSidebar is wrapped in an aside by AppLayout, producing two elements with this testid
+    expect(getAllByTestId('right-sidebar').length).toBeGreaterThanOrEqual(1);
     expect(getAllByTestId('bottom-panel').length).toBeGreaterThanOrEqual(1);
   });
 
@@ -301,5 +354,89 @@ describe('WorkspaceView', () => {
     // After rendering, the DragDropProvider mock should have captured the handlers
     expect(mockOnDragOver).toBeTruthy();
     expect(mockOnDragEnd).toBeTruthy();
+  });
+
+  // =========================================================================
+  // Workspace tab isolation integration tests
+  // =========================================================================
+
+  // -----------------------------------------------------------------------
+  // 8. Terminal registry tracks workspaceId from onTerminalRegistered callback
+  // -----------------------------------------------------------------------
+  test('terminal creation calls createTerminal with the active workspaceId', async () => {
+    const { getAllByTestId } = renderWorkspaceView();
+
+    // Click the first add terminal button (ContentPane's TabBar) — ws-1 is active by default
+    const addButtons = getAllByTestId('tab-add');
+    fireEvent.click(addButtons[0]);
+
+    // Flush async createTerminal
+    await new Promise((r) => setTimeout(r, 0));
+
+    // createTerminal should have been called with ws-1 (the active workspace)
+    expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. isActive respects workspaceId: creating terminals in different workspaces
+  // -----------------------------------------------------------------------
+  test('createTerminal is called with the correct workspaceId for each workspace', async () => {
+    const { getAllByTestId, getByTestId } = renderWorkspaceView();
+
+    // ws-1 is active by default — add a terminal
+    const addButtons = getAllByTestId('tab-add');
+    fireEvent.click(addButtons[0]);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+
+    // Switch to ws-2
+    fireEvent.click(getByTestId('workspace-item-ws-2'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Add a terminal in ws-2 (click the first add button again)
+    fireEvent.click(addButtons[0]);
+    await new Promise((r) => setTimeout(r, 0));
+
+    // createTerminal should now have been called with ws-2 as well
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-2');
+    expect(mockCreateTerminal).toHaveBeenCalledTimes(2);
+  });
+
+  // -----------------------------------------------------------------------
+  // 10. ContentPane receives correct workspaceId when workspace changes
+  // -----------------------------------------------------------------------
+  test('ContentPane receives updated workspaceId when workspace selection changes', async () => {
+    const { getAllByTestId, getByTestId } = renderWorkspaceView();
+
+    // Initially ws-1 is auto-selected — ContentPane renders with workspaceId ws-1
+    const contentPane = getByTestId('content-pane');
+    expect(contentPane).toBeTruthy();
+
+    // The tab-add button should be present (canAddTerminal is true when workspaceId is set)
+    expect(getAllByTestId('tab-add').length).toBeGreaterThanOrEqual(1);
+
+    // Switch to ws-2
+    fireEvent.click(getByTestId('workspace-item-ws-2'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    // ContentPane should still be rendered (workspaceId changed to ws-2)
+    expect(getByTestId('content-pane')).toBeTruthy();
+
+    // Create a terminal now — should use ws-2
+    const addButtons = getAllByTestId('tab-add');
+    fireEvent.click(addButtons[0]);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-2');
+
+    // Switch back to ws-1 and create another terminal
+    fireEvent.click(getByTestId('workspace-item-ws-1'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const addButtonsAfter = getAllByTestId('tab-add');
+    fireEvent.click(addButtonsAfter[0]);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
   });
 });

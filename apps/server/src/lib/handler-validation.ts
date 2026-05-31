@@ -4,7 +4,7 @@ import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/s
 import type { ClientConnection } from '../ws/connection';
 import type { Database } from '../db/session';
 import { createError } from '../ws/router';
-import { getTerminalInstance } from '../db/session';
+import { getTerminalInstance, getTab } from '../db/session';
 
 // ---------------------------------------------------------------------------
 // Terminal ownership validation
@@ -53,6 +53,55 @@ export function validateTerminalOwnership(
   }
 
   return { instance };
+}
+
+// ---------------------------------------------------------------------------
+// Tab ownership validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of a successful {@link validateTabOwnership} call.
+ */
+export interface TabOwnershipResult {
+  /** The tab DB row. */
+  tab: Record<string, unknown>;
+}
+
+/**
+ * Validate that a tab exists and belongs to the requesting session.
+ *
+ * If validation fails the appropriate error is sent on `conn` and `null` is
+ * returned so the caller can early-return.
+ */
+export function validateTabOwnership(
+  sessionDb: Database,
+  tabId: string,
+  sessionId: string,
+  conn: ClientConnection,
+  req: Pick<RequestEnvelope, 'id' | 'channel'>,
+): Record<string, unknown> | null {
+  const tab = getTab(sessionDb, tabId);
+  if (!tab) {
+    const err: ResponseEnvelope = createError(
+      req,
+      ErrorCodes.TAB_NOT_FOUND,
+      `Tab not found: ${tabId}`,
+    );
+    conn.send(err);
+    return null;
+  }
+
+  if (tab.session_id !== sessionId) {
+    const err: ResponseEnvelope = createError(
+      req,
+      ErrorCodes.PERMISSION_DENIED,
+      'Tab does not belong to this session',
+    );
+    conn.send(err);
+    return null;
+  }
+
+  return tab;
 }
 
 // ---------------------------------------------------------------------------

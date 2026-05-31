@@ -140,6 +140,11 @@ interface MessageEnvelope<T = unknown> {
 | `git.log`           | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`) |
 | `config.get`        | request   | Get a config value from server_config table                                       |
 | `config.set`        | request   | Set a config value in server_config table                                         |
+| `tab.list`          | request   | List tabs for a workspace (with terminal liveness)                                |
+| `tab.create`        | request   | Create a tab (terminal or editor)                                                 |
+| `tab.update`        | request   | Update tab properties (active, title, sort order)                                 |
+| `tab.delete`        | request   | Delete a tab                                                                      |
+| `tab.reorder`       | request   | Reorder tabs by ID array                                                          |
 | `connection.status` | event     | Connection status change                                                          |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
@@ -178,7 +183,8 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 | `files/`             | File scanner, CRUD operations, filesystem watcher                           |
 | `git/`               | Git status reader (`git status --porcelain=v1`), git log reader (`git log`) |
 | `ws/`                | WebSocket server, message router, connection state                          |
-| `ws/handlers/`       | Channel handlers (auth, terminal, files, git, ws)                           |
+| `ws/handlers/`       | Channel handlers (auth, terminal, files, git, tabs, ws)                     |
+| `ws/handlers/tabs.ts` | Tab CRUD operations — `tab.list`, `tab.create`, `tab.update`, `tab.delete`, `tab.reorder` |
 | `ws/handlers/files/` | File handlers split into `tree`, `crud`, `language`, `shared`               |
 | `test-helpers/`      | Shared server test utilities (`mock-utils.ts`)                              |
 
@@ -272,7 +278,7 @@ Ymir stores persistent data in SQLite:
 | Database   | Location                 | Purpose                                    |
 | ---------- | ------------------------ | ------------------------------------------ |
 | Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash, UI layout state |
-| Session    | In-memory (`:memory:`)   | Client sessions, tab state                 |
+| Session    | In-memory (`:memory:`)   | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
 
 The config directory is created automatically on first run.
 
@@ -354,6 +360,7 @@ The tab system manages terminal and editor tabs across two tab strips: the **con
 ```typescript
 interface Tab {
   id: string;
+  workspaceId: string; // workspace-scoped; each tab belongs to exactly one workspace
   type: 'terminal' | 'editor';
   title: string;
   terminalId?: string;
@@ -376,8 +383,12 @@ Each pane (`ContentPane`, `BottomPanel`) owns an independent `useTabs` instance:
 | `updateTabTitle` | Update a tab's display title                                   |
 | `updateTabCwd`   | Update a terminal tab's working directory (from OSC 7 parsing) |
 | `reorderTabs`    | Move a tab from one index to another (used by DnD)             |
-| `closeTabsRight` | Close all tabs to the right of a given tab                     |
-| `closeOtherTabs` | Close all tabs except the given one                            |
+| `closeTabsRight`   | Close all tabs to the right of a given tab                     |
+| `closeOtherTabs`   | Close all tabs except the given one                            |
+| `switchWorkspace`  | Set the active workspace; auto-initializes empty state for new workspaces |
+| `loadTabs`         | Load tab state from server data for a given workspace          |
+
+`useTabs` stores per-workspace state in a `Map` keyed by `workspaceId`. When `switchWorkspace` is called, the hook swaps to that workspace's tab set, creating an empty entry if none exists. All new tabs are auto-assigned the current `workspaceId`.
 
 `closeTab` uses a ref (`activeTabIdRef`) to avoid stale closures when computing which tab to activate next.
 
@@ -415,6 +426,8 @@ WorkspaceView (DragDropProvider)
 **Same-pane reorder:** During drag-over, `@dnd-kit/helpers`' `move()` computes the new index order. The source pane's `reorderTabs(fromIndex, toIndex)` is called to update state.
 
 **Cross-pane transfer:** On drag-end, if source and target groups differ, the tab is removed from the source pane and added to the target pane. Only terminal tabs can be transferred (editor tabs are bound to a specific pane). `transferTabOut` returns the terminal's data so the target pane can re-create the tab without spawning a new PTY.
+
+**Workspace boundary validation:** Drag-and-drop operations are rejected if the source tab's `workspaceId` does not match the active workspace. This prevents tabs from being transferred across workspace boundaries.
 
 ### Imperative Handles
 

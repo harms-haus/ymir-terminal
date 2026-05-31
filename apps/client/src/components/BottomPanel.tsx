@@ -20,7 +20,7 @@ export interface BottomPanelHandle {
 export interface BottomPanelProps {
   workspaceId: string | null;
   terminalContainerRef?: React.Ref<HTMLDivElement>;
-  onTerminalRegistered?: (terminalId: string, tabId: string) => void;
+  onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
   onActiveTabChange?: (activeTabId: string | null) => void;
 }
@@ -52,15 +52,20 @@ export const BottomPanel = forwardRef<BottomPanelHandle, BottomPanelProps>(funct
     getTabs,
     getActiveTabId,
   } = useTerminalPane({
+    workspaceId,
+    pane: 'bottom',
+    onTerminalRegistered: onTerminalRegistered
+      ? (terminalId, tabId, wsId) => onTerminalRegistered(terminalId, tabId, wsId)
+      : undefined,
     onTerminalUnregistered,
     confirmMultipleText: 'terminals? Running processes will be terminated.',
   });
 
   const handleTerminalCreated = useCallback(
     (terminalId: string, tabId: string) => {
-      onTerminalRegistered?.(terminalId, tabId);
+      if (workspaceId) onTerminalRegistered?.(terminalId, tabId, workspaceId);
     },
-    [onTerminalRegistered],
+    [onTerminalRegistered, workspaceId],
   );
 
   const handleAddTerminal = useCreateTerminalTab(

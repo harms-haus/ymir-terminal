@@ -24,6 +24,7 @@ interface TerminalRegistryEntry {
   terminalId: string;
   tabId: string;
   owningPane: 'content' | 'bottom';
+  workspaceId: string;
 }
 
 function WorkspaceViewInner() {
@@ -104,8 +105,8 @@ function WorkspaceViewInner() {
 
   // Terminal lifecycle callbacks
   const handleTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, pane: 'content' | 'bottom') => {
-      setTerminalRegistry((prev) => [...prev, { terminalId, tabId, owningPane: pane }]);
+    (terminalId: string, tabId: string, pane: 'content' | 'bottom', workspaceId: string) => {
+      setTerminalRegistry((prev) => [...prev, { terminalId, tabId, owningPane: pane, workspaceId }]);
     },
     [],
   );
@@ -116,16 +117,16 @@ function WorkspaceViewInner() {
 
   // Content pane callbacks
   const handleContentTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string) => {
-      handleTerminalRegistered(terminalId, tabId, 'content');
+    (terminalId: string, tabId: string, workspaceId: string) => {
+      handleTerminalRegistered(terminalId, tabId, 'content', workspaceId);
     },
     [handleTerminalRegistered],
   );
 
   // Bottom panel callbacks
   const handleBottomTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string) => {
-      handleTerminalRegistered(terminalId, tabId, 'bottom');
+    (terminalId: string, tabId: string, workspaceId: string) => {
+      handleTerminalRegistered(terminalId, tabId, 'bottom', workspaceId);
     },
     [handleTerminalRegistered],
   );
@@ -203,6 +204,14 @@ function WorkspaceViewInner() {
     [],
   );
 
+  const activeWorkspaceId = useMemo(() => {
+    if (selectedWorkspaceId) return selectedWorkspaceId;
+    if (workspaces && workspaces.length > 0) return workspaces[0].id;
+    return null;
+  }, [selectedWorkspaceId, workspaces]);
+
+  const activeWorkspace = workspaces?.find((ws: WorkspaceSummary) => ws.id === activeWorkspaceId);
+
   const handleDragEnd = useCallback(
     (event: {
       canceled: boolean;
@@ -227,6 +236,10 @@ function WorkspaceViewInner() {
 
       // Only handle cross-pane transfers
       if (sourceGroup === targetGroup) return;
+
+      // Only allow drag within the active workspace
+      const sourceEntry = terminalRegistry.find((t) => t.terminalId === (source.id as string));
+      if (!sourceEntry || sourceEntry.workspaceId !== activeWorkspaceId) return;
 
       // Determine source and target panes
       const sourcePane =
@@ -258,16 +271,8 @@ function WorkspaceViewInner() {
         ),
       );
     },
-    [],
+    [activeWorkspaceId, terminalRegistry],
   );
-
-  const activeWorkspaceId = useMemo(() => {
-    if (selectedWorkspaceId) return selectedWorkspaceId;
-    if (workspaces && workspaces.length > 0) return workspaces[0].id;
-    return null;
-  }, [selectedWorkspaceId, workspaces]);
-
-  const activeWorkspace = workspaces?.find((ws: WorkspaceSummary) => ws.id === activeWorkspaceId);
 
   const handleWorkspaceSelect = useCallback(
     (id: string) => {
@@ -361,13 +366,14 @@ function WorkspaceViewInner() {
         tabId: entry.tabId,
         owningPane: entry.owningPane,
         isActive:
-          (entry.owningPane === 'content' && entry.tabId === contentActiveTabId) ||
-          (entry.owningPane === 'bottom' && entry.tabId === bottomActiveTabId),
+          entry.workspaceId === activeWorkspaceId &&
+          ((entry.owningPane === 'content' && entry.tabId === contentActiveTabId) ||
+            (entry.owningPane === 'bottom' && entry.tabId === bottomActiveTabId)),
         onTitleChange: cached.onTitleChange,
         onCwdChange: cached.onCwdChange,
       };
     });
-  }, [terminalRegistry, contentActiveTabId, bottomActiveTabId]);
+  }, [terminalRegistry, contentActiveTabId, bottomActiveTabId, activeWorkspaceId]);
   /* eslint-enable react-hooks/refs */
 
   // While pane visibility is loading from the server, render a placeholder to avoid layout flash

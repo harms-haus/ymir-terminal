@@ -25,10 +25,14 @@ describe('useTabs', () => {
     expect(result.current).toHaveProperty('closeTab');
     expect(result.current).toHaveProperty('activateTab');
     expect(result.current).toHaveProperty('setDisplayTitle');
+    expect(result.current).toHaveProperty('switchWorkspace');
+    expect(result.current).toHaveProperty('loadTabs');
     expect(typeof result.current.createTab).toBe('function');
     expect(typeof result.current.closeTab).toBe('function');
     expect(typeof result.current.activateTab).toBe('function');
     expect(typeof result.current.setDisplayTitle).toBe('function');
+    expect(typeof result.current.switchWorkspace).toBe('function');
+    expect(typeof result.current.loadTabs).toBe('function');
   });
 
   // -----------------------------------------------------------------------
@@ -36,6 +40,10 @@ describe('useTabs', () => {
   // -----------------------------------------------------------------------
   test('createTab adds a new tab and makes it active', () => {
     const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.switchWorkspace('test-ws');
+    });
 
     expect(result.current.tabs).toEqual([]);
     expect(result.current.activeTabId).toBeNull();
@@ -63,6 +71,7 @@ describe('useTabs', () => {
     let id1 = '',
       id2 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
     });
@@ -88,6 +97,7 @@ describe('useTabs', () => {
     let id1 = '',
       id2 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
     });
@@ -112,6 +122,7 @@ describe('useTabs', () => {
     let _id2 = '',
       _id3 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       _id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
       _id3 = result.current.createTab({ type: 'terminal', title: 'Terminal 3' });
@@ -138,6 +149,7 @@ describe('useTabs', () => {
     let id1 = '',
       id2 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
     });
@@ -165,6 +177,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -186,6 +199,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -205,6 +219,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({
         type: 'editor',
         title: 'main.ts',
@@ -224,6 +239,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({
         type: 'terminal',
         title: 'Terminal 1',
@@ -244,6 +260,7 @@ describe('useTabs', () => {
     let id1 = '',
       id3 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
       id3 = result.current.createTab({ type: 'terminal', title: 'Terminal 3' });
@@ -269,6 +286,7 @@ describe('useTabs', () => {
 
     const ids: string[] = [];
     act(() => {
+      result.current.switchWorkspace('test-ws');
       ids.push(result.current.createTab({ type: 'terminal', title: 'T1' }));
       ids.push(result.current.createTab({ type: 'editor', title: 'E1', filePath: '/a.ts' }));
       ids.push(result.current.createTab({ type: 'terminal', title: 'T2' }));
@@ -288,6 +306,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -305,6 +324,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -323,6 +343,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -340,6 +361,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({ type: 'terminal', title: 'T1' });
       result.current.createTab({ type: 'terminal', title: 'T2' });
       result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -361,6 +383,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({ type: 'terminal', title: 'T1' });
       result.current.createTab({ type: 'terminal', title: 'T2' });
       result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -385,6 +408,7 @@ describe('useTabs', () => {
       _id2 = '',
       _id3 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
       _id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
       _id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -409,6 +433,7 @@ describe('useTabs', () => {
       _id2 = '',
       _id3 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
       _id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
       _id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -437,6 +462,7 @@ describe('useTabs', () => {
       id2 = '',
       _id3 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       _id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
       _id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -460,6 +486,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
     });
 
@@ -480,6 +507,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -502,6 +530,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -528,6 +557,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -553,6 +583,7 @@ describe('useTabs', () => {
     let id1 = '',
       _id2 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
       _id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
     });
@@ -574,6 +605,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -601,6 +633,7 @@ describe('useTabs', () => {
 
     let id1 = '';
     act(() => {
+      result.current.switchWorkspace('test-ws');
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
     });
 
@@ -624,6 +657,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({ type: 'terminal', title: 'T1' });
       result.current.createTab({ type: 'terminal', title: 'T2' });
       result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -649,6 +683,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({ type: 'terminal', title: 'T1' });
       result.current.createTab({ type: 'terminal', title: 'T2' });
       result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -677,6 +712,7 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     act(() => {
+      result.current.switchWorkspace('test-ws');
       result.current.createTab({ type: 'terminal', title: 'T1' });
       result.current.createTab({ type: 'terminal', title: 'T2' });
       result.current.createTab({ type: 'terminal', title: 'T3' });
@@ -693,5 +729,550 @@ describe('useTabs', () => {
       result.current.reorderTabs(0, 1);
     });
     expect(result.current.tabs.map((t) => t.title)).toEqual(['T1', 'T2', 'T3']);
+  });
+
+  // =========================================================================
+  // Per-workspace tests
+  // =========================================================================
+
+  // -----------------------------------------------------------------------
+  // WS-1. Workspace isolation: tabs in A are invisible in B and vice versa
+  // -----------------------------------------------------------------------
+  test('workspace isolation: tabs in workspace A are invisible in B', () => {
+    const { result } = renderHook(() => useTabs());
+
+    // Set up workspace A with tabs
+    let _idA1 = '', idA2 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      _idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
+      idA2 = result.current.createTab({ type: 'terminal', title: 'A-T2' });
+    });
+    expect(result.current.tabs.length).toBe(2);
+    expect(result.current.activeTabId).toBe(idA2);
+
+    // Switch to workspace B — should be empty
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+    });
+    expect(result.current.tabs).toEqual([]);
+    expect(result.current.activeTabId).toBeNull();
+
+    // Create tabs in B
+    let idB1 = '';
+    act(() => {
+      idB1 = result.current.createTab({ type: 'editor', title: 'B-E1', filePath: '/b.ts' });
+    });
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].id).toBe(idB1);
+
+    // Switch back to A — A's tabs should be preserved
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+    expect(result.current.tabs.length).toBe(2);
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['A-T1', 'A-T2']);
+    expect(result.current.activeTabId).toBe(idA2);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-2. switchWorkspace creates empty state
+  // -----------------------------------------------------------------------
+  test('switchWorkspace creates empty state for new workspace', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.switchWorkspace('new-ws');
+    });
+
+    expect(result.current.tabs).toEqual([]);
+    expect(result.current.activeTabId).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-3. switchWorkspace(null) clears derived state
+  // -----------------------------------------------------------------------
+  test('switchWorkspace to null clears derived state', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      result.current.createTab({ type: 'terminal', title: 'T1' });
+      result.current.createTab({ type: 'terminal', title: 'T2' });
+    });
+
+    expect(result.current.tabs.length).toBe(2);
+
+    act(() => {
+      result.current.switchWorkspace(null);
+    });
+
+    expect(result.current.tabs).toEqual([]);
+    expect(result.current.activeTabId).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-4. Independent activeTabId per workspace
+  // -----------------------------------------------------------------------
+  test('independent activeTabId per workspace', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let idA1 = '', _idA2 = '', _idB1 = '', idB2 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
+      _idA2 = result.current.createTab({ type: 'terminal', title: 'A-T2' });
+    });
+
+    // Activate tab 1 in A
+    act(() => {
+      result.current.activateTab(idA1!);
+    });
+    expect(result.current.activeTabId).toBe(idA1);
+
+    // Switch to B, create tabs, activate tab 2
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+      _idB1 = result.current.createTab({ type: 'terminal', title: 'B-T1' });
+      idB2 = result.current.createTab({ type: 'terminal', title: 'B-T2' });
+    });
+    act(() => {
+      result.current.activateTab(idB2!);
+    });
+    expect(result.current.activeTabId).toBe(idB2);
+
+    // Switch back to A — active should still be idA1
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+    expect(result.current.activeTabId).toBe(idA1);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-5. closeTab only affects current workspace
+  // -----------------------------------------------------------------------
+  test('closeTab only affects current workspace', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let _idA1 = '', _idA2 = '', idB1 = '', idB2 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      _idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
+      _idA2 = result.current.createTab({ type: 'terminal', title: 'A-T2' });
+    });
+
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+      idB1 = result.current.createTab({ type: 'terminal', title: 'B-T1' });
+      idB2 = result.current.createTab({ type: 'terminal', title: 'B-T2' });
+    });
+
+    // Close B-T1 in workspace B
+    act(() => {
+      result.current.closeTab(idB1!);
+    });
+
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].id).toBe(idB2);
+
+    // Switch to A — A should be untouched
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+    expect(result.current.tabs.length).toBe(2);
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['A-T1', 'A-T2']);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-6. reorderTabs only affects current workspace
+  // -----------------------------------------------------------------------
+  test('reorderTabs only affects current workspace', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      result.current.createTab({ type: 'terminal', title: 'A-T1' });
+      result.current.createTab({ type: 'terminal', title: 'A-T2' });
+      result.current.createTab({ type: 'terminal', title: 'A-T3' });
+    });
+
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+      result.current.createTab({ type: 'terminal', title: 'B-T1' });
+      result.current.createTab({ type: 'terminal', title: 'B-T2' });
+      result.current.createTab({ type: 'terminal', title: 'B-T3' });
+    });
+
+    // Reorder in B: move index 2 to 0
+    act(() => {
+      result.current.reorderTabs(2, 0);
+    });
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['B-T3', 'B-T1', 'B-T2']);
+
+    // Switch to A — A should be in original order
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['A-T1', 'A-T2', 'A-T3']);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-7. closeTabsRight per workspace
+  // -----------------------------------------------------------------------
+  test('closeTabsRight only affects current workspace', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let _idA1 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      _idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
+      result.current.createTab({ type: 'terminal', title: 'A-T2' });
+      result.current.createTab({ type: 'terminal', title: 'A-T3' });
+    });
+
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+      result.current.createTab({ type: 'terminal', title: 'B-T1' });
+      result.current.createTab({ type: 'terminal', title: 'B-T2' });
+      result.current.createTab({ type: 'terminal', title: 'B-T3' });
+    });
+
+    // In B, close tabs right of first tab
+    act(() => {
+      result.current.closeTabsRight(result.current.tabs[0].id);
+    });
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].title).toBe('B-T1');
+
+    // Switch to A — A should be untouched
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+    expect(result.current.tabs.length).toBe(3);
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['A-T1', 'A-T2', 'A-T3']);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-8. closeOtherTabs per workspace
+  // -----------------------------------------------------------------------
+  test('closeOtherTabs only affects current workspace', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let idA3 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      result.current.createTab({ type: 'terminal', title: 'A-T1' });
+      result.current.createTab({ type: 'terminal', title: 'A-T2' });
+      idA3 = result.current.createTab({ type: 'terminal', title: 'A-T3' });
+    });
+
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+      result.current.createTab({ type: 'terminal', title: 'B-T1' });
+      result.current.createTab({ type: 'terminal', title: 'B-T2' });
+      result.current.createTab({ type: 'terminal', title: 'B-T3' });
+    });
+
+    // In B, close other tabs keeping the second one
+    act(() => {
+      result.current.closeOtherTabs(result.current.tabs[1].id);
+    });
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].title).toBe('B-T2');
+
+    // Switch to A — A should be untouched
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+    expect(result.current.tabs.length).toBe(3);
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['A-T1', 'A-T2', 'A-T3']);
+    // A-T3 was the last created, so it should still be active
+    expect(result.current.activeTabId).toBe(idA3);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-9. setDisplayTitle per workspace
+  // -----------------------------------------------------------------------
+  test('setDisplayTitle only affects current workspace', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let idA1 = '', _idB1 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
+    });
+
+    act(() => {
+      result.current.setDisplayTitle(idA1!, 'Custom A');
+    });
+
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+      _idB1 = result.current.createTab({ type: 'terminal', title: 'B-T1' });
+    });
+
+    // B should not have any custom titles
+    expect(result.current.tabs[0].customTitle).toBeUndefined();
+
+    // Switch back to A — custom title should still be there
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+    expect(result.current.tabs[0].customTitle).toBe('Custom A');
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-10. switchWorkspace same id is no-op
+  // -----------------------------------------------------------------------
+  test('switchWorkspace to same workspace id is a no-op', () => {
+    const { result } = renderHook(() => useTabs());
+
+    let id1 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+    });
+
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.activeTabId).toBe(id1);
+
+    // Switch to the same workspace again
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+    });
+
+    // Tabs should be unchanged
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].id).toBe(id1);
+    expect(result.current.activeTabId).toBe(id1);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-11. Tab has workspaceId field
+  // -----------------------------------------------------------------------
+  test('created tab has correct workspaceId field', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.switchWorkspace('my-workspace');
+      result.current.createTab({ type: 'terminal', title: 'T1' });
+    });
+
+    expect(result.current.tabs[0].workspaceId).toBe('my-workspace');
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-12. loadTabs from server data
+  // -----------------------------------------------------------------------
+  test('loadTabs populates state from server data with correct activeTabId and sort order', () => {
+    const { result } = renderHook(() => useTabs());
+
+    act(() => {
+      result.current.switchWorkspace('ws-server');
+    });
+
+    const serverTabs = [
+      {
+        id: 'tab-3',
+        tabType: 'terminal' as const,
+        title: 'Terminal 3',
+        filePath: null,
+        terminalId: 't3',
+        active: false,
+        sortOrder: 2,
+      },
+      {
+        id: 'tab-1',
+        tabType: 'terminal' as const,
+        title: 'Terminal 1',
+        filePath: null,
+        terminalId: 't1',
+        active: true,
+        sortOrder: 0,
+      },
+      {
+        id: 'tab-2',
+        tabType: 'editor' as const,
+        title: 'main.ts',
+        filePath: '/src/main.ts',
+        terminalId: null,
+        active: false,
+        sortOrder: 1,
+      },
+    ];
+
+    act(() => {
+      result.current.loadTabs('ws-server', serverTabs);
+    });
+
+    // Should be sorted by sortOrder
+    expect(result.current.tabs.length).toBe(3);
+    expect(result.current.tabs.map((t) => t.id)).toEqual(['tab-1', 'tab-2', 'tab-3']);
+    expect(result.current.tabs[0].title).toBe('Terminal 1');
+    expect(result.current.tabs[1].title).toBe('main.ts');
+    expect(result.current.tabs[1].filePath).toBe('/src/main.ts');
+    expect(result.current.tabs[2].terminalId).toBe('t3');
+    // Active tab should be the one marked active
+    expect(result.current.activeTabId).toBe('tab-1');
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-13. onTabChange fires on create
+  // -----------------------------------------------------------------------
+  test('onTabChange fires on create with correct payload', () => {
+    const events: unknown[] = [];
+    const { result } = renderHook(() =>
+      useTabs({
+        onTabChange: (event) => events.push(event),
+      }),
+    );
+
+    act(() => {
+      result.current.switchWorkspace('ws-events');
+    });
+
+    act(() => {
+      result.current.createTab({
+        type: 'terminal',
+        title: 'My Terminal',
+        terminalId: 'term-xyz',
+      });
+    });
+
+    expect(events.length).toBe(1);
+    const event = events[0] as Extract<
+      (typeof events)[0],
+      { type: 'create' }
+    >;
+    expect(event.type).toBe('create');
+    expect(event.tabType).toBe('terminal');
+    expect(event.title).toBe('My Terminal');
+    expect(event.terminalId).toBe('term-xyz');
+    expect(event.workspaceId).toBe('ws-events');
+    expect(event.tabId).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-14. onTabChange fires on close
+  // -----------------------------------------------------------------------
+  test('onTabChange fires on close with correct payload', () => {
+    const events: unknown[] = [];
+    const { result } = renderHook(() =>
+      useTabs({
+        onTabChange: (event) => events.push(event),
+      }),
+    );
+
+    let tabId = '';
+    act(() => {
+      result.current.switchWorkspace('ws-events');
+      tabId = result.current.createTab({ type: 'terminal', title: 'T1' });
+    });
+
+    // Clear events from create
+    events.length = 0;
+
+    act(() => {
+      result.current.closeTab(tabId!);
+    });
+
+    expect(events.length).toBe(1);
+    const event = events[0] as Extract<
+      (typeof events)[0],
+      { type: 'close' }
+    >;
+    expect(event.type).toBe('close');
+    expect(event.tabId).toBe(tabId);
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-15. onTabChange fires on activate
+  // -----------------------------------------------------------------------
+  test('onTabChange fires on activate with correct payload', () => {
+    const events: unknown[] = [];
+    const { result } = renderHook(() =>
+      useTabs({
+        onTabChange: (event) => events.push(event),
+      }),
+    );
+
+    let id1 = '', _id2 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-events');
+      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+      _id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
+    });
+
+    // Clear events from create
+    events.length = 0;
+
+    act(() => {
+      result.current.activateTab(id1!);
+    });
+
+    expect(events.length).toBe(1);
+    const event = events[0] as Extract<
+      (typeof events)[0],
+      { type: 'activate' }
+    >;
+    expect(event.type).toBe('activate');
+    expect(event.tabId).toBe(id1);
+    expect(event.workspaceId).toBe('ws-events');
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-16. onTabChange fires on reorder
+  // -----------------------------------------------------------------------
+  test('onTabChange fires on reorder with correct payload', () => {
+    const events: unknown[] = [];
+    const { result } = renderHook(() =>
+      useTabs({
+        onTabChange: (event) => events.push(event),
+      }),
+    );
+
+    let id1 = '', id2 = '', id3 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-events');
+      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+      id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
+      id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
+    });
+
+    // Clear events from create
+    events.length = 0;
+
+    act(() => {
+      result.current.reorderTabs(0, 2);
+    });
+
+    expect(events.length).toBe(1);
+    const event = events[0] as Extract<
+      (typeof events)[0],
+      { type: 'reorder' }
+    >;
+    expect(event.type).toBe('reorder');
+    expect(event.workspaceId).toBe('ws-events');
+    // tabIds contains all three tab IDs (the ref-based read may fire before
+    // the functional updater applies in React 18's batch)
+    expect(event.tabIds).toHaveLength(3);
+    expect(event.tabIds).toEqual(expect.arrayContaining([id1, id2, id3]));
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-17. createTab returns empty string when no workspace
+  // -----------------------------------------------------------------------
+  test('createTab returns empty string when no workspace is set', () => {
+    const { result } = renderHook(() => useTabs());
+
+    // Do NOT call switchWorkspace
+    let tabId = '';
+    act(() => {
+      tabId = result.current.createTab({ type: 'terminal', title: 'T1' });
+    });
+
+    expect(tabId).toBe('');
+    expect(result.current.tabs).toEqual([]);
+    expect(result.current.activeTabId).toBeNull();
   });
 });

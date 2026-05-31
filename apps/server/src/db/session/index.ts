@@ -4,7 +4,16 @@ import { randomUUID } from 'crypto';
 export type { Database };
 
 // ── Sub-modules ──────────────────────────────────────────────────────────────
-export { createTab, listTabs, updateTab, deleteTab, createPane } from './tabs';
+export {
+  createTab,
+  listTabs,
+  getTab,
+  updateTab,
+  deleteTab,
+  reorderTabs,
+  setActiveTab,
+  createPane,
+} from './tabs';
 export {
   createTerminalInstance,
   getTerminalInstance,
@@ -33,6 +42,7 @@ export function initSessionDb(): Database {
       tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor')),
       title TEXT,
       file_path TEXT,
+      pane TEXT NOT NULL DEFAULT 'content' CHECK(pane IN ('content', 'bottom')),
       active INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))

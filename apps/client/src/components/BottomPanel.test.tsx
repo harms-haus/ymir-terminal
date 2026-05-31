@@ -32,6 +32,8 @@ let mockUpdateTabCwd: (tabId: string, cwd: string) => void;
 let mockCloseTabsRight: (tabId: string) => void;
 let mockCloseOtherTabs: (tabId: string) => void;
 let mockSetDisplayTitle: (tabId: string, customTitle: string) => void;
+let mockSwitchWorkspace: (workspaceId: string | null) => void;
+let mockLoadTabs: (workspaceId: string, tabs: unknown[]) => void;
 
 mock.module('../hooks/useTabs', () => ({
   useTabs: () => ({
@@ -45,6 +47,8 @@ mock.module('../hooks/useTabs', () => ({
     closeTabsRight: mockCloseTabsRight,
     closeOtherTabs: mockCloseOtherTabs,
     setDisplayTitle: mockSetDisplayTitle,
+    switchWorkspace: mockSwitchWorkspace,
+    loadTabs: mockLoadTabs,
   }),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Tab: {} as any,
@@ -154,13 +158,15 @@ describe('BottomPanel', () => {
       mockActiveTabId = _tabId;
     });
     mockSetDisplayTitle = mock((_tabId: string, _customTitle: string) => {});
+    mockSwitchWorkspace = mock((_workspaceId: string | null) => {});
+    mockLoadTabs = mock((_workspaceId: string, _tabs: unknown[]) => {});
 
     mockSendData = mock(() => {});
     mockOnOutput = mock(() => () => {});
     mockCreateTerminalFn = mock(() => Promise.resolve('term-1'));
     mockCloseTerminal = mock(() => Promise.resolve());
     mockResizeTerminal = mock(() => {});
-    mockSendRequest = mock(() => Promise.resolve(undefined));
+    mockSendRequest = mock(() => Promise.resolve({ tabs: [] }));
   });
 
   afterEach(() => {
@@ -591,7 +597,7 @@ describe('BottomPanel', () => {
       expect(mockOnTerminalRegistered).toHaveBeenCalledTimes(1);
     });
 
-    expect(mockOnTerminalRegistered).toHaveBeenCalledWith('term-1', 'tab-1');
+    expect(mockOnTerminalRegistered).toHaveBeenCalledWith('term-1', 'tab-1', 'ws-1');
   });
 
   // -----------------------------------------------------------------------

@@ -23,7 +23,7 @@ export interface ContentPaneProps {
   fileToOpen?: string | null;
   onFileOpened?: () => void;
   terminalContainerRef?: React.Ref<HTMLDivElement>;
-  onTerminalRegistered?: (terminalId: string, tabId: string) => void;
+  onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
   onActiveTabChange?: (activeTabId: string | null) => void;
 }
@@ -58,15 +58,25 @@ export const ContentPane = forwardRef<ContentPaneHandle, ContentPaneProps>(funct
     receiveTab,
     getTabs,
     getActiveTabId,
-  } = useTerminalPane({ dirtyFiles, onTerminalUnregistered });
+  } = useTerminalPane({
+    workspaceId,
+    pane: 'content',
+    dirtyFiles,
+    onTerminalRegistered: onTerminalRegistered
+      ? (terminalId, tabId, wsId) => onTerminalRegistered(terminalId, tabId, wsId)
+      : undefined,
+    onTerminalUnregistered,
+  });
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   const handleTerminalCreated = useCallback(
     (terminalId: string, tabId: string) => {
-      onTerminalRegistered?.(terminalId, tabId);
+      if (workspaceId) {
+        onTerminalRegistered?.(terminalId, tabId, workspaceId);
+      }
     },
-    [onTerminalRegistered],
+    [onTerminalRegistered, workspaceId],
   );
 
   const handleAddTerminal = useCreateTerminalTab(

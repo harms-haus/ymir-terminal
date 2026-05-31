@@ -9,6 +9,7 @@ export * from './file';
 export * from './git';
 export * from './config';
 export * from './session';
+export * from './tab';
 
 // Import types explicitly for union definitions below
 import type { AuthRequest } from './auth';
@@ -37,6 +38,13 @@ import type {
 import type { GitStatusRequest, GitLogRequest } from './git';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
+import type {
+  TabListRequest,
+  TabCreateRequest,
+  TabUpdateRequest,
+  TabDeleteRequest,
+  TabReorderRequest,
+} from './tab';
 
 // ---------------------------------------------------------------------------
 // Request & event type constants
@@ -62,6 +70,11 @@ export const REQUEST_TYPES = [
   'git.log',
   'config.get',
   'config.set',
+  'tab.list',
+  'tab.create',
+  'tab.update',
+  'tab.delete',
+  'tab.reorder',
 ] as const;
 
 export type RequestType = (typeof REQUEST_TYPES)[number];
@@ -97,7 +110,12 @@ export type RequestPayload =
   | GitStatusRequest
   | GitLogRequest
   | ConfigGetRequest
-  | ConfigSetRequest;
+  | ConfigSetRequest
+  | TabListRequest
+  | TabCreateRequest
+  | TabUpdateRequest
+  | TabDeleteRequest
+  | TabReorderRequest;
 
 export type EventPayload =
   | TerminalOutputEvent

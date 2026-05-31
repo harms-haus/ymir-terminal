@@ -1,15 +1,40 @@
 import { useRef, useCallback, useEffect } from 'react';
-import { useTabs } from './useTabs';
+import { useTabs, type ServerTabInfo } from './useTabs';
 import { sendRequest } from '../lib/send-request';
 
 export interface UseTerminalPaneOptions {
+  workspaceId?: string | null;
+  pane?: 'content' | 'bottom';
   dirtyFiles?: Set<string>;
   confirmMultipleText?: string;
+  onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
 }
 
 export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
-  const { dirtyFiles, confirmMultipleText, onTerminalUnregistered } = options;
+  const {
+    workspaceId,
+    pane = 'content',
+    dirtyFiles,
+    confirmMultipleText,
+    onTerminalRegistered,
+    onTerminalUnregistered,
+  } = options;
+
+  // Track which workspaces have already been loaded from server
+  const loadedWorkspacesRef = useRef<Set<string>>(new Set());
+
+  // Refs for options to avoid stale closures in callbacks
+  const paneRef = useRef(pane);
+  const onTerminalRegisteredRef = useRef(onTerminalRegistered);
+
+  useEffect(() => {
+    paneRef.current = pane;
+  }, [pane]);
+
+  useEffect(() => {
+    onTerminalRegisteredRef.current = onTerminalRegistered;
+  }, [onTerminalRegistered]);
 
   const {
     tabs,
@@ -23,7 +48,33 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     closeTabsRight,
     closeOtherTabs,
     setDisplayTitle,
-  } = useTabs();
+    switchWorkspace,
+    loadTabs,
+  } = useTabs({
+    onTabChange: (evt) => {
+      switch (evt.type) {
+        case 'create':
+          sendRequest('tab.create', {
+            workspaceId: evt.workspaceId,
+            pane: paneRef.current,
+            tabType: evt.tabType,
+            title: evt.title,
+            filePath: evt.filePath,
+            terminalId: evt.terminalId,
+          }).catch(console.error);
+          break;
+        case 'close':
+          sendRequest('tab.delete', { tabId: evt.tabId }).catch(console.error);
+          break;
+        case 'reorder':
+          sendRequest('tab.reorder', { tabIds: evt.tabIds }).catch(console.error);
+          break;
+        case 'activate':
+          sendRequest('tab.update', { tabId: evt.tabId, active: true }).catch(console.error);
+          break;
+      }
+    },
+  });
 
   // Keep refs so imperative handle always sees current state
   const tabsRef = useRef(tabs);
@@ -36,6 +87,31 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
   useEffect(() => {
     activeTabIdRef.current = activeTabId;
   }, [activeTabId]);
+
+  // ---------------------------------------------------------------------------
+  // Switch workspace + load tabs from server
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    switchWorkspace(workspaceId ?? null);
+
+    if (workspaceId && !loadedWorkspacesRef.current.has(workspaceId)) {
+      loadedWorkspacesRef.current.add(workspaceId);
+      sendRequest<{ tabs: ServerTabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
+        .then((response) => {
+          // Filter out dead terminals
+          const liveTabs = response.tabs.filter((t) => t.terminalAlive !== false);
+          loadTabs(workspaceId, liveTabs);
+
+          // Register terminal tabs with parent
+          for (const t of liveTabs) {
+            if (t.terminalId) {
+              onTerminalRegisteredRef.current?.(t.terminalId, t.id, workspaceId);
+            }
+          }
+        })
+        .catch(console.error);
+    }
+  }, [workspaceId, switchWorkspace, loadTabs]);
 
   // --- Shared handle logic ---
 
@@ -172,6 +248,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     closeTabsRight,
     closeOtherTabs,
     setDisplayTitle,
+    switchWorkspace,
 
     // Refs
     tabsRef,

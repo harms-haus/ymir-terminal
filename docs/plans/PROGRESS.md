@@ -236,3 +236,50 @@ Redesigned the right sidebar (renamed 'Project sidebar') with a toggleable top p
 - **Infinite scroll**: Loads 50 commits at a time when scrolling down
 - **Custom scrollbars**: 4px thin, transparent track, rounded thumb
 - **Accessibility**: aria-labels on toggle buttons, focus-visible indicators, improved color contrast
+
+---
+
+## 2026-05-30 — Workspace Tab Isolation
+
+### Summary
+
+Fixed workspace tab isolation so each workspace has its own independent set of tabs. Terminals and editors created in one workspace no longer appear in other workspaces. Tabs persist per-workspace when switching between workspaces, and terminal instances remain mounted (hidden) in the background to preserve scrollback history. Server-side tab persistence was activated with new CRUD WebSocket handlers.
+
+### Files Created
+
+- `packages/shared/src/protocol/payloads/tab.ts` — Tab CRUD protocol types
+- `apps/server/src/ws/handlers/tabs.ts` — Server tab CRUD WebSocket handlers
+- `apps/server/src/ws/handlers/tabs.test.ts` — Server handler tests (34 tests)
+
+### Files Modified
+
+- `apps/client/src/hooks/useTabs.ts` — Refactored to per-workspace Map storage; added `switchWorkspace`, `loadTabs`, `onTabChange`, `workspaceId` on Tab interface
+- `apps/client/src/hooks/useTabs.test.tsx` — 17 new per-workspace tests (47 total)
+- `apps/client/src/hooks/useTerminalPane.ts` — Accepts `workspaceId`/`pane`; syncs tabs to server; restores from server on workspace switch
+- `apps/client/src/components/ContentPane.tsx` — Passes `workspaceId`/`pane` to useTerminalPane
+- `apps/client/src/components/BottomPanel.tsx` — Passes `workspaceId`/`pane` to useTerminalPane
+- `apps/client/src/components/WorkspaceView.tsx` — `workspaceId` on `TerminalRegistryEntry`; visibility-based `isActive` computation; drag-and-drop workspace guard
+- `apps/server/src/db/session/tabs.ts` — Added `pane` column, `getTab`, `reorderTabs`, `setActiveTab` functions
+- `apps/server/src/db/session/index.ts` — Updated schema, exports
+- `apps/server/src/ws/handlers/tabs.ts` — 5 handlers: tab.list/create/update/delete/reorder with batch queries and path traversal protection
+- `apps/server/src/server.ts` — Wired tab handler registration
+- `apps/server/src/lib/handler-validation.ts` — Added `validateTabOwnership`
+- `packages/shared/src/protocol/payloads/index.ts` — Added tab channel types to REQUEST_TYPES
+- `packages/shared/src/protocol/types.ts` — Added `TAB_NOT_FOUND` error code
+
+### Features
+
+1. Each workspace has its own isolated set of terminal and editor tabs
+2. Switching workspaces shows only that workspace's tabs
+3. Terminal instances stay mounted (hidden with display:none) preserving scrollback
+4. Editor tabs are workspace-scoped — no more path traversal errors
+5. Drag-and-drop validates workspace boundaries
+6. Server-side tab persistence via WebSocket CRUD handlers
+7. Tabs restore from server on workspace switch and page reload (within session)
+8. Path traversal protection on editor tab filePaths
+
+### Test Coverage
+
+- **47 useTabs tests** (17 new for workspace isolation)
+- **34 server tab handler tests** (15 test cases)
+- **40 component tests** (5 new integration tests)

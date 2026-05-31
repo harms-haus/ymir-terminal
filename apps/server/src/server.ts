@@ -12,6 +12,7 @@ import { registerWorkspaceHandlers } from './ws/handlers/workspaces';
 import { registerFileHandlers } from './ws/handlers/files/index';
 import { registerGitHandlers } from './ws/handlers/git';
 import { registerConfigHandlers } from './ws/handlers/config';
+import { registerTabHandlers } from './ws/handlers/tabs';
 import { PTYManager } from './pty/manager';
 import { stopAllWatchers } from './files/watcher';
 import * as fileScanner from './files/scanner';
@@ -83,6 +84,9 @@ export async function startServer(options: StartServerOptions): Promise<void> {
 
   // 6f. Config handlers
   registerConfigHandlers(router, { persistentDb: db });
+
+  // 6g. Tab handlers
+  registerTabHandlers(router, { sessionDb, persistentDb: db });
 
   // 7. Start WebSocket server with router as message dispatcher
   const server: Server<unknown> = await startWebSocketServer({
