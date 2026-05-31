@@ -139,47 +139,47 @@ export function LoginPage() {
 
   return (
     <div data-testid="login-page" style={styles.container}>
-        <div style={styles.card}>
-          <h1 style={styles.title}>Ymir Terminal</h1>
-          <p style={styles.subtitle}>Enter your password to connect</p>
+      <div style={styles.card}>
+        <h1 style={styles.title}>Ymir Terminal</h1>
+        <p style={styles.subtitle}>Enter your password to connect</p>
 
-          <form onSubmit={handleSubmit}>
-            {error && (
-              <div style={styles.errorBox} data-testid="login-error">
-                {error}
-              </div>
-            )}
-
-            <div style={styles.inputGroup}>
-              <label htmlFor="password" style={styles.label}>
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                autoFocus
-                style={styles.input}
-              />
+        <form onSubmit={handleSubmit}>
+          {error && (
+            <div style={styles.errorBox} data-testid="login-error">
+              {error}
             </div>
+          )}
 
-            <button
-              type="submit"
+          <div style={styles.inputGroup}>
+            <label htmlFor="password" style={styles.label}>
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
-              style={{
-                ...styles.button,
-                ...(loading ? styles.buttonDisabled : {}),
-              }}
-              data-loading={loading || undefined}
-            >
-              {loading && <span style={styles.spinner} />}
-              {loading ? 'Connecting…' : 'Sign In'}
-            </button>
-          </form>
-        </div>
+              autoFocus
+              style={styles.input}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              ...styles.button,
+              ...(loading ? styles.buttonDisabled : {}),
+            }}
+            data-loading={loading || undefined}
+          >
+            {loading && <span style={styles.spinner} />}
+            {loading ? 'Connecting…' : 'Sign In'}
+          </button>
+        </form>
       </div>
+    </div>
   );
 }
