@@ -3,8 +3,6 @@ import type { GitFileChange } from '@ymir/shared';
 import { GitChangeTree } from './GitChangeTree';
 import {
   COLOR_TEXT_MUTED,
-  COLOR_BORDER,
-  COLOR_GIT_REPO_HEADER_BG,
   COLOR_GIT_SECTION_HEADER,
   COLOR_GIT_BADGE_BG,
   COLOR_GIT_BADGE_TEXT,
@@ -168,8 +166,7 @@ function CollapsibleSection({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '6px 8px',
-          background: COLOR_GIT_REPO_HEADER_BG,
-          borderTop: `1px solid ${COLOR_BORDER}`,
+          // No border or special background for collapsible section headers
           cursor: 'pointer',
         }}
       >
@@ -178,7 +175,7 @@ function CollapsibleSection({
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            fontSize: 12,
+            fontSize: 10,
             color: COLOR_GIT_SECTION_HEADER,
             textTransform: 'uppercase',
             letterSpacing: 0.5,

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGitRepos } from '../hooks/useGitRepos';
 import { GitRepoHeader } from './GitRepoHeader';
 import { GitCommitInput } from './GitCommitInput';
@@ -14,6 +15,19 @@ interface GitPanelProps {
 
 export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff, onOpenGitTree }: GitPanelProps) {
   const git = useGitRepos(workspaceId, workspaceCwd);
+  const [collapsedRepos, setCollapsedRepos] = useState<Set<string>>(new Set());
+
+  const toggleRepoCollapse = (repoPath: string) => {
+    setCollapsedRepos((prev) => {
+      const next = new Set(prev);
+      if (next.has(repoPath)) {
+        next.delete(repoPath);
+      } else {
+        next.add(repoPath);
+      }
+      return next;
+    });
+  };
 
   if (!workspaceId) {
     return (
@@ -77,6 +91,8 @@ export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff, 
             <GitRepoHeader
               repoInfo={repo}
               branches={branches}
+              collapsed={collapsedRepos.has(repo.path)}
+              onToggleCollapse={() => toggleRepoCollapse(repo.path)}
               onCheckout={(branch) => git.checkout(repo.path, branch)}
               onCreateBranch={(name) => git.checkout(repo.path, name, true)}
               onPush={(branch) => git.push(repo.path, branch)}
@@ -85,21 +101,25 @@ export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff, 
               pushLoading={git.pushLoading.get(repo.path)}
               fetchLoading={git.fetchLoading.get(repo.path)}
             />
-            <GitCommitInput
-              onCommit={(message) => git.commit(repo.path, message)}
-              disabled={!hasStagedFiles}
-              loading={false}
-            />
-            <GitChangesSection
-              staged={status?.staged ?? []}
-              changes={status?.changes ?? []}
-              repoPath={repo.path}
-              onStageFiles={git.stageFiles}
-              onUnstageFiles={git.unstageFiles}
-              onDiscardFiles={git.discardChanges}
-              onOpenEditor={onOpenEditor}
-              onOpenDiff={handleOpenDiff}
-            />
+            {!collapsedRepos.has(repo.path) && (
+              <>
+                <GitCommitInput
+                  onCommit={(message) => git.commit(repo.path, message)}
+                  disabled={!hasStagedFiles}
+                  loading={false}
+                />
+                <GitChangesSection
+                  staged={status?.staged ?? []}
+                  changes={status?.changes ?? []}
+                  repoPath={repo.path}
+                  onStageFiles={git.stageFiles}
+                  onUnstageFiles={git.unstageFiles}
+                  onDiscardFiles={git.discardChanges}
+                  onOpenEditor={onOpenEditor}
+                  onOpenDiff={handleOpenDiff}
+                />
+              </>
+            )}
           </div>
         );
       })}

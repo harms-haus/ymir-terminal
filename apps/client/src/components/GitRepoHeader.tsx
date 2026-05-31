@@ -20,6 +20,8 @@ interface GitRepoHeaderProps {
   onPush: (branch: string) => void;
   onFetch: () => void;
   onOpenGitTree?: (repoPath: string) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   pushLoading?: boolean;
   fetchLoading?: boolean;
 }
@@ -42,6 +44,8 @@ export function GitRepoHeader({
   onPush,
   onFetch,
   onOpenGitTree,
+  collapsed = false,
+  onToggleCollapse,
   pushLoading = false,
   fetchLoading = false,
 }: GitRepoHeaderProps) {
@@ -77,7 +81,10 @@ export function GitRepoHeader({
       }}
     >
       {/* Left side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, cursor: onToggleCollapse ? 'pointer' : undefined }} onClick={onToggleCollapse}>
+        {onToggleCollapse && (
+          <span style={{ fontSize: 10, color: COLOR_TEXT_MUTED }}>{collapsed ? '▶' : '▼'}</span>
+        )}
         <span
           style={{
             fontWeight: 600,
