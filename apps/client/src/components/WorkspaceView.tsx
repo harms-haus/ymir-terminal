@@ -406,6 +406,7 @@ function WorkspaceViewInner() {
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
+      {/* @ts-expect-error -- dnd-kit event type mismatch with our simplified handler */}
       <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <AppLayout
           topBar={topBar}

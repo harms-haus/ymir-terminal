@@ -16,8 +16,12 @@ import { PROTOCOL_VERSION, type RequestEnvelope } from '@ymir/shared';
 export interface MockConnection {
   sessionId: string;
   isAuthenticated: boolean;
+  lastActive: Date;
+  ws: { send: (data: string) => void; close: () => void };
   sent: unknown[];
   send(data: unknown): void;
+  sendRaw(data: string): void;
+  close(): void;
 }
 
 /**
@@ -34,13 +38,25 @@ export function mockConn(
   overrides?: Partial<Pick<MockConnection, 'sessionId' | 'isAuthenticated'>>,
 ): MockConnection {
   const sent: unknown[] = [];
+  const ws = {
+    send: (data: string) => {
+      sent.push(data);
+    },
+    close: () => {},
+  };
   return {
     sessionId: overrides?.sessionId ?? crypto.randomUUID(),
     isAuthenticated: overrides?.isAuthenticated ?? true,
+    lastActive: new Date(),
+    ws,
     sent,
     send(data: unknown) {
       sent.push(data);
     },
+    sendRaw(data: string) {
+      sent.push(data);
+    },
+    close() {},
   };
 }
 

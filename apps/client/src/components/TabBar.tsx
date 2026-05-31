@@ -305,7 +305,9 @@ export function TabBar({
     }
     setRenamingTabId(null);
     requestAnimationFrame(() => {
-      document.querySelector(`[data-testid="tab-${renamingTabId}"]`)?.focus();
+      (
+        document.querySelector(`[data-testid="tab-${renamingTabId}"]`) as HTMLElement | null
+      )?.focus();
     });
   }, [renamingTabId, renameValue, onRename]);
 
@@ -314,7 +316,7 @@ export function TabBar({
     setRenamingTabId(null);
     requestAnimationFrame(() => {
       if (tabId) {
-        document.querySelector(`[data-testid="tab-${tabId}"]`)?.focus();
+        (document.querySelector(`[data-testid="tab-${tabId}"]`) as HTMLElement | null)?.focus();
       }
     });
   }, [renamingTabId]);

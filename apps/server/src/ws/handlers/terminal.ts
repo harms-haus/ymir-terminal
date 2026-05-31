@@ -36,7 +36,7 @@ export interface TerminalDeps {
  * Sends INVALID_MESSAGE and returns `null` on failure.
  */
 function requireTerminalId(
-  payload: Record<string, unknown> | undefined | null,
+  payload: Record<string, unknown> | undefined | null | { terminalId?: unknown },
   clientConn: ClientConnection,
   req: Pick<RequestEnvelope, 'id' | 'channel'>,
   channel: string,

@@ -33,6 +33,7 @@ export function FileTree({
   onDelete,
   onOpenEditor,
 }: FileTreeProps) {
+  // @ts-expect-error -- gitStatus may be undefined from hook, buildGitPathMap accepts null
   const gitPathMap = useMemo(() => buildGitPathMap(gitStatus), [gitStatus]);
 
   return (

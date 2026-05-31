@@ -10,6 +10,34 @@ export * from './git';
 export * from './config';
 export * from './session';
 
+// Import types explicitly for union definitions below
+import type { AuthRequest } from './auth';
+import type {
+  TerminalCreateRequest,
+  TerminalInputRequest,
+  TerminalResizeRequest,
+  TerminalCloseRequest,
+  TerminalOutputEvent,
+  TerminalExitEvent,
+} from './terminal';
+import type {
+  WorkspaceCreateRequest,
+  WorkspaceUpdateRequest,
+  WorkspaceDeleteRequest,
+} from './workspace';
+import type {
+  FileTreeRequest,
+  FileReadRequest,
+  FileWriteRequest,
+  FileDeleteRequest,
+  FileRenameRequest,
+  FileCreateRequest,
+  FileChangeEvent,
+} from './file';
+import type { GitStatusRequest, GitLogRequest } from './git';
+import type { ConfigGetRequest, ConfigSetRequest } from './config';
+import type { ConnectionStatusEvent } from './session';
+
 // ---------------------------------------------------------------------------
 // Request & event type constants
 // ---------------------------------------------------------------------------
