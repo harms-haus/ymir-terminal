@@ -74,9 +74,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     }
 
     // Batch-check terminal liveness (avoids N+1 per-row queries)
-    const terminalIds = rows
-      .map((r) => r.terminal_id as string | null)
-      .filter(Boolean) as string[];
+    const terminalIds = rows.map((r) => r.terminal_id as string | null).filter(Boolean) as string[];
 
     const aliveSet = new Set<string>();
     if (terminalIds.length > 0) {
@@ -274,9 +272,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     const tabIds = payload.tabIds as string[];
     const placeholders = tabIds.map(() => '?').join(',');
     const rows = sessionDb
-      .prepare(
-        `SELECT id, workspace_id, session_id FROM tabs WHERE id IN (${placeholders})`,
-      )
+      .prepare(`SELECT id, workspace_id, session_id FROM tabs WHERE id IN (${placeholders})`)
       .all(...tabIds) as { id: string; workspace_id: string; session_id: string }[];
 
     if (rows.length !== tabIds.length) {

@@ -36,7 +36,12 @@ describe('registerTabHandlers', () => {
   // Helper: create a tab via the handler and return the tabId
   // -------------------------------------------------------------------------
   async function createTabViaHandler(
-    opts: Partial<TabCreateRequest> & { workspaceId: string; tabType: 'terminal' | 'editor'; title: string; pane: 'content' | 'bottom' },
+    opts: Partial<TabCreateRequest> & {
+      workspaceId: string;
+      tabType: 'terminal' | 'editor';
+      title: string;
+      pane: 'content' | 'bottom';
+    },
   ): Promise<string> {
     const req = request<TabCreateRequest>('tab.create', {
       workspaceId: opts.workspaceId,
@@ -124,9 +129,9 @@ describe('registerTabHandlers', () => {
       expect(typeof resp.payload!.tabId).toBe('string');
 
       // Verify DB row exists
-      const row = sessionDb
-        .prepare('SELECT * FROM tabs WHERE id = ?')
-        .get(resp.payload!.tabId) as Record<string, unknown> | undefined;
+      const row = sessionDb.prepare('SELECT * FROM tabs WHERE id = ?').get(resp.payload!.tabId) as
+        | Record<string, unknown>
+        | undefined;
       expect(row).toBeDefined();
       expect(row!.tab_type).toBe('terminal');
       expect(row!.title).toBe('Terminal 1');
@@ -157,9 +162,9 @@ describe('registerTabHandlers', () => {
       const tabId = resp.payload!.tabId;
 
       // Verify pane was created in DB
-      const pane = sessionDb
-        .prepare('SELECT * FROM panes WHERE tab_id = ?')
-        .get(tabId) as Record<string, unknown> | undefined;
+      const pane = sessionDb.prepare('SELECT * FROM panes WHERE tab_id = ?').get(tabId) as
+        | Record<string, unknown>
+        | undefined;
       expect(pane).toBeDefined();
       expect(pane!.terminal_id).toBe('term-123');
     });
@@ -192,9 +197,10 @@ describe('registerTabHandlers', () => {
       const resp = conn.sent[0] as ResponseEnvelope<TabCreateResponse>;
       const tabId = resp.payload!.tabId;
 
-      const row = sessionDb
-        .prepare('SELECT * FROM tabs WHERE id = ?')
-        .get(tabId) as Record<string, unknown>;
+      const row = sessionDb.prepare('SELECT * FROM tabs WHERE id = ?').get(tabId) as Record<
+        string,
+        unknown
+      >;
       expect(row.tab_type).toBe('editor');
       expect(row.file_path).toBe('src/index.ts');
     });
@@ -553,12 +559,12 @@ describe('registerTabHandlers', () => {
       expect(resp.error).toBeUndefined();
 
       // Verify DB: tab2 is active, tab1 is not
-      const row1 = sessionDb
-        .prepare('SELECT active FROM tabs WHERE id = ?')
-        .get(tabId1) as { active: number };
-      const row2 = sessionDb
-        .prepare('SELECT active FROM tabs WHERE id = ?')
-        .get(tabId2) as { active: number };
+      const row1 = sessionDb.prepare('SELECT active FROM tabs WHERE id = ?').get(tabId1) as {
+        active: number;
+      };
+      const row2 = sessionDb.prepare('SELECT active FROM tabs WHERE id = ?').get(tabId2) as {
+        active: number;
+      };
       expect(row1.active).toBe(0);
       expect(row2.active).toBe(1);
     });
@@ -581,9 +587,9 @@ describe('registerTabHandlers', () => {
       const resp = conn.sent[0] as ResponseEnvelope;
       expect(resp.error).toBeUndefined();
 
-      const row = sessionDb
-        .prepare('SELECT title FROM tabs WHERE id = ?')
-        .get(tabId) as { title: string };
+      const row = sessionDb.prepare('SELECT title FROM tabs WHERE id = ?').get(tabId) as {
+        title: string;
+      };
       expect(row.title).toBe('Renamed');
     });
 
@@ -624,9 +630,7 @@ describe('registerTabHandlers', () => {
       });
 
       // Verify it exists
-      const before = sessionDb
-        .prepare('SELECT id FROM tabs WHERE id = ?')
-        .get(tabId);
+      const before = sessionDb.prepare('SELECT id FROM tabs WHERE id = ?').get(tabId);
       expect(before).toBeDefined();
 
       conn.sent.length = 0;
@@ -639,9 +643,7 @@ describe('registerTabHandlers', () => {
       expect(resp.error).toBeUndefined();
 
       // Verify it was removed
-      const after = sessionDb
-        .prepare('SELECT id FROM tabs WHERE id = ?')
-        .get(tabId);
+      const after = sessionDb.prepare('SELECT id FROM tabs WHERE id = ?').get(tabId);
       expect(after).toBeNull();
     });
 
@@ -726,15 +728,15 @@ describe('registerTabHandlers', () => {
       expect(resp.error).toBeUndefined();
 
       // Verify sort_order values
-      const row3 = sessionDb
-        .prepare('SELECT sort_order FROM tabs WHERE id = ?')
-        .get(tabId3) as { sort_order: number };
-      const row2 = sessionDb
-        .prepare('SELECT sort_order FROM tabs WHERE id = ?')
-        .get(tabId2) as { sort_order: number };
-      const row1 = sessionDb
-        .prepare('SELECT sort_order FROM tabs WHERE id = ?')
-        .get(tabId1) as { sort_order: number };
+      const row3 = sessionDb.prepare('SELECT sort_order FROM tabs WHERE id = ?').get(tabId3) as {
+        sort_order: number;
+      };
+      const row2 = sessionDb.prepare('SELECT sort_order FROM tabs WHERE id = ?').get(tabId2) as {
+        sort_order: number;
+      };
+      const row1 = sessionDb.prepare('SELECT sort_order FROM tabs WHERE id = ?').get(tabId1) as {
+        sort_order: number;
+      };
 
       expect(row3.sort_order).toBe(0);
       expect(row2.sort_order).toBe(1);
@@ -846,15 +848,15 @@ describe('registerTabHandlers', () => {
         pane: 'content',
       });
 
-      const row1 = sessionDb
-        .prepare('SELECT sort_order FROM tabs WHERE id = ?')
-        .get(tabId1) as { sort_order: number };
-      const row2 = sessionDb
-        .prepare('SELECT sort_order FROM tabs WHERE id = ?')
-        .get(tabId2) as { sort_order: number };
-      const row3 = sessionDb
-        .prepare('SELECT sort_order FROM tabs WHERE id = ?')
-        .get(tabId3) as { sort_order: number };
+      const row1 = sessionDb.prepare('SELECT sort_order FROM tabs WHERE id = ?').get(tabId1) as {
+        sort_order: number;
+      };
+      const row2 = sessionDb.prepare('SELECT sort_order FROM tabs WHERE id = ?').get(tabId2) as {
+        sort_order: number;
+      };
+      const row3 = sessionDb.prepare('SELECT sort_order FROM tabs WHERE id = ?').get(tabId3) as {
+        sort_order: number;
+      };
 
       expect(row1.sort_order).toBe(0);
       expect(row2.sort_order).toBe(1);

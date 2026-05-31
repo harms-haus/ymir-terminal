@@ -48,10 +48,7 @@ export function listTabs(
   return stmt.all(sessionId, workspaceId) as Record<string, unknown>[];
 }
 
-export function getTab(
-  db: Database,
-  tabId: string,
-): Record<string, unknown> | null {
+export function getTab(db: Database, tabId: string): Record<string, unknown> | null {
   const stmt = db.prepare('SELECT * FROM tabs WHERE id = ?');
   return stmt.get(tabId) as Record<string, unknown> | null;
 }

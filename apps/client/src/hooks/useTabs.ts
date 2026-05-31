@@ -46,9 +46,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   const onTabChangeRef = useRef(opts?.onTabChange);
   onTabChangeRef.current = opts?.onTabChange;
 
-  const [workspaceStates, setWorkspaceStates] = useState<Map<string, WorkspaceTabState>>(
-    new Map(),
-  );
+  const [workspaceStates, setWorkspaceStates] = useState<Map<string, WorkspaceTabState>>(new Map());
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(null);
 
   // Refs for stale-closure-safe reads inside callbacks
@@ -57,9 +55,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   const activeTabIdRef = useRef<string | null>(null);
 
   // Derive public state from current workspace
-  const currentWsState = currentWorkspaceId
-    ? workspaceStates.get(currentWorkspaceId)
-    : undefined;
+  const currentWsState = currentWorkspaceId ? workspaceStates.get(currentWorkspaceId) : undefined;
   const tabs = currentWsState?.tabs ?? [];
   const activeTabId = currentWsState?.activeTabId ?? null;
 
@@ -168,8 +164,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
       const newTabs = wsState.tabs.filter((t) => t.id !== tabId);
       let newActiveId = wsState.activeTabId;
       if (wasActive) {
-        newActiveId =
-          newTabs[Math.max(0, idx - 1)]?.id ?? newTabs[0]?.id ?? null;
+        newActiveId = newTabs[Math.max(0, idx - 1)]?.id ?? newTabs[0]?.id ?? null;
       }
       const newMap = new Map(prev);
       newMap.set(wsId, { tabs: newTabs, activeTabId: newActiveId });

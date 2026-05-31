@@ -742,7 +742,8 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     // Set up workspace A with tabs
-    let _idA1 = '', idA2 = '';
+    let _idA1 = '',
+      idA2 = '';
     act(() => {
       result.current.switchWorkspace('ws-a');
       _idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
@@ -817,7 +818,10 @@ describe('useTabs', () => {
   test('independent activeTabId per workspace', () => {
     const { result } = renderHook(() => useTabs());
 
-    let idA1 = '', _idA2 = '', _idB1 = '', idB2 = '';
+    let idA1 = '',
+      _idA2 = '',
+      _idB1 = '',
+      idB2 = '';
     act(() => {
       result.current.switchWorkspace('ws-a');
       idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
@@ -854,7 +858,10 @@ describe('useTabs', () => {
   test('closeTab only affects current workspace', () => {
     const { result } = renderHook(() => useTabs());
 
-    let _idA1 = '', _idA2 = '', idB1 = '', idB2 = '';
+    let _idA1 = '',
+      _idA2 = '',
+      idB1 = '',
+      idB2 = '';
     act(() => {
       result.current.switchWorkspace('ws-a');
       _idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
@@ -996,7 +1003,8 @@ describe('useTabs', () => {
   test('setDisplayTitle only affects current workspace', () => {
     const { result } = renderHook(() => useTabs());
 
-    let idA1 = '', _idB1 = '';
+    let idA1 = '',
+      _idB1 = '';
     act(() => {
       result.current.switchWorkspace('ws-a');
       idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
@@ -1140,10 +1148,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<
-      (typeof events)[0],
-      { type: 'create' }
-    >;
+    const event = events[0] as Extract<(typeof events)[0], { type: 'create' }>;
     expect(event.type).toBe('create');
     expect(event.tabType).toBe('terminal');
     expect(event.title).toBe('My Terminal');
@@ -1177,10 +1182,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<
-      (typeof events)[0],
-      { type: 'close' }
-    >;
+    const event = events[0] as Extract<(typeof events)[0], { type: 'close' }>;
     expect(event.type).toBe('close');
     expect(event.tabId).toBe(tabId);
   });
@@ -1196,7 +1198,8 @@ describe('useTabs', () => {
       }),
     );
 
-    let id1 = '', _id2 = '';
+    let id1 = '',
+      _id2 = '';
     act(() => {
       result.current.switchWorkspace('ws-events');
       id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
@@ -1211,10 +1214,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<
-      (typeof events)[0],
-      { type: 'activate' }
-    >;
+    const event = events[0] as Extract<(typeof events)[0], { type: 'activate' }>;
     expect(event.type).toBe('activate');
     expect(event.tabId).toBe(id1);
     expect(event.workspaceId).toBe('ws-events');
@@ -1231,7 +1231,9 @@ describe('useTabs', () => {
       }),
     );
 
-    let id1 = '', id2 = '', id3 = '';
+    let id1 = '',
+      id2 = '',
+      id3 = '';
     act(() => {
       result.current.switchWorkspace('ws-events');
       id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
@@ -1247,10 +1249,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<
-      (typeof events)[0],
-      { type: 'reorder' }
-    >;
+    const event = events[0] as Extract<(typeof events)[0], { type: 'reorder' }>;
     expect(event.type).toBe('reorder');
     expect(event.workspaceId).toBe('ws-events');
     // tabIds contains all three tab IDs (the ref-based read may fire before

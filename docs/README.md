@@ -174,19 +174,19 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 
 ### `apps/server` — `@ymir/server`
 
-| Directory            | Purpose                                                                     |
-| -------------------- | --------------------------------------------------------------------------- |
-| `auth/`              | Password hashing (Argon2id), JWT sign/verify                                |
-| `db/`                | Persistent DB (workspaces), session DB (tabs)                               |
-| `lib/`               | Shared handler validation (`handler-validation.ts`)                         |
-| `pty/`               | PTY manager — spawn, resize, write, kill                                    |
-| `files/`             | File scanner, CRUD operations, filesystem watcher                           |
-| `git/`               | Git status reader (`git status --porcelain=v1`), git log reader (`git log`) |
-| `ws/`                | WebSocket server, message router, connection state                          |
-| `ws/handlers/`       | Channel handlers (auth, terminal, files, git, tabs, ws)                     |
+| Directory             | Purpose                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `auth/`               | Password hashing (Argon2id), JWT sign/verify                                              |
+| `db/`                 | Persistent DB (workspaces), session DB (tabs)                                             |
+| `lib/`                | Shared handler validation (`handler-validation.ts`)                                       |
+| `pty/`                | PTY manager — spawn, resize, write, kill                                                  |
+| `files/`              | File scanner, CRUD operations, filesystem watcher                                         |
+| `git/`                | Git status reader (`git status --porcelain=v1`), git log reader (`git log`)               |
+| `ws/`                 | WebSocket server, message router, connection state                                        |
+| `ws/handlers/`        | Channel handlers (auth, terminal, files, git, tabs, ws)                                   |
 | `ws/handlers/tabs.ts` | Tab CRUD operations — `tab.list`, `tab.create`, `tab.update`, `tab.delete`, `tab.reorder` |
-| `ws/handlers/files/` | File handlers split into `tree`, `crud`, `language`, `shared`               |
-| `test-helpers/`      | Shared server test utilities (`mock-utils.ts`)                              |
+| `ws/handlers/files/`  | File handlers split into `tree`, `crud`, `language`, `shared`                             |
+| `test-helpers/`       | Shared server test utilities (`mock-utils.ts`)                                            |
 
 **Git module detail:**
 
@@ -275,9 +275,9 @@ Tests exist in every package:
 
 Ymir stores persistent data in SQLite:
 
-| Database   | Location                 | Purpose                                    |
-| ---------- | ------------------------ | ------------------------------------------ |
-| Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash, UI layout state |
+| Database   | Location                 | Purpose                                                                                             |
+| ---------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash, UI layout state                                                          |
 | Session    | In-memory (`:memory:`)   | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
 
 The config directory is created automatically on first run.
@@ -375,18 +375,18 @@ interface Tab {
 
 Each pane (`ContentPane`, `BottomPanel`) owns an independent `useTabs` instance:
 
-| Method           | Description                                                    |
-| ---------------- | -------------------------------------------------------------- |
-| `createTab`      | Create a tab (terminal or editor) and activate it              |
-| `closeTab`       | Close a tab; activate the previous tab (or the next, or null)  |
-| `activateTab`    | Set a tab as active                                            |
-| `updateTabTitle` | Update a tab's display title                                   |
-| `updateTabCwd`   | Update a terminal tab's working directory (from OSC 7 parsing) |
-| `reorderTabs`    | Move a tab from one index to another (used by DnD)             |
-| `closeTabsRight`   | Close all tabs to the right of a given tab                     |
-| `closeOtherTabs`   | Close all tabs except the given one                            |
-| `switchWorkspace`  | Set the active workspace; auto-initializes empty state for new workspaces |
-| `loadTabs`         | Load tab state from server data for a given workspace          |
+| Method            | Description                                                               |
+| ----------------- | ------------------------------------------------------------------------- |
+| `createTab`       | Create a tab (terminal or editor) and activate it                         |
+| `closeTab`        | Close a tab; activate the previous tab (or the next, or null)             |
+| `activateTab`     | Set a tab as active                                                       |
+| `updateTabTitle`  | Update a tab's display title                                              |
+| `updateTabCwd`    | Update a terminal tab's working directory (from OSC 7 parsing)            |
+| `reorderTabs`     | Move a tab from one index to another (used by DnD)                        |
+| `closeTabsRight`  | Close all tabs to the right of a given tab                                |
+| `closeOtherTabs`  | Close all tabs except the given one                                       |
+| `switchWorkspace` | Set the active workspace; auto-initializes empty state for new workspaces |
+| `loadTabs`        | Load tab state from server data for a given workspace                     |
 
 `useTabs` stores per-workspace state in a `Map` keyed by `workspaceId`. When `switchWorkspace` is called, the hook swaps to that workspace's tab set, creating an empty entry if none exists. All new tabs are auto-assigned the current `workspaceId`.
 

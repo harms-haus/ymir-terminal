@@ -62,7 +62,7 @@ const mockUseTabs = mock(() => ({
   setDisplayTitle: mock(() => {}),
   switchWorkspace: mock(() => {}),
   loadTabs: mock(() => {}),
-}))
+}));
 
 const mockUseCreateWorkspace = mock(() => ({
   mutateAsync: mock(() =>
@@ -138,7 +138,7 @@ const mockSendRequest = mock((method: string) => {
 
 mock.module('../lib/send-request', () => ({
   sendRequest: mockSendRequest,
-}))
+}));
 
 mock.module('../lib/ws-client', () => ({
   wsClient: {
@@ -209,7 +209,11 @@ mock.module('@dnd-kit/react', () => ({
 
 mock.module('./RightSidebar', () => ({
   RightSidebar: ({ workspaceId }: { workspaceId?: string | null }) =>
-    React.createElement('div', { 'data-testid': 'right-sidebar' }, `RightSidebar: ${workspaceId ?? 'none'}`),
+    React.createElement(
+      'div',
+      { 'data-testid': 'right-sidebar' },
+      `RightSidebar: ${workspaceId ?? 'none'}`,
+    ),
 }));
 
 // Mock codemirror language modules (transitively imported by ContentPane → EditorPane → CodeEditor)

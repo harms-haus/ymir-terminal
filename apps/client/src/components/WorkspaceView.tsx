@@ -106,7 +106,10 @@ function WorkspaceViewInner() {
   // Terminal lifecycle callbacks
   const handleTerminalRegistered = useCallback(
     (terminalId: string, tabId: string, pane: 'content' | 'bottom', workspaceId: string) => {
-      setTerminalRegistry((prev) => [...prev, { terminalId, tabId, owningPane: pane, workspaceId }]);
+      setTerminalRegistry((prev) => [
+        ...prev,
+        { terminalId, tabId, owningPane: pane, workspaceId },
+      ]);
     },
     [],
   );

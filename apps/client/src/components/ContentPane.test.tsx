@@ -801,9 +801,7 @@ describe('ContentPane', () => {
     ];
     mockActiveTabIdState = 'mock-tab-id';
 
-    rerender(
-      React.createElement(ContentPane, { workspaceId: 'ws-1' }),
-    );
+    rerender(React.createElement(ContentPane, { workspaceId: 'ws-1' }));
 
     // Tab should be visible (testid = 'tab-' + tab.id)
     expect(getByTestId('tab-mock-tab-id')).toBeTruthy();
@@ -811,9 +809,7 @@ describe('ContentPane', () => {
     // Switch to ws-2 — simulate the real hook behavior (empty tabs for new workspace)
     mockTabsState = [];
     mockActiveTabIdState = null;
-    rerender(
-      React.createElement(ContentPane, { workspaceId: 'ws-2' }),
-    );
+    rerender(React.createElement(ContentPane, { workspaceId: 'ws-2' }));
 
     // Should show "No tabs open" — workspace ws-2 has no tabs
     expect(container.textContent).toContain('No tabs open');
@@ -824,9 +820,7 @@ describe('ContentPane', () => {
       { id: 'mock-tab-id', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
     ];
     mockActiveTabIdState = 'mock-tab-id';
-    rerender(
-      React.createElement(ContentPane, { workspaceId: 'ws-1' }),
-    );
+    rerender(React.createElement(ContentPane, { workspaceId: 'ws-1' }));
 
     // Tab should be restored
     expect(getByTestId('tab-mock-tab-id')).toBeTruthy();
@@ -837,9 +831,7 @@ describe('ContentPane', () => {
   // -----------------------------------------------------------------------
   test('editor tab workspace scoping: editor tab hidden when switching workspace', async () => {
     // Start with ws-1 with an editor tab
-    mockTabsState = [
-      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
-    ];
+    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
     mockActiveTabIdState = 'tab-1';
     mockSendRequestResponse = { content: 'const x = 1;', language: 'typescript' };
 
@@ -852,21 +844,15 @@ describe('ContentPane', () => {
     // Switch to ws-2 — no tabs (simulates workspace isolation)
     mockTabsState = [];
     mockActiveTabIdState = null;
-    rerender(
-      React.createElement(ContentPane, { workspaceId: 'ws-2' }),
-    );
+    rerender(React.createElement(ContentPane, { workspaceId: 'ws-2' }));
 
     // CodeEditor should not be visible in ws-2
     expect(queryByTestId('code-editor')).toBeNull();
 
     // Switch back to ws-1
-    mockTabsState = [
-      { id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
-    ];
+    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
     mockActiveTabIdState = 'tab-1';
-    rerender(
-      React.createElement(ContentPane, { workspaceId: 'ws-1' }),
-    );
+    rerender(React.createElement(ContentPane, { workspaceId: 'ws-1' }));
 
     await flush();
 
