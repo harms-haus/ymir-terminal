@@ -138,12 +138,7 @@ export function LoginPage() {
   );
 
   return (
-    <>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  [data-testid="login-page"] span[style*="animation: spin"] { animation: none !important; }
-}`}</style>
-      <div data-testid="login-page" style={styles.container}>
+    <div data-testid="login-page" style={styles.container}>
         <div style={styles.card}>
           <h1 style={styles.title}>Ymir Terminal</h1>
           <p style={styles.subtitle}>Enter your password to connect</p>
@@ -186,6 +181,5 @@ export function LoginPage() {
           </form>
         </div>
       </div>
-    </>
   );
 }

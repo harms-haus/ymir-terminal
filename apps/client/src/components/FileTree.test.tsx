@@ -215,7 +215,7 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(singleFileTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/a.txt');
-    const circle = node.querySelector('[aria-label^="Git status:"]');
+    const circle = node.querySelector('[data-testid="git-status-dot"]');
     expect(circle).toBeTruthy();
     expect((circle as HTMLElement).style.backgroundColor).toContain('#e2c08d');
   });
@@ -236,7 +236,7 @@ describe('FileTree', () => {
     const node = getByTestId('tree-node-/root/gone.ts');
 
     // Red circle
-    const circle = node.querySelector('[aria-label^="Git status:"]');
+    const circle = node.querySelector('[data-testid="git-status-dot"]');
     expect(circle).toBeTruthy();
     expect((circle as HTMLElement).style.backgroundColor).toContain('#c74e39');
 
@@ -270,7 +270,7 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(dirTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/src');
-    const circle = node.querySelector('[aria-label="Contains uncommitted changes"]');
+    const circle = node.querySelector('[data-testid="dir-status-dot"]');
     expect(circle).toBeTruthy();
     expect((circle as HTMLElement).style.backgroundColor).toContain('#e2c08d');
   });
@@ -281,10 +281,8 @@ describe('FileTree', () => {
   test('no git status renders no status circles', () => {
     const { container } = renderFileTree();
 
-    expect(container.querySelectorAll('[aria-label^="Git status:"]').length).toBe(0);
-    expect(container.querySelectorAll('[aria-label="Contains uncommitted changes"]').length).toBe(
-      0,
-    );
+    expect(container.querySelectorAll('[data-testid="git-status-dot"]').length).toBe(0);
+    expect(container.querySelectorAll('[data-testid="dir-status-dot"]').length).toBe(0);
   });
 
   // -----------------------------------------------------------------------
@@ -301,7 +299,7 @@ describe('FileTree', () => {
     const { getByTestId } = renderFileTreeWithGitStatus(singleFileTree, gitStatus, '/root');
 
     const node = getByTestId('tree-node-/root/new.txt');
-    const circle = node.querySelector('[aria-label^="Git status:"]');
+    const circle = node.querySelector('[data-testid="git-status-dot"]');
     expect(circle).toBeTruthy();
     expect((circle as HTMLElement).style.backgroundColor).toContain('#888');
   });

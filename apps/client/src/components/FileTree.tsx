@@ -175,6 +175,7 @@ function FileTreeNode({
           </span>
           {gitEntry && !node.isDirectory && (
             <span
+              data-testid="git-status-dot"
               title={statusLabel}
               aria-label={`Git status: ${statusLabel}`}
               style={{
@@ -189,6 +190,7 @@ function FileTreeNode({
           )}
           {dirStatus && (
             <span
+              data-testid="dir-status-dot"
               aria-label="Contains uncommitted changes"
               title="Contains uncommitted changes"
               style={{

@@ -125,44 +125,36 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
 
   if (!isActive) {
     return (
-      <>
-        <style>{`
-          [data-testid="command-bar-trigger"]:focus-visible {
-            outline: 1px solid var(--accent, #007acc);
-            outline-offset: -1px;
+      <div
+        ref={triggerRef}
+        role="button"
+        tabIndex={0}
+        data-testid="command-bar-trigger"
+        onClick={() => setIsActive(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsActive(true);
           }
-        `}</style>
-        <div
-          ref={triggerRef}
-          role="button"
-          tabIndex={0}
-          data-testid="command-bar-trigger"
-          onClick={() => setIsActive(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setIsActive(true);
-            }
-          }}
-          style={{
-            width: '33vw',
-            maxWidth: '500px',
-            height: '28px',
-            borderRadius: '4px',
-            background: COLOR_COMMANDBAR_BG,
-            border: `1px solid ${COLOR_COMMANDBAR_BORDER}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            userSelect: 'none',
-          }}
-        >
-          <span style={{ color: COLOR_TEXT_DIM, fontSize: '12px' }}>
-            {workspaceName ?? 'No workspace'}
-          </span>
-        </div>
-      </>
+        }}
+        style={{
+          width: '33vw',
+          maxWidth: '500px',
+          height: '28px',
+          borderRadius: '4px',
+          background: COLOR_COMMANDBAR_BG,
+          border: `1px solid ${COLOR_COMMANDBAR_BORDER}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ color: COLOR_TEXT_DIM, fontSize: '12px' }}>
+          {workspaceName ?? 'No workspace'}
+        </span>
+      </div>
     );
   }
 
@@ -180,12 +172,6 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
         position: 'relative',
       }}
     >
-      <style>{`
-        [data-testid="command-bar-input"]:focus-visible {
-          outline: 1px solid var(--accent, #007acc);
-          outline-offset: -1px;
-        }
-      `}</style>
       <input
         ref={inputRef}
         data-testid="command-bar-input"
