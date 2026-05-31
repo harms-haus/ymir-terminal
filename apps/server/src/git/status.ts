@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { GitFileChange, GitStatusResponse } from '@ymir/shared';
+import type { GitFileChange, GitFileChangeStatus, GitStatusResponse } from '@ymir/shared';
 
 export function isGitRepo(dirPath: string): boolean {
   try {
@@ -62,11 +62,11 @@ export async function getGitStatus(dirPath: string): Promise<GitStatusResponse |
     }
 
     if (stagedStatus !== ' ') {
-      staged.push({ path: filePath, status: stagedStatus });
+      staged.push({ path: filePath, status: stagedStatus as GitFileChangeStatus });
     }
 
     if (unstagedStatus !== ' ') {
-      changes.push({ path: filePath, status: unstagedStatus });
+      changes.push({ path: filePath, status: unstagedStatus as GitFileChangeStatus });
     }
   }
 
