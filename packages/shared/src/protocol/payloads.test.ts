@@ -47,6 +47,7 @@ import {
   type GitCheckoutRequest,
   type GitPushRequest,
   type GitFetchRequest,
+  type GitDiffDataRequest,
   // Config
   type ConfigGetRequest,
   type ConfigGetResponse,
@@ -98,6 +99,7 @@ describe('REQUEST_TYPES', () => {
     'git.checkout',
     'git.push',
     'git.fetch',
+    'git.diffData',
     'config.get',
     'config.set',
     'tab.list',
@@ -111,8 +113,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 33 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(33);
+  it('has exactly 34 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(34);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -581,6 +583,7 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', repoPath: '.', branch: 'main' } satisfies GitCheckoutRequest,
       { workspaceId: 'ws-1', repoPath: '.', branch: 'main' } satisfies GitPushRequest,
       { workspaceId: 'ws-1', repoPath: '.' } satisfies GitFetchRequest,
+      { workspaceId: 'ws-1', repoPath: '.', filePath: 'a.ts', staged: false } satisfies GitDiffDataRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
       { workspaceId: 'ws-1' } satisfies TabListRequest,
@@ -600,7 +603,7 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 32 payload types (workspace.list carries no body and has no
+    // 33 payload types (workspace.list carries no body and has no
     // corresponding type in the RequestPayload union)
     expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });
