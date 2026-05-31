@@ -188,18 +188,29 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
             />
           </div>
         )}
-        {activeTab?.type === 'diff' && activeTab.filePath && workspaceId && activeTab.diffRepoPath && (
-          <div style={{ position: 'absolute', inset: 0, background: COLOR_BG_PRIMARY, display: 'flex', flexDirection: 'column' }}>
-            <DiffViewer
-              key={`${activeTab.filePath}-${activeTab.diffRef}`}
-              workspaceId={workspaceId}
-              repoPath={activeTab.diffRepoPath}
-              filePath={activeTab.filePath}
-              staged={activeTab.diffRef === 'staged'}
-              onOpenEditor={handleAddEditor}
-            />
-          </div>
-        )}
+        {activeTab?.type === 'diff' &&
+          activeTab.filePath &&
+          workspaceId &&
+          activeTab.diffRepoPath && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: COLOR_BG_PRIMARY,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <DiffViewer
+                key={`${activeTab.filePath}-${activeTab.diffRef}`}
+                workspaceId={workspaceId}
+                repoPath={activeTab.diffRepoPath}
+                filePath={activeTab.filePath}
+                staged={activeTab.diffRef === 'staged'}
+                onOpenEditor={handleAddEditor}
+              />
+            </div>
+          )}
         {!activeTab && (
           <div
             style={{

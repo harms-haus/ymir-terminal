@@ -26,7 +26,12 @@ interface RightSidebarProps {
   onOpenDiff?: (filePath: string, repoPath: string, staged: boolean) => void;
 }
 
-export function RightSidebar({ workspaceId, onFileSelect, workspaceCwd, onOpenDiff }: RightSidebarProps) {
+export function RightSidebar({
+  workspaceId,
+  onFileSelect,
+  workspaceCwd,
+  onOpenDiff,
+}: RightSidebarProps) {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

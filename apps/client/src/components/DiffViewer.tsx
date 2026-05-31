@@ -139,8 +139,7 @@ export function DiffViewer({
         gutter: true,
         syntaxHighlightDeletions: true,
         mergeControls: false,
-        collapseUnchanged:
-          mode === 'changes' ? { margin: 3, minSize: 4 } : undefined,
+        collapseUnchanged: mode === 'changes' ? { margin: 3, minSize: 4 } : undefined,
       }),
     );
     return exts;
@@ -177,8 +176,7 @@ export function DiffViewer({
         }}
       >
         <span style={{ color: COLOR_ERROR }}>
-          Failed to load diff:{' '}
-          <span style={{ color: COLOR_ERROR_DETAIL }}>{diffError}</span>
+          Failed to load diff: <span style={{ color: COLOR_ERROR_DETAIL }}>{diffError}</span>
         </span>
         <button
           onClick={() => setFetchRetry((r) => r + 1)}

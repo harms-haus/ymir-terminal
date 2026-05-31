@@ -73,8 +73,7 @@ export function DiffViewerHeader({
           {fileName}
         </span>
         <span style={{ fontSize: 12, fontFamily: 'monospace' }}>
-          <span style={{ color: COLOR_DIFF_ADDITIONS }}>+{additions}</span>
-          {' '}
+          <span style={{ color: COLOR_DIFF_ADDITIONS }}>+{additions}</span>{' '}
           <span style={{ color: COLOR_DIFF_DELETIONS }}>-{deletions}</span>
         </span>
       </div>

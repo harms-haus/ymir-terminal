@@ -31,7 +31,11 @@ function WorkspaceViewInner() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [fileToOpen, setFileToOpen] = useState<string | null>(null);
-  const [fileToDiff, setFileToDiff] = useState<{ filePath: string; repoPath: string; staged: boolean } | null>(null);
+  const [fileToDiff, setFileToDiff] = useState<{
+    filePath: string;
+    repoPath: string;
+    staged: boolean;
+  } | null>(null);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
   const updateWorkspace = useUpdateWorkspace();

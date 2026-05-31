@@ -81,7 +81,11 @@ export interface GitDeps {
     checkoutBranch?: (dirPath: string, name: string) => Promise<void>;
     pushBranch?: (dirPath: string, branch: string) => Promise<void>;
     fetchRemote?: (dirPath: string) => Promise<void>;
-    getDiffData?: (repoDir: string, filePath: string, staged: boolean) => Promise<{
+    getDiffData?: (
+      repoDir: string,
+      filePath: string,
+      staged: boolean,
+    ) => Promise<{
       originalContent: string;
       modifiedContent: string;
       additions: number;
@@ -609,6 +613,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
 
     const absRepoPath = join(workspace.cwd, payload.repoPath);
     const result = await doGetDiffData(absRepoPath, payload.filePath, payload.staged);
-    conn.send(createResponse(req, { ...result, filePath: payload.filePath } satisfies GitDiffDataResponse));
+    conn.send(
+      createResponse(req, { ...result, filePath: payload.filePath } satisfies GitDiffDataResponse),
+    );
   });
 }
