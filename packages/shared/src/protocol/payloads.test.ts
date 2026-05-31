@@ -583,7 +583,12 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', repoPath: '.', branch: 'main' } satisfies GitCheckoutRequest,
       { workspaceId: 'ws-1', repoPath: '.', branch: 'main' } satisfies GitPushRequest,
       { workspaceId: 'ws-1', repoPath: '.' } satisfies GitFetchRequest,
-      { workspaceId: 'ws-1', repoPath: '.', filePath: 'a.ts', staged: false } satisfies GitDiffDataRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        filePath: 'a.ts',
+        staged: false,
+      } satisfies GitDiffDataRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
       { workspaceId: 'ws-1' } satisfies TabListRequest,
