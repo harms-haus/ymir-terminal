@@ -38,6 +38,15 @@ import {
   type GitStatusRequest,
   type GitStatusResponse,
   type GitLogRequest,
+  type GitRepoDiscoveryRequest,
+  type GitStageRequest,
+  type GitUnstageRequest,
+  type GitDiscardRequest,
+  type GitCommitRequest,
+  type GitBranchesRequest,
+  type GitCheckoutRequest,
+  type GitPushRequest,
+  type GitFetchRequest,
   // Config
   type ConfigGetRequest,
   type ConfigGetResponse,
@@ -80,6 +89,15 @@ describe('REQUEST_TYPES', () => {
     'file.create',
     'git.status',
     'git.log',
+    'git.repoDiscovery',
+    'git.stage',
+    'git.unstage',
+    'git.discard',
+    'git.commit',
+    'git.branches',
+    'git.checkout',
+    'git.push',
+    'git.fetch',
     'config.get',
     'config.set',
     'tab.list',
@@ -93,8 +111,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 24 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(24);
+  it('has exactly 33 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(33);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -506,6 +524,9 @@ describe('GitStatusResponse', () => {
         { path: '/src/new.ts', status: 'added' },
       ],
       staged: [{ path: '/README.md', status: 'modified' }],
+      hasRemote: true,
+      ahead: 2,
+      behind: 0,
     };
     const parsed: GitStatusResponse = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
@@ -551,6 +572,15 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', path: '/a', isDirectory: false } satisfies FileCreateRequest,
       { workspaceId: 'ws-1' } satisfies GitStatusRequest,
       { workspaceId: 'ws-1', skip: 0, limit: 50 } satisfies GitLogRequest,
+      { workspaceId: 'ws-1' } satisfies GitRepoDiscoveryRequest,
+      { workspaceId: 'ws-1', repoPath: '.', files: ['a.ts'] } satisfies GitStageRequest,
+      { workspaceId: 'ws-1', repoPath: '.', files: ['a.ts'] } satisfies GitUnstageRequest,
+      { workspaceId: 'ws-1', repoPath: '.', files: ['a.ts'] } satisfies GitDiscardRequest,
+      { workspaceId: 'ws-1', repoPath: '.', message: 'fix' } satisfies GitCommitRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitBranchesRequest,
+      { workspaceId: 'ws-1', repoPath: '.', branch: 'main' } satisfies GitCheckoutRequest,
+      { workspaceId: 'ws-1', repoPath: '.', branch: 'main' } satisfies GitPushRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitFetchRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
       { workspaceId: 'ws-1' } satisfies TabListRequest,
@@ -570,7 +600,7 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 23 payload types (workspace.list carries no body and has no
+    // 32 payload types (workspace.list carries no body and has no
     // corresponding type in the RequestPayload union)
     expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });

@@ -132,6 +132,50 @@ export const GIT_GRAPH_COLORS = [
   '#b5cea8',
 ] as const;
 
+// ── Git panel UI ────────────────────────────────────────────────────────────
+
+/** Git panel repo header background */
+export const COLOR_GIT_REPO_HEADER_BG = 'rgba(255,255,255,0.04)';
+
+/** Git panel commit button background */
+export const COLOR_GIT_COMMIT_BG = 'rgba(46,160,67,0.5)';
+
+/** Git panel commit button border */
+export const COLOR_GIT_COMMIT_BORDER = '#2ea043';
+
+/** Git panel commit button text */
+export const COLOR_GIT_COMMIT_TEXT = '#e6edf3';
+
+/** Git panel commit button disabled text */
+export const COLOR_GIT_COMMIT_DISABLED = '#484f58';
+
+/** Git panel commit button hover background */
+export const COLOR_GIT_COMMIT_HOVER_BG = 'rgba(46,160,67,0.6)';
+
+/** Git panel branch button background */
+export const COLOR_GIT_BRANCH_BG = 'rgba(255,255,255,0.06)';
+
+/** Git panel branch button border */
+export const COLOR_GIT_BRANCH_BORDER = '#444';
+
+/** Git panel branch button hover background */
+export const COLOR_GIT_BRANCH_HOVER = 'rgba(255,255,255,0.08)';
+
+/** Git panel action button background */
+export const COLOR_GIT_ACTION_BG = 'rgba(255,255,255,0.06)';
+
+/** Git panel action button hover background */
+export const COLOR_GIT_ACTION_HOVER = 'rgba(255,255,255,0.1)';
+
+/** Git panel section header text */
+export const COLOR_GIT_SECTION_HEADER = '#888';
+
+/** Git panel badge background */
+export const COLOR_GIT_BADGE_BG = 'rgba(255,255,255,0.1)';
+
+/** Git panel badge text */
+export const COLOR_GIT_BADGE_TEXT = '#aaa';
+
 // ── Misc ────────────────────────────────────────────────────────────────────
 
 /** Context-menu active colour swatch border */

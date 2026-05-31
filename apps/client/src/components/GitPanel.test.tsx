@@ -1,34 +1,104 @@
 /// <reference lib="dom" />
-import { setupTestDom } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
 await setupTestDom();
+setupAllMocks();
 
-import { describe, test, expect, afterEach } from 'bun:test';
-import { render, cleanup } from '@testing-library/react';
+import { describe, test, expect, afterEach, afterAll, mock, spyOn } from 'bun:test';
+import { render, cleanup, waitFor, act } from '@testing-library/react';
 import React from 'react';
-import { GitPanel } from './GitPanel';
 
-import type { GitStatusResponse } from '@ymir/shared';
+// ---------------------------------------------------------------------------
+// Mock send-request — the GitPanel's hook (useGitRepos) uses it for all
+// communication with the backend.
+// ---------------------------------------------------------------------------
+
+mock.module('../lib/send-request', () => ({
+  sendRequest: mock(() => Promise.resolve({})),
+}));
+
+const sendRequestModule = await import('../lib/send-request');
+const sendRequestSpy = spyOn(sendRequestModule, 'sendRequest');
+
+// ---------------------------------------------------------------------------
+// Mock sonner — GitRepoHeader uses toast.info for unimplemented features
+// ---------------------------------------------------------------------------
+
+mock.module('sonner', () => ({
+  toast: {
+    info: mock(() => {}),
+    error: mock(() => {}),
+    success: mock(() => {}),
+  },
+}));
+
+// ---------------------------------------------------------------------------
+// Import component under test
+// ---------------------------------------------------------------------------
+
+const { GitPanel } = await import('./GitPanel');
+
+// ---------------------------------------------------------------------------
+// Mock data
+// ---------------------------------------------------------------------------
+
+const mockRepoInfo = {
+  path: '.',
+  name: 'project',
+  branch: 'main',
+  hasRemote: true,
+  ahead: 0,
+  behind: 0,
+};
+
+const mockStatus = {
+  branch: 'main',
+  changes: [
+    { path: 'src/new.ts', status: '??' },
+    { path: 'README.md', status: 'M' },
+  ],
+  staged: [{ path: 'src/app.ts', status: 'A' }],
+  hasRemote: true,
+  ahead: 0,
+  behind: 0,
+  repoPath: '.',
+};
+
+const mockBranches = {
+  branches: [
+    { name: 'main', isCurrent: true, isRemote: false },
+    { name: 'develop', isCurrent: false, isRemote: false },
+  ],
+  current: 'main',
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderGitPanel(gitStatus: GitStatusResponse | null) {
-  return render(React.createElement(GitPanel, { gitStatus }));
+function setupMockResponses(responses: Record<string, any>) {
+  sendRequestSpy.mockImplementation((channel: string) => {
+    if (responses[channel]) return Promise.resolve(responses[channel]);
+    return Promise.resolve({});
+  });
 }
 
-const sampleStatus: GitStatusResponse = {
-  branch: 'main',
-  changes: [
-    { path: 'src/index.ts', status: 'M' },
-    { path: 'README.md', status: 'A' },
-    { path: 'old-file.ts', status: 'D' },
-  ],
-  staged: [
-    { path: 'src/app.ts', status: 'A' },
-    { path: 'src/util.ts', status: 'M' },
-  ],
-};
+function renderGitPanel(props = {}) {
+  return render(
+    React.createElement(GitPanel, {
+      workspaceId: 'ws-1',
+      workspaceCwd: '/project',
+      ...props,
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup
+// ---------------------------------------------------------------------------
+
+afterAll(() => {
+  mock.restore();
+});
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -37,164 +107,204 @@ const sampleStatus: GitStatusResponse = {
 describe('GitPanel', () => {
   afterEach(() => {
     cleanup();
+    sendRequestSpy.mockRestore();
   });
 
   // -----------------------------------------------------------------------
-  // 1. GitPanel renders with branch name and file changes
+  // 1. Renders git panel with repo info when repos discovered
   // -----------------------------------------------------------------------
-  test('renders with branch name and file changes', () => {
-    const { getByTestId, getByText } = renderGitPanel(sampleStatus);
+  test('renders git panel with repo info when repos discovered', async () => {
+    setupMockResponses({
+      'git.repoDiscovery': { repos: [mockRepoInfo] },
+      'git.status': mockStatus,
+      'git.branches': mockBranches,
+    });
 
-    expect(getByTestId('git-panel')).toBeTruthy();
-    expect(getByTestId('git-branch')).toBeTruthy();
-    expect(getByText('main')).toBeTruthy();
-    expect(getByText('src/index.ts')).toBeTruthy();
+    const { getByTestId, getByText } = renderGitPanel();
+
+    await waitFor(() => {
+      expect(getByTestId('git-panel')).toBeTruthy();
+    });
+
+    // Repo header shows the repo name
+    expect(getByTestId('git-repo-header')).toBeTruthy();
+    expect(getByText('project')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
-  // 2. Shows current branch name
+  // 2. Shows 'Not a git repository' when no repos
   // -----------------------------------------------------------------------
-  test('shows current branch name', () => {
-    const { getByTestId } = renderGitPanel({ ...sampleStatus, branch: 'feature/login' });
+  test('shows not a git repository when no repos', async () => {
+    setupMockResponses({
+      'git.repoDiscovery': { repos: [] },
+    });
 
-    expect(getByTestId('git-branch').textContent).toBe('feature/login');
+    const { getByText } = renderGitPanel();
+
+    await waitFor(() => {
+      expect(getByText('Not a git repository')).toBeTruthy();
+    });
   });
 
   // -----------------------------------------------------------------------
-  // 3. Shows modified files with status indicators (M, A, D, etc.)
+  // 3. Shows 'No workspace selected' when workspaceId is null
   // -----------------------------------------------------------------------
-  test('shows modified files with status indicators', () => {
-    const { getByTestId } = renderGitPanel(sampleStatus);
+  test('shows no workspace selected when workspaceId is null', () => {
+    setupMockResponses({});
 
-    const changes = getByTestId('git-changes');
-    expect(changes).toBeTruthy();
+    const { getByText } = renderGitPanel({ workspaceId: null });
 
-    // Scope queries to the changes section to avoid matching staged items
-    const statusSpans = changes.querySelectorAll('div > span:first-child');
-    const statusTexts = Array.from(statusSpans).map((el) => el.textContent);
-    expect(statusTexts).toContain('M');
-    expect(statusTexts).toContain('A');
-    expect(statusTexts).toContain('D');
-
-    // Verify file paths are rendered within changes
-    expect(changes.textContent).toContain('src/index.ts');
-    expect(changes.textContent).toContain('README.md');
-    expect(changes.textContent).toContain('old-file.ts');
+    expect(getByText('No workspace selected')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
-  // 3b. Status indicators have correct colors
+  // 4. Shows loading state while discovering
   // -----------------------------------------------------------------------
-  test('status indicators have correct colors', () => {
-    const { getByTestId } = renderGitPanel(sampleStatus);
+  test('shows loading state while discovering', async () => {
+    // Return a promise that never resolves so loading stays true
+    let resolveDiscovery: (v: any) => void;
+    const pendingDiscovery = new Promise((resolve) => {
+      resolveDiscovery = resolve;
+    });
 
-    const changes = getByTestId('git-changes');
-    const rows = changes.querySelectorAll('div[style*="display: flex"]');
+    sendRequestSpy.mockImplementation(() => pendingDiscovery);
 
-    // First row: src/index.ts with M status
-    const modifiedStatus = rows[0]?.querySelector('span');
-    expect(modifiedStatus?.textContent).toBe('M');
-    expect(modifiedStatus?.style.color).toBe('#e2c08d');
+    const { getByText } = renderGitPanel();
 
-    // Second row: README.md with A status
-    const addedStatus = rows[1]?.querySelector('span');
-    expect(addedStatus?.textContent).toBe('A');
-    expect(addedStatus?.style.color).toBe('#73c991');
+    await waitFor(() => {
+      expect(getByText('Loading...')).toBeTruthy();
+    });
 
-    // Third row: old-file.ts with D status
-    const deletedStatus = rows[2]?.querySelector('span');
-    expect(deletedStatus?.textContent).toBe('D');
-    expect(deletedStatus?.style.color).toBe('#c74e39');
+    // Resolve so the component can unmount cleanly
+    resolveDiscovery!({ repos: [] });
   });
 
   // -----------------------------------------------------------------------
-  // 4. Shows staged files separately
+  // 5. Renders commit input with data-testid git-commit-input
   // -----------------------------------------------------------------------
-  test('shows staged files separately from changes', () => {
-    const { getByTestId, getByText } = renderGitPanel(sampleStatus);
+  test('renders commit input with data-testid git-commit-input', async () => {
+    setupMockResponses({
+      'git.repoDiscovery': { repos: [mockRepoInfo] },
+      'git.status': mockStatus,
+      'git.branches': mockBranches,
+    });
 
-    const staged = getByTestId('git-staged');
-    expect(staged).toBeTruthy();
+    const { getByTestId } = renderGitPanel();
 
-    // Staged section header
-    expect(getByText('Staged Changes')).toBeTruthy();
-
-    // Staged files
-    expect(getByText('src/app.ts')).toBeTruthy();
-    expect(getByText('src/util.ts')).toBeTruthy();
+    await waitFor(() => {
+      expect(getByTestId('git-commit-input')).toBeTruthy();
+    });
   });
 
   // -----------------------------------------------------------------------
-  // 5. Empty state when no changes
+  // 6. Renders staged and unstaged sections
   // -----------------------------------------------------------------------
-  test('shows empty state when no changes', () => {
-    const emptyStatus: GitStatusResponse = {
+  test('renders staged and unstaged sections', async () => {
+    setupMockResponses({
+      'git.repoDiscovery': { repos: [mockRepoInfo] },
+      'git.status': mockStatus,
+      'git.branches': mockBranches,
+    });
+
+    const { getByTestId } = renderGitPanel();
+
+    await waitFor(() => {
+      expect(getByTestId('git-staged-section')).toBeTruthy();
+      expect(getByTestId('git-unstaged-section')).toBeTruthy();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 7. Displays file changes in the tree
+  // -----------------------------------------------------------------------
+  test('displays file changes in the tree', async () => {
+    setupMockResponses({
+      'git.repoDiscovery': { repos: [mockRepoInfo] },
+      'git.status': mockStatus,
+      'git.branches': mockBranches,
+    });
+
+    const { getByTestId, getByText } = renderGitPanel();
+
+    await waitFor(() => {
+      // Both staged (src/app.ts) and unstaged (src/new.ts) create a src dir
+      // so there are two change-dir-src elements — use getByTestId for file nodes
+      expect(getByTestId('change-file-src/new.ts')).toBeTruthy();
+      expect(getByTestId('change-file-README.md')).toBeTruthy();
+      expect(getByTestId('change-file-src/app.ts')).toBeTruthy();
+    });
+
+    // Verify the file name labels are rendered (basenames)
+    expect(getByText('new.ts')).toBeTruthy();
+    expect(getByText('app.ts')).toBeTruthy();
+    expect(getByText('README.md')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 8. Multi-repo scenario shows multiple repo headers
+  // -----------------------------------------------------------------------
+  test('multi-repo scenario shows multiple repo headers', async () => {
+    const repo1 = {
+      path: 'frontend',
+      name: 'frontend',
       branch: 'main',
-      changes: [],
-      staged: [],
+      hasRemote: true,
+      ahead: 0,
+      behind: 0,
     };
-
-    const { getByText, queryByTestId } = renderGitPanel(emptyStatus);
-
-    expect(getByText('No changes')).toBeTruthy();
-    expect(queryByTestId('git-changes')).toBeNull();
-    expect(queryByTestId('git-staged')).toBeNull();
-  });
-
-  // -----------------------------------------------------------------------
-  // 6. Shows "Not a git repository" when gitStatus is null
-  // -----------------------------------------------------------------------
-  test('shows not a git repository when gitStatus is null', () => {
-    const { getByText } = renderGitPanel(null);
-
-    expect(getByText('Not a git repository')).toBeTruthy();
-  });
-
-  // -----------------------------------------------------------------------
-  // 7. Shows only changes when no staged files
-  // -----------------------------------------------------------------------
-  test('shows only changes section when no staged files', () => {
-    const noStaged: GitStatusResponse = {
+    const repo2 = {
+      path: 'backend',
+      name: 'backend',
       branch: 'develop',
-      changes: [{ path: 'file.ts', status: 'M' }],
-      staged: [],
+      hasRemote: false,
+      ahead: 1,
+      behind: 2,
     };
 
-    const { getByTestId, queryByTestId } = renderGitPanel(noStaged);
+    setupMockResponses({
+      'git.repoDiscovery': { repos: [repo1, repo2] },
+      'git.status': mockStatus,
+      'git.branches': mockBranches,
+    });
 
-    expect(getByTestId('git-changes')).toBeTruthy();
-    expect(queryByTestId('git-staged')).toBeNull();
+    const { getAllByTestId, getByText } = renderGitPanel();
+
+    await waitFor(() => {
+      const headers = getAllByTestId('git-repo-header');
+      expect(headers.length).toBe(2);
+    });
+
+    expect(getByText('frontend')).toBeTruthy();
+    expect(getByText('backend')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
-  // 8. Shows only staged when no unstaged changes
+  // 9. Error display when request fails
   // -----------------------------------------------------------------------
-  test('shows only staged section when no unstaged changes', () => {
-    const noChanges: GitStatusResponse = {
-      branch: 'develop',
-      changes: [],
-      staged: [{ path: 'file.ts', status: 'A' }],
-    };
+  test('error display when request fails', async () => {
+    sendRequestSpy.mockImplementation(() => {
+      throw new Error('Network failure');
+    });
 
-    const { getByTestId, queryByTestId } = renderGitPanel(noChanges);
+    // Even on error, the component renders the panel with the error message.
+    // The hook catches the error and sets git.error.
+    // But sendRequest throwing means the discovery promise rejects.
+    // The hook catches it with setError. However the repos array stays empty,
+    // so it will show "Not a git repository" unless repos were already loaded.
+    // Let's first resolve discovery with repos, then fail on status.
+    let callCount = 0;
+    sendRequestSpy.mockImplementation((channel: string) => {
+      callCount++;
+      if (channel === 'git.repoDiscovery') {
+        return Promise.resolve({ repos: [mockRepoInfo] });
+      }
+      return Promise.reject(new Error('Network failure'));
+    });
 
-    expect(queryByTestId('git-changes')).toBeNull();
-    expect(getByTestId('git-staged')).toBeTruthy();
-  });
+    const { getByText } = renderGitPanel();
 
-  // -----------------------------------------------------------------------
-  // 9. Handles untracked files with ? status
-  // -----------------------------------------------------------------------
-  test('handles untracked files with ? status', () => {
-    const withUntracked: GitStatusResponse = {
-      branch: 'main',
-      changes: [{ path: 'new-file.txt', status: '?' }],
-      staged: [],
-    };
-
-    const { getByText } = renderGitPanel(withUntracked);
-
-    expect(getByText('?')).toBeTruthy();
-    expect(getByText('new-file.txt')).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText('Network failure')).toBeTruthy();
+    });
   });
 });

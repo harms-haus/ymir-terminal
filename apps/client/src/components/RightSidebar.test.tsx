@@ -356,6 +356,8 @@ describe('RightSidebar', () => {
       changes: [],
       staged: [],
     });
+    // Mock git.repoDiscovery for GitPanel (called when toggling to git changes view)
+    sendRequestSpy.mockResolvedValueOnce({ repos: [] });
 
     const { getByTestId, queryByTestId } = renderRightSidebar('ws-1');
 

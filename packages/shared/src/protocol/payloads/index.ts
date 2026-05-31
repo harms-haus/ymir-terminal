@@ -36,7 +36,19 @@ import type {
   FileCreateRequest,
   FileChangeEvent,
 } from './file';
-import type { GitStatusRequest, GitLogRequest } from './git';
+import type {
+  GitStatusRequest,
+  GitLogRequest,
+  GitRepoDiscoveryRequest,
+  GitStageRequest,
+  GitUnstageRequest,
+  GitDiscardRequest,
+  GitCommitRequest,
+  GitBranchesRequest,
+  GitCheckoutRequest,
+  GitPushRequest,
+  GitFetchRequest,
+} from './git';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
 import type {
@@ -69,6 +81,15 @@ export const REQUEST_TYPES = [
   'file.create',
   'git.status',
   'git.log',
+  'git.repoDiscovery',
+  'git.stage',
+  'git.unstage',
+  'git.discard',
+  'git.commit',
+  'git.branches',
+  'git.checkout',
+  'git.push',
+  'git.fetch',
   'config.get',
   'config.set',
   'tab.list',
@@ -111,6 +132,15 @@ export type RequestPayload =
   | FileCreateRequest
   | GitStatusRequest
   | GitLogRequest
+  | GitRepoDiscoveryRequest
+  | GitStageRequest
+  | GitUnstageRequest
+  | GitDiscardRequest
+  | GitCommitRequest
+  | GitBranchesRequest
+  | GitCheckoutRequest
+  | GitPushRequest
+  | GitFetchRequest
   | ConfigGetRequest
   | ConfigSetRequest
   | TabListRequest

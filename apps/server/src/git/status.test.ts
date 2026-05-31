@@ -3,7 +3,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { getGitStatus, isGitRepo, getCurrentBranch } from './status';
+import { getGitStatus, isGitRepo, getCurrentBranch, hasRemote, getAheadBehind, getGitStatusEnhanced } from './status';
 import type { GitStatusResponse } from '@ymir/shared';
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });
@@ -161,6 +161,83 @@ describe('git status', () => {
         (c: { path: string; status: string }) => c.path === 'renamed.txt',
       );
       expect(staged).toBeDefined();
+    });
+  });
+
+  describe('hasRemote', () => {
+    it('returns false for a repo with no remote', async () => {
+      initRepo(testDir);
+      expect(await hasRemote(testDir)).toBe(false);
+    });
+
+    it('returns true for a repo with a remote', async () => {
+      initRepo(testDir);
+      run('git remote add origin https://example.com/repo.git', testDir);
+      expect(await hasRemote(testDir)).toBe(true);
+    });
+  });
+
+  describe('getAheadBehind', () => {
+    it('returns zeros when no upstream is set', async () => {
+      initRepo(testDir);
+      const result = await getAheadBehind(testDir);
+      expect(result).toEqual({ ahead: 0, behind: 0 });
+    });
+
+    it('returns correct counts with a tracking branch', async () => {
+      // Create a "remote" repo and a clone to simulate tracking
+      const remoteDir = join(
+        tmpdir(),
+        `ymir-git-remote-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(remoteDir, { recursive: true });
+      run('git init --bare', remoteDir);
+
+      initRepo(testDir);
+      run(`git remote add origin ${remoteDir}`, testDir);
+      run('git push -u origin HEAD', testDir);
+
+      // Create a commit on local that is ahead
+      writeFileSync(join(testDir, 'extra.txt'), 'ahead');
+      run('git add .', testDir);
+      run('git commit -m "ahead commit"', testDir);
+
+      const result = await getAheadBehind(testDir);
+      expect(result.ahead).toBe(1);
+      expect(result.behind).toBe(0);
+
+      rmSync(remoteDir, { recursive: true, force: true });
+    });
+  });
+
+  describe('getGitStatusEnhanced', () => {
+    it('returns null for a non-git directory', async () => {
+      expect(await getGitStatusEnhanced(testDir)).toBeNull();
+    });
+
+    it('returns base status fields plus hasRemote and ahead/behind', async () => {
+      initRepo(testDir);
+      writeFileSync(join(testDir, 'new.txt'), 'content');
+      const result = await getGitStatusEnhanced(testDir);
+      expect(result).not.toBeNull();
+      expect(result!.branch).toBeDefined();
+      expect(result!.changes).toBeInstanceOf(Array);
+      expect(result!.staged).toBeInstanceOf(Array);
+      expect(typeof result!.hasRemote).toBe('boolean');
+      expect(typeof result!.ahead).toBe('number');
+      expect(typeof result!.behind).toBe('number');
+      // No remote configured
+      expect(result!.hasRemote).toBe(false);
+      // No upstream set
+      expect(result!.ahead).toBe(0);
+      expect(result!.behind).toBe(0);
+    });
+
+    it('includes hasRemote=true when a remote is configured', async () => {
+      initRepo(testDir);
+      run('git remote add origin https://example.com/repo.git', testDir);
+      const result = await getGitStatusEnhanced(testDir);
+      expect(result!.hasRemote).toBe(true);
     });
   });
 });

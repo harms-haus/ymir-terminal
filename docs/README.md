@@ -136,8 +136,17 @@ interface MessageEnvelope<T = unknown> {
 | `file.delete`       | request   | Delete file or directory                                                          |
 | `file.rename`       | request   | Rename/move a file                                                                |
 | `file.change`       | event     | Filesystem change notification                                                    |
-| `git.status`        | request   | Get git status for a path                                                         |
-| `git.log`           | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`) |
+| `git.status`        | request   | Get git status for a path; optional `repoPath`, returns `hasRemote`, `ahead`, `behind` |
+| `git.log`           | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`); optional `repoPath` |
+| `git.repoDiscovery` | request   | Discover all git repositories in a workspace directory                            |
+| `git.stage`         | request   | Stage files in a git repository                                                   |
+| `git.unstage`       | request   | Unstage files in a git repository                                                 |
+| `git.discard`       | request   | Discard unstaged changes to files                                                 |
+| `git.commit`        | request   | Commit staged changes                                                             |
+| `git.branches`      | request   | List branches in a git repository                                                 |
+| `git.checkout`      | request   | Switch or create a branch                                                         |
+| `git.push`          | request   | Push branch to origin                                                             |
+| `git.fetch`         | request   | Fetch from remote                                                                 |
 | `config.get`        | request   | Get a config value from server_config table                                       |
 | `config.set`        | request   | Set a config value in server_config table                                         |
 | `tab.list`          | request   | List tabs for a workspace (with terminal liveness)                                |
@@ -181,7 +190,7 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 | `lib/`                | Shared handler validation (`handler-validation.ts`)                                       |
 | `pty/`                | PTY manager — spawn, resize, write, kill                                                  |
 | `files/`              | File scanner, CRUD operations, filesystem watcher                                         |
-| `git/`                | Git status reader (`git status --porcelain=v1`), git log reader (`git log`)               |
+| `git/`                | Git status, log, repo discovery, staging, branching, and remote operations               |
 | `ws/`                 | WebSocket server, message router, connection state                                        |
 | `ws/handlers/`        | Channel handlers (auth, terminal, files, git, tabs, ws)                                   |
 | `ws/handlers/tabs.ts` | Tab CRUD operations — `tab.list`, `tab.create`, `tab.update`, `tab.delete`, `tab.reorder` |
@@ -190,10 +199,14 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 
 **Git module detail:**
 
-| File            | Responsibility                                                                                                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `git/status.ts` | Reads `git status --porcelain=v1` output, returns branch name + staged/unstaged file changes                                                                                                                                    |
-| `git/log.ts`    | Async `getGitLog(dirPath, skip, limit)` — executes `git log --pretty=format` with NUL-delimited fields (`%H%x00%P%x00%an%x00%at%x00%s`), returns `GitLogItem[]`. Uses `execFile` (promisified) to avoid blocking the event loop |
+| File               | Responsibility                                                                                                                                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git/status.ts`    | Reads `git status --porcelain=v1` output, returns branch name + staged/unstaged file changes; exports `isGitRepo`, `spawnGit`, `getCurrentBranch`, `getGitStatus`, `hasRemote`, `getAheadBehind`, `getGitStatusEnhanced`       |
+| `git/log.ts`       | Async `getGitLog(dirPath, skip, limit)` — executes `git log --pretty=format` with NUL-delimited fields (`%H%x00%P%x00%an%x00%at%x00%s`), returns `GitLogItem[]`. Uses `execFile` (promisified) to avoid blocking the event loop |
+| `git/discovery.ts` | Recursive repo discovery within workspace directories                                                                                                                                                                           |
+| `git/operations.ts`| Stage, unstage, discard, and commit operations; exports `stageFiles`, `stageAll`, `unstageFiles`, `unstageAll`, `discardChanges`, `discardAll`, `commitChanges`                                                                  |
+| `git/branches.ts`  | Branch listing, creation, and checkout                                                                                                                                                                                           |
+| `git/remote.ts`    | Push and fetch operations                                                                                                                                                                                                        |
 
 **Handler registration pattern:**
 
@@ -222,8 +235,8 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | Directory       | Purpose                                        |
 | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `components/`   | React UI components (see below)                |
-|                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useFileSearch`) |
-|                 | `lib/`                                         | WebSocket client, request helper, git-tree-status, OSC 7 CWD parser, theme constants, context styles                                                          |
+|                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useFileSearch`, `useGitRepos` for multi-repo git state management — repo discovery, status, branches, and operations) |
+|                 | `lib/`                                         | WebSocket client, request helper, git-utils, git-change-tree, git-graph, OSC 7 CWD parser, theme constants, context styles                                                          |
 | `routes/`       | TanStack Router route definitions              |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`) |
 
@@ -243,8 +256,14 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `FileTree`                 | Directory tree with context menu and inline git status                                                                                                                                                                                                                                                                                   |
 | `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)                                                                                                                                                                                                                                                                                   |
 | `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split                                                                                                                                                                                            |
-| `GitPanel`                 | Git status display (staged/unstaged changes)                                                                                                                                                                                                                                                                                             |
+| `GitPanel`                 | Multi-repo git changes panel — discovers repos, displays per-repo headers with branch selectors and push/fetch buttons, commit message input (Ctrl+Enter), and collapsible staged/unstaged tree views with context menus for stage/unstage/discard/diff. Props: `workspaceId`, `workspaceCwd`, `onOpenEditor`                                                                 |
 | `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading                                                                                                                                     |
+| `GitRepoHeader`            | Per-repo header with branch selector (`GitBranchSelector`) and push/fetch action buttons                                                                                                                                                                                                                                                  |
+| `GitChangesSection`        | Collapsible staged/unstaged changes sections rendered as `GitChangeTree` tree views                                                                                                                                                                                                                                                       |
+| `GitBranchSelector`        | Custom dropdown for branch selection, integrating with `git.branches` and `git.checkout`                                                                                                                                                                                                                                                  |
+| `GitCommitInput`           | Commit message textarea that submits via Ctrl+Enter, integrating with `git.commit`                                                                                                                                                                                                                                                        |
+| `GitChangeTree`            | Recursive tree view for file changes grouped by directory with context menus                                                                                                                                                                                                                                                              |
+| `GitChangeContextMenu`     | Context menu for git file change items (stage, unstage, discard, diff)                                                                                                                                                                                                                                                                     |
 | `LoginPage`                | Password authentication form                                                                                                                                                                                                                                                                                                             |
 | `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable`                                                                                                                                                                                                                         |
 | `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename)                                                                                                                                                                                                                                                               |
@@ -339,16 +358,46 @@ The `GitHistoryPanel` renders a virtualized, infinitely-scrollable git commit lo
 
 **Directory aggregation:** Directories show a gold dot when any descendant has uncommitted changes, computed recursively via `computeDirectoryStatus`.
 
-**Deleted files:** Since deleted files no longer exist on disk, `mergeDeletedFiles` (in `git-tree-status.ts`) inserts synthetic `FileNode` entries for them in alphabetical order so they remain visible in the tree.
+**Deleted files:** Since deleted files no longer exist on disk, `mergeDeletedFiles` (in `git-utils.ts`) inserts synthetic `FileNode` entries for them in alphabetical order so they remain visible in the tree.
 
-The git status logic lives in `lib/git-tree-status.ts`:
+The git status logic lives in `lib/git-utils.ts`:
 
 | Export                   | Purpose                                                           |
 | ------------------------ | ----------------------------------------------------------------- |
-| `GIT_STATUS_COLORS`      | Status code → hex color mapping (re-exported from `lib/theme.ts`) |
-| `buildGitPathMap`        | Converts `GitStatusResponse` into a `Map<relativePath, status>`   |
+| `buildGitPathMap`        | Converts `GitStatusResponse` into a `Map<relativePath, { status, staged }>` |
 | `computeDirectoryStatus` | Recursively checks if any descendant has changes                  |
 | `mergeDeletedFiles`      | Merges synthetic nodes for deleted files into the tree            |
+
+`GIT_STATUS_COLORS` (status code → hex color mapping) lives in `lib/theme.ts`, not `git-utils.ts`.
+
+The change tree logic lives in `lib/git-change-tree.ts`:
+
+| Export              | Purpose                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| `buildChangeTree`   | Converts flat git file changes into a recursive tree structure grouped by directory |
+
+### `useGitRepos` Hook
+
+The `useGitRepos` hook manages all git state for the `GitPanel`. It accepts `workspaceId` and `workspaceCwd` and provides:
+
+| Field / Method      | Description                                                                     |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `repos`             | Discovered repository list with paths and relative paths                         |
+| `repoStatuses`      | Map of repo path → `GitStatusResponse` (including `hasRemote`, `ahead`, `behind`) |
+| `repoBranches`      | Map of repo path → branch list                                                  |
+| `loading`           | Whether initial repo discovery and status loading is in progress                 |
+| `error`             | Error message string if the last operation failed, or `null`                    |
+| `stageFiles`        | Stage files in a repo (`git.stage`)                                             |
+| `unstageFiles`      | Unstage files in a repo (`git.unstage`)                                         |
+| `discardChanges`    | Discard unstaged changes (`git.discard`)                                        |
+| `commit`            | Commit staged changes (`git.commit`); returns commit hash                       |
+| `checkout`          | Switch or create a branch (`git.checkout`)                                      |
+| `push`              | Push to remote (`git.push`)                                                     |
+| `fetch`             | Fetch from remote (`git.fetch`)                                                 |
+| `refresh`           | Re-discover repos and refresh all status/branch data                            |
+| `refreshRepo`       | Refresh status (and optionally branches) for a single repo                      |
+| `pushLoading`       | Map of repo path → boolean push-in-progress state                               |
+| `fetchLoading`      | Map of repo path → boolean fetch-in-progress state                              |
 
 ## Tab System
 

@@ -1,108 +1,87 @@
-import type { GitStatusResponse, GitFileChange } from '@ymir/shared';
-import { COLOR_ACCENT, COLOR_TEXT_DIM, COLOR_TEXT_MUTED, GIT_STATUS_COLORS } from '../lib/theme';
+import { useGitRepos } from '../hooks/useGitRepos';
+import { GitRepoHeader } from './GitRepoHeader';
+import { GitCommitInput } from './GitCommitInput';
+import { GitChangesSection } from './GitChangesSection';
+import {
+  COLOR_TEXT_DIM,
+  COLOR_ERROR,
+  COLOR_BORDER
+} from '../lib/theme';
 
 interface GitPanelProps {
-  gitStatus: GitStatusResponse | null;
+  workspaceId: string | null;
+  workspaceCwd: string | null;
+  onOpenEditor?: (filePath: string) => void;
 }
 
-export function GitPanel({ gitStatus }: GitPanelProps) {
-  if (!gitStatus)
+export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor }: GitPanelProps) {
+  const git = useGitRepos(workspaceId, workspaceCwd);
+
+  if (!workspaceId) {
     return (
-      <div
-        data-testid="git-panel"
-        style={{ padding: '8px', color: COLOR_TEXT_DIM, fontSize: '12px' }}
-      >
+      <div style={{ padding: 12, color: COLOR_TEXT_DIM }} data-testid="git-panel">
+        No workspace selected
+      </div>
+    );
+  }
+
+  if (git.loading && git.repos.length === 0) {
+    return (
+      <div style={{ padding: 12, color: COLOR_TEXT_DIM }} data-testid="git-panel">
+        Loading...
+      </div>
+    );
+  }
+
+  if (git.repos.length === 0 && !git.loading) {
+    return (
+      <div style={{ padding: 12, color: COLOR_TEXT_DIM }} data-testid="git-panel">
         Not a git repository
       </div>
     );
+  }
 
   return (
-    <div data-testid="git-panel" style={{ padding: '8px', fontSize: '12px' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          marginBottom: '8px',
-        }}
-      >
-        <span style={{ color: COLOR_ACCENT }}>⎇</span>
-        <span data-testid="git-branch">{gitStatus.branch}</span>
-      </div>
-
-      {gitStatus.staged.length > 0 && (
-        <div data-testid="git-staged" style={{ marginBottom: '8px' }}>
-          <div style={{ color: COLOR_TEXT_MUTED, marginBottom: '4px' }}>Staged Changes</div>
-          {gitStatus.staged.map((f: GitFileChange, i: number) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 0',
-              }}
-            >
-              <span
-                style={{
-                  color: GIT_STATUS_COLORS[f.status] || COLOR_TEXT_MUTED,
-                  width: '16px',
-                }}
-              >
-                {f.status}
-              </span>
-              <span
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {f.path}
-              </span>
-            </div>
-          ))}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }} data-testid="git-panel">
+      {git.error && (
+        <div style={{ padding: '6px 8px', color: COLOR_ERROR, fontSize: 12, background: 'rgba(255,0,0,0.1)', borderBottom: `1px solid ${COLOR_ERROR}` }}>
+          {git.error}
         </div>
       )}
+      {git.repos.map((repo) => {
+        const status = git.repoStatuses.get(repo.path);
+        const branches = git.repoBranches.get(repo.path) || [];
+        const hasStagedFiles = (status?.staged?.length ?? 0) > 0;
 
-      {gitStatus.changes.length > 0 && (
-        <div data-testid="git-changes">
-          <div style={{ color: COLOR_TEXT_MUTED, marginBottom: '4px' }}>Changes</div>
-          {gitStatus.changes.map((f: GitFileChange, i: number) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 0',
-              }}
-            >
-              <span
-                style={{
-                  color: GIT_STATUS_COLORS[f.status] || COLOR_TEXT_MUTED,
-                  width: '16px',
-                }}
-              >
-                {f.status}
-              </span>
-              <span
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {f.path}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {gitStatus.changes.length === 0 && gitStatus.staged.length === 0 && (
-        <div style={{ color: COLOR_TEXT_DIM }}>No changes</div>
-      )}
+        return (
+          <div key={repo.path || '.'} style={{ display: 'flex', flexDirection: 'column', borderBottom: `1px solid ${COLOR_BORDER}` }}>
+            <GitRepoHeader
+              repoInfo={repo}
+              branches={branches}
+              onCheckout={(branch) => git.checkout(repo.path, branch)}
+              onCreateBranch={(name) => git.checkout(repo.path, name, true)}
+              onPush={(branch) => git.push(repo.path, branch)}
+              onFetch={() => git.fetch(repo.path)}
+              pushLoading={git.pushLoading.get(repo.path)}
+              fetchLoading={git.fetchLoading.get(repo.path)}
+            />
+            <GitCommitInput
+              onCommit={(message) => git.commit(repo.path, message)}
+              disabled={!hasStagedFiles}
+              loading={false}
+            />
+            <GitChangesSection
+              staged={status?.staged ?? []}
+              changes={status?.changes ?? []}
+              repoPath={repo.path}
+              onStageFiles={git.stageFiles}
+              onUnstageFiles={git.unstageFiles}
+              onDiscardFiles={git.discardChanges}
+              onOpenEditor={onOpenEditor}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

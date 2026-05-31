@@ -14,11 +14,12 @@ export function isGitRepo(dirPath: string): boolean {
  * Read stdout from a Bun.spawn process as a string.
  * Returns an empty string on failure.
  */
-async function spawnGit(args: string[], cwd: string): Promise<string> {
+export async function spawnGit(args: string[], cwd: string): Promise<string> {
   const proc = Bun.spawn(['git', ...args], {
     cwd,
     stdout: 'pipe',
     stderr: 'pipe',
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
   });
   await proc.exited;
   if (proc.exitCode !== 0) return '';
@@ -71,4 +72,28 @@ export async function getGitStatus(dirPath: string): Promise<GitStatusResponse |
   }
 
   return { branch, changes, staged };
+}
+
+export async function hasRemote(dirPath: string): Promise<boolean> {
+  const output = await spawnGit(['remote', '-v'], dirPath);
+  return output.trim().length > 0;
+}
+
+export async function getAheadBehind(dirPath: string): Promise<{ ahead: number; behind: number }> {
+  try {
+    const output = await spawnGit(['rev-list', '--left-right', '--count', 'HEAD...@{u}'], dirPath);
+    const parts = output.trim().split(/\s+/);
+    return { ahead: parseInt(parts[0], 10) || 0, behind: parseInt(parts[1], 10) || 0 };
+  } catch {
+    return { ahead: 0, behind: 0 };
+  }
+}
+
+export async function getGitStatusEnhanced(
+  dirPath: string,
+): Promise<(GitStatusResponse & { hasRemote: boolean; ahead: number; behind: number }) | null> {
+  const status = await getGitStatus(dirPath);
+  if (!status) return null;
+  const [remote, tracking] = await Promise.all([hasRemote(dirPath), getAheadBehind(dirPath)]);
+  return { ...status, hasRemote: remote, ...tracking };
 }
