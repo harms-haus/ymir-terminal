@@ -71,7 +71,7 @@ export async function getGitStatus(dirPath: string): Promise<GitStatusResponse |
     }
   }
 
-  return { branch, changes, staged };
+  return { branch, changes, staged, hasRemote: false, ahead: 0, behind: 0 };
 }
 
 export async function hasRemote(dirPath: string): Promise<boolean> {
