@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react';
 import type { Tab } from '../hooks/useTabs';
 import {
   COLOR_BG_PRIMARY,
@@ -281,7 +281,9 @@ export function TabBar({
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
   const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
 
   const startRename = useCallback((tabId: string) => {
     const tab = tabsRef.current.find((t) => t.id === tabId);

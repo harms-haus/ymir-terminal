@@ -38,8 +38,6 @@ import {
   type GitStatusRequest,
   type GitStatusResponse,
   type GitLogRequest,
-  type GitLogItem,
-  type GitLogResponse,
   // Config
   type ConfigGetRequest,
   type ConfigGetResponse,

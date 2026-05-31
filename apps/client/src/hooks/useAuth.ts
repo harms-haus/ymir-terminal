@@ -76,7 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await new Promise<void>((resolve, reject) => {
           let unsub: (() => void) | null = null;
           let timeout: ReturnType<typeof setTimeout>;
-
           unsub = wsClient.onStatusChange((s) => {
             if (s === 'connected') {
               clearTimeout(timeout);

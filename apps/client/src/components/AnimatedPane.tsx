@@ -22,12 +22,18 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
   const [overlayActive, setOverlayActive] = useState(false);
   const justHiddenRef = useRef(false);
 
+  // Sync the ref inside an effect to satisfy react-hooks/refs
+  useEffect(() => {
+    if (visible !== prevVisible && prevVisible && !visible) {
+      justHiddenRef.current = true;
+    }
+  }, [visible, prevVisible]);
+
   // Detect visibility changes during render (React "adjusting state" pattern).
   // This avoids calling setState inside useEffect.
   if (visible !== prevVisible) {
     if (prevVisible && !visible) {
       // Hiding: activate overlay and schedule collapse callback
-      justHiddenRef.current = true;
       if (!reducedMotion) {
         setOverlayActive(true);
       }

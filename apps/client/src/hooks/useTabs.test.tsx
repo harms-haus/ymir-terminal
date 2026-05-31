@@ -109,23 +109,23 @@ describe('useTabs', () => {
   test('closing the active tab switches to the previous tab', () => {
     const { result } = renderHook(() => useTabs());
 
-    let id2 = '',
-      id3 = '';
+    let _id2 = '',
+      _id3 = '';
     act(() => {
       result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
-      id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
-      id3 = result.current.createTab({ type: 'terminal', title: 'Terminal 3' });
+      _id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
+      _id3 = result.current.createTab({ type: 'terminal', title: 'Terminal 3' });
     });
 
-    // id3 is active
-    expect(result.current.activeTabId).toBe(id3);
+    // _id3 is active
+    expect(result.current.activeTabId).toBe(_id3);
 
-    // Close the active tab (id3), should switch to previous (id2)
+    // Close the active tab (_id3), should switch to previous (_id2)
     act(() => {
-      result.current.closeTab(id3!);
+      result.current.closeTab(_id3!);
     });
 
-    expect(result.current.activeTabId).toBe(id2);
+    expect(result.current.activeTabId).toBe(_id2);
     expect(result.current.tabs.length).toBe(2);
   });
 
@@ -382,12 +382,12 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     let id1 = '',
-      id2 = '',
-      id3 = '';
+      _id2 = '',
+      _id3 = '';
     act(() => {
       id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
-      id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
-      id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
+      _id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
+      _id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
     });
 
     // Close tabs right of id1 (should remove T2 and T3)
@@ -406,23 +406,23 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     let id1 = '',
-      id2 = '',
-      id3 = '';
+      _id2 = '',
+      _id3 = '';
     act(() => {
       id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
-      id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
-      id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
+      _id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
+      _id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
     });
 
-    // id3 is active (last created)
-    expect(result.current.activeTabId).toBe(id3);
+    // _id3 is active (last created)
+    expect(result.current.activeTabId).toBe(_id3);
 
     // Close tabs right of id1 — removes T2 and T3
     act(() => {
       result.current.closeTabsRight(id1!);
     });
 
-    // Active should switch to id1 since id3 was closed
+    // Active should switch to id1 since _id3 was closed
     expect(result.current.activeTabId).toBe(id1);
     expect(result.current.tabs.length).toBe(1);
   });
@@ -433,13 +433,13 @@ describe('useTabs', () => {
   test('closeOtherTabs closes all tabs except the given one', () => {
     const { result } = renderHook(() => useTabs());
 
-    let id1 = '',
+    let _id1 = '',
       id2 = '',
-      id3 = '';
+      _id3 = '';
     act(() => {
-      id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
+      _id1 = result.current.createTab({ type: 'terminal', title: 'T1' });
       id2 = result.current.createTab({ type: 'terminal', title: 'T2' });
-      id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
+      _id3 = result.current.createTab({ type: 'terminal', title: 'T3' });
     });
 
     // Keep only id2
@@ -551,10 +551,10 @@ describe('useTabs', () => {
     const { result } = renderHook(() => useTabs());
 
     let id1 = '',
-      id2 = '';
+      _id2 = '';
     act(() => {
       id1 = result.current.createTab({ type: 'terminal', title: 'Terminal 1' });
-      id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
+      _id2 = result.current.createTab({ type: 'terminal', title: 'Terminal 2' });
     });
 
     act(() => {

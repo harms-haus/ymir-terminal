@@ -336,7 +336,7 @@ describe('Terminal', () => {
         observe() {}
         unobserve() {}
         disconnect() {}
-      } as any;
+      } as unknown as ResizeObserver;
     });
 
     afterEach(() => {

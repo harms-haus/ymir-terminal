@@ -1,5 +1,5 @@
 import { Terminal } from './Terminal';
-import { useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface TerminalEntry {
   terminalId: string;
@@ -32,16 +32,22 @@ export function TerminalManager({
 }: TerminalManagerProps) {
   // Stable ref callbacks: tabId -> ref callback. Created once per tabId to
   // avoid React tearing down and rebuilding the ref on every render.
-  const refCallbackCache = useRef<Map<string, (el: { focus(): void } | null) => void>>(new Map());
+  // Using useState (lazy init) gives a stable mutable Map that is not a ref,
+  // so reading from it during render satisfies react-hooks/refs.
+  const [refCallbackCache] = useState<Map<string, (el: { focus(): void } | null) => void>>(
+    () => new Map(),
+  );
 
   // Clean up stale entries for terminals no longer in the list
-  const currentTabIds = new Set(terminals.map((t) => t.tabId));
-  for (const [tabId] of refCallbackCache.current) {
-    if (!currentTabIds.has(tabId)) {
-      terminalRefs.current.delete(tabId);
-      refCallbackCache.current.delete(tabId);
+  useEffect(() => {
+    const currentTabIds = new Set(terminals.map((t) => t.tabId));
+    for (const [tabId] of refCallbackCache) {
+      if (!currentTabIds.has(tabId)) {
+        terminalRefs.current.delete(tabId);
+        refCallbackCache.delete(tabId);
+      }
     }
-  }
+  }, [terminals, terminalRefs, refCallbackCache]);
 
   return (
     <div
@@ -58,13 +64,13 @@ export function TerminalManager({
         if (!bounds) return null;
 
         // Get or create a stable ref callback for this tabId
-        let refCb = refCallbackCache.current.get(t.tabId);
+        let refCb = refCallbackCache.get(t.tabId);
         if (!refCb) {
           refCb = (el: { focus(): void } | null) => {
             if (el) terminalRefs.current.set(t.tabId, el);
             else terminalRefs.current.delete(t.tabId);
           };
-          refCallbackCache.current.set(t.tabId, refCb);
+          refCallbackCache.set(t.tabId, refCb);
         }
 
         return (

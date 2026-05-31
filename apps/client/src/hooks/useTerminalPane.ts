@@ -1,6 +1,5 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { useTabs } from './useTabs';
-import type { Tab } from './useTabs';
 import { sendRequest } from '../lib/send-request';
 
 export interface UseTerminalPaneOptions {
@@ -28,9 +27,15 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
   // Keep refs so imperative handle always sees current state
   const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
   const activeTabIdRef = useRef(activeTabId);
-  activeTabIdRef.current = activeTabId;
+
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
+
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
 
   // --- Shared handle logic ---
 

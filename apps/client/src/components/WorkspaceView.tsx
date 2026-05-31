@@ -334,14 +334,16 @@ function WorkspaceViewInner() {
   // Stable callback cache: tabId -> {onTitleChange, onCwdChange}
   // useState with lazy init gives a stable mutable Map; closures read pane refs
   // only when invoked (in event handlers), satisfying the react-hooks/refs rule.
-  const [callbackCache] = useState<
+  const callbackCacheRef = useRef<
     Map<string, { onTitleChange: (title: string) => void; onCwdChange: (cwd: string) => void }>
-  >(() => new Map());
+  >(new Map());
 
   // Build terminal entries for TerminalManager
+  /* eslint-disable react-hooks/refs -- stable mutable cache, not a reactive ref */
   const terminalEntries: TerminalEntry[] = useMemo(() => {
+    const cache = callbackCacheRef.current;
     return terminalRegistry.map((entry) => {
-      let cached = callbackCache.get(entry.tabId);
+      let cached = cache.get(entry.tabId);
       if (!cached) {
         const paneRef = entry.owningPane === 'content' ? contentPaneRef : bottomPanelRef;
         cached = {
@@ -352,7 +354,7 @@ function WorkspaceViewInner() {
             paneRef.current?.updateTabCwd(entry.tabId, cwd);
           },
         };
-        callbackCache.set(entry.tabId, cached);
+        cache.set(entry.tabId, cached);
       }
       return {
         terminalId: entry.terminalId,
@@ -365,7 +367,8 @@ function WorkspaceViewInner() {
         onCwdChange: cached.onCwdChange,
       };
     });
-  }, [terminalRegistry, contentActiveTabId, bottomActiveTabId, callbackCache]);
+  }, [terminalRegistry, contentActiveTabId, bottomActiveTabId]);
+  /* eslint-enable react-hooks/refs */
 
   // While pane visibility is loading from the server, render a placeholder to avoid layout flash
   if (loading) {
