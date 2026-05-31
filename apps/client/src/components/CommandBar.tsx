@@ -8,6 +8,7 @@ import {
   COLOR_TEXT_BRIGHT,
   COLOR_TEXT_MUTED,
   COLOR_TEXT_DIM,
+  TOP_BAR_HEIGHT,
 } from '../lib/theme';
 import { useFileSearch } from '../hooks/useFileSearch';
 
@@ -125,7 +126,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
         style={{
           width: '33vw',
           maxWidth: '500px',
-          height: '28px',
+          height: `${TOP_BAR_HEIGHT - 6}px`,
           borderRadius: '4px',
           background: COLOR_COMMANDBAR_BG,
           border: `1px solid ${COLOR_COMMANDBAR_BORDER}`,
@@ -172,7 +173,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
         placeholder="Search files by name..."
         style={{
           width: '100%',
-          height: '100%',
+          height: `${TOP_BAR_HEIGHT - 4}px`,
           boxSizing: 'border-box',
           background: 'transparent',
           border: `1px solid ${COLOR_COMMANDBAR_ACTIVE_BORDER}`,
@@ -180,6 +181,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
           color: COLOR_TEXT_BRIGHT,
           fontSize: '13px',
           padding: '0 8px',
+          margin: '2px 0',
           borderRadius: '4px',
         }}
       />

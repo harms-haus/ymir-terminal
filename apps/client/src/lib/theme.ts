@@ -181,10 +181,10 @@ export const COLOR_COMMANDBAR_SELECTED_BG = '#094771';
 
 // ── Layout sizing ──────────────────────────────────────────────────────────────
 
-export const TITLE_BAR_HEIGHT = 35;
+export const TITLE_BAR_HEIGHT = 28;
 
 /** Top bar height in pixels (includes command bar, toggle buttons, etc.) */
-export const TOP_BAR_HEIGHT = 38;
+export const TOP_BAR_HEIGHT = 28;
 
 // ---------------------------------------------------------------------------
 // Animation
