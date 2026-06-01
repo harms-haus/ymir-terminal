@@ -53,7 +53,22 @@ export function registerTreeHandlers(
       return;
     }
 
-    const tree = await doScan(workspace.cwd);
+    let scanRoot = workspace.cwd;
+    if (typeof payload.path === 'string') {
+      try {
+        scanRoot = safePath(workspace.cwd, payload.path);
+      } catch {
+        const err: ResponseEnvelope = createError(
+          { id: req.id, channel: req.channel ?? 'file.tree' },
+          ErrorCodes.PERMISSION_DENIED,
+          'Path traversal detected',
+        );
+        conn.send(err);
+        return;
+      }
+    }
+
+    const tree = await doScan(scanRoot);
 
     const resp: ResponseEnvelope<FileTreeResponse> = createResponse(req, {
       tree,

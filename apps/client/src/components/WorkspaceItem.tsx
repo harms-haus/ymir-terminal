@@ -1,90 +1,171 @@
+import type { GitWorktreeInfo } from '@ymir/shared';
+import { useDroppable } from '@dnd-kit/react';
+import { useSortable } from '@dnd-kit/react/sortable';
 import { COLOR_ACCENT, COLOR_WORKSPACE_ACTIVE, COLOR_WORKSPACE_CWD } from '../lib/theme';
+import { WorktreeItem } from './WorktreeItem';
+import { WorktreeItemContextMenu } from './WorktreeItemContextMenu';
 import { WorkspaceItemContextMenu } from './WorkspaceItemContextMenu';
 
 interface WorkspaceItemProps {
   workspace: { id: string; name: string; cwd: string; color: string };
+  wsIndex: number;
   isActive: boolean;
+  worktrees: GitWorktreeInfo[];
+  activeWorktreePath: string | null;
   onSelect: (id: string) => void;
   onRename: (id: string, newName: string) => void;
   onSetCwd: (id: string, newCwd: string) => void;
   onRemove: (id: string) => void;
   onChangeColor: (id: string, newColor: string) => void;
+  onWorktreeSelect: (path: string) => void;
+  onCopyWorktreePath: (path: string) => void;
+  onRemoveWorktree: (path: string, force: boolean) => void;
+  onMergeWorktree: (path: string, branch: string, deleteAfterMerge?: boolean) => void;
+  onCreateWorktree?: () => void;
 }
 
 export function WorkspaceItem({
   workspace,
+  wsIndex,
   isActive,
+  worktrees,
+  activeWorktreePath,
   onSelect,
   onRename,
   onSetCwd,
   onRemove,
   onChangeColor,
+  onWorktreeSelect,
+  onCopyWorktreePath,
+  onRemoveWorktree,
+  onMergeWorktree,
+  onCreateWorktree,
 }: WorkspaceItemProps) {
+  const linkedWorktrees = worktrees.filter((w) => !w.isMain);
+  const hasLinkedWorktrees = linkedWorktrees.length > 0;
+  const hasActiveChildWorktree = activeWorktreePath != null && linkedWorktrees.some((wt: GitWorktreeInfo) => wt.path === activeWorktreePath);
+  const isExpanded = isActive || hasActiveChildWorktree;
+
+  const { ref: sortableRef, isDragging } = useSortable({
+    id: workspace.id,
+    index: wsIndex,
+    group: 'workspace-list',
+    type: 'workspace',
+    accept: ['workspace'],
+  });
+
+  const { ref: worktreeDroppableRef, isDropTarget: isWorktreeDropTarget } = useDroppable({
+    id: `worktree-list-${workspace.id}`,
+    type: 'worktree-list',
+    accept: ['worktree'],
+    data: { group: `worktree-${workspace.id}` },
+  });
+
   return (
-    <WorkspaceItemContextMenu
-      workspace={workspace}
-      onRename={onRename}
-      onSetCwd={onSetCwd}
-      onRemove={onRemove}
-      onChangeColor={onChangeColor}
-    >
-      <div
-        data-testid={`workspace-item-${workspace.id}`}
-        role="button"
-        tabIndex={0}
-        aria-label={`Workspace: ${workspace.name}`}
-        onClick={() => onSelect(workspace.id)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onSelect(workspace.id);
-          }
-        }}
-        style={{
-          padding: '6px 8px',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: isActive ? COLOR_WORKSPACE_ACTIVE : 'transparent',
-        }}
+    <>
+      <WorkspaceItemContextMenu
+        workspace={workspace}
+        onRename={onRename}
+        onSetCwd={onSetCwd}
+        onRemove={onRemove}
+        onChangeColor={onChangeColor}
+        onCreateWorktree={onCreateWorktree}
       >
         <div
-          data-testid={`ws-color-${workspace.id}`}
+          ref={sortableRef}
+          data-testid={`workspace-item-${workspace.id}`}
+          onClick={() => onSelect(workspace.id)}
           style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: workspace.color || COLOR_ACCENT,
+            padding: '6px 8px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: (isActive && !hasActiveChildWorktree) ? COLOR_WORKSPACE_ACTIVE : 'transparent',
+            opacity: isDragging ? 0.4 : undefined,
           }}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
+        >
+
           <div
-            style={{
-              fontSize: '13px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+            data-testid={`ws-color-${workspace.id}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Workspace: ${workspace.name}`}
+            onClick={() => onSelect(workspace.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelect(workspace.id);
+              }
             }}
-          >
-            {workspace.name}
-          </div>
-          <div
             style={{
-              fontSize: '11px',
-              color: COLOR_WORKSPACE_CWD,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              direction: 'rtl',
-              textAlign: 'left',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: workspace.color || COLOR_ACCENT,
             }}
-          >
-            {workspace.cwd}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: '13px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {workspace.name}
+            </div>
+            <div
+              style={{
+                fontSize: '11px',
+                color: COLOR_WORKSPACE_CWD,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                direction: 'rtl',
+                textAlign: 'left',
+              }}
+            >
+              {workspace.cwd}
+            </div>
           </div>
         </div>
-      </div>
-    </WorkspaceItemContextMenu>
+      </WorkspaceItemContextMenu>
+      {isExpanded && hasLinkedWorktrees && (
+        <div
+          ref={worktreeDroppableRef}
+          data-testid={`ws-worktrees-${workspace.id}`}
+          style={{
+            boxShadow: isWorktreeDropTarget ? 'inset 0 0 0 1px var(--accent)' : undefined,
+            transition: 'box-shadow 0.15s',
+          }}
+        >
+          {linkedWorktrees.map((wt, index) => (
+            <WorktreeItemContextMenu
+              key={wt.path}
+              worktree={wt}
+              onCopyPath={() => onCopyWorktreePath(wt.path)}
+              onMerge={() => onMergeWorktree(wt.path, wt.branch ?? '')}
+              onMergeConfirm={(deleteAfterMerge) => onMergeWorktree(wt.path, wt.branch ?? '', deleteAfterMerge)}
+              targetBranch="main"
+              onRemove={(force) => onRemoveWorktree(wt.path, force)}
+            >
+              <WorktreeItem
+                worktree={wt}
+                workspaceId={workspace.id}
+                wtIndex={index}
+                isActive={activeWorktreePath === wt.path}
+                onClick={() => onWorktreeSelect(wt.path)}
+                onCopyPath={() => onCopyWorktreePath(wt.path)}
+                onRemove={(force) => onRemoveWorktree(wt.path, force)}
+                onMergeWorktree={onMergeWorktree}
+              />
+            </WorktreeItemContextMenu>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

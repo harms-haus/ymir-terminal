@@ -25,6 +25,14 @@ import {
   type GitCommitDetailsResponse,
   type GitCommitDiffRequest,
   type GitCommitDiffResponse,
+  type GitWorktreeListRequest,
+  type GitWorktreeListResponse,
+  type GitWorktreeCreateRequest,
+  type GitWorktreeCreateResponse,
+  type GitWorktreeRemoveRequest,
+  type GitWorktreeInfo,
+  type GitWorktreeMergeRequest,
+  type GitWorktreeMergeResponse,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
@@ -46,16 +54,55 @@ import {
 import { pushBranch as nativePushBranch, fetchRemote as nativeFetchRemote } from '../../git/remote';
 import { getDiffData as nativeGetDiffData, getCommitFileDiff as nativeGetCommitFileDiff } from '../../git/diff';
 import { getCommitDetails as nativeGetCommitDetails } from '../../git/commit-details';
+import {
+  listWorktrees as nativeListWorktrees,
+  createWorktree as nativeCreateWorktree,
+  removeWorktree as nativeRemoveWorktree,
+  mergeWorktree as nativeMergeWorktree,
+} from '../../git/worktrees';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../db/persistent';
 import { getWorkspace as dbGetWorkspace } from '../../db/persistent';
-import { join } from 'node:path';
+import { safePath } from '../../lib/handler-validation';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const SHA_REGEX = /^[0-9a-f]{4,64}$/i;
+
+// ---------------------------------------------------------------------------
+// Path helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve `userInput` within `workspaceCwd`, sending a path-traversal error
+ * to the client if validation fails.
+ *
+ * @returns The resolved absolute path, or `null` if traversal was detected
+ *          (an error response is sent on `conn`).
+ */
+function resolveSafeRepoPath(
+  workspaceCwd: string,
+  repoPath: string | undefined | null,
+  conn: ClientConnection,
+  req: Pick<RequestEnvelope, 'id' | 'channel'>,
+  channel: string,
+): string | null {
+  if (!repoPath) return workspaceCwd;
+  try {
+    return safePath(workspaceCwd, repoPath);
+  } catch {
+    conn.send(
+      createError(
+        { id: req.id, channel: req.channel ?? channel },
+        ErrorCodes.PERMISSION_DENIED,
+        'Path traversal detected',
+      ),
+    );
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -117,6 +164,18 @@ export interface GitDeps {
       additions: number;
       deletions: number;
     }>;
+    listWorktrees?: (dirPath: string) => Promise<GitWorktreeInfo[]>;
+    createWorktree?: (
+      dirPath: string,
+      branchName: string,
+      startRef?: string,
+    ) => Promise<GitWorktreeInfo>;
+    removeWorktree?: (dirPath: string, worktreePath: string, force?: boolean) => Promise<void>;
+    mergeWorktree?: (
+      dirPath: string,
+      worktreePath: string,
+      options?: { targetBranch?: string; deleteAfterMerge?: boolean },
+    ) => Promise<{ success: boolean; message: string; worktreeRemoved: boolean }>;
   };
 }
 
@@ -142,6 +201,10 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
   const doGetDiffData = deps._mocks?.getDiffData ?? nativeGetDiffData;
   const doGetCommitDetails = deps._mocks?.getCommitDetails ?? nativeGetCommitDetails;
   const doGetCommitFileDiff = deps._mocks?.getCommitFileDiff ?? nativeGetCommitFileDiff;
+  const doListWorktrees = deps._mocks?.listWorktrees ?? nativeListWorktrees;
+  const doCreateWorktree = deps._mocks?.createWorktree ?? nativeCreateWorktree;
+  const doRemoveWorktree = deps._mocks?.removeWorktree ?? nativeRemoveWorktree;
+  const doMergeWorktree = deps._mocks?.mergeWorktree ?? nativeMergeWorktree;
 
   // --- git.status ---------------------------------------------------------
   router.handle('git.status', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -169,7 +232,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const gitDir = payload.repoPath ? join(workspace.cwd, payload.repoPath) : workspace.cwd;
+    const gitDir = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.status');
+    if (gitDir === null) return;
 
     if (payload.repoPath) {
       const result = await doGetGitStatusEnhanced(gitDir);
@@ -241,7 +305,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const gitDir = payload.repoPath ? join(workspace.cwd, payload.repoPath) : workspace.cwd;
+    const gitDir = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.log');
+    if (gitDir === null) return;
     const limit = Math.min(Math.max(payload.limit, 1), 100);
     const skip = Math.max(payload.skip, 0);
     const commits = await doGetGitLog(gitDir, skip, limit);
@@ -279,7 +344,9 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const repos = await doDiscoverRepos(workspace.cwd);
+    const baseDir = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.repoDiscovery');
+    if (baseDir === null) return;
+    const repos = await doDiscoverRepos(baseDir);
     const resp = createResponse(req, { repos } satisfies GitRepoDiscoveryResponse);
     conn.send(resp);
   });
@@ -319,7 +386,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.stage');
+    if (absPath === null) return;
     await doStageFiles(absPath, payload.files);
     conn.send(createResponse(req, {}));
   });
@@ -359,7 +427,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.unstage');
+    if (absPath === null) return;
     await doUnstageFiles(absPath, payload.files);
     conn.send(createResponse(req, {}));
   });
@@ -399,7 +468,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.discard');
+    if (absPath === null) return;
     await doDiscardChanges(absPath, payload.files);
     conn.send(createResponse(req, {}));
   });
@@ -439,7 +509,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commit');
+    if (absPath === null) return;
     const commitHash = await doCommitChanges(absPath, payload.message);
     const resp = createResponse(req, { commitHash } satisfies GitCommitResponse);
     conn.send(resp);
@@ -478,7 +549,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.branches');
+    if (absPath === null) return;
     const result = await doListBranches(absPath);
     const resp = createResponse(req, result satisfies GitBranchesResponse);
     conn.send(resp);
@@ -518,7 +590,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.checkout');
+    if (absPath === null) return;
     if (payload.createNew) {
       await doCreateBranch(absPath, payload.branch);
     } else {
@@ -561,7 +634,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.push');
+    if (absPath === null) return;
     await doPushBranch(absPath, payload.branch);
     conn.send(createResponse(req, {}));
   });
@@ -599,7 +673,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absPath = join(workspace.cwd, payload.repoPath);
+    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.fetch');
+    if (absPath === null) return;
     await doFetchRemote(absPath);
     conn.send(createResponse(req, {}));
   });
@@ -639,7 +714,19 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absRepoPath = join(workspace.cwd, payload.repoPath);
+    if (payload.filePath.includes('..') || payload.filePath.startsWith('/')) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.diffData' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Invalid file path',
+        ),
+      );
+      return;
+    }
+
+    const absRepoPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.diffData');
+    if (absRepoPath === null) return;
     const result = await doGetDiffData(absRepoPath, payload.filePath, payload.staged);
     conn.send(
       createResponse(req, { ...result, filePath: payload.filePath } satisfies GitDiffDataResponse),
@@ -690,7 +777,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const gitDir = payload.repoPath ? join(workspace.cwd, payload.repoPath) : workspace.cwd;
+    const gitDir = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commitDetails');
+    if (gitDir === null) return;
     const result = await doGetCommitDetails(gitDir, payload.commitSha);
     if (!result) {
       conn.send(
@@ -772,7 +860,8 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absRepoPath = join(workspace.cwd, payload.repoPath);
+    const absRepoPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commitDiff');
+    if (absRepoPath === null) return;
     const result = await doGetCommitFileDiff(
       absRepoPath,
       payload.commitSha,
@@ -785,5 +874,223 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
         { ...result, filePath: payload.filePath } satisfies GitCommitDiffResponse,
       ),
     );
+  });
+
+  // --- git.worktreeList ---------------------------------------------------
+  router.handle('git.worktreeList', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitWorktreeListRequest>;
+    const payload = req.payload;
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string'
+    ) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeList' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing required field: workspaceId',
+        ),
+      );
+      return;
+    }
+
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeList' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    const worktrees = await doListWorktrees(workspace.cwd);
+    const resp = createResponse(req, { worktrees } satisfies GitWorktreeListResponse);
+    conn.send(resp);
+  });
+
+  // --- git.worktreeCreate -------------------------------------------------
+  router.handle('git.worktreeCreate', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitWorktreeCreateRequest>;
+    const payload = req.payload;
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string' ||
+      typeof payload.branchName !== 'string' ||
+      !/^[a-zA-Z0-9\/. _-]+$/.test(payload.branchName)
+    ) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeCreate' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid fields: workspaceId, branchName',
+        ),
+      );
+      return;
+    }
+
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeCreate' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    try {
+      const worktree = await doCreateWorktree(workspace.cwd, payload.branchName, payload.startRef);
+      const resp = createResponse(req, { worktree } satisfies GitWorktreeCreateResponse);
+      conn.send(resp);
+    } catch (err) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeCreate' },
+          ErrorCodes.INTERNAL_ERROR,
+          err instanceof Error ? err.message : 'Failed to create worktree',
+        ),
+      );
+    }
+  });
+
+  // --- git.worktreeMerge -------------------------------------------------
+  router.handle('git.worktreeMerge', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitWorktreeMergeRequest>;
+    const payload = req.payload;
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string' ||
+      typeof payload.worktreePath !== 'string' ||
+      payload.worktreePath.length === 0
+    ) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeMerge' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid fields: workspaceId, worktreePath',
+        ),
+      );
+      return;
+    }
+
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeMerge' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    try {
+      safePath(workspace.cwd, payload.worktreePath);
+    } catch {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeMerge' },
+          ErrorCodes.PERMISSION_DENIED,
+          'Worktree path must be within the workspace',
+        ),
+      );
+      return;
+    }
+
+    try {
+      const result = await doMergeWorktree(workspace.cwd, payload.worktreePath, {
+        targetBranch: payload.targetBranch,
+        deleteAfterMerge: payload.deleteAfterMerge,
+      });
+      const resp = createResponse(
+        req,
+        {
+          success: result.success,
+          message: result.message,
+          worktreeRemoved: result.worktreeRemoved,
+        } satisfies GitWorktreeMergeResponse,
+      );
+      conn.send(resp);
+    } catch (err) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeMerge' },
+          ErrorCodes.INTERNAL_ERROR,
+          err instanceof Error ? err.message : 'Failed to merge worktree',
+        ),
+      );
+    }
+  });
+
+  // --- git.worktreeRemove -------------------------------------------------
+  router.handle('git.worktreeRemove', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<GitWorktreeRemoveRequest>;
+    const payload = req.payload;
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string' ||
+      typeof payload.worktreePath !== 'string'
+    ) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeRemove' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing or invalid fields: workspaceId, worktreePath',
+        ),
+      );
+      return;
+    }
+
+    const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeRemove' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    try {
+      safePath(workspace.cwd, payload.worktreePath);
+    } catch {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeRemove' },
+          ErrorCodes.PERMISSION_DENIED,
+          'Worktree path must be within the workspace',
+        ),
+      );
+      return;
+    }
+
+    try {
+      await doRemoveWorktree(workspace.cwd, payload.worktreePath, payload.force);
+      conn.send(createResponse(req, null));
+    } catch (err) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeRemove' },
+          ErrorCodes.INTERNAL_ERROR,
+          err instanceof Error ? err.message : 'Failed to remove worktree',
+        ),
+      );
+    }
   });
 }

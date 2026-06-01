@@ -143,6 +143,7 @@ interface MessageEnvelope<T = unknown> {
 | `workspace.create`  | request   | Create a workspace                                                                                     |
 | `workspace.update`  | request   | Update workspace settings                                                                              |
 | `workspace.delete`  | request   | Delete a workspace                                                                                     |
+| `workspace.reorder` | request   | Reorder workspaces by ID array                                                                         |
 | `file.tree`         | request   | Get directory listing                                                                                  |
 | `file.read`         | request   | Read file contents                                                                                     |
 | `file.write`        | request   | Write file contents                                                                                    |
@@ -161,6 +162,9 @@ interface MessageEnvelope<T = unknown> {
 | `git.checkout`      | request   | Switch or create a branch                                                                              |
 | `git.push`          | request   | Push branch to origin                                                                                  |
 | `git.fetch`         | request   | Fetch from remote                                                                                      |
+| `git.worktreeList`  | request   | List git worktrees for a workspace                                                                     |
+| `git.worktreeCreate`| request   | Create a new git worktree                                                                              |
+| `git.worktreeRemove`| request   | Remove a git worktree                                                                                  |
 | `config.get`        | request   | Get a config value from server_config table                                                            |
 | `config.set`        | request   | Set a config value in server_config table                                                              |
 | `tab.list`          | request   | List tabs for a workspace (with terminal liveness)                                                     |
@@ -221,6 +225,7 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 | `git/operations.ts` | Stage, unstage, discard, and commit operations; exports `stageFiles`, `stageAll`, `unstageFiles`, `unstageAll`, `discardChanges`, `discardAll`, `commitChanges`                                                                 |
 | `git/branches.ts`   | Branch listing, creation, and checkout                                                                                                                                                                                          |
 | `git/remote.ts`     | Push and fetch operations                                                                                                                                                                                                       |
+| `git/worktrees.ts`  | Git worktree management — list, create, and remove linked worktrees; exports `parseWorktreeList`, `listWorktrees`, `createWorktree`, `removeWorktree`                                                                           |
 
 **Handler registration pattern:**
 
@@ -264,11 +269,14 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `EditorPane`               | Extracted editor pane (file loading, save, retry)                                                                                                                                                                                                                                                                                        |
 | `ContentPane`              | `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation                                                                                                                                                                                                               |
 | `PaneContextMenu`          | Context menu for pane operations                                                                                                                                                                                                                                                                                                         |
-| `WorkspaceSidebar`         | Sidebar listing workspaces                                                                                                                                                                                                                                                                                                               |
-| `WorkspaceItem`            | Individual workspace item with context menu                                                                                                                                                                                                                                                                                              |
+| `WorkspaceSidebar`         | Sidebar listing workspaces with expandable worktree sub-items, DnD sortable via `useDroppable`                                                                                                                                                                                                                                           |
+| `WorkspaceItem`            | Individual workspace item with expand/collapse chevron, worktree sub-items, context menu, and sortable via `useSortable`                                                                                                                                                                                                                  |
 | `CreateWorkspaceDialog`    | Dialog for creating new workspaces                                                                                                                                                                                                                                                                                                       |
 | `FileTree`                 | Directory tree with context menu and inline git status                                                                                                                                                                                                                                                                                   |
 | `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)                                                                                                                                                                                                                                                                                   |
+| `WorktreeItem`              | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`                                                                                                                                                                                                          |
+| `WorktreeItemContextMenu`   | Context menu for worktree items (Copy Path, Remove Worktree)                                                                                                                                                                                                                                                                              |
+| `CreateWorktreeDialog`      | Modal dialog for creating git worktrees (branch name + optional base ref)                                                                                                                                                                                                                                                                 |
 | `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split                                                                                                                                                                                            |
 | `GitPanel`                 | Multi-repo git changes panel — discovers repos, displays per-repo headers with branch selectors and push/fetch buttons, commit message input (Ctrl+Enter), and collapsible staged/unstaged tree views with context menus for stage/unstage/discard/diff. Props: `workspaceId`, `workspaceCwd`, `onOpenEditor`                            |
 | `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading                                                                                                                                     |
@@ -311,6 +319,8 @@ Ymir stores persistent data in SQLite:
 | ---------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
 | Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash, UI layout state                                                          |
 | Session    | In-memory (`:memory:`)   | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
+
+The workspaces table includes a `sort_order` column (integer) that persists drag-and-drop ordering. The `WorkspaceSummary` type returned by `workspace.list` includes `sortOrder: number` reflecting this column.
 
 The config directory is created automatically on first run.
 
@@ -490,6 +500,21 @@ WorkspaceView (DragDropProvider)
 **Cross-pane transfer:** On drag-end, if source and target groups differ, the tab is removed from the source pane and added to the target pane. Only terminal tabs can be transferred (editor tabs are bound to a specific pane). `transferTabOut` returns the terminal's data so the target pane can re-create the tab without spawning a new PTY.
 
 **Workspace boundary validation:** Drag-and-drop operations are rejected if the source tab's `workspaceId` does not match the active workspace. This prevents tabs from being transferred across workspace boundaries.
+
+#### Workspace Drag-and-Drop
+
+```
+WorkspaceView (DragDropProvider)
+├── group="workspace-list" → WorkspaceSidebar → WorkspaceItem ×N
+│   └── useSortable per item → onDragEnd fires workspace.reorder mutation
+├── group="worktree-{wsId}" per workspace → WorktreeItem ×N
+│   └── useSortable per worktree → cosmetic-only visual reorder
+└── Tab DnD (existing content/bottom groups) unchanged
+```
+
+**Workspace reorder:** Dragging workspace items reorders them. The `workspace.reorder` mutation is fired on `onDragEnd` (not during drag) to persist the new order. The `sort_order` column in the workspaces DB table stores the order.
+
+**Worktree sub-item reorder:** Dragging worktree sub-items within a workspace is cosmetic-only — the order is not persisted (worktree list comes from `git worktree list`).
 
 ### Imperative Handles
 

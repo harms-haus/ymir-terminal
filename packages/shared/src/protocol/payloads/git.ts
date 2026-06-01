@@ -51,6 +51,7 @@ export interface GitRepoInfo {
 
 export interface GitRepoDiscoveryRequest {
   workspaceId: string;
+  repoPath?: string;
 }
 
 export interface GitRepoDiscoveryResponse {
@@ -167,4 +168,48 @@ export interface GitCommitDiffResponse {
   additions: number;
   deletions: number;
   filePath: string;
+}
+
+export interface GitWorktreeInfo {
+  path: string;
+  branch: string | null;
+  isMain: boolean;
+  isDetached: boolean;
+}
+
+export interface GitWorktreeListRequest {
+  workspaceId: string;
+}
+
+export interface GitWorktreeListResponse {
+  worktrees: GitWorktreeInfo[];
+}
+
+export interface GitWorktreeCreateRequest {
+  workspaceId: string;
+  branchName: string;
+  startRef?: string;
+}
+
+export interface GitWorktreeCreateResponse {
+  worktree: GitWorktreeInfo;
+}
+
+export interface GitWorktreeRemoveRequest {
+  workspaceId: string;
+  worktreePath: string;
+  force?: boolean;
+}
+
+export interface GitWorktreeMergeRequest {
+  workspaceId: string;
+  worktreePath: string;
+  targetBranch?: string; // defaults to main/master
+  deleteAfterMerge?: boolean;
+}
+
+export interface GitWorktreeMergeResponse {
+  success: boolean;
+  message: string;
+  worktreeRemoved?: boolean;
 }

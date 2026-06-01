@@ -3,6 +3,7 @@ export interface WorkspaceSummary {
   name: string;
   cwd: string;
   color: string;
+  sortOrder: number;
 }
 
 export type WorkspaceListRequest = Record<string, never>;
@@ -30,4 +31,8 @@ export interface WorkspaceUpdateRequest {
 
 export interface WorkspaceDeleteRequest {
   id: string;
+}
+
+export interface WorkspaceReorderRequest {
+  workspaceIds: string[];
 }

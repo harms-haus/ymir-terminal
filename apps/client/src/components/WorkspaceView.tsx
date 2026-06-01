@@ -13,10 +13,13 @@ import { CommandBar } from './CommandBar';
 import { ToastProvider } from './ToastProvider';
 import { PaneVisibilityProvider, usePaneVisibility } from '../hooks/usePaneVisibility';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
-import type { WorkspaceSummary } from '@ymir/shared';
+import type { WorkspaceSummary, GitWorktreeInfo, GitWorktreeListResponse } from '@ymir/shared';
 import { useTheme } from '../hooks/useTheme';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
-import { useWorkspaces, useUpdateWorkspace, useDeleteWorkspace } from '../hooks/useWorkspaces';
+import { useQueries } from '@tanstack/react-query';
+import { useWorkspaces, useUpdateWorkspace, useDeleteWorkspace, useReorderWorkspaces, useRemoveWorktree, useMergeWorktree } from '../hooks/useWorkspaces';
+import { sendRequest } from '../lib/send-request';
+import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
 
@@ -40,10 +43,24 @@ function WorkspaceViewInner() {
     commitSha?: string;
     repoPath: string;
   } | null>(null);
+
+  // Worktree state
+  const [activeWorktreePath, setActiveWorktreePath] = useState<string | null>(null);
+  const [isCreateWorktreeDialogOpen, setIsCreateWorktreeDialogOpen] = useState(false);
+  const [createWorktreeForWsId, setCreateWorktreeForWsId] = useState<string | null>(null);
   const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
   const updateWorkspace = useUpdateWorkspace();
   const deleteWorkspace = useDeleteWorkspace();
+  const reorderWorkspacesMutation = useReorderWorkspaces();
+  const removeWorktreeMutation = useRemoveWorktree();
+  const mergeWorktreeMutation = useMergeWorktree();
+
+  // Ref for workspaces to avoid stale closures in drag handlers
+  const workspacesRef = useRef(workspaces);
+  useEffect(() => {
+    workspacesRef.current = workspaces;
+  }, [workspaces]);
   const {
     left: leftVisible,
     right: rightVisible,
@@ -183,6 +200,18 @@ function WorkspaceViewInner() {
       const sourceGroup = (source as any).initialGroup ?? source.group;
       const targetGroup = target.group ?? target.data?.group;
 
+      // Workspace reorder — visual preview only (mutation fires on dragEnd)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((source as any).type === 'workspace') {
+        return;
+      }
+
+      // Worktree reorder within workspace — cosmetic only (client-side visual reordering)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((source as any).type === 'worktree') {
+        return;
+      }
+
       // Suppress OptimisticSortingPlugin DOM mutation for cross-group drags
       if (sourceGroup && targetGroup && sourceGroup !== targetGroup) {
         event.preventDefault();
@@ -225,6 +254,36 @@ function WorkspaceViewInner() {
 
   const activeWorkspace = workspaces?.find((ws: WorkspaceSummary) => ws.id === activeWorkspaceId);
 
+  // Derive the effective cwd for terminal creation: use active worktree path if set,
+  // otherwise fall back to the workspace's default cwd (or undefined for server default)
+  const effectiveCwd = activeWorktreePath ?? undefined;
+
+  // Fetch worktrees for ALL workspaces eagerly (avoids chicken-and-egg deadlock
+  // where expandedWorkspaces starts empty so data never loads)
+  const allWorkspaceIds = workspaces?.map((ws: WorkspaceSummary) => ws.id) ?? [];
+
+  const worktreeResults = useQueries({
+    queries: allWorkspaceIds.map((id) => ({
+      queryKey: ['worktrees', id],
+      queryFn: async () => {
+        const response = await sendRequest<GitWorktreeListResponse>('git.worktreeList', {
+          workspaceId: id,
+        });
+        return response.worktrees;
+      },
+    })),
+  });
+
+  const worktreesByWorkspace = useMemo<Record<string, GitWorktreeInfo[]>>(() => {
+    const result: Record<string, GitWorktreeInfo[]> = {};
+    for (let i = 0; i < allWorkspaceIds.length; i++) {
+      const data = worktreeResults[i]?.data;
+      if (data) result[allWorkspaceIds[i]] = data;
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/use-memo
+  }, [allWorkspaceIds, ...worktreeResults.map((r) => r.data)]);
+
   const handleDragEnd = useCallback(
     (event: {
       canceled: boolean;
@@ -246,6 +305,19 @@ function WorkspaceViewInner() {
       const sourceGroup = (source as any).initialGroup ?? source.group;
       const targetGroup =
         target!.group ?? (target! as unknown as { data?: { group?: string } })?.data?.group;
+
+      // Workspace reorder — commit final order on drag end
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((source as any).type === 'workspace') {
+        const ws = workspacesRef.current;
+        if (!ws) return;
+        const workspaceIds = ws.map((w: WorkspaceSummary) => w.id);
+        const reordered = move(workspaceIds, event);
+        if (Array.isArray(reordered)) {
+          reorderWorkspacesMutation.mutate({ workspaceIds: reordered });
+        }
+        return;
+      }
 
       // Only handle cross-pane transfers
       if (sourceGroup === targetGroup) return;
@@ -284,12 +356,13 @@ function WorkspaceViewInner() {
         ),
       );
     },
-    [activeWorkspaceId, terminalRegistry],
+    [activeWorkspaceId, terminalRegistry, reorderWorkspacesMutation],
   );
 
   const handleWorkspaceSelect = useCallback(
     (id: string) => {
       setSelectedWorkspaceId(id);
+      setActiveWorktreePath(null);
       const ws = workspaces?.find((w: WorkspaceSummary) => w.id === id);
       if (ws?.color) setAccentColor(ws.color);
     },
@@ -397,6 +470,39 @@ function WorkspaceViewInner() {
     [deleteWorkspace, selectedWorkspaceId],
   );
 
+  // Worktree handlers
+  const handleWorktreeSelect = useCallback((path: string) => {
+    setActiveWorktreePath(path);
+  }, []);
+
+  const handleCreateWorktree = useCallback((workspaceId: string) => {
+    setCreateWorktreeForWsId(workspaceId);
+    setIsCreateWorktreeDialogOpen(true);
+  }, []);
+
+  const handleWorktreeCreated = useCallback(() => {
+    setIsCreateWorktreeDialogOpen(false);
+    setCreateWorktreeForWsId(null);
+  }, []);
+
+  const handleCopyWorktreePath = useCallback((path: string) => {
+    navigator.clipboard.writeText(path);
+  }, []);
+
+  const handleRemoveWorktree = useCallback(
+    (workspaceId: string, worktreePath: string, force: boolean) => {
+      removeWorktreeMutation.mutate({ workspaceId, worktreePath, force });
+    },
+    [removeWorktreeMutation],
+  );
+
+  const handleMergeWorktree = useCallback(
+    (workspaceId: string, worktreePath: string, _branch: string, deleteAfterMerge?: boolean) => {
+      mergeWorktreeMutation.mutate({ workspaceId, worktreePath, targetBranch: 'main', deleteAfterMerge });
+    },
+    [mergeWorktreeMutation],
+  );
+
   // Stable callback cache: tabId -> {onTitleChange, onCwdChange}
   // useState with lazy init gives a stable mutable Map; closures read pane refs
   // only when invoked (in event handlers), satisfying the react-hooks/refs rule.
@@ -481,18 +587,25 @@ function WorkspaceViewInner() {
           leftSidebar={
             <WorkspaceSidebar
               activeWorkspaceId={activeWorkspaceId}
+              worktreesByWorkspace={worktreesByWorkspace}
+              activeWorktreePath={activeWorktreePath}
               onWorkspaceSelect={handleWorkspaceSelect}
               onAddWorkspace={handleAddWorkspace}
               onRenameWorkspace={handleRenameWorkspace}
               onSetCwdWorkspace={handleSetCwdWorkspace}
               onRemoveWorkspace={handleRemoveWorkspace}
               onChangeColorWorkspace={handleChangeColorWorkspace}
+              onWorktreeSelect={handleWorktreeSelect}
+              onCreateWorktree={handleCreateWorktree}
+              onCopyWorktreePath={handleCopyWorktreePath}
+              onRemoveWorktree={handleRemoveWorktree}
+              onMergeWorktree={handleMergeWorktree}
             />
           }
           rightSidebar={
             <RightSidebar
               workspaceId={activeWorkspaceId}
-              workspaceCwd={activeWorkspace?.cwd}
+              workspaceCwd={activeWorktreePath ?? activeWorkspace?.cwd}
               onFileSelect={handleFileSelect}
               onOpenDiff={handleDiffFile}
               onOpenGitTree={handleOpenGitTree}
@@ -503,6 +616,7 @@ function WorkspaceViewInner() {
             <BottomPanel
               ref={bottomPanelRef}
               workspaceId={activeWorkspaceId}
+              effectiveCwd={effectiveCwd}
               terminalContainerRef={bottomTerminalRef}
               onTerminalRegistered={handleBottomTerminalRegistered}
               onTerminalUnregistered={handleTerminalUnregistered}
@@ -514,6 +628,7 @@ function WorkspaceViewInner() {
           <ContentPane
             ref={contentPaneRef}
             workspaceId={activeWorkspaceId}
+            effectiveCwd={effectiveCwd}
             fileToOpen={fileToOpen}
             onFileOpened={handleFileOpened}
             fileToDiff={fileToDiff}
@@ -530,6 +645,15 @@ function WorkspaceViewInner() {
             open={isDialogOpen}
             onClose={() => setIsDialogOpen(false)}
             onCreated={handleWorkspaceCreated}
+          />
+          <CreateWorktreeDialog
+            open={isCreateWorktreeDialogOpen}
+            onClose={() => {
+              setIsCreateWorktreeDialogOpen(false);
+              setCreateWorktreeForWsId(null);
+            }}
+            onCreated={handleWorktreeCreated}
+            workspaceId={createWorktreeForWsId}
           />
         </AppLayout>
       </DragDropProvider>

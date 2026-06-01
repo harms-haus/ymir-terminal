@@ -2,6 +2,7 @@ export interface TerminalCreateRequest {
   workspaceId: string;
   cols?: number;
   rows?: number;
+  cwd?: string;
 }
 
 export interface TerminalCreateResponse {

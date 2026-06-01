@@ -7,7 +7,6 @@ import {
   ErrorCodes,
   type WorkspaceListResponse,
   type WorkspaceCreateResponse,
-  type WorkspaceSummary,
   type FileChangeEvent as FileChangePayload,
 } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
@@ -32,6 +31,7 @@ describe('registerWorkspaceHandlers', () => {
   let getWorkspaceFn: ReturnType<typeof mock>;
   let startManagedWatcherFn: ReturnType<typeof mock>;
   let stopManagedWatcherFn: ReturnType<typeof mock>;
+  let reorderWorkspacesFn: ReturnType<typeof mock>;
   let broadcastedEvents: EventEnvelope[];
 
   beforeEach(() => {
@@ -50,12 +50,13 @@ describe('registerWorkspaceHandlers', () => {
         name: input.name,
         cwd: input.cwd,
         color: input.color ?? '#007acc',
+        sort_order: 0,
         created_at: '2025-01-01T00:00:00Z',
         updated_at: '2025-01-01T00:00:00Z',
       }),
     );
     updateWorkspaceFn = mock((_arg0: unknown, id: string, input: Record<string, unknown>) => {
-      const base: WorkspaceSummary = { id, name: 'original', cwd: '/original', color: '#000000' };
+      const base = { id, name: 'original', cwd: '/original', color: '#000000', sort_order: 0 };
       return {
         ...base,
         ...input,
@@ -69,11 +70,13 @@ describe('registerWorkspaceHandlers', () => {
       name: 'original',
       cwd: '/original',
       color: '#000000',
+      sort_order: 0,
       created_at: '2025-01-01T00:00:00Z',
       updated_at: '2025-01-01T00:00:00Z',
     }));
     startManagedWatcherFn = mock(() => {});
     stopManagedWatcherFn = mock(() => {});
+    reorderWorkspacesFn = mock(() => {});
 
     broadcastedEvents = [];
 
@@ -91,6 +94,7 @@ describe('registerWorkspaceHandlers', () => {
         getWorkspace: getWorkspaceFn,
         startManagedWatcher: startManagedWatcherFn,
         stopManagedWatcher: stopManagedWatcherFn,
+        reorderWorkspaces: reorderWorkspacesFn,
       },
     });
   });
@@ -131,9 +135,9 @@ describe('registerWorkspaceHandlers', () => {
   // -----------------------------------------------------------------------
   describe('workspace.list', () => {
     it('responds with WorkspaceListResponse { workspaces: [...] }', async () => {
-      const fakeWorkspaces: WorkspaceSummary[] = [
-        { id: 'ws-1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000' },
-        { id: 'ws-2', name: 'Project B', cwd: '/home/user/b', color: '#00ff00' },
+      const fakeWorkspaces = [
+        { id: 'ws-1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000', sort_order: 0 },
+        { id: 'ws-2', name: 'Project B', cwd: '/home/user/b', color: '#00ff00', sort_order: 1 },
       ];
       listWorkspacesFn.mockImplementation(() => fakeWorkspaces);
 
@@ -147,7 +151,10 @@ describe('registerWorkspaceHandlers', () => {
       expect(resp.error).toBeUndefined();
 
       const payload = resp.payload as WorkspaceListResponse;
-      expect(payload.workspaces).toEqual(fakeWorkspaces);
+      expect(payload.workspaces).toEqual([
+        { id: 'ws-1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000', sortOrder: 0 },
+        { id: 'ws-2', name: 'Project B', cwd: '/home/user/b', color: '#00ff00', sortOrder: 1 },
+      ]);
     });
 
     it('returns empty array when no workspaces exist', async () => {
@@ -426,6 +433,45 @@ describe('registerWorkspaceHandlers', () => {
       const req = request('workspace.delete', {});
       await router.route(conn, req);
 
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 7. workspace.reorder
+  // -----------------------------------------------------------------------
+  describe('workspace.reorder', () => {
+    it('reorders workspaces and responds with null payload', async () => {
+      const req = request('workspace.reorder', {
+        workspaceIds: ['ws-3', 'ws-1', 'ws-2'],
+      });
+      await router.route(conn, req);
+
+      expect(reorderWorkspacesFn).toHaveBeenCalledTimes(1);
+      expect(reorderWorkspacesFn.mock.calls[0][1]).toEqual(['ws-3', 'ws-1', 'ws-2']);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.id).toBe(req.id);
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload).toBeNull();
+    });
+
+    it('returns error INVALID_MESSAGE when workspaceIds is missing', async () => {
+      const req = request('workspace.reorder', {});
+      await router.route(conn, req);
+
+      expect(reorderWorkspacesFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns error INVALID_MESSAGE when workspaceIds is an empty array', async () => {
+      const req = request('workspace.reorder', { workspaceIds: [] });
+      await router.route(conn, req);
+
+      expect(reorderWorkspacesFn).toHaveBeenCalledTimes(0);
       const resp = conn.sent[0] as Record<string, unknown>;
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
     });

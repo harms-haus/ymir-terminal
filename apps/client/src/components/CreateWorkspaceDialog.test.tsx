@@ -11,7 +11,7 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 
 const mockMutateAsync = mock(() =>
-  Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc' } }),
+  Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc', sortOrder: 0 } }),
 );
 
 const mockUseCreateWorkspace = mock(() => ({

@@ -37,11 +37,12 @@ export function useTerminal(terminalId: string | null) {
     [terminalId],
   );
 
-  const createTerminal = useCallback(async (workspaceId: string) => {
+  const createTerminal = useCallback(async (workspaceId: string, cwd?: string) => {
     const result = await sendRequest<{ terminalId: string }>('terminal.create', {
       workspaceId,
       cols: 80,
       rows: 24,
+      ...(cwd ? { cwd } : {}),
     });
     return result.terminalId;
   }, []);

@@ -37,7 +37,7 @@ describe('registerFileHandlers', () => {
     createDirectoryFn = mock(() => Promise.resolve());
     getWorkspaceFn = mock((_db: unknown, id: string) => {
       if (id === 'ws-1') {
-        return { id: 'ws-1', name: 'Test', cwd: '/home/dev/project', color: '#007acc' };
+        return { id: 'ws-1', name: 'Test', cwd: '/home/dev/project', color: '#007acc', sort_order: 0 };
       }
       return null;
     });

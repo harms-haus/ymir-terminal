@@ -11,7 +11,7 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 
 let mockWorkspacesData:
-  | Array<{ id: string; name: string; cwd: string; color: string }>
+  | Array<{ id: string; name: string; cwd: string; color: string; sortOrder: number }>
   | undefined = undefined;
 let mockIsLoading = false;
 
@@ -28,13 +28,19 @@ mock.module('../hooks/useWorkspaces', () => ({
 // Mock WorkspaceItem component
 // ---------------------------------------------------------------------------
 
+mock.module('@dnd-kit/react', () => ({
+  DragDropProvider: ({ children }: { children: React.ReactNode }) => children,
+  DragOverlay: ({ children }: { children: React.ReactNode }) => children,
+  useDroppable: () => ({ ref: () => {}, droppable: {}, isDropTarget: false }),
+}));
+
 mock.module('./WorkspaceItem', () => ({
   WorkspaceItem: ({
     workspace,
     isActive,
     onSelect,
   }: {
-    workspace: { id: string; name: string; color: string };
+    workspace: { id: string; name: string; color: string; sortOrder: number };
     isActive: boolean;
     onSelect: (id: string) => void;
   }) => {
@@ -68,15 +74,15 @@ const { WorkspaceSidebar } = await import('./WorkspaceSidebar');
 // ---------------------------------------------------------------------------
 
 const testWorkspaces = [
-  { id: 'ws-1', name: 'Project Alpha', cwd: '/home/user/alpha', color: '#ff0000' },
-  { id: 'ws-2', name: 'Project Beta', cwd: '/home/user/beta', color: '#00ff00' },
-  { id: 'ws-3', name: 'Project Gamma', cwd: '/home/user/gamma', color: '#0000ff' },
+  { id: 'ws-1', name: 'Project Alpha', cwd: '/home/user/alpha', color: '#ff0000', sortOrder: 0 },
+  { id: 'ws-2', name: 'Project Beta', cwd: '/home/user/beta', color: '#00ff00', sortOrder: 1 },
+  { id: 'ws-3', name: 'Project Gamma', cwd: '/home/user/gamma', color: '#0000ff', sortOrder: 2 },
 ];
 
 function renderSidebar(
   options: {
     activeWorkspaceId?: string | null;
-    workspaces?: Array<{ id: string; name: string; cwd: string; color: string }>;
+    workspaces?: Array<{ id: string; name: string; cwd: string; color: string; sortOrder: number }>;
     isLoading?: boolean;
   } = {},
 ) {
@@ -94,15 +100,29 @@ function renderSidebar(
   const onRemoveWorkspace = mock(() => {});
   const onChangeColorWorkspace = mock(() => {});
 
+  const onToggleExpand = mock(() => {});
+  const onWorktreeSelect = mock(() => {});
+  const onCreateWorktree = mock(() => {});
+  const onCopyWorktreePath = mock(() => {});
+  const onRemoveWorktree = mock(() => {});
+
   const result = render(
     React.createElement(WorkspaceSidebar, {
       activeWorkspaceId,
+      worktreesByWorkspace: {},
+      expandedWorkspaces: new Set(),
+      activeWorktreePath: null,
       onWorkspaceSelect,
       onAddWorkspace,
       onRenameWorkspace,
       onSetCwdWorkspace,
       onRemoveWorkspace,
       onChangeColorWorkspace,
+      onToggleExpand,
+      onWorktreeSelect,
+      onCreateWorktree,
+      onCopyWorktreePath,
+      onRemoveWorktree,
     }),
   );
 

@@ -10,6 +10,7 @@ export type { TerminalPanelHandle as BottomPanelHandle };
 
 export interface BottomPanelProps {
   workspaceId: string | null;
+  effectiveCwd?: string;
   terminalContainerRef?: React.Ref<HTMLDivElement>;
   onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
@@ -20,6 +21,7 @@ export interface BottomPanelProps {
 export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(function BottomPanel(
   {
     workspaceId,
+    effectiveCwd,
     terminalContainerRef,
     onTerminalRegistered,
     onTerminalUnregistered,
@@ -59,12 +61,14 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
     [onTerminalRegistered, workspaceId],
   );
 
-  const handleAddTerminal = useCreateTerminalTab(
+  const createTerminalTab = useCreateTerminalTab(
     workspaceId,
     tabs,
     createTab,
     handleTerminalCreated,
   );
+
+  const handleAddTerminal = useCallback(() => createTerminalTab(effectiveCwd), [createTerminalTab, effectiveCwd]);
 
   // Notify parent of activeTabId changes
   useEffect(() => {

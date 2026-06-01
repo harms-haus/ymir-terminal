@@ -17,15 +17,16 @@ export function useCreateTerminalTab(
   const { createTerminal } = useTerminal(null);
   const creatingRef = useRef(false);
 
-  const createTerminalTab = useCallback(async () => {
+  const createTerminalTab = useCallback(async (cwd?: string) => {
     if (!workspaceId || creatingRef.current) return;
     creatingRef.current = true;
     try {
-      const terminalId = await createTerminal(workspaceId);
+      const terminalId = await createTerminal(workspaceId, cwd);
       const tabId = createTab({
         type: 'terminal',
         title: `Terminal ${tabs.length + 1}`,
         terminalId,
+        cwd,
       });
       onCreated?.(terminalId, tabId);
     } catch (err) {

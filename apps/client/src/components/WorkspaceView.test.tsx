@@ -12,8 +12,8 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 
 const testWorkspaces = [
-  { id: 'ws-1', name: 'Project Alpha', cwd: '/home/user/alpha', color: '#ff0000' },
-  { id: 'ws-2', name: 'Project Beta', cwd: '/home/user/beta', color: '#00ff00' },
+  { id: 'ws-1', name: 'Project Alpha', cwd: '/home/user/alpha', color: '#ff0000', sortOrder: 0 },
+  { id: 'ws-2', name: 'Project Beta', cwd: '/home/user/beta', color: '#00ff00', sortOrder: 1 },
 ];
 
 let mockWorkspacesData = testWorkspaces;
@@ -66,7 +66,7 @@ const mockUseTabs = mock(() => ({
 
 const mockUseCreateWorkspace = mock(() => ({
   mutateAsync: mock(() =>
-    Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc' } }),
+    Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc', sortOrder: 0 } }),
   ),
   isPending: false,
   isError: false,
@@ -89,11 +89,38 @@ const mockUseDeleteWorkspace = mock(() => ({
   error: null,
 }));
 
+const mockUseReorderWorkspaces = mock(() => ({
+  mutate: mock(() => {}),
+  mutateAsync: mock(() => Promise.resolve()),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+
+const mockUseCreateWorktree = mock(() => ({
+  mutate: mock(() => {}),
+  mutateAsync: mock(() => Promise.resolve()),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+
+const mockUseRemoveWorktree = mock(() => ({
+  mutate: mock(() => {}),
+  mutateAsync: mock(() => Promise.resolve()),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+
 mock.module('../hooks/useWorkspaces', () => ({
   useWorkspaces: mockUseWorkspaces,
   useCreateWorkspace: mockUseCreateWorkspace,
   useUpdateWorkspace: mockUseUpdateWorkspace,
   useDeleteWorkspace: mockUseDeleteWorkspace,
+  useReorderWorkspaces: mockUseReorderWorkspaces,
+  useCreateWorktree: mockUseCreateWorktree,
+  useRemoveWorktree: mockUseRemoveWorktree,
 }));
 
 mock.module('../hooks/useTheme', () => ({

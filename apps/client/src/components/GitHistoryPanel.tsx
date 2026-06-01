@@ -177,6 +177,7 @@ const CommitRow = memo(function CommitRow({
 
 interface GitHistoryPanelProps {
   workspaceId: string | null;
+  workspaceCwd?: string;
   onCommitClick?: (commitSha: string) => void;
 }
 
@@ -186,7 +187,7 @@ interface GitHistoryPanelProps {
  * (@tanstack/react-virtual), custom per-row graph renderer with bezier curves,
  * and skip-based pagination via the `git.log` WebSocket channel.
  */
-export function GitHistoryPanel({ workspaceId, onCommitClick }: GitHistoryPanelProps) {
+export function GitHistoryPanel({ workspaceId, workspaceCwd, onCommitClick }: GitHistoryPanelProps) {
   const [commits, setCommits] = useState<GitLogItem[]>([]);
   const [skip, setSkip] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -212,6 +213,7 @@ export function GitHistoryPanel({ workspaceId, onCommitClick }: GitHistoryPanelP
         workspaceId,
         skip,
         limit: PAGE_SIZE,
+        ...(workspaceCwd ? { repoPath: workspaceCwd } : {}),
       });
       if (gen !== generationRef.current) return; // discard stale
       setCommits((prev) => [...prev, ...res.commits]);
@@ -223,7 +225,7 @@ export function GitHistoryPanel({ workspaceId, onCommitClick }: GitHistoryPanelP
     } finally {
       if (gen === generationRef.current) setLoading(false);
     }
-  }, [workspaceId, skip, loading, hasMore]);
+  }, [workspaceId, workspaceCwd, skip, loading, hasMore]);
 
   // ── Reset on workspace change ──────────────────────────────────────────
 
@@ -239,7 +241,7 @@ export function GitHistoryPanel({ workspaceId, onCommitClick }: GitHistoryPanelP
     if (workspaceId) {
       setTimeout(() => loadCommitsRef.current(), 0);
     }
-  }, [workspaceId]);
+  }, [workspaceId, workspaceCwd]);
 
   // ── Infinite scroll ────────────────────────────────────────────────────
 

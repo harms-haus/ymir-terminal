@@ -10,6 +10,7 @@ import {
   type WorkspaceCreateResponse,
   type WorkspaceDeleteRequest,
   type WorkspaceListResponse,
+  type WorkspaceReorderRequest,
   type WorkspaceSummary,
   type WorkspaceUpdateRequest,
 } from '@ymir/shared';
@@ -22,6 +23,7 @@ import {
   updateWorkspace as dbUpdateWorkspace,
   deleteWorkspace as dbDeleteWorkspace,
   getWorkspace as dbGetWorkspace,
+  reorderWorkspaces as dbReorderWorkspaces,
   type Workspace,
   type CreateWorkspaceInput,
   type UpdateWorkspaceInput,
@@ -51,6 +53,7 @@ export interface WorkspaceDeps {
       broadcastEvent: (envelope: EventEnvelope<FileChangePayload>) => void,
     ) => void;
     stopManagedWatcher?: (workspaceId: string) => void;
+    reorderWorkspaces?: (db: Database, ids: string[]) => void;
   };
 }
 
@@ -65,6 +68,7 @@ function toSummary(ws: Workspace): WorkspaceSummary {
     name: ws.name,
     cwd: ws.cwd,
     color: ws.color,
+    sortOrder: ws.sort_order,
   };
 }
 
@@ -82,6 +86,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
   const doGet = _mocks?.getWorkspace ?? dbGetWorkspace;
   const doStartWatcher = _mocks?.startManagedWatcher ?? startManagedWatcher;
   const doStopWatcher = _mocks?.stopManagedWatcher ?? stopManagedWatcher;
+  const doReorder = _mocks?.reorderWorkspaces ?? dbReorderWorkspaces;
 
   // --- workspace.list -----------------------------------------------------
   router.handle('workspace.list', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -220,6 +225,33 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
 
     const resp: ResponseEnvelope = createResponse(req, { deleted: true });
 
+    conn.send(resp);
+  });
+
+  // --- workspace.reorder --------------------------------------------------
+  router.handle('workspace.reorder', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<WorkspaceReorderRequest>;
+    const payload = req.payload;
+
+    if (
+      payload == null ||
+      typeof payload !== 'object' ||
+      !Array.isArray(payload.workspaceIds) ||
+      payload.workspaceIds.length === 0 ||
+      !payload.workspaceIds.every((id: unknown) => typeof id === 'string')
+    ) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'workspace.reorder' },
+        ErrorCodes.INVALID_MESSAGE,
+        'Missing required field: workspaceIds (non-empty string array)',
+      );
+      conn.send(err);
+      return;
+    }
+
+    doReorder(persistentDb, payload.workspaceIds);
+
+    const resp: ResponseEnvelope = createResponse(req, null);
     conn.send(resp);
   });
 }

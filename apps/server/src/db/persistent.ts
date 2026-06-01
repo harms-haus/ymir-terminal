@@ -7,6 +7,7 @@ export interface Workspace {
   name: string;
   cwd: string;
   color: string;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -37,10 +38,21 @@ export function initDatabase(dbPath: string): Database {
       name TEXT NOT NULL,
       cwd TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#007acc',
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Idempotent migration: add sort_order column if it doesn't exist
+  const columns = db
+    .prepare('PRAGMA table_info(workspaces)')
+    .all() as { name: string }[];
+  const hasSortOrder = columns.some((col) => col.name === 'sort_order');
+  if (!hasSortOrder) {
+    db.run('ALTER TABLE workspaces ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS server_config (
       key TEXT PRIMARY KEY,
@@ -54,9 +66,9 @@ export function initDatabase(dbPath: string): Database {
 export function createWorkspace(db: Database, input: CreateWorkspaceInput): Workspace {
   const id = generateId();
   const stmt = db.prepare(`
-    INSERT INTO workspaces (id, name, cwd, color)
-    VALUES ($id, $name, $cwd, COALESCE($color, '#007acc'))
-    RETURNING id, name, cwd, color, created_at, updated_at
+    INSERT INTO workspaces (id, name, cwd, color, sort_order)
+    VALUES ($id, $name, $cwd, COALESCE($color, '#007acc'), (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM workspaces))
+    RETURNING id, name, cwd, color, sort_order, created_at, updated_at
   `);
   return stmt.get({
     $id: id,
@@ -68,14 +80,14 @@ export function createWorkspace(db: Database, input: CreateWorkspaceInput): Work
 
 export function listWorkspaces(db: Database): Workspace[] {
   const stmt = db.prepare(
-    'SELECT id, name, cwd, color, created_at, updated_at FROM workspaces ORDER BY name ASC',
+    'SELECT id, name, cwd, color, sort_order, created_at, updated_at FROM workspaces ORDER BY sort_order ASC, name ASC',
   );
   return stmt.all() as Workspace[];
 }
 
 export function getWorkspace(db: Database, id: string): Workspace | null {
   const stmt = db.prepare(
-    'SELECT id, name, cwd, color, created_at, updated_at FROM workspaces WHERE id = $id',
+    'SELECT id, name, cwd, color, sort_order, created_at, updated_at FROM workspaces WHERE id = $id',
   );
   return (stmt.get({ $id: id }) as Workspace | null) ?? null;
 }
@@ -96,7 +108,7 @@ export function updateWorkspace(
     UPDATE workspaces
     SET name = $name, cwd = $cwd, color = $color, updated_at = datetime('now')
     WHERE id = $id
-    RETURNING id, name, cwd, color, created_at, updated_at
+    RETURNING id, name, cwd, color, sort_order, created_at, updated_at
   `);
   return stmt.get({
     $id: id,
@@ -123,4 +135,14 @@ export function setConfigValue(db: Database, key: string, value: string): void {
     'INSERT OR REPLACE INTO server_config (key, value) VALUES ($key, $value)',
   );
   stmt.run({ $key: key, $value: value });
+}
+
+export function reorderWorkspaces(db: Database, workspaceIds: string[]): void {
+  const updateStmt = db.prepare('UPDATE workspaces SET sort_order = ? WHERE id = ?');
+  const tx = db.transaction(() => {
+    for (let i = 0; i < workspaceIds.length; i++) {
+      updateStmt.run(i, workspaceIds[i]);
+    }
+  });
+  tx();
 }

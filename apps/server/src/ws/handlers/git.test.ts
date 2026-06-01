@@ -30,10 +30,10 @@ describe('registerGitHandlers', () => {
 
     getWorkspaceFn = mock((_db: unknown, id: string) => {
       if (id === 'ws-1') {
-        return { id: 'ws-1', name: 'Test', cwd: '/home/dev/project', color: '#007acc' };
+        return { id: 'ws-1', name: 'Test', cwd: '/home/dev/project', color: '#007acc', sort_order: 0 };
       }
       if (id === 'ws-nongit') {
-        return { id: 'ws-nongit', name: 'No Git', cwd: '/tmp/plain', color: '#007acc' };
+        return { id: 'ws-nongit', name: 'No Git', cwd: '/tmp/plain', color: '#007acc', sort_order: 0 };
       }
       return null;
     });
@@ -198,6 +198,84 @@ describe('registerGitHandlers', () => {
       const payload = resp.payload as GitStatusResponse;
       expect(payload.branch).toBe('feature');
       expect(payload.repoPath).toBe('subdir/repo');
+    });
+
+    it('rejects repoPath outside the workspace (path traversal)', async () => {
+      const getGitStatusEnhancedFn = mock(async (_dirPath: string) => ({
+        branch: 'develop',
+        changes: [{ path: 'b.ts', status: 'A' }],
+        staged: [],
+        hasRemote: false,
+        ahead: 0,
+        behind: 0,
+      }));
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          getGitStatus: getGitStatusFn,
+          getGitStatusEnhanced: getGitStatusEnhancedFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.status', { workspaceId: 'ws-1', repoPath: '/tmp/external-repo' });
+      await localRouter.route(localConn, req);
+
+      // safePath rejects /tmp/external-repo because it's outside /home/dev/project
+      expect(getGitStatusEnhancedFn).toHaveBeenCalledTimes(0);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+      expect((resp.error as Record<string, unknown>).message).toBe('Path traversal detected');
+    });
+
+    it('accepts absolute repoPath within the workspace', async () => {
+      const getGitStatusEnhancedFn = mock(async (_dirPath: string) => ({
+        branch: 'develop',
+        changes: [{ path: 'b.ts', status: 'A' }],
+        staged: [],
+        hasRemote: false,
+        ahead: 0,
+        behind: 0,
+      }));
+
+      const getWsFn = mock((_db: unknown, id: string) => {
+        if (id === 'ws-abs') {
+          return { id: 'ws-abs', name: 'Abs', cwd: '/home/dev/project', color: '#007acc', sort_order: 0 };
+        }
+        return null;
+      });
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWsFn,
+          getGitStatus: getGitStatusFn,
+          getGitStatusEnhanced: getGitStatusEnhancedFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.status', { workspaceId: 'ws-abs', repoPath: '/home/dev/project/subdir/repo' });
+      await localRouter.route(localConn, req);
+
+      // safePath allows /home/dev/project/subdir/repo because it's within /home/dev/project
+      expect(getGitStatusEnhancedFn).toHaveBeenCalledTimes(1);
+      expect(getGitStatusEnhancedFn.mock.calls[0][0]).toBe('/home/dev/project/subdir/repo');
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitStatusResponse;
+      expect(payload.branch).toBe('develop');
     });
   });
 

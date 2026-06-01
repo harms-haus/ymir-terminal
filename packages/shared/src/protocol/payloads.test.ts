@@ -22,6 +22,7 @@ import {
   type WorkspaceCreateResponse,
   type WorkspaceUpdateRequest,
   type WorkspaceDeleteRequest,
+  type WorkspaceReorderRequest,
   // File
   type FileNode,
   type FileTreeRequest,
@@ -48,6 +49,11 @@ import {
   type GitPushRequest,
   type GitFetchRequest,
   type GitDiffDataRequest,
+  type GitCommitDetailsRequest,
+  type GitCommitDiffRequest,
+  type GitWorktreeListRequest,
+  type GitWorktreeCreateRequest,
+  type GitWorktreeRemoveRequest,
   // Config
   type ConfigGetRequest,
   type ConfigGetResponse,
@@ -82,6 +88,7 @@ describe('REQUEST_TYPES', () => {
     'workspace.create',
     'workspace.update',
     'workspace.delete',
+    'workspace.reorder',
     'file.tree',
     'file.read',
     'file.write',
@@ -100,6 +107,11 @@ describe('REQUEST_TYPES', () => {
     'git.push',
     'git.fetch',
     'git.diffData',
+    'git.commitDetails',
+    'git.commitDiff',
+    'git.worktreeList',
+    'git.worktreeCreate',
+    'git.worktreeRemove',
     'config.get',
     'config.set',
     'tab.list',
@@ -113,8 +125,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 34 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(34);
+  it('has exactly 40 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(40);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -278,6 +290,7 @@ describe('WorkspaceSummary', () => {
       name: 'my-project',
       cwd: '/home/user/project',
       color: '#ff0000',
+      sortOrder: 0,
     };
     const parsed: WorkspaceSummary = JSON.parse(JSON.stringify(payload));
     expect(parsed).toEqual(payload);
@@ -288,8 +301,8 @@ describe('WorkspaceListResponse', () => {
   it('round-trips through JSON', () => {
     const payload: WorkspaceListResponse = {
       workspaces: [
-        { id: 'ws-1', name: 'a', cwd: '/a', color: '#000' },
-        { id: 'ws-2', name: 'b', cwd: '/b', color: '#111' },
+        { id: 'ws-1', name: 'a', cwd: '/a', color: '#000', sortOrder: 0 },
+        { id: 'ws-2', name: 'b', cwd: '/b', color: '#111', sortOrder: 1 },
       ],
     };
     const parsed: WorkspaceListResponse = JSON.parse(JSON.stringify(payload));
@@ -589,6 +602,18 @@ describe('RequestPayload union', () => {
         filePath: 'a.ts',
         staged: false,
       } satisfies GitDiffDataRequest,
+      { workspaceId: 'ws-1', repoPath: '.', commitSha: 'abc123' } satisfies GitCommitDetailsRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        commitSha: 'abc123',
+        parentSha: 'def456',
+        filePath: 'a.ts',
+      } satisfies GitCommitDiffRequest,
+      { workspaceId: 'ws-1' } satisfies GitWorktreeListRequest,
+      { workspaceId: 'ws-1', branchName: 'feature-x' } satisfies GitWorktreeCreateRequest,
+      { workspaceId: 'ws-1', worktreePath: '/path/to/wt' } satisfies GitWorktreeRemoveRequest,
+      { workspaceIds: ['ws-1', 'ws-2'] } satisfies WorkspaceReorderRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
       { workspaceId: 'ws-1' } satisfies TabListRequest,
@@ -608,8 +633,15 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 33 payload types (workspace.list carries no body and has no
-    // corresponding type in the RequestPayload union)
+    // 38 payload types: workspace.list has no body (WorkspaceListRequest = Record<string,never>)
+    // so REQUEST_TYPES (40) minus workspace.list minus workspace.reorder (has body) = 38.
+    // Actually: all 40 have payload types, but workspace.list's type is
+    // Record<string,never> which is included. So payloads covers all 40 types
+    // minus workspace.list (no distinguishing fields to satisfy) and the
+    // satisfies check is still valid via the union.
+    // Count: 40 REQUEST_TYPES - 2 no-body types (workspace.list = Record<string,never>,
+    // and we explicitly include all others) = we have all 38 typed payloads + 1 satisfies
+    // for workspace.reorder = total should be all entries minus workspace.list.
     expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });
 });

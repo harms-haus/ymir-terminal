@@ -1,10 +1,10 @@
-import { statSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { GitFileChange, GitFileChangeStatus, GitStatusResponse } from '@ymir/shared';
 
 export function isGitRepo(dirPath: string): boolean {
   try {
-    return statSync(join(dirPath, '.git')).isDirectory();
+    return existsSync(join(dirPath, '.git'));
   } catch {
     return false;
   }

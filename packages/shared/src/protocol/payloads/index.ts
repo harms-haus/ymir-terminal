@@ -26,6 +26,7 @@ import type {
   WorkspaceCreateRequest,
   WorkspaceUpdateRequest,
   WorkspaceDeleteRequest,
+  WorkspaceReorderRequest,
 } from './workspace';
 import type {
   FileTreeRequest,
@@ -51,6 +52,10 @@ import type {
   GitDiffDataRequest,
   GitCommitDetailsRequest,
   GitCommitDiffRequest,
+  GitWorktreeListRequest,
+  GitWorktreeCreateRequest,
+  GitWorktreeRemoveRequest,
+  GitWorktreeMergeRequest,
 } from './git';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
@@ -76,6 +81,7 @@ export const REQUEST_TYPES = [
   'workspace.create',
   'workspace.update',
   'workspace.delete',
+  'workspace.reorder',
   'file.tree',
   'file.read',
   'file.write',
@@ -96,6 +102,10 @@ export const REQUEST_TYPES = [
   'git.diffData',
   'git.commitDetails',
   'git.commitDiff',
+  'git.worktreeList',
+  'git.worktreeCreate',
+  'git.worktreeRemove',
+  'git.worktreeMerge',
   'config.get',
   'config.set',
   'tab.list',
@@ -130,6 +140,7 @@ export type RequestPayload =
   | WorkspaceCreateRequest
   | WorkspaceUpdateRequest
   | WorkspaceDeleteRequest
+  | WorkspaceReorderRequest
   | FileTreeRequest
   | FileReadRequest
   | FileWriteRequest
@@ -150,6 +161,10 @@ export type RequestPayload =
   | GitDiffDataRequest
   | GitCommitDetailsRequest
   | GitCommitDiffRequest
+  | GitWorktreeListRequest
+  | GitWorktreeCreateRequest
+  | GitWorktreeRemoveRequest
+  | GitWorktreeMergeRequest
   | ConfigGetRequest
   | ConfigSetRequest
   | TabListRequest

@@ -22,6 +22,7 @@ interface WorkspaceItemContextMenuProps {
   onSetCwd: (id: string, newCwd: string) => void;
   onRemove: (id: string) => void;
   onChangeColor: (id: string, newColor: string) => void;
+  onCreateWorktree?: () => void;
   children: React.ReactNode;
 }
 
@@ -33,6 +34,7 @@ export function WorkspaceItemContextMenu({
   onSetCwd,
   onRemove,
   onChangeColor,
+  onCreateWorktree,
   children,
 }: WorkspaceItemContextMenuProps) {
   const [editingField, setEditingField] = useState<'rename' | 'cwd' | null>(null);
@@ -199,6 +201,17 @@ export function WorkspaceItemContextMenu({
                 );
               })}
             </div>
+          </ContextMenu.Item>
+
+          <ContextMenu.Separator style={separatorStyle} />
+
+          {/* Create Worktree */}
+          <ContextMenu.Item
+            data-testid="ws-menu-create-worktree"
+            onSelect={() => onCreateWorktree?.()}
+            style={menuItemStyle}
+          >
+            Create Worktree…
           </ContextMenu.Item>
 
           <ContextMenu.Separator style={separatorStyle} />

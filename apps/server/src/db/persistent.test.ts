@@ -59,7 +59,7 @@ describe('persistent database', () => {
     expect(workspace.color).toBe('#007acc');
   });
 
-  it('listWorkspaces returns all workspaces ordered by name', () => {
+  it('listWorkspaces returns all workspaces ordered by sort_order then name', () => {
     createWorkspace(db, { name: 'beta', cwd: '/tmp/beta' });
     createWorkspace(db, { name: 'alpha', cwd: '/tmp/alpha' });
     createWorkspace(db, { name: 'gamma', cwd: '/tmp/gamma' });
@@ -67,8 +67,9 @@ describe('persistent database', () => {
     const workspaces = listWorkspaces(db);
 
     expect(workspaces.length).toBe(3);
-    expect(workspaces[0].name).toBe('alpha');
-    expect(workspaces[1].name).toBe('beta');
+    // sort_order is assigned incrementally on creation: beta=0, alpha=1, gamma=2
+    expect(workspaces[0].name).toBe('beta');
+    expect(workspaces[1].name).toBe('alpha');
     expect(workspaces[2].name).toBe('gamma');
   });
 

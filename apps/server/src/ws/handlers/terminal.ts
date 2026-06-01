@@ -22,8 +22,10 @@ import {
   updateTerminalSize,
   deleteTerminalInstance,
 } from '../../db/session';
+import { resolve } from 'node:path';
 import { getWorkspace } from '../../db/persistent';
-import { validateTerminalOwnership } from '../../lib/handler-validation';
+import { listWorktrees } from '../../git/worktrees';
+import { validateTerminalOwnership, safePath } from '../../lib/handler-validation';
 
 export interface TerminalDeps {
   ptyManager: PTYManager;
@@ -90,7 +92,42 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     // Resolve workspace CWD
     const workspace =
       workspaceId !== 'default' ? getWorkspace(deps.persistentDb, workspaceId) : null;
-    const cwd = workspace?.cwd ?? process.cwd();
+    const workspaceCwd = workspace?.cwd ?? process.cwd();
+
+    // Validate cwd — must be within the workspace or a known git worktree
+    let cwd: string;
+    if (typeof payload.cwd === 'string' && payload.cwd.length > 0) {
+      const resolvedCwd = resolve(payload.cwd);
+      try {
+        cwd = safePath(workspaceCwd, payload.cwd);
+      } catch {
+        // Not within workspace — check if it's a known worktree
+        try {
+          const worktrees = await listWorktrees(workspaceCwd);
+          const isKnownWorktree = worktrees.some(w => resolve(w.path) === resolvedCwd);
+          if (!isKnownWorktree) {
+            deleteTerminalInstance(sessionDb, terminalId);
+            conn.send(createError(
+              { id: req.id, channel: req.channel ?? 'terminal.create' },
+              ErrorCodes.PERMISSION_DENIED,
+              'Invalid cwd: path is not within the workspace or a known worktree',
+            ));
+            return;
+          }
+          cwd = resolvedCwd;
+        } catch {
+          deleteTerminalInstance(sessionDb, terminalId);
+          conn.send(createError(
+            { id: req.id, channel: req.channel ?? 'terminal.create' },
+            ErrorCodes.PERMISSION_DENIED,
+            'Invalid cwd: path is not within the workspace or a known worktree',
+          ));
+          return;
+        }
+      }
+    } else {
+      cwd = workspaceCwd;
+    }
 
     // Create the PTY process
     try {

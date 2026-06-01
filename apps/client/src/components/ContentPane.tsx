@@ -11,6 +11,7 @@ import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 
 export interface ContentPaneProps {
   workspaceId: string | null;
+  effectiveCwd?: string;
   fileToOpen?: string | null;
   onFileOpened?: () => void;
   fileToDiff?: { filePath: string; repoPath: string; staged: boolean } | null;
@@ -29,6 +30,7 @@ export type { TerminalPanelHandle as ContentPaneHandle };
 export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(function ContentPane(
   {
     workspaceId,
+    effectiveCwd,
     fileToOpen,
     onFileOpened,
     fileToDiff,
@@ -80,12 +82,14 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
     [onTerminalRegistered, workspaceId],
   );
 
-  const handleAddTerminal = useCreateTerminalTab(
+  const createTerminalTab = useCreateTerminalTab(
     workspaceId,
     tabs,
     createTab,
     handleTerminalCreated,
   );
+
+  const handleAddTerminal = useCallback(() => createTerminalTab(effectiveCwd), [createTerminalTab, effectiveCwd]);
 
   const handleDirtyChange = useCallback((filePath: string, dirty: boolean) => {
     setDirtyFiles((prev) => {
