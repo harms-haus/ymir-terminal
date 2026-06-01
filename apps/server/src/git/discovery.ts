@@ -26,6 +26,11 @@ const SKIP_DIRS = new Set([
 export async function discoverRepos(workspaceCwd: string, maxDepth = 5): Promise<GitRepoInfo[]> {
   const repos: GitRepoInfo[] = [];
   await walkDir(workspaceCwd, workspaceCwd, 0, maxDepth, repos);
+  repos.sort((a, b) => {
+    if (a.path === '.') return -1;
+    if (b.path === '.') return 1;
+    return a.path.localeCompare(b.path);
+  });
   return repos;
 }
 
@@ -57,8 +62,7 @@ async function walkDir(
       ...tracking,
     });
 
-    // Stop at repo boundary
-    return;
+
   }
 
   // Recurse into subdirectories

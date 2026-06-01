@@ -101,7 +101,7 @@ describe('discoverRepos', () => {
     expect(repos).toEqual([]);
   });
 
-  it('stops at repo boundary — nested repo inside repo is not scanned', async () => {
+  it('discovers nested repos inside a parent repo', async () => {
     // Outer repo at workspace root
     initRepo(testDir);
 
@@ -110,9 +110,10 @@ describe('discoverRepos', () => {
     initRepo(inner);
 
     const repos = await discoverRepos(testDir);
-    // Should find only the outer repo — inner is behind a repo boundary
-    expect(repos).toHaveLength(1);
-    expect(repos[0].path).toBe('.');
+    // Should find both the outer and inner repos
+    expect(repos).toHaveLength(2);
+    const paths = repos.map((r) => r.path).sort();
+    expect(paths).toEqual(['.', 'nested-inner']);
   });
 
   it('populates hasRemote when a remote is configured', async () => {
