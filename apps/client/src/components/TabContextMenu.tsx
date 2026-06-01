@@ -16,6 +16,8 @@ interface TabContextMenuProps {
   onCloseRight: () => void;
   onCloseOthers: () => void;
   onRename: () => void;
+  onMoveToBottom?: () => void;
+  onMoveToContent?: () => void;
   children: React.ReactNode;
 }
 
@@ -26,6 +28,8 @@ export function TabContextMenu({
   onCloseRight,
   onCloseOthers,
   onRename,
+  onMoveToBottom,
+  onMoveToContent,
   children,
 }: TabContextMenuProps) {
   const renameSelectedRef = useRef(false);
@@ -84,6 +88,30 @@ export function TabContextMenu({
           >
             Rename
           </ContextMenu.Item>
+          {onMoveToBottom && (
+            <>
+              <ContextMenu.Separator style={separatorStyle} />
+              <ContextMenu.Item
+                data-testid="tab-menu-move-to-bottom"
+                onSelect={onMoveToBottom}
+                style={menuItemStyle}
+              >
+                Move to Bottom Pane
+              </ContextMenu.Item>
+            </>
+          )}
+          {onMoveToContent && (
+            <>
+              <ContextMenu.Separator style={separatorStyle} />
+              <ContextMenu.Item
+                data-testid="tab-menu-move-to-content"
+                onSelect={onMoveToContent}
+                style={menuItemStyle}
+              >
+                Move to Content Pane
+              </ContextMenu.Item>
+            </>
+          )}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

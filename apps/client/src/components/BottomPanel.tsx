@@ -14,6 +14,7 @@ export interface BottomPanelProps {
   onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
   onActiveTabChange?: (activeTabId: string | null) => void;
+  onMoveToPane?: (tabId: string) => void;
 }
 
 export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(function BottomPanel(
@@ -23,6 +24,7 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
     onTerminalRegistered,
     onTerminalUnregistered,
     onActiveTabChange,
+    onMoveToPane,
   }: BottomPanelProps,
   ref,
 ) {
@@ -100,6 +102,7 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
         onCloseRight={handleCloseRight}
         onCloseOthers={handleCloseOthers}
         onRename={handleRenameTab}
+        onMoveToPane={onMoveToPane}
         group="bottom"
       />
       {/* TerminalManager portals terminals into this container */}

@@ -21,6 +21,7 @@ export interface ContentPaneProps {
   onActiveTabChange?: (activeTabId: string | null) => void;
   commitToHighlight?: { commitSha?: string; repoPath: string } | null;
   onCommitHighlighted?: () => void;
+  onMoveToPane?: (tabId: string) => void;
 }
 
 export type { TerminalPanelHandle as ContentPaneHandle };
@@ -38,6 +39,7 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
     onActiveTabChange,
     commitToHighlight,
     onCommitHighlighted,
+    onMoveToPane,
   }: ContentPaneProps,
   ref,
 ) {
@@ -221,6 +223,7 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
         onCloseRight={handleCloseRight}
         onCloseOthers={handleCloseOthers}
         onRename={handleRenameTab}
+        onMoveToPane={onMoveToPane}
         group="content"
       />
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>

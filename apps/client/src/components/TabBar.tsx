@@ -20,6 +20,7 @@ interface TabBarProps {
   onCloseRight?: (tabId: string) => void;
   onCloseOthers?: (tabId: string) => void;
   onRename?: (tabId: string, newTitle: string) => void;
+  onMoveToPane?: (tabId: string) => void;
   group?: string;
 }
 
@@ -34,6 +35,7 @@ export function TabBar({
   onCloseRight,
   onCloseOthers,
   onRename,
+  onMoveToPane,
   group,
 }: TabBarProps) {
   // Inline rename state
@@ -141,6 +143,16 @@ export function TabBar({
             cancelRename={cancelRename}
             setRenameValue={setRenameValue}
             group={group}
+            onMoveToBottom={
+              onMoveToPane && tab.terminalId && variant === 'content'
+                ? () => onMoveToPane(tab.id)
+                : undefined
+            }
+            onMoveToContent={
+              onMoveToPane && tab.terminalId && variant === 'bottom'
+                ? () => onMoveToPane(tab.id)
+                : undefined
+            }
           />
         ))}
       </div>

@@ -51,7 +51,6 @@ export const Terminal = forwardRef(function Terminal(
       const fit = new FitAddon();
       term.loadAddon(fit);
       term.open(containerRef.current!);
-      fit.fit();
 
       termRef.current = term;
       fitRef.current = fit;
@@ -73,6 +72,8 @@ export const Terminal = forwardRef(function Terminal(
       const resizeDisposable = term.onResize(({ cols, rows }) => {
         resizeTerminal(cols, rows);
       });
+
+      fit.fit();
 
       const observer = new ResizeObserver(() => {
         // Don't fit when hidden (display:none → 0×0)

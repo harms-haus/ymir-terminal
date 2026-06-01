@@ -48,6 +48,7 @@ function WorkspaceViewInner() {
     left: leftVisible,
     right: rightVisible,
     bottom: bottomVisible,
+    toggleBottom,
     loading,
   } = usePaneVisibility();
 
@@ -250,7 +251,7 @@ function WorkspaceViewInner() {
       if (sourceGroup === targetGroup) return;
 
       // Only allow drag within the active workspace
-      const sourceEntry = terminalRegistry.find((t) => t.terminalId === (source.id as string));
+      const sourceEntry = terminalRegistry.find((t) => t.tabId === (source.id as string));
       if (!sourceEntry || sourceEntry.workspaceId !== activeWorkspaceId) return;
 
       // Determine source and target panes
@@ -329,6 +330,39 @@ function WorkspaceViewInner() {
   }, []);
 
   const handleCommitHighlighted = useCallback(() => setCommitToHighlight(null), []);
+
+  const handleMoveToPane = useCallback(
+    (tabId: string, sourcePane: 'content' | 'bottom') => {
+      const sourceRef = sourcePane === 'content' ? contentPaneRef : bottomPanelRef;
+      const targetRef = sourcePane === 'content' ? bottomPanelRef : contentPaneRef;
+      const targetGroup = sourcePane === 'content' ? 'bottom' : 'content';
+
+      // Auto-expand the bottom panel when moving a tab there while it is collapsed
+      if (targetGroup === 'bottom' && !bottomVisible) {
+        toggleBottom();
+      }
+
+      const removed = sourceRef.current?.transferTabOut(tabId);
+      if (!removed) return;
+      const newTabId = targetRef.current?.receiveTab(
+        removed.terminalId,
+        removed.title,
+        removed.cwd,
+        removed.customTitle,
+      );
+      if (!newTabId) return;
+      setTerminalRegistry((prev) =>
+        prev.map((t) =>
+          t.tabId === tabId
+            ? { ...t, tabId: newTabId, owningPane: targetGroup as 'content' | 'bottom' }
+            : t,
+        ),
+      );
+      callbackCacheRef.current.delete(tabId);
+    },
+    [bottomVisible, toggleBottom],
+  );
+
   const handleCommandBarFileSelect = useCallback((path: string) => {
     setFileToOpen(path);
   }, []);
@@ -473,6 +507,7 @@ function WorkspaceViewInner() {
               onTerminalRegistered={handleBottomTerminalRegistered}
               onTerminalUnregistered={handleTerminalUnregistered}
               onActiveTabChange={setBottomActiveTabId}
+              onMoveToPane={(tabId) => handleMoveToPane(tabId, 'bottom')}
             />
           }
         >
@@ -489,6 +524,7 @@ function WorkspaceViewInner() {
             onTerminalRegistered={handleContentTerminalRegistered}
             onTerminalUnregistered={handleTerminalUnregistered}
             onActiveTabChange={setContentActiveTabId}
+            onMoveToPane={(tabId) => handleMoveToPane(tabId, 'content')}
           />
           <CreateWorkspaceDialog
             open={isDialogOpen}

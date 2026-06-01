@@ -33,6 +33,8 @@ export const SortableTab = React.memo(function SortableTab({
   cancelRename,
   setRenameValue,
   group,
+  onMoveToBottom,
+  onMoveToContent,
 }: {
   tab: Tab;
   tabs: Tab[];
@@ -52,6 +54,8 @@ export const SortableTab = React.memo(function SortableTab({
   cancelRename: () => void;
   setRenameValue: (value: string) => void;
   group?: string;
+  onMoveToBottom?: () => void;
+  onMoveToContent?: () => void;
 }) {
   const renameMountTimeRef = useRef(0);
   const isRenaming = tab.id === renamingTabId;
@@ -116,6 +120,8 @@ export const SortableTab = React.memo(function SortableTab({
       onCloseRight={() => onCloseRight?.(tab.id)}
       onCloseOthers={() => onCloseOthers?.(tab.id)}
       onRename={() => startRename(tab.id)}
+      onMoveToBottom={onMoveToBottom}
+      onMoveToContent={onMoveToContent}
     >
       <div
         ref={sortableRef}
