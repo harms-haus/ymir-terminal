@@ -6,12 +6,21 @@ fn main() {
     let target =
         std::env::var("TARGET").unwrap_or_else(|_| "x86_64-unknown-linux-gnu".to_string());
     let binary_name = format!("ymir-server-{}", target);
+    let binary_name = if target.contains("windows") {
+        format!("{}.exe", binary_name)
+    } else {
+        binary_name
+    };
     let binaries_dir = std::path::PathBuf::from("binaries");
     let binary_path = binaries_dir.join(&binary_name);
 
     if !binary_path.exists() {
         std::fs::create_dir_all(&binaries_dir).ok();
-        let content = "#!/bin/sh\necho 'Placeholder sidecar - not used in dev mode'\n";
+        let content = if target.contains("windows") {
+            Vec::new()
+        } else {
+            b"#!/bin/sh\necho 'Placeholder sidecar - not used in dev mode'\n".to_vec()
+        };
         std::fs::write(&binary_path, content).ok();
         #[cfg(unix)]
         {
