@@ -149,7 +149,15 @@ impl SidecarManager {
 
         for candidate in candidates {
             if candidate.exists() {
-                return Some(candidate);
+                if let Ok(metadata) = std::fs::metadata(&candidate) {
+                    let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
+                    crate::log::global_log(&format!("[ymir] Found sidecar candidate: {:?} ({:.2} MB)", candidate, size_mb));
+                    if metadata.len() > 1_048_576 {  // > 1 MB
+                        return Some(candidate);
+                    } else {
+                        crate::log::global_log(&format!("[ymir] Skipping sidecar candidate (too small): {:?} ({:.2} MB)", candidate, size_mb));
+                    }
+                }
             }
         }
         None
@@ -182,6 +190,9 @@ impl SidecarManager {
                 .spawn()
                 .map_err(|e| format!("failed to spawn server from YMIR_SERVER_PATH: {}", e))?
         } else if let Some(exe_relative) = Self::find_exe_relative_server() {
+            if let Ok(meta) = std::fs::metadata(&exe_relative) {
+                crate::log::global_log(&format!("[ymir] Sidecar binary size: {:.2} MB", meta.len() as f64 / (1024.0 * 1024.0)));
+            }
             crate::log::global_log(&format!(
                 "[ymir] Using exe-relative sidecar: {:?}",
                 exe_relative

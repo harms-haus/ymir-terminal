@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
-import { existsSync, mkdirSync, copyFileSync, chmodSync, rmSync, cpSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, copyFileSync, chmodSync, rmSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { execSync, execFileSync } from 'node:child_process';
 
 const IS_WINDOWS = process.platform === 'win32';
@@ -125,7 +125,11 @@ async function main() {
       if (existsSync(sidecarDir)) {
         const files = readdirSync(sidecarDir);
         const sidecar = files.find((f) => f.includes('ymir-server') && !f.includes('.gitkeep'));
-        if (sidecar) serverSrc = join(sidecarDir, sidecar);
+        if (sidecar) {
+          serverSrc = join(sidecarDir, sidecar);
+          const sizeMB = statSync(serverSrc).size / 1024 / 1024;
+          console.log(`  Found server binary: ${serverSrc} (${sizeMB.toFixed(2)} MB)`);
+        }
       }
     }
     const serverDest = join(ymirHome, `ymir-server${ext}`);
@@ -138,6 +142,14 @@ async function main() {
       console.error(`Error: Server binary not found. Tried:`);
       console.error(`  ${join(sourceDir, 'dist', `ymir-server${ext}`)}`);
       console.error(`  ${serverSrc}`);
+      process.exit(1);
+    }
+    const serverStats = statSync(serverDest);
+    const serverSizeMB = serverStats.size / 1024 / 1024;
+    if (serverSizeMB < 1) {
+      console.error(`Error: Server binary is too small (${serverSizeMB.toFixed(2)} MB). The sidecar build may have failed.`);
+      console.error(`Expected a Bun-compiled binary (~90 MB) but got a placeholder file.`);
+      console.error(`Try running 'bun run build:sidecar' manually to check for errors.`);
       process.exit(1);
     }
 
