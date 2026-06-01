@@ -252,3 +252,26 @@ export const TOP_BAR_HEIGHT = 28;
 // ---------------------------------------------------------------------------
 
 export const ANIMATION_TRANSITION = 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)';
+
+// ── Window controls (Tauri frameless title bar) ──────────────────────────────
+
+/** Window control button width */
+export const WINDOW_CTRL_WIDTH = 46;
+
+/** Window control button height (matches TOP_BAR_HEIGHT) */
+export const WINDOW_CTRL_HEIGHT = TOP_BAR_HEIGHT;
+
+/** Window control icon size */
+export const WINDOW_CTRL_ICON_SIZE = 16;
+
+/** Close button hover background color */
+export const COLOR_WINDOW_CLOSE_HOVER = '#e81123';
+
+/** Close button hover icon color */
+export const COLOR_WINDOW_CLOSE_HOVER_ICON = '#fff';
+
+/** Minimize/maximize button hover background */
+export const COLOR_WINDOW_CTRL_HOVER = 'rgba(255,255,255,0.08)';
+
+/** Window control button default icon color */
+export const COLOR_WINDOW_CTRL_ICON = COLOR_TEXT;

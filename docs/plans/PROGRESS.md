@@ -1,6 +1,6 @@
 # Ymir Implementation Progress
 
-_Last updated: 2026-05-30_
+_Last updated: 2026-05-31_
 
 ## Phase Overview
 
@@ -15,6 +15,7 @@ _Last updated: 2026-05-30_
 | 7     | File Tree & Editor      | ✅ Complete | 2026-05-27 | 2026-05-27 |
 | 8     | Split Panes & Theme     | ✅ Complete | 2026-05-27 | 2026-05-27 |
 | 9     | Polish & Integration    | ✅ Complete | 2026-05-27 | 2026-05-27 |
+| 10    | Tauri Desktop App       | ✅ Complete | 2026-05-31 | 2026-05-31 |
 
 ---
 
@@ -104,6 +105,19 @@ _Last updated: 2026-05-30_
 - [x] 9.3 Implement multi-client isolation verification
 - [x] 9.4 Implement production server build and CLI
 - [x] 9.5 Write final documentation and update PROGRESS.md
+
+## Phase 10: Tauri Desktop App Integration
+
+- [x] 10.1 Support --port=0 in Bun server for ephemeral port assignment
+- [x] 10.2 Tauri 2.x project scaffolding (Cargo.toml, tauri.conf.json, capabilities)
+- [x] 10.3 Tauri npm dependencies (@tauri-apps/api, @tauri-apps/cli)
+- [x] 10.4 Window control theme constants
+- [x] 10.5 Sidecar manager (spawn, readiness detection, shutdown)
+- [x] 10.6 Tauri lib.rs startup sequence (password → sidecar → URL)
+- [x] 10.7 useTauri hook for Tauri environment detection
+- [x] 10.8 Auto-login for Tauri environment
+- [x] 10.9 Window controls and drag region in TopBar
+- [x] 10.10 Build scripts for sidecar and Tauri
 
 ---
 
@@ -283,3 +297,18 @@ Fixed workspace tab isolation so each workspace has its own independent set of t
 - **47 useTabs tests** (17 new for workspace isolation)
 - **34 server tab handler tests** (15 test cases)
 - **40 component tests** (5 new integration tests)
+
+---
+
+## Phase 10: Tauri Desktop App Integration
+
+- [x] 10.1 Support --port=0 in Bun server for ephemeral port assignment
+- [x] 10.2 Tauri 2.x project scaffolding (Cargo.toml, tauri.conf.json, capabilities)
+- [x] 10.3 Tauri npm dependencies (@tauri-apps/api, @tauri-apps/cli)
+- [x] 10.4 Window control theme constants
+- [x] 10.5 Sidecar manager (spawn, readiness detection, shutdown)
+- [x] 10.6 Tauri lib.rs startup sequence (password → sidecar → URL)
+- [x] 10.7 useTauri hook for Tauri environment detection
+- [x] 10.8 Auto-login for Tauri environment
+- [x] 10.9 Window controls and drag region in TopBar
+- [x] 10.10 Build scripts for sidecar and Tauri

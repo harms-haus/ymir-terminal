@@ -15,8 +15,20 @@ ymir-terminal/
 │   └── client/        @ymir/client   — React SPA (Vite + TanStack Router/Query)
 ├── packages/
 │   └── shared/        @ymir/shared   — Protocol types, constants, utilities
+├── src-tauri/         @ymir/tauri    — Tauri 2.x desktop app
+│   ├── src/
+│   │   ├── main.rs                  Desktop entry point
+│   │   ├── lib.rs                    App setup, sidecar orchestration, auto-auth
+│   │   ├── sidecar.rs               Sidecar lifecycle (spawn, health check, shutdown)
+│   │   └── auth.rs                   Password generation and persistence
+│   ├── capabilities/                Permission definitions
+│   ├── Cargo.toml                   Rust dependencies
+│   └── tauri.conf.json              Window config, CSP, sidecar registration
 ├── docs/                              — Documentation and plans
-└── scripts/                           — Dev tooling (concurrent runner)
+└── scripts/
+    ├── dev.ts                         Concurrent dev runner (server + client)
+    ├── build-sidecar.sh               Compile server to standalone binary
+    └── build-client.sh                Build client SPA
 ```
 
 **Data flow:**
@@ -45,6 +57,8 @@ Bun Server
 | Context Menu    | `@radix-ui/react-context-menu`                                                          |
 | Virtualization  | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories |
 | Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API     |
+| Desktop Shell   | Tauri 2.x (Rust) — wraps webview in native window                                       |
+| Sidecar         | Compiled Bun binary — server bundled as platform-native executable                      |
 | Styling         | Inline CSS, `react-resizable-panels` for IDE layout                                     |
 | Testing         | `bun:test`, Testing Library (React), happy-dom                                          |
 
@@ -534,3 +548,50 @@ ghostty-web emits `onTitleChange` events when the terminal title changes (e.g. v
 - Close buttons have `aria-label="Close tab"` and a visible focus ring (`:focus-visible` outline)
 - Context menu items are keyboard-navigable via `@radix-ui/react-context-menu` (arrow keys, Enter, Escape)
 - Tab tooltips expose `cwd` (terminal) or `filePath` (editor) via the `title` attribute
+
+## Desktop App Architecture
+
+### Sidecar Pattern
+
+The desktop app uses a **sidecar pattern**: the Bun server is compiled with `bun build --compile` into a standalone binary that is bundled alongside the Tauri app.
+
+Startup sequence:
+1. Tauri app generates or retrieves a persistent password (`~/.config/ymir/tauri-password`)
+2. Spawns the sidecar binary with `--port=0 --host=127.0.0.1` and password via env var
+3. Awaits the sidecar's stdout for the readiness line (`Ymir server listening on 127.0.0.1:PORT`)
+4. Sets the webview URL to `http://127.0.0.1:PORT`
+5. The frontend detects Tauri via `window.__TAURI_INTERNALS__` and auto-authenticates
+
+### Frameless Window
+
+The window has `decorations: false` — no native title bar. Instead:
+- The `TopBar` component has `data-tauri-drag-region` making it draggable
+- Interactive children (buttons, inputs) have `pointerEvents: 'auto'` to remain clickable
+- Window controls (minimize, maximize, close) appear right of the panel toggles
+- Double-click on the drag region toggles maximize
+
+### Auto-Authentication
+
+In Tauri mode, the `useTauri` hook detects the environment and the `useAuth` hook automatically:
+1. Calls `get_tauri_config` Tauri command to get the auto-generated password
+2. Calls `login(password)` to authenticate with the sidecar server
+3. The JWT token is stored in localStorage for subsequent requests
+
+### Tauri Files
+
+| File                              | Purpose                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| `src-tauri/src/lib.rs`            | App builder, sidecar startup, window URL configuration                         |
+| `src-tauri/src/sidecar.rs`        | `SidecarManager` — spawn, readiness detection (15s timeout), static dir resolution |
+| `src-tauri/src/auth.rs`           | Password generation (32-byte hex via getrandom), file persistence with 0600 permissions |
+| `src-tauri/tauri.conf.json`       | Window config (frameless, 1280×800), CSP, sidecar registration, resource bundling |
+| `src-tauri/capabilities/default.json` | Scoped shell permissions (sidecar only), window control permissions          |
+
+### Frontend Files
+
+| File                              | Purpose                                                      |
+| --------------------------------- | ------------------------------------------------------------ |
+| `apps/client/src/hooks/useTauri.ts` | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`) |
+| `apps/client/src/hooks/useAuth.ts`  | Auto-login when `isTauri` is true                           |
+| `apps/client/src/components/TopBar.tsx` | Drag region, window controls (conditional on `isTauri`)  |
+| `apps/client/src/lib/theme.ts`       | Window control theme constants                             |

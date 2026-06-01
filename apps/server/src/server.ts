@@ -112,7 +112,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   });
 
   // 8. Log startup info
-  console.log(`Ymir server listening on ${host}:${port}`);
+  console.log(`Ymir server listening on ${host}:${server.port}`);
 
   // 9. Graceful shutdown on SIGINT / SIGTERM
   let shuttingDown = false;

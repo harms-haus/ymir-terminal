@@ -2,6 +2,14 @@
 
 A web-based terminal IDE with real-time collaboration, file management, and git integration, powered by Bun and WebSocket.
 
+## Prerequisites
+
+- **Bun** ≥ 1.x — runtime and package manager
+- **Rust toolchain** (rustc ≥ 1.77.2, cargo) — required for building the desktop app
+- **Tauri system dependencies**:
+  - **Linux**: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`, `libssl-dev`, `build-essential`
+  - **macOS**: Xcode Command Line Tools
+
 ## Installation
 
 ```bash
@@ -29,6 +37,10 @@ bun run dev
 | `bun run format`       | Format code with Prettier            |
 | `bun run format:check` | Check formatting with Prettier       |
 | `bun run typecheck`    | Run TypeScript type checking         |
+| `bun run build:sidecar` | Compile Bun server into standalone binary for Tauri sidecar |
+| `bun run build:client` | Build the client SPA (alias for `bun run --cwd apps/client build`) |
+| `bun run build:tauri`  | Full production desktop build (sidecar + client + Tauri bundle) |
+| `bun run dev:tauri`    | Run the desktop app in development mode with hot reload |
 
 ## Production
 
@@ -79,3 +91,34 @@ In production, static files are served from the client build output (`apps/clien
 - **Client** (`apps/client`) — React + Vite SPA with terminal emulator, code editor, and file tree
 - **Server** (`apps/server`) — Bun server handling WebSocket messaging and HTTP static file serving
 - **Shared** (`packages/shared`) — Shared types, error codes, and protocol definitions
+
+## Desktop App
+
+Ymir can run as a native desktop application using Tauri 2.x. The desktop app:
+
+- Starts the Bun server automatically as a sidecar process
+- Auto-generates and manages authentication (no password configuration needed)
+- Runs as a frameless window with a custom title bar
+- Supports Wayland with automatic X11 fallback on Linux
+
+### Development
+
+```bash
+bun run dev:tauri
+```
+
+This starts the Tauri development build which compiles the Rust backend, builds the sidecar, and launches the desktop app with hot reload.
+
+### Production Build
+
+```bash
+bun run build:tauri
+```
+
+This produces a platform-specific installer (`.deb`, `.AppImage`, `.dmg`, `.exe`) in `src-tauri/target/release/bundle/`.
+
+### Architecture
+
+- **Sidecar**: The Bun server is compiled into a standalone binary (`ymir-server-{target-triple}`) and bundled with the Tauri app
+- **Auto-auth**: A random password is generated on first launch and stored in `~/.config/ymir/tauri-password`
+- **Frameless window**: The native title bar is hidden; the app's command bar doubles as the drag region with custom window controls

@@ -10,7 +10,11 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "bun test",
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "build:sidecar": "bash scripts/build-sidecar.sh",
+    "build:client": "bun run --cwd apps/client build",
+    "build:tauri": "bun run build:sidecar && bun run build:client && cd src-tauri && cargo tauri build",
+    "dev:tauri": "cd src-tauri && cargo tauri dev"
   },
   "workspaces": [
     "apps/*",
@@ -23,6 +27,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.60.0"
+    "typescript-eslint": "^8.60.0",
+    "@tauri-apps/cli": "^2"
   }
 }

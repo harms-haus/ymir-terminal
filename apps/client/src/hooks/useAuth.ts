@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { wsClient } from '../lib/ws-client';
 import { sendRequest } from '../lib/send-request';
 import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
+import { useTauri } from './useTauri';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,6 +34,7 @@ export const AuthContext = createContext<AuthState | null>(null);
 // ---------------------------------------------------------------------------
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { isTauri, getTauriConfig } = useTauri();
   const isLoggingInRef = useRef(false);
 
   const [token, setToken] = useState<string | null>(() => {
@@ -133,6 +135,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     wsClient.disconnect();
   }, []);
+
+  // Auto-login when running in Tauri
+  useEffect(() => {
+    if (!isTauri) return;
+    if (token) return; // Already authenticated
+
+    const autoLogin = async () => {
+      try {
+        const config = await getTauriConfig();
+        if (!config) {
+          console.error('[useAuth] Tauri auto-login failed: no config');
+          return;
+        }
+        await login(config.password);
+      } catch (err) {
+        console.error('[useAuth] Tauri auto-login failed:', err);
+      }
+    };
+
+    autoLogin();
+  }, [isTauri, login, getTauriConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return React.createElement(
     AuthContext.Provider,

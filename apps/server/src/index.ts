@@ -20,9 +20,9 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.password = arg.slice('--password='.length);
     } else if (arg.startsWith('--port=')) {
       const port = parseInt(arg.slice('--port='.length), 10);
-      if (Number.isNaN(port) || port < 1 || port > 65535) {
+      if (Number.isNaN(port) || port < 0 || port > 65535) {
         console.error(
-          `Invalid port: ${arg.slice('--port='.length)}. Must be a number between 1 and 65535.`,
+          `Invalid port: ${arg.slice('--port='.length)}. Must be a number between 0 and 65535.`,
         );
         process.exit(1);
       }
