@@ -1,1 +1,16 @@
+# Binary files (explicit to prevent heuristic misclassification)
+*.woff2 binary
+*.woff binary
+*.ttf binary
+*.eot binary
+*.wasm binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.pdf binary
+
+# Default: enforce LF line endings for all text files
 * text=auto eol=lf
