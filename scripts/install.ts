@@ -124,10 +124,14 @@ async function main() {
       const sidecarDir = join(sourceDir, 'src-tauri', 'binaries');
       if (existsSync(sidecarDir)) {
         const files = readdirSync(sidecarDir);
-        const sidecar = files.find((f) => f.includes('ymir-server') && !f.includes('.gitkeep'));
-        if (sidecar) {
-          serverSrc = join(sidecarDir, sidecar);
-          const sizeMB = statSync(serverSrc).size / 1024 / 1024;
+        const candidates = files
+          .filter((f) => f.includes('ymir-server') && !f.includes('.gitkeep'))
+          .map((f) => ({ name: f, path: join(sidecarDir, f), size: statSync(join(sidecarDir, f)).size }))
+          .filter((f) => f.size > 1_048_576) // Skip placeholders (< 1 MB)
+          .sort((a, b) => b.size - a.size); // Largest first
+        if (candidates.length > 0) {
+          serverSrc = candidates[0].path;
+          const sizeMB = candidates[0].size / 1024 / 1024;
           console.log(`  Found server binary: ${serverSrc} (${sizeMB.toFixed(2)} MB)`);
         }
       }
