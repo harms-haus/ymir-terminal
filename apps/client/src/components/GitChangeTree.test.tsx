@@ -110,4 +110,58 @@ describe('GitChangeTree', () => {
       expect((dot.style as CSSStyleDeclaration).color).toBe(expectedColor);
     }
   });
+
+  it('inner directory expand state is preserved when parent collapsed and re-expanded', () => {
+    const changes: GitFileChange[] = [
+      { path: 'src/index.ts', status: 'M' },
+      { path: 'src/utils/helper.ts', status: 'A' },
+    ];
+
+    const { getByTestId, queryByTestId } = renderTree(changes);
+
+    // Both directories start expanded
+    expect(getByTestId('change-dir-src').getAttribute('aria-expanded')).toBe('true');
+    expect(getByTestId('change-dir-src/utils').getAttribute('aria-expanded')).toBe('true');
+
+    // Collapse src
+    fireEvent.click(getByTestId('change-dir-src'));
+    expect(getByTestId('change-dir-src').getAttribute('aria-expanded')).toBe('false');
+
+    // src/utils is not in the DOM (parent collapsed, children unmounted)
+    expect(queryByTestId('change-dir-src/utils')).toBeNull();
+
+    // Re-expand src
+    fireEvent.click(getByTestId('change-dir-src'));
+    expect(getByTestId('change-dir-src').getAttribute('aria-expanded')).toBe('true');
+
+    // src/utils is visible again and still expanded (state preserved)
+    expect(getByTestId('change-dir-src/utils').getAttribute('aria-expanded')).toBe('true');
+
+    // Nested file is visible without extra click
+    expect(getByTestId('change-file-src/utils/helper.ts')).toBeTruthy();
+  });
+
+  it('new directories after data refresh start expanded', () => {
+    const changes: GitFileChange[] = [{ path: 'src/a.ts', status: 'M' }];
+
+    const { getByTestId, rerender } = renderTree(changes);
+
+    // Collapse src
+    fireEvent.click(getByTestId('change-dir-src'));
+    expect(getByTestId('change-dir-src').getAttribute('aria-expanded')).toBe('false');
+
+    // Rerender with a new nested directory
+    const newChanges: GitFileChange[] = [
+      { path: 'src/a.ts', status: 'M' },
+      { path: 'src/new/b.ts', status: 'A' },
+    ];
+    rerender(React.createElement(GitChangeTree, { changes: newChanges }));
+
+    // Expand src
+    fireEvent.click(getByTestId('change-dir-src'));
+    expect(getByTestId('change-dir-src').getAttribute('aria-expanded')).toBe('true');
+
+    // src/new is visible and auto-expanded (not in collapsed set)
+    expect(getByTestId('change-dir-src/new').getAttribute('aria-expanded')).toBe('true');
+  });
 });

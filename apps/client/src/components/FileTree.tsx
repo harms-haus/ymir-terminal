@@ -35,6 +35,17 @@ export function FileTree({
   // @ts-expect-error -- gitStatus may be undefined from hook, buildGitPathMap accepts null
   const gitPathMap = useMemo(() => buildGitPathMap(gitStatus), [gitStatus]);
 
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (path: string) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
   return (
     <div data-testid="file-tree" role="tree" style={{ fontSize: '12px', userSelect: 'none' }}>
       {tree.map((node) => (
@@ -51,6 +62,8 @@ export function FileTree({
           onRename={onRename}
           onDelete={onDelete}
           onOpenEditor={onOpenEditor}
+          expandedPaths={expandedPaths}
+          onToggleExpanded={toggleExpanded}
         />
       ))}
     </div>
@@ -78,6 +91,8 @@ function FileTreeNode({
   onRename,
   onDelete,
   onOpenEditor,
+  expandedPaths,
+  onToggleExpanded,
 }: {
   node: FileNode;
   onFileSelect: (path: string) => void;
@@ -90,8 +105,10 @@ function FileTreeNode({
   onRename?: (path: string) => void;
   onDelete?: (path: string) => void;
   onOpenEditor?: (path: string) => void;
+  expandedPaths: Set<string>;
+  onToggleExpanded: (path: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const expanded = expandedPaths.has(node.path);
 
   const isSelected = !node.isDirectory && node.path === selectedPath;
 
@@ -106,7 +123,7 @@ function FileTreeNode({
 
   const handleClick = () => {
     if (node.isDirectory) {
-      setExpanded(!expanded);
+      onToggleExpanded(node.path);
     } else {
       onFileSelect(node.path);
     }
@@ -220,6 +237,8 @@ function FileTreeNode({
               onRename={onRename}
               onDelete={onDelete}
               onOpenEditor={onOpenEditor}
+              expandedPaths={expandedPaths}
+              onToggleExpanded={onToggleExpanded}
             />
           ))}
         </div>

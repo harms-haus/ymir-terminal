@@ -318,4 +318,36 @@ describe('FileTree', () => {
     expect(circle).toBeTruthy();
     expect(circle!.style.backgroundColor).toContain('#888');
   });
+
+  // -----------------------------------------------------------------------
+  // 12. Inner directory expand state is preserved when parent collapsed
+  //     and re-expanded
+  // -----------------------------------------------------------------------
+  test('inner directory expand state is preserved when parent collapsed and re-expanded', () => {
+    const { getByTestId, getByText, queryByText } = renderFileTree();
+
+    // Expand /src
+    fireEvent.click(getByTestId('tree-node-/src'));
+
+    // Expand /src/utils
+    fireEvent.click(getByTestId('tree-node-/src/utils'));
+
+    // helpers.ts should be visible
+    expect(getByText(/helpers\.ts/)).toBeTruthy();
+
+    // Collapse /src
+    fireEvent.click(getByTestId('tree-node-/src'));
+
+    // helpers.ts should NOT be visible (parent collapsed)
+    expect(queryByText(/helpers\.ts/)).toBeNull();
+
+    // Re-expand /src
+    fireEvent.click(getByTestId('tree-node-/src'));
+
+    // helpers.ts should be visible again (proves /src/utils was preserved as expanded)
+    expect(getByText(/helpers\.ts/)).toBeTruthy();
+
+    // /src/utils should still be marked as expanded
+    expect(getByTestId('tree-node-/src/utils').getAttribute('aria-expanded')).toBe('true');
+  });
 });

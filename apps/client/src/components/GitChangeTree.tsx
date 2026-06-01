@@ -52,6 +52,17 @@ export function GitChangeTree({
 }: GitChangeTreeProps) {
   const tree = useMemo(() => buildChangeTree(changes), [changes]);
 
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+
+  const toggleCollapsed = (path: string) => {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
   return (
     <div
       data-testid="git-change-tree"
@@ -63,6 +74,8 @@ export function GitChangeTree({
           key={node.path}
           node={node}
           depth={0}
+          collapsedDirs={collapsedDirs}
+          onToggleCollapsed={toggleCollapsed}
           onStageFile={onStageFile}
           onUnstageFile={onUnstageFile}
           onDiscardFile={onDiscardFile}
@@ -80,6 +93,8 @@ export function GitChangeTree({
 function ChangeTreeNodeComponent({
   node,
   depth,
+  collapsedDirs,
+  onToggleCollapsed,
   onStageFile,
   onUnstageFile,
   onDiscardFile,
@@ -91,6 +106,8 @@ function ChangeTreeNodeComponent({
 }: {
   node: ChangeTreeNode;
   depth: number;
+  collapsedDirs: Set<string>;
+  onToggleCollapsed: (path: string) => void;
   onStageFile?: (path: string) => void;
   onUnstageFile?: (path: string) => void;
   onDiscardFile?: (path: string) => void;
@@ -100,7 +117,7 @@ function ChangeTreeNodeComponent({
   onOpenDiff?: (path: string) => void;
   isStagedSection?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const expanded = !collapsedDirs.has(node.path);
 
   if (node.isDirectory) {
     return (
@@ -118,7 +135,7 @@ function ChangeTreeNodeComponent({
             data-testid={`change-dir-${node.path}`}
             role="treeitem"
             aria-expanded={expanded}
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => onToggleCollapsed(node.path)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -161,6 +178,8 @@ function ChangeTreeNodeComponent({
                 key={child.path}
                 node={child}
                 depth={depth + 1}
+                collapsedDirs={collapsedDirs}
+                onToggleCollapsed={onToggleCollapsed}
                 onStageFile={onStageFile}
                 onUnstageFile={onUnstageFile}
                 onDiscardFile={onDiscardFile}
