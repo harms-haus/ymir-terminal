@@ -20,8 +20,15 @@ interface AuthState {
 // ---------------------------------------------------------------------------
 
 const TOKEN_KEY = 'ymir-token';
-const getWsUrl = () =>
-  (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
+const getWsUrl = () => {
+  // When running in Tauri with the sidecar, the port is injected via eval
+  const sidecarPort = (window as any).__YMIR_SIDECAR_PORT;
+  if (sidecarPort) {
+    return `ws://127.0.0.1:${sidecarPort}/ws`;
+  }
+  // Browser mode: connect to the same host
+  return (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
+};
 
 // ---------------------------------------------------------------------------
 // Context
@@ -148,6 +155,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('[useAuth] Tauri auto-login failed: no config');
           return;
         }
+        // Store the sidecar port so getWsUrl() can use it
+        (window as any).__YMIR_SIDECAR_PORT = config.port;
         await login(config.password);
       } catch (err) {
         console.error('[useAuth] Tauri auto-login failed:', err);

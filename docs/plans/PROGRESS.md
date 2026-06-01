@@ -1,6 +1,6 @@
 # Ymir Implementation Progress
 
-_Last updated: 2026-05-31_
+_Last updated: 2026-06-01_
 
 ## Phase Overview
 
@@ -16,6 +16,7 @@ _Last updated: 2026-05-31_
 | 8     | Split Panes & Theme     | ✅ Complete | 2026-05-27 | 2026-05-27 |
 | 9     | Polish & Integration    | ✅ Complete | 2026-05-27 | 2026-05-27 |
 | 10    | Tauri Desktop App       | ✅ Complete | 2026-05-31 | 2026-05-31 |
+| 11    | Deployment & Distribution | ✅ Complete | 2026-06-01 | 2026-06-01 |
 
 ---
 
@@ -119,6 +120,32 @@ _Last updated: 2026-05-31_
 - [x] 10.9 Window controls and drag region in TopBar
 - [x] 10.10 Build scripts for sidecar and Tauri
 
+## Phase 11: Deployment & Distribution ✅ Complete
+**Date**: 2026-06-01
+**Tasks**: 14 tasks across 6 sub-phases
+
+### Changes:
+- Added VERSION constant and platform constants to @ymir/shared
+- Platform-aware config paths (Windows LOCALAPPDATA, Unix ~/.config/ymir)
+- Windows PTY support (ConPTY, Windows shells, COMSPEC resolution)
+- CLI wrapper package (apps/cli/) with ymir, ymir web, ymir update commands
+- Tauri env var overrides (YMIR_STATIC_DIR, YMIR_SERVER_PATH) for non-bundled installs
+- Cross-platform build scripts (TypeScript, replacing bash-only scripts)
+- npm package structure with platform-specific optional dependencies
+- From-source install script (scripts/install.ts)
+- GitHub Actions release workflow (build-linux, build-windows, publish-main)
+- Cross-platform CI testing
+- Version synchronization script
+- Updated README with installation and CLI usage documentation
+- Created CHANGELOG.md and release checklist template
+
+### Stats:
+- 14 tasks completed
+- 6 phases
+- New packages: @ymir/cli
+- New scripts: 10 build/utility scripts
+- New npm packages: ymir, ymir-linux-x64, ymir-windows-x64
+
 ---
 
 ## Code Review & Fixes
@@ -148,7 +175,7 @@ All CRITICAL and HIGH issues fixed:
 ### Final Stats
 
 - **526 tests**, 0 failures, 1,356 assertions
-- 9 phases, 59 tasks — all complete
+- 11 phases, 73 tasks — all complete
 
 ---
 

@@ -1,0 +1,27 @@
+{
+  "name": "ymir",
+  "version": "0.1.0",
+  "description": "Ymir terminal emulator",
+  "bin": {
+    "ymir": "./bin/ymir.js"
+  },
+  "optionalDependencies": {
+    "ymir-linux-x64": "0.1.0",
+    "ymir-windows-x64": "0.1.0"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "bin/",
+    "install.js"
+  ],
+  "os": [
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "license": "MIT"
+}

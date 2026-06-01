@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-linux:
+    permissions:
+      contents: write  # for softprops/action-gh-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev build-essential libayatana-appindicator3-dev
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build client
+        run: bun run build:client
+
+      - name: Build server binary
+        run: bun run build:sidecar
+
+      - name: Build CLI binary
+        run: bun run build:cli
+
+      - name: Build Tauri app
+        run: cd src-tauri && cargo tauri build
+
+      - name: Extract Tauri binary
+        run: bun run extract:tauri
+
+      - name: Package release assets
+        run: |
+          mkdir -p release
+          cp dist/ymir release/ymir
+          cp dist/ymir-app release/ymir-app
+          if [ -f dist/ymir-server ]; then
+            cp dist/ymir-server release/ymir-server
+          elif [ -f src-tauri/binaries/ymir-server-x86_64-unknown-linux-gnu ]; then
+            cp src-tauri/binaries/ymir-server-x86_64-unknown-linux-gnu release/ymir-server
+          fi
+          cp -r apps/client/dist release/client-dist
+          cd release
+          tar czf ../ymir-linux-x64.tar.gz .
+          cd ..
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ymir-linux-x64.tar.gz
+            dist/ymir
+            dist/ymir-app
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js for npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish Linux npm package
+        run: |
+          cp dist/ymir packages/npm/ymir-linux-x64/bin/ymir
+          cd packages/npm/ymir-linux-x64
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  build-windows:
+    permissions:
+      contents: write  # for softprops/action-gh-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build client
+        run: bun run build:client
+
+      - name: Build server binary
+        run: bun run build:sidecar
+
+      - name: Build CLI binary
+        run: bun run build:cli
+
+      - name: Build Tauri app
+        run: cd src-tauri && cargo tauri build
+
+      - name: Extract Tauri binary
+        run: bun run extract:tauri
+
+      - name: Package release assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release
+          Copy-Item dist/ymir.exe release/ymir.exe
+          Copy-Item dist/ymir-app.exe release/ymir-app.exe
+          if (Test-Path dist/ymir-server.exe) {
+            Copy-Item dist/ymir-server.exe release/ymir-server.exe
+          }
+          Compress-Archive -Path release/* -DestinationPath ymir-windows-x64.zip
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ymir-windows-x64.zip
+            dist/ymir.exe
+            dist/ymir-app.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js for npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish Windows npm package
+        run: |
+          Copy-Item dist/ymir.exe packages/npm/ymir-windows-x64/bin/ymir.exe
+          cd packages/npm/ymir-windows-x64
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-main:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Sync versions
+        run: bun run version:check
+
+      - name: Publish main ymir package
+        run: |
+          cd packages/npm/ymir
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

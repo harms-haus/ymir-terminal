@@ -15,22 +15,42 @@ function parseArgs(argv: string[]): ParsedArgs {
     staticDir: undefined,
   };
 
-  for (const arg of argv.slice(2)) {
-    if (arg.startsWith('--password=')) {
-      result.password = arg.slice('--password='.length);
-    } else if (arg.startsWith('--port=')) {
-      const port = parseInt(arg.slice('--port='.length), 10);
+  const args = argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    // Handle both --key=value and --key value formats
+    let key: string;
+    let value: string | undefined;
+    const eqIndex = arg.indexOf('=');
+    if (eqIndex !== -1) {
+      key = arg.slice(0, eqIndex);
+      value = arg.slice(eqIndex + 1);
+    } else {
+      key = arg;
+      // Next arg is the value (if it exists and doesn't start with --)
+      if (i + 1 < args.length && !args[i + 1].startsWith('--')) {
+        value = args[++i];
+      }
+    }
+
+    if (value === undefined) continue;
+
+    if (key === '--password') {
+      result.password = value;
+    } else if (key === '--port') {
+      const port = parseInt(value, 10);
       if (Number.isNaN(port) || port < 0 || port > 65535) {
         console.error(
-          `Invalid port: ${arg.slice('--port='.length)}. Must be a number between 0 and 65535.`,
+          `Invalid port: ${value}. Must be a number between 0 and 65535.`,
         );
         process.exit(1);
       }
       result.port = port;
-    } else if (arg.startsWith('--host=')) {
-      result.host = arg.slice('--host='.length);
-    } else if (arg.startsWith('--staticDir=')) {
-      result.staticDir = arg.slice('--staticDir='.length);
+    } else if (key === '--host') {
+      result.host = value;
+    } else if (key === '--staticDir') {
+      result.staticDir = value;
     }
   }
 

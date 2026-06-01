@@ -3,6 +3,7 @@
   "references": [
     { "path": "apps/server" },
     { "path": "apps/client" },
+    { "path": "apps/cli" },
     { "path": "packages/shared" }
   ]
 }

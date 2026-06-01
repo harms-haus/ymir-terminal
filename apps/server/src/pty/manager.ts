@@ -1,23 +1,12 @@
+import { basename } from 'node:path';
 import { existsSync } from 'node:fs';
 import { toBase64, fromBase64 } from '@ymir/shared';
 
-const ALLOWED_SHELLS = new Set([
-  '/bin/bash',
-  '/bin/zsh',
-  '/bin/sh',
-  '/usr/bin/bash',
-  '/usr/bin/zsh',
-  '/usr/bin/sh',
-]);
+const UNIX_SHELLS = new Set(['/bin/bash', '/bin/zsh', '/bin/sh', '/usr/bin/bash', '/usr/bin/zsh', '/usr/bin/sh']);
+const WINDOWS_SHELLS = new Set(['cmd.exe', 'powershell.exe', 'pwsh.exe']);
 
-const FALLBACK_ORDER = [
-  '/bin/sh',
-  '/bin/bash',
-  '/usr/bin/bash',
-  '/bin/zsh',
-  '/usr/bin/zsh',
-  '/usr/bin/sh',
-] as const;
+const UNIX_FALLBACK = ['/bin/bash', '/bin/zsh', '/bin/sh'];
+const WINDOWS_FALLBACK = ['cmd.exe', 'powershell.exe'];
 
 export interface PTYOptions {
   shell?: string;
@@ -29,6 +18,10 @@ export interface PTYOptions {
 }
 
 export class PTYManager {
+  private readonly isWindows: boolean;
+  private readonly allowedShells: Set<string>;
+  private readonly fallbackOrder: string[];
+
   terminals = new Map<
     string,
     {
@@ -39,6 +32,12 @@ export class PTYManager {
       exited?: boolean;
     }
   >();
+
+  constructor(platform?: string) {
+    this.isWindows = (platform ?? process.platform) === 'win32';
+    this.allowedShells = this.isWindows ? WINDOWS_SHELLS : UNIX_SHELLS;
+    this.fallbackOrder = this.isWindows ? WINDOWS_FALLBACK : UNIX_FALLBACK;
+  }
 
   create(id: string, options: PTYOptions): string {
     const BunTerminal = (Bun as Record<string, unknown>).Terminal as
@@ -62,14 +61,19 @@ export class PTYManager {
       },
     });
 
-    const requestedShell = options.shell || process.env.SHELL || '/bin/bash';
-    if (!ALLOWED_SHELLS.has(requestedShell)) {
+    const requestedShell = this.isWindows
+      ? options.shell || basename(process.env.COMSPEC || 'cmd.exe')
+      : options.shell || process.env.SHELL || '/bin/bash';
+    const shellToValidate = this.isWindows ? basename(requestedShell) : requestedShell;
+    if (!this.allowedShells.has(shellToValidate)) {
       throw new Error(`Shell not allowed: ${requestedShell}`);
     }
 
     let shell = requestedShell;
-    if (!existsSync(shell)) {
-      const fallback = FALLBACK_ORDER.find((s) => ALLOWED_SHELLS.has(s) && existsSync(s));
+    if (this.isWindows) {
+      // Windows shells are resolved via PATH; no existsSync check needed
+    } else if (!existsSync(shell)) {
+      const fallback = this.fallbackOrder.find((s) => this.allowedShells.has(s) && existsSync(s));
       if (!fallback) {
         throw new Error('No supported shell found on this system');
       }
@@ -148,11 +152,14 @@ export class PTYManager {
       // Guard against TOCTOU: if the process has already exited (but the
       // microtask to delete the Map entry hasn't run yet), skip SIGWINCH to
       // avoid signalling a recycled PID.
-      if (entry.exited) return;
-      try {
-        process.kill(entry.process.pid, 'SIGWINCH');
-      } catch {
-        // Process may have exited; ignore ESRCH
+      // On Windows, ConPTY handles resize via terminal.resize() directly.
+      if (!this.isWindows) {
+        if (entry.exited) return;
+        try {
+          process.kill(entry.process.pid, 'SIGWINCH');
+        } catch {
+          // Process may have exited; ignore ESRCH
+        }
       }
     } catch (err) {
       console.warn(`resize(${id}, ${safeCols}, ${safeRows}) failed:`, err);
@@ -163,6 +170,7 @@ export class PTYManager {
     const entry = this.terminals.get(id);
     if (!entry) return;
     (entry.terminal as { close: () => void }).close();
+    // Note: On Windows, process.kill sends SIGTERM which Bun maps to TerminateProcess
     entry.process.kill('SIGTERM');
     this.terminals.delete(id);
   }

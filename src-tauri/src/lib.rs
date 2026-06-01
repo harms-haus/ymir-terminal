@@ -93,11 +93,17 @@ pub fn run() {
                         sidecar_child: Mutex::new(Some(child)),
                     });
 
-                    // 6. Set the webview URL to the sidecar's address
-                    let url = format!("http://127.0.0.1:{}", port);
+                    // 6. Inject the sidecar port into the webview so the client can connect
+                    // NOTE: We do NOT navigate the webview to the sidecar URL. The webview
+                    // must stay on the tauri://localhost origin so that Tauri IPC commands
+                    // (like get_tauri_config) remain accessible. The embedded frontend connects
+                    // to the sidecar via WebSocket using the port injected here.
                     if let Some(window) = app_handle.get_webview_window("main") {
-                        let _ = window.eval(&format!("window.location.href = '{}';", url));
-                        eprintln!("[ymir] Webview URL set to {}", url);
+                        let _ = window.eval(&format!(
+                            "window.__YMIR_SIDECAR_PORT = {};",
+                            port
+                        ));
+                        eprintln!("[ymir] Sidecar port {} injected into webview", port);
                     } else {
                         eprintln!("[ymir] WARNING: main window not found");
                     }

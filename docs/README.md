@@ -6,15 +6,20 @@ Ymir is a web-based terminal IDE with real-time file management, git integration
 
 ## Architecture
 
-Ymir is a 3-package monorepo managed by Bun workspaces:
+Ymir is a 4-package monorepo managed by Bun workspaces:
 
 ```
 ymir-terminal/
 ├── apps/
 │   ├── server/        @ymir/server   — Bun HTTP + WebSocket server, PTY, SQLite
-│   └── client/        @ymir/client   — React SPA (Vite + TanStack Router/Query)
+│   ├── client/        @ymir/client   — React SPA (Vite + TanStack Router/Query)
+│   └── cli/           @ymir/cli      — CLI wrapper (launch, web, update commands)
 ├── packages/
-│   └── shared/        @ymir/shared   — Protocol types, constants, utilities
+│   ├── shared/        @ymir/shared   — Protocol types, constants, utilities
+│   └── npm/                           npm distribution packages
+│       ├── ymir/                     Main package (bin shim + postinstall downloader)
+│       ├── ymir-linux-x64/           Linux x64 platform-specific binary
+│       └── ymir-windows-x64/         Windows x64 platform-specific binary
 ├── src-tauri/         @ymir/tauri    — Tauri 2.x desktop app
 │   ├── src/
 │   │   ├── main.rs                  Desktop entry point
@@ -25,10 +30,19 @@ ymir-terminal/
 │   ├── Cargo.toml                   Rust dependencies
 │   └── tauri.conf.json              Window config, CSP, sidecar registration
 ├── docs/                              — Documentation and plans
+├── dist/                              — Build output (CLI, server, Tauri binaries)
 └── scripts/
     ├── dev.ts                         Concurrent dev runner (server + client)
-    ├── build-sidecar.sh               Compile server to standalone binary
-    └── build-client.sh                Build client SPA
+    ├── build-server.ts                Compile server to standalone binary
+    ├── build-cli.ts                   Compile CLI to standalone binary
+    ├── build-client.sh                Build client SPA
+    ├── build-client-dist.ts           Build client SPA + package as archive
+    ├── build-all.ts                   Build all artifacts (client, server, CLI, Tauri)
+    ├── extract-tauri-binary.ts        Extract Tauri binary from bundle to dist/
+    ├── install.ts                     From-source installer (clones, builds, installs)
+    ├── publish-npm.ts                 Publish platform + main npm packages
+    ├── sync-version.ts                Sync version across all package.json, Cargo.toml, constants
+    └── lib/build-utils.ts             Shared build helpers (target maps, run, ensureDir)
 ```
 
 **Data flow:**
@@ -102,7 +116,12 @@ bun apps/server/src/index.ts [options]
   --password=<pass>   Password for authentication (required, or set YMIR_PASSWORD)
   --port=<number>     Server port (default: 3000)
   --host=<addr>       Bind address (default: 127.0.0.1)
+  --staticDir=<path>  Path to built client static files (default: auto-detected)
 ```
+
+The password can also be provided via the `YMIR_PASSWORD` environment variable, which is preferred in production since it avoids exposing the password in process listings.
+
+The `--staticDir` option overrides the default static file directory. In development, this defaults to `apps/client/dist/` relative to the project root. In production (sidecar binary), the Tauri app passes the bundled resource directory.
 
 ## WebSocket Protocol
 
@@ -196,8 +215,8 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 | `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                                            |
 | `protocol/payloads.ts` | Request/event type constants, payload types (`GitLogRequest`, `GitLogItem`, `GitLogResponse`, `ConnectionStatusEvent`, etc.) |
 | `protocol/panes.ts`    | Split pane tree types                                                                                                        |
-| `constants.ts`         | Default ports, paths, timeouts                                                                                               |
-| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `delay`, `clamp`, `expandTilde`, `getConfigPath`, `getDbPath`                        |
+| `constants.ts`         | `VERSION`, platform booleans (`IS_WINDOWS`, `IS_MACOS`, `IS_LINUX`), binary names (`CLI_BINARY_NAME`, `APP_BINARY_NAME`, `SERVER_BINARY_NAME`), `GITHUB_REPO`, `YMIR_HOME_DIR_NAME`, default ports, paths, timeouts, reconnection settings |
+| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `expandTilde`, `getConfigDir`, `getDbPath`, `getYmirHomeDir`, `getClientDistDir`, `getServerBinaryPath`, `getAppBinaryPath` |
 
 ### `apps/server` — `@ymir/server`
 
@@ -310,15 +329,27 @@ Tests exist in every package:
 - `packages/shared/src/**/*.test.ts` — protocol types, utilities
 - `apps/server/src/**/*.test.ts` — auth, DB, routing, handlers, PTY, files, git
 - `apps/client/src/**/*.test.{ts,tsx}` — components, hooks, lib
+- `apps/cli/src/**/*.test.ts` — CLI commands, argument parsing
 
 ## Configuration
 
+Ymir uses two platform-aware directory roots (resolved by `@ymir/shared`):
+
+| Directory     | Unix                       | Windows                              | Purpose                                                                 |
+| ------------- | ------------------------- | ------------------------------------ | ----------------------------------------------------------------------- |
+| Config (data) | `~/.config/ymir`          | `%LOCALAPPDATA%\ymir`                | Database, password hash, Tauri auth file                                |
+| Home (binary) | `~/.ymir`                 | `%LOCALAPPDATA%\ymir`                | Installed binaries (CLI, server, Tauri app), client-dist                |
+
+Resolved by `getConfigDir()` and `getYmirHomeDir()` in `packages/shared/src/utils.ts`.
+
+### Database
+
 Ymir stores persistent data in SQLite:
 
-| Database   | Location                 | Purpose                                                                                             |
-| ---------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
-| Persistent | `~/.config/ymir/ymir.db` | Workspaces, password hash, UI layout state                                                          |
-| Session    | In-memory (`:memory:`)   | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
+| Database   | Location                         | Purpose                                                                                             |
+| ---------- | -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Persistent | `{getConfigDir()}/ymir.db`       | Workspaces, password hash, UI layout state                                                          |
+| Session    | In-memory (`:memory:`)           | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
 
 The workspaces table includes a `sort_order` column (integer) that persists drag-and-drop ordering. The `WorkspaceSummary` type returned by `workspace.list` includes `sortOrder: number` reflecting this column.
 
@@ -574,6 +605,106 @@ ghostty-web emits `onTitleChange` events when the terminal title changes (e.g. v
 - Context menu items are keyboard-navigable via `@radix-ui/react-context-menu` (arrow keys, Enter, Escape)
 - Tab tooltips expose `cwd` (terminal) or `filePath` (editor) via the `title` attribute
 
+## CLI & Distribution
+
+### `apps/cli` — `@ymir/cli`
+
+The `ymir` CLI is a compiled Bun binary (`bun build --compile`) that serves as the primary entry point for end users. It dispatches to three commands:
+
+| Command   | Behavior                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| (default) | `launchApp()` — spawns the Tauri desktop app binary from `{getYmirHomeDir()}`, sets `YMIR_HOME`, `YMIR_STATIC_DIR`, `YMIR_SERVER_PATH` env vars, and detaches |
+| `web`     | `startWeb()` — spawns the server binary with `--host`, `--port`, `--staticDir`, and `YMIR_PASSWORD`; optionally opens the browser     |
+| `update`  | `selfUpdate()` — fetches the latest GitHub release, downloads platform-matched binaries in parallel, replaces them in `{getYmirHomeDir()}` atomically (rename on Unix, `.old` swap on Windows) |
+
+### Binary Layout (`~/.ymir/`)
+
+The home directory (`getYmirHomeDir()`) contains all installed artifacts:
+
+```
+~/.ymir/                          (Unix)
+%LOCALAPPDATA%\ymir\             (Windows)
+├── ymir              CLI binary
+├── ymir-server       Server binary
+├── ymir-app          Tauri desktop app
+└── client-dist/      Compiled client SPA assets
+```
+
+Binary names include `.exe` suffix on Windows (e.g. `ymir.exe`, `ymir-server.exe`, `ymir-app.exe`).
+
+### npm Package Structure
+
+Three npm packages handle distribution:
+
+| Package                | Contents                                                  |
+| ---------------------- | --------------------------------------------------------- |
+| `ymir`                 | Main package — `bin/ymir.js` shim + `install.js` postinstall script that downloads the CLI binary to `~/.ymir/` |
+| `ymir-linux-x64`       | Platform-specific `bin/ymir` binary for Linux x64         |
+| `ymir-windows-x64`     | Platform-specific `bin/ymir.exe` binary for Windows x64   |
+
+The `ymir` package declares `ymir-linux-x64` and `ymir-windows-x64` as `optionalDependencies`. The `bin/ymir.js` shim resolves the binary in order:
+
+1. Optional dependency package (e.g. `node_modules/ymir-linux-x64/bin/ymir`)
+2. Home directory (`~/.ymir/ymir`)
+3. `PATH` lookup fallback
+
+The `install.js` postinstall script downloads the CLI binary from the latest GitHub release on first install.
+
+### From-Source Install
+
+`scripts/install.ts` is a self-contained installer that can be run directly via Bun:
+
+```bash
+bun run https://raw.githubusercontent.com/harms-haus/ymir-terminal/main/scripts/install.ts
+```
+
+It checks for prerequisites (Bun, Rust, cargo, Tauri system deps), clones the repo into a temp directory, runs the full build pipeline (client → server → CLI → Tauri → extract), copies all artifacts to `{getYmirHomeDir()}`, and creates a symlink or PATH entry for the `ymir` command.
+
+### Build Scripts
+
+| Script                         | Purpose                                                                    |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `scripts/build-server.ts`      | Compile `apps/server` into a standalone binary via `bun build --compile`   |
+| `scripts/build-cli.ts`         | Compile `apps/cli` into a standalone binary via `bun build --compile`      |
+| `scripts/build-client-dist.ts` | Build client SPA + package as `.tar.gz` (Linux/macOS) or `.zip` (Windows) |
+| `scripts/build-all.ts`         | Orchestrate all builds: client → server → CLI → Tauri → extract            |
+| `scripts/extract-tauri-binary.ts` | Copy Tauri binary from `target/release/` to `dist/ymir-app`             |
+| `scripts/publish-npm.ts`       | Copy binaries, sync versions, publish all npm packages (`--dry-run` supported) |
+| `scripts/sync-version.ts`      | Read/check/set version across `constants.ts`, `Cargo.toml`, `tauri.conf.json`, and all `package.json` files |
+| `scripts/lib/build-utils.ts`   | Shared helpers: target map, `getPlatformTarget()`, `getTargetTriple()`, `runCommand()`, `ensureDir()` |
+
+### Version Synchronization
+
+The version is defined once in `packages/shared/src/constants.ts` (`VERSION` constant). `scripts/sync-version.ts` propagates it to:
+
+- `src-tauri/Cargo.toml`
+- `src-tauri/tauri.conf.json`
+- `packages/npm/ymir/package.json` (including `optionalDependencies`)
+- `packages/npm/ymir-linux-x64/package.json`
+- `packages/npm/ymir-windows-x64/package.json`
+
+Run `bun run version:check` to verify consistency, or `bun run version:set -- --set 1.2.3` to update all files.
+
+## Windows Support
+
+Ymir supports both Linux and Windows (x64) as first-class platforms:
+
+- **PTY**: Bun's `Bun.Terminal` uses ConPTY on Windows. The `PTYManager` detects the platform at construction and adapts shell resolution (Windows shells resolved via PATH, `COMSPEC` env var as fallback), resize behavior (no `SIGWINCH` on Windows — handled by ConPTY directly), and process termination.
+- **Shell allowlist**: On Windows, `cmd.exe`, `powershell.exe`, and `pwsh.exe` are allowed; fallback order is `cmd.exe` → `powershell.exe`.
+- **Paths**: All path resolution is platform-aware via `getConfigDir()` / `getYmirHomeDir()` in `@ymir/shared`.
+- **Binary names**: `.exe` suffix is appended automatically on Windows via `IS_WINDOWS` / `getBinaryName()`.
+- **Build scripts**: `build-all.ts`, `build-server.ts`, `build-cli.ts`, and `build-client-dist.ts` all handle Windows targets (PowerShell for zip, `.exe` suffixes, no `chmod`).
+
+## Release Process
+
+Releases are automated via [GitHub Actions](.github/workflows/release.yml) on the `release` event:
+
+1. **`build-linux`** job (Ubuntu): Installs Tauri system deps, builds all artifacts, uploads `ymir-linux-x64.tar.gz` and individual binaries to the GitHub release, publishes `ymir-linux-x64` to npm.
+2. **`build-windows`** job (Windows): Same build pipeline, uploads `ymir-windows-x64.zip` and `.exe` binaries, publishes `ymir-windows-x64` to npm.
+3. **`publish-main`** job: After both platform jobs complete, publishes the main `ymir` npm package.
+
+All npm publishing uses `NPM_TOKEN` from GitHub Secrets. Version consistency is verified via `bun run version:check` before publishing.
+
 ## Desktop App Architecture
 
 ### Sidecar Pattern
@@ -581,11 +712,23 @@ ghostty-web emits `onTitleChange` events when the terminal title changes (e.g. v
 The desktop app uses a **sidecar pattern**: the Bun server is compiled with `bun build --compile` into a standalone binary that is bundled alongside the Tauri app.
 
 Startup sequence:
-1. Tauri app generates or retrieves a persistent password (`~/.config/ymir/tauri-password`)
-2. Spawns the sidecar binary with `--port=0 --host=127.0.0.1` and password via env var
-3. Awaits the sidecar's stdout for the readiness line (`Ymir server listening on 127.0.0.1:PORT`)
-4. Sets the webview URL to `http://127.0.0.1:PORT`
-5. The frontend detects Tauri via `window.__TAURI_INTERNALS__` and auto-authenticates
+1. Tauri app generates or retrieves a persistent password (`{getConfigDir()}/tauri-password`)
+2. Resolves the static directory via `SidecarManager::resolve_static_dir()` — checks `YMIR_STATIC_DIR` env var override first, then falls back to dev/resource dir
+3. Spawns the sidecar binary (from `YMIR_SERVER_PATH` env var override, or the bundled sidecar) with `--port=0 --host=127.0.0.1 --staticDir=<path>` and password via `YMIR_PASSWORD` env var
+4. Awaits the sidecar's stdout for the readiness line (`Ymir server listening on 127.0.0.1:PORT`) with a 15-second timeout
+5. Sets the webview URL to `http://127.0.0.1:PORT`
+6. The frontend detects Tauri via `window.__TAURI_INTERNALS__` and auto-authenticates
+
+### Environment Variable Overrides
+
+The sidecar manager (`src-tauri/src/sidecar.rs`) supports two env var overrides for non-bundled installations (e.g. installed via `ymir update`):
+
+| Variable             | Purpose                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `YMIR_STATIC_DIR`    | Override the client static files directory (checked before default)  |
+| `YMIR_SERVER_PATH`   | Override the server binary path (checked before bundled sidecar)     |
+
+Both overrides validate that the path exists before using it, printing a warning and falling back if it doesn't.
 
 ### Frameless Window
 

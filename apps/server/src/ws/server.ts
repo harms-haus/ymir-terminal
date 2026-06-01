@@ -1,4 +1,5 @@
 import type { Server, ServerWebSocket } from 'bun';
+import { existsSync } from 'node:fs';
 import { resolve, join, extname } from 'node:path';
 import {
   ErrorCodes,
@@ -62,6 +63,16 @@ export async function startWebSocketServer(options: WsServerOptions): Promise<Se
     ? resolve(options.staticDir)
     : resolve(import.meta.dirname, '../../client/dist');
 
+  // Warn if the resolved path doesn't exist and we're not running from the source tree
+  const isDevMode = import.meta.dirname.includes('apps/server');
+  if (!isDevMode && !existsSync(staticDir)) {
+    console.warn(
+      'Warning: Client files not found at ' +
+        staticDir +
+        '. Pass --staticDir to specify the client files directory.',
+    );
+  }
+
   const server = Bun.serve({
     port,
     hostname: host,
@@ -79,7 +90,7 @@ export async function startWebSocketServer(options: WsServerOptions): Promise<Se
       // Serve static files from the client build directory
       const url = new URL(req.url);
       const pathname = url.pathname === '/' ? '/index.html' : url.pathname;
-      const filePath = resolve(staticDir, pathname);
+      const filePath = resolve(staticDir, '.' + pathname);
       const resolvedStaticDir = resolve(staticDir);
 
       // Prevent directory traversal

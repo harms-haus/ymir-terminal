@@ -12,6 +12,20 @@ A web-based terminal IDE with real-time collaboration, file management, and git 
 
 ## Installation
 
+### npm (recommended)
+```bash
+npm install -g ymir
+```
+
+### From source (requires Bun + Rust)
+```bash
+bun run https://raw.githubusercontent.com/harms-haus/ymir-terminal/main/scripts/install.ts
+```
+
+### Manual download
+Download the latest release from [GitHub Releases](https://github.com/harms-haus/ymir-terminal/releases).
+
+### Development
 ```bash
 bun install
 ```
@@ -50,7 +64,7 @@ Build the client and start the production server:
 bun run build && YMIR_PASSWORD=yourpass bun run start
 ```
 
-## CLI Usage
+## Server CLI
 
 Run the server directly with fine-grained control over options:
 
@@ -122,3 +136,29 @@ This produces a platform-specific installer (`.deb`, `.AppImage`, `.dmg`, `.exe`
 - **Sidecar**: The Bun server is compiled into a standalone binary (`ymir-server-{target-triple}`) and bundled with the Tauri app
 - **Auto-auth**: A random password is generated on first launch and stored in `~/.config/ymir/tauri-password`
 - **Frameless window**: The native title bar is hidden; the app's command bar doubles as the drag region with custom window controls
+
+## CLI Usage
+
+```bash
+ymir                        # Launch the desktop app
+ymir web --password <pw>    # Start web server (opens browser)
+ymir update                 # Update to latest version
+ymir --version              # Show version
+ymir --help                 # Show help
+```
+
+### Web Mode Options
+
+```
+ymir web --password <pw> [--host <addr>] [--port <port>] [--no-open]
+
+Options:
+  --password, -p <pw>   Password for authentication (required)
+  --host <addr>         Host to bind to (default: 127.0.0.1)
+  --port <port>         Port to listen on (default: 3000)
+  --no-open             Don't open browser automatically
+```
+
+### Release Process
+
+See the [Release Checklist template](.github/ISSUE_TEMPLATE/release-checklist.md) for the release workflow.

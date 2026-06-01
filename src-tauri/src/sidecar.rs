@@ -1,6 +1,8 @@
 use regex::Regex;
+#[allow(unused_imports)]
 use std::path::PathBuf;
 use std::time::Duration;
+use tauri::Manager;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
@@ -12,7 +14,20 @@ impl SidecarManager {
     /// Resolve the static files directory for the client SPA.
     /// In dev mode: uses CARGO_MANIFEST_DIR to find apps/client/dist relative to workspace root.
     /// In production: uses the Tauri resource directory.
-    pub fn resolve_static_dir(_app: &tauri::AppHandle) -> Result<String, String> {
+    #[allow(unused_variables)]
+    pub fn resolve_static_dir(app: &tauri::AppHandle) -> Result<String, String> {
+        // Check env var override first (for non-bundled installations)
+        if let Ok(dir) = std::env::var("YMIR_STATIC_DIR") {
+            let path = std::path::Path::new(&dir);
+            if path.exists() {
+                return Ok(dir);
+            }
+            eprintln!(
+                "[ymir] WARNING: YMIR_STATIC_DIR={:?} does not exist, falling back",
+                dir
+            );
+        }
+
         #[cfg(debug_assertions)]
         {
             let manifest_dir =
@@ -50,14 +65,28 @@ impl SidecarManager {
         password: &str,
         static_dir: &str,
     ) -> Result<(tauri_plugin_shell::process::CommandChild, u16), String> {
-        let (mut rx, child) = app
-            .shell()
-            .sidecar("binaries/ymir-server")
-            .map_err(|e| format!("failed to create sidecar command: {}", e))?
-            .args(["--port", "0", "--host", "127.0.0.1", "--staticDir", static_dir])
-            .env("YMIR_PASSWORD", password)
-            .spawn()
-            .map_err(|e| format!("failed to spawn sidecar: {}", e))?;
+        // Determine whether to use env var override or default sidecar
+        let (mut rx, child) = if let Ok(server_path) = std::env::var("YMIR_SERVER_PATH") {
+            let path = std::path::Path::new(&server_path);
+            if !path.exists() {
+                return Err(format!("YMIR_SERVER_PATH does not exist: {}", server_path));
+            }
+            eprintln!("[ymir] Using YMIR_SERVER_PATH={:?}", server_path);
+            app.shell()
+                .command(&server_path)
+                .args(["--port", "0", "--host", "127.0.0.1", "--staticDir", static_dir])
+                .env("YMIR_PASSWORD", password)
+                .spawn()
+                .map_err(|e| format!("failed to spawn server from YMIR_SERVER_PATH: {}", e))?
+        } else {
+            app.shell()
+                .sidecar("binaries/ymir-server")
+                .map_err(|e| format!("failed to create sidecar command: {}", e))?
+                .args(["--port", "0", "--host", "127.0.0.1", "--staticDir", static_dir])
+                .env("YMIR_PASSWORD", password)
+                .spawn()
+                .map_err(|e| format!("failed to spawn sidecar: {}", e))?
+        };
 
         // Parse the port from stdout
         let port_re = Regex::new(r"Ymir server listening on 127\.0\.0\.1:(\d+)").unwrap();
