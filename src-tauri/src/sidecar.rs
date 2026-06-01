@@ -71,6 +71,10 @@ impl SidecarManager {
                     "<exe_dir>/../client-dist/".to_string(),
                     dir.parent().map(|p| p.join("client-dist")).unwrap_or_default(),
                 ));
+                fallbacks.push((
+                    "<exe_dir>/../apps/client/dist/".to_string(),
+                    dir.parent().map(|p| p.join("apps").join("client").join("dist")).unwrap_or_default(),
+                ));
             }
 
             for (label, path) in &fallbacks {
@@ -109,21 +113,46 @@ impl SidecarManager {
             .env("YMIR_PASSWORD", password)
     }
 
+    fn target_triple() -> &'static str {
+        #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+        { return "x86_64-pc-windows-msvc"; }
+        #[cfg(all(target_arch = "aarch64", target_os = "windows"))]
+        { return "aarch64-pc-windows-msvc"; }
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+        { return "x86_64-unknown-linux-gnu"; }
+        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+        { return "aarch64-unknown-linux-gnu"; }
+        #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+        { return "x86_64-apple-darwin"; }
+        #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+        { return "aarch64-apple-darwin"; }
+        #[allow(unreachable_code)]
+        { "unknown" }
+    }
+
     /// Try to find the sidecar binary next to the current executable.
     /// Returns the full path if it exists, None otherwise.
     fn find_exe_relative_server() -> Option<PathBuf> {
-        let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))?;
-        let binary_name = if cfg!(windows) {
-            "ymir-server.exe"
-        } else {
-            "ymir-server"
-        };
-        let candidate = exe_dir.join(binary_name);
-        if candidate.exists() {
-            Some(candidate)
-        } else {
-            None
+        let exe_dir = std::env::current_exe().ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()))?;
+        let ext = if cfg!(windows) { ".exe" } else { "" };
+        let triple = Self::target_triple();
+
+        let candidates: Vec<PathBuf> = vec![
+            // Flat: ymir-server.exe next to the exe
+            exe_dir.join(format!("ymir-server{}", ext)),
+            // With target triple next to the exe
+            exe_dir.join(format!("ymir-server-{}{}", triple, ext)),
+            // Build output: ../src-tauri/binaries/ymir-server-{triple}.exe
+            exe_dir.parent().map(|p| p.join("src-tauri").join("binaries").join(format!("ymir-server-{}{}", triple, ext))).unwrap_or_default(),
+        ];
+
+        for candidate in candidates {
+            if candidate.exists() {
+                return Some(candidate);
+            }
         }
+        None
     }
 
     /// Start the sidecar process and wait for it to be ready.

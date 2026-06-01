@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
-import { existsSync, mkdirSync, copyFileSync, chmodSync, rmSync, cpSync } from 'node:fs';
+import { existsSync, mkdirSync, copyFileSync, chmodSync, rmSync, cpSync, readdirSync } from 'node:fs';
 import { execSync, execFileSync } from 'node:child_process';
 
 const IS_WINDOWS = process.platform === 'win32';
@@ -120,19 +120,25 @@ async function main() {
     // Copy server binary - find it from sidecar build or dist
     let serverSrc = join(sourceDir, 'dist', `ymir-server${ext}`);
     if (!existsSync(serverSrc)) {
-      // Try sidecar location
+      // Try sidecar build output location
       const sidecarDir = join(sourceDir, 'src-tauri', 'binaries');
-      const files = execSync(IS_WINDOWS ? 'dir /b' : 'ls', { cwd: sidecarDir, encoding: 'utf-8' })
-        .trim()
-        .split('\n');
-      const sidecar = files.find((f) => f.includes('ymir-server'));
-      if (sidecar) serverSrc = join(sidecarDir, sidecar);
+      if (existsSync(sidecarDir)) {
+        const files = readdirSync(sidecarDir);
+        const sidecar = files.find((f) => f.includes('ymir-server') && !f.includes('.gitkeep'));
+        if (sidecar) serverSrc = join(sidecarDir, sidecar);
+      }
     }
     const serverDest = join(ymirHome, `ymir-server${ext}`);
     if (existsSync(serverSrc)) {
       copyFileSync(serverSrc, serverDest);
       if (!IS_WINDOWS) chmodSync(serverDest, 0o755);
       console.log(`  ✓ Server binary → ${serverDest}`);
+    }
+    if (!existsSync(serverDest)) {
+      console.error(`Error: Server binary not found. Tried:`);
+      console.error(`  ${join(sourceDir, 'dist', `ymir-server${ext}`)}`);
+      console.error(`  ${serverSrc}`);
+      process.exit(1);
     }
 
     // Copy Tauri app binary
