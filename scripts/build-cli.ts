@@ -1,4 +1,10 @@
-import { getPlatformTarget, getTargetTriple, getBinaryName, runCommand, ensureDir } from './lib/build-utils';
+import {
+  getPlatformTarget,
+  getTargetTriple,
+  getBinaryName,
+  runCommand,
+  ensureDir,
+} from './lib/build-utils';
 import { join } from 'node:path';
 import { chmodSync, statSync } from 'node:fs';
 
@@ -30,7 +36,16 @@ console.log(`Building CLI binary: ${binaryName} (target: ${targetTriple})`);
 
 ensureDir(outdir);
 
-const cmd = ['bun', 'build', '--compile', 'apps/cli/src/index.ts', '--target', bunTarget, '--outfile', outputPath];
+const cmd = [
+  'bun',
+  'build',
+  '--compile',
+  'apps/cli/src/index.ts',
+  '--target',
+  bunTarget,
+  '--outfile',
+  outputPath,
+];
 const { success } = runCommand(cmd);
 
 if (!success) {

@@ -226,7 +226,7 @@ describe('ContentPane', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
     expect(mockCreateTab).toHaveBeenCalledTimes(1);
     expect(mockCreateTab).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'terminal', terminalId: 'term-1' }),
@@ -805,7 +805,7 @@ describe('ContentPane', () => {
     await flush();
 
     // Mock createTab was called (the real hook would update state)
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
     expect(mockCreateTab).toHaveBeenCalled();
 
     // Simulate what useTabs/useTerminalPane would do: add the tab to the state

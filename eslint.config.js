@@ -13,6 +13,9 @@ module.exports = [
       "eslint.config.js",
       "**/routeTree.gen.ts",
       "bun.lock",
+      "src-tauri/target/",
+      "src-tauri/gen/",
+      "packages/npm/",
     ],
   },
 

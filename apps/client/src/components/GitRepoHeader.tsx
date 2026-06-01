@@ -81,7 +81,17 @@ export function GitRepoHeader({
       }}
     >
       {/* Left side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, cursor: onToggleCollapse ? 'pointer' : undefined }} onClick={onToggleCollapse}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flex: 1,
+          minWidth: 0,
+          cursor: onToggleCollapse ? 'pointer' : undefined,
+        }}
+        onClick={onToggleCollapse}
+      >
         {onToggleCollapse && (
           <span style={{ fontSize: 10, color: COLOR_TEXT_MUTED }}>{collapsed ? '▶' : '▼'}</span>
         )}

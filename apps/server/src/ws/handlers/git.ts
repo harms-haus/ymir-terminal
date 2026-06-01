@@ -52,7 +52,10 @@ import {
   checkoutBranch as nativeCheckoutBranch,
 } from '../../git/branches';
 import { pushBranch as nativePushBranch, fetchRemote as nativeFetchRemote } from '../../git/remote';
-import { getDiffData as nativeGetDiffData, getCommitFileDiff as nativeGetCommitFileDiff } from '../../git/diff';
+import {
+  getDiffData as nativeGetDiffData,
+  getCommitFileDiff as nativeGetCommitFileDiff,
+} from '../../git/diff';
 import { getCommitDetails as nativeGetCommitDetails } from '../../git/commit-details';
 import {
   listWorktrees as nativeListWorktrees,
@@ -344,7 +347,13 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const baseDir = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.repoDiscovery');
+    const baseDir = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.repoDiscovery',
+    );
     if (baseDir === null) return;
     const repos = await doDiscoverRepos(baseDir);
     const resp = createResponse(req, { repos } satisfies GitRepoDiscoveryResponse);
@@ -725,7 +734,13 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absRepoPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.diffData');
+    const absRepoPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.diffData',
+    );
     if (absRepoPath === null) return;
     const result = await doGetDiffData(absRepoPath, payload.filePath, payload.staged);
     conn.send(
@@ -777,7 +792,13 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const gitDir = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commitDetails');
+    const gitDir = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.commitDetails',
+    );
     if (gitDir === null) return;
     const result = await doGetCommitDetails(gitDir, payload.commitSha);
     if (!result) {
@@ -791,14 +812,11 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const resp = createResponse(
-      req,
-      {
-        commitSha: payload.commitSha,
-        body: result.body,
-        files: result.files,
-      } satisfies GitCommitDetailsResponse,
-    );
+    const resp = createResponse(req, {
+      commitSha: payload.commitSha,
+      body: result.body,
+      files: result.files,
+    } satisfies GitCommitDetailsResponse);
     conn.send(resp);
   });
 
@@ -860,7 +878,13 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       return;
     }
 
-    const absRepoPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commitDiff');
+    const absRepoPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.commitDiff',
+    );
     if (absRepoPath === null) return;
     const result = await doGetCommitFileDiff(
       absRepoPath,
@@ -869,10 +893,10 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       payload.filePath,
     );
     conn.send(
-      createResponse(
-        req,
-        { ...result, filePath: payload.filePath } satisfies GitCommitDiffResponse,
-      ),
+      createResponse(req, {
+        ...result,
+        filePath: payload.filePath,
+      } satisfies GitCommitDiffResponse),
     );
   });
 
@@ -881,11 +905,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     const req = envelope as RequestEnvelope<GitWorktreeListRequest>;
     const payload = req.payload;
 
-    if (
-      !payload ||
-      typeof payload !== 'object' ||
-      typeof payload.workspaceId !== 'string'
-    ) {
+    if (!payload || typeof payload !== 'object' || typeof payload.workspaceId !== 'string') {
       conn.send(
         createError(
           { id: req.id, channel: req.channel ?? 'git.worktreeList' },
@@ -1014,14 +1034,11 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
         targetBranch: payload.targetBranch,
         deleteAfterMerge: payload.deleteAfterMerge,
       });
-      const resp = createResponse(
-        req,
-        {
-          success: result.success,
-          message: result.message,
-          worktreeRemoved: result.worktreeRemoved,
-        } satisfies GitWorktreeMergeResponse,
-      );
+      const resp = createResponse(req, {
+        success: result.success,
+        message: result.message,
+        worktreeRemoved: result.worktreeRemoved,
+      } satisfies GitWorktreeMergeResponse);
       conn.send(resp);
     } catch (err) {
       conn.send(

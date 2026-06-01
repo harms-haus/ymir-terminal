@@ -1,11 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { cardStyle } from '../lib/dialog-styles';
 import {
-  COLOR_BG_LOGIN,
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD,
   COLOR_TEXT_CARD_MUTED,
-  COLOR_BTN_PRIMARY,
   COLOR_DANGER,
   COLOR_SPINNER_TRACK,
 } from '../lib/theme';
@@ -156,10 +154,7 @@ function RemoveWorktreeForm({
           disabled={isLoading}
           style={styles.checkbox}
         />
-        <label
-          htmlFor="worktree-force-delete"
-          style={styles.checkboxLabel}
-        >
+        <label htmlFor="worktree-force-delete" style={styles.checkboxLabel}>
           Force delete (removes even with uncommitted changes)
         </label>
       </div>

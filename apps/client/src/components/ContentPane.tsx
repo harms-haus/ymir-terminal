@@ -89,7 +89,10 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
     handleTerminalCreated,
   );
 
-  const handleAddTerminal = useCallback(() => createTerminalTab(effectiveCwd), [createTerminalTab, effectiveCwd]);
+  const handleAddTerminal = useCallback(
+    () => createTerminalTab(effectiveCwd),
+    [createTerminalTab, effectiveCwd],
+  );
 
   const handleDirtyChange = useCallback((filePath: string, dirty: boolean) => {
     setDirtyFiles((prev) => {

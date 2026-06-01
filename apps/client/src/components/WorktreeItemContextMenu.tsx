@@ -28,6 +28,7 @@ const WT_CONTEXT_MENU_CSS = getContextMenuCss('wt-context-menu');
 export function WorktreeItemContextMenu({
   worktree,
   onCopyPath,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onMerge,
   onMergeConfirm,
   targetBranch,
@@ -40,8 +41,8 @@ export function WorktreeItemContextMenu({
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
 
   const branchName = worktree.isDetached
-    ? worktree.path.split('/').pop() ?? worktree.path
-    : worktree.branch ?? worktree.path.split('/').pop() ?? worktree.path;
+    ? (worktree.path.split('/').pop() ?? worktree.path)
+    : (worktree.branch ?? worktree.path.split('/').pop() ?? worktree.path);
 
   return (
     <ContextMenu.Root>

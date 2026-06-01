@@ -68,7 +68,10 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
     handleTerminalCreated,
   );
 
-  const handleAddTerminal = useCallback(() => createTerminalTab(effectiveCwd), [createTerminalTab, effectiveCwd]);
+  const handleAddTerminal = useCallback(
+    () => createTerminalTab(effectiveCwd),
+    [createTerminalTab, effectiveCwd],
+  );
 
   // Notify parent of activeTabId changes
   useEffect(() => {

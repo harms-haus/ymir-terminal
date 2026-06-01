@@ -17,7 +17,8 @@ export interface UseTauriReturn {
 }
 
 // Cache the Tauri API imports to avoid repeated dynamic imports
-let _invoke: ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null | false = null;
+let _invoke: ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null | false =
+  null;
 
 async function getInvoke() {
   if (_invoke !== null) return _invoke;
@@ -50,7 +51,7 @@ export function useTauri(): UseTauriReturn {
     const invoke = await getInvoke();
     if (!invoke) return null;
     try {
-      const config = await invoke('get_tauri_config', {}) as TauriConfig;
+      const config = (await invoke('get_tauri_config', {})) as TauriConfig;
       return config;
     } catch (err) {
       console.error('[useTauri] Failed to get Tauri config:', err);

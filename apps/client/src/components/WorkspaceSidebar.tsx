@@ -18,7 +18,12 @@ interface WorkspaceSidebarProps {
   onCreateWorktree: (workspaceId: string) => void;
   onCopyWorktreePath: (path: string) => void;
   onRemoveWorktree: (workspaceId: string, path: string, force: boolean) => void;
-  onMergeWorktree: (workspaceId: string, path: string, branch: string, deleteAfterMerge?: boolean) => void;
+  onMergeWorktree: (
+    workspaceId: string,
+    path: string,
+    branch: string,
+    deleteAfterMerge?: boolean,
+  ) => void;
 }
 
 export function WorkspaceSidebar({
@@ -51,56 +56,58 @@ export function WorkspaceSidebar({
         data-testid="workspace-sidebar"
         style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
       >
-      <div
-        style={{
-          height: `${TITLE_BAR_HEIGHT}px`,
-          display: 'flex',
-          borderBottom: `1px solid ${COLOR_BORDER}`,
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 12px',
-        }}
-      >
-        <span style={{ fontSize: '11px', textTransform: 'uppercase', color: COLOR_TEXT_MUTED }}>
-          Workspaces
-        </span>
-        <button
-          aria-label="Add workspace"
-          data-testid="add-workspace-btn"
-          onClick={onAddWorkspace}
+        <div
           style={{
-            background: 'none',
-            border: 'none',
-            color: COLOR_TEXT_MUTED,
-            cursor: 'pointer',
-            fontSize: '16px',
-            borderRadius: '4px',
+            height: `${TITLE_BAR_HEIGHT}px`,
+            display: 'flex',
+            borderBottom: `1px solid ${COLOR_BORDER}`,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '0 12px',
           }}
         >
-          +
-        </button>
+          <span style={{ fontSize: '11px', textTransform: 'uppercase', color: COLOR_TEXT_MUTED }}>
+            Workspaces
+          </span>
+          <button
+            aria-label="Add workspace"
+            data-testid="add-workspace-btn"
+            onClick={onAddWorkspace}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: COLOR_TEXT_MUTED,
+              cursor: 'pointer',
+              fontSize: '16px',
+              borderRadius: '4px',
+            }}
+          >
+            +
+          </button>
+        </div>
+        {isLoading && <div style={{ color: COLOR_TEXT_DIM, padding: '8px' }}>Loading...</div>}
+        {workspaces?.length === 0 && (
+          <div style={{ color: COLOR_TEXT_DIM, padding: '8px', fontSize: '12px' }}>
+            No workspaces
+          </div>
+        )}
+        <WorkspaceSidebarList
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          worktreesByWorkspace={worktreesByWorkspace}
+          activeWorktreePath={activeWorktreePath}
+          onWorkspaceSelect={onWorkspaceSelect}
+          onRenameWorkspace={onRenameWorkspace}
+          onSetCwdWorkspace={onSetCwdWorkspace}
+          onRemoveWorkspace={onRemoveWorkspace}
+          onChangeColorWorkspace={onChangeColorWorkspace}
+          onWorktreeSelect={onWorktreeSelect}
+          onCreateWorktree={onCreateWorktree}
+          onCopyWorktreePath={onCopyWorktreePath}
+          onRemoveWorktree={onRemoveWorktree}
+          onMergeWorktree={onMergeWorktree}
+        />
       </div>
-      {isLoading && <div style={{ color: COLOR_TEXT_DIM, padding: '8px' }}>Loading...</div>}
-      {workspaces?.length === 0 && (
-        <div style={{ color: COLOR_TEXT_DIM, padding: '8px', fontSize: '12px' }}>No workspaces</div>
-      )}
-      <WorkspaceSidebarList
-        workspaces={workspaces}
-        activeWorkspaceId={activeWorkspaceId}
-        worktreesByWorkspace={worktreesByWorkspace}
-        activeWorktreePath={activeWorktreePath}
-        onWorkspaceSelect={onWorkspaceSelect}
-        onRenameWorkspace={onRenameWorkspace}
-        onSetCwdWorkspace={onSetCwdWorkspace}
-        onRemoveWorkspace={onRemoveWorkspace}
-        onChangeColorWorkspace={onChangeColorWorkspace}
-        onWorktreeSelect={onWorktreeSelect}
-        onCreateWorktree={onCreateWorktree}
-        onCopyWorktreePath={onCopyWorktreePath}
-        onRemoveWorktree={onRemoveWorktree}
-        onMergeWorktree={onMergeWorktree}
-      />
-    </div>
     </>
   );
 }
@@ -134,7 +141,12 @@ function WorkspaceSidebarList({
   onCreateWorktree: (workspaceId: string) => void;
   onCopyWorktreePath: (path: string) => void;
   onRemoveWorktree: (workspaceId: string, path: string, force: boolean) => void;
-  onMergeWorktree: (workspaceId: string, path: string, branch: string, deleteAfterMerge?: boolean) => void;
+  onMergeWorktree: (
+    workspaceId: string,
+    path: string,
+    branch: string,
+    deleteAfterMerge?: boolean,
+  ) => void;
 }) {
   const { ref: droppableRef, isDropTarget } = useDroppable({
     id: 'workspace-list',
@@ -170,7 +182,9 @@ function WorkspaceSidebarList({
           onWorktreeSelect={onWorktreeSelect}
           onCopyWorktreePath={onCopyWorktreePath}
           onRemoveWorktree={(path, force) => onRemoveWorktree(ws.id, path, force)}
-          onMergeWorktree={(path, branch, deleteAfterMerge) => onMergeWorktree(ws.id, path, branch, deleteAfterMerge)}
+          onMergeWorktree={(path, branch, deleteAfterMerge) =>
+            onMergeWorktree(ws.id, path, branch, deleteAfterMerge)
+          }
           onCreateWorktree={() => onCreateWorktree(ws.id)}
         />
       ))}

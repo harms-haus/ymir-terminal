@@ -95,7 +95,11 @@ export function RightSidebar({
     const controller = new AbortController();
     const { signal } = controller;
 
-    sendRequest<{ tree: FileNode[] }>('file.tree', { workspaceId, ...(workspaceCwd ? { path: workspaceCwd } : {}) }, { signal })
+    sendRequest<{ tree: FileNode[] }>(
+      'file.tree',
+      { workspaceId, ...(workspaceCwd ? { path: workspaceCwd } : {}) },
+      { signal },
+    )
       .then((res) => {
         setFileTree(res.tree);
       })
@@ -104,7 +108,11 @@ export function RightSidebar({
         setError(err instanceof Error ? err.message : 'Failed to load');
       });
 
-    sendRequest<GitStatusResponse>('git.status', { workspaceId, ...(workspaceCwd ? { repoPath: workspaceCwd } : {}) }, { signal })
+    sendRequest<GitStatusResponse>(
+      'git.status',
+      { workspaceId, ...(workspaceCwd ? { repoPath: workspaceCwd } : {}) },
+      { signal },
+    )
       .then((res) => {
         setGitStatus(res);
       })
@@ -120,7 +128,10 @@ export function RightSidebar({
 
   const refreshFileTree = useCallback(() => {
     if (!workspaceId) return;
-    sendRequest<{ tree: FileNode[] }>('file.tree', { workspaceId, ...(workspaceCwd ? { path: workspaceCwd } : {}) })
+    sendRequest<{ tree: FileNode[] }>('file.tree', {
+      workspaceId,
+      ...(workspaceCwd ? { path: workspaceCwd } : {}),
+    })
       .then((res) => setFileTree(res.tree))
       .catch(handleAsyncError);
   }, [workspaceId, workspaceCwd]);
@@ -128,7 +139,10 @@ export function RightSidebar({
   const refreshGitStatus = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const response = await sendRequest<GitStatusResponse>('git.status', { workspaceId, ...(workspaceCwd ? { repoPath: workspaceCwd } : {}) });
+      const response = await sendRequest<GitStatusResponse>('git.status', {
+        workspaceId,
+        ...(workspaceCwd ? { repoPath: workspaceCwd } : {}),
+      });
       setGitStatus(response);
     } catch {
       // Silently ignore
@@ -310,7 +324,11 @@ export function RightSidebar({
         </Panel>
         <Separator style={{ height: '2px', background: COLOR_BORDER }} />
         <Panel id="historyPane" defaultSize="40%" minSize="10%" style={{ overflow: 'hidden' }}>
-          <GitHistoryPanel workspaceId={workspaceId} workspaceCwd={workspaceCwd} onCommitClick={onCommitClick} />
+          <GitHistoryPanel
+            workspaceId={workspaceId}
+            workspaceCwd={workspaceCwd}
+            onCommitClick={onCommitClick}
+          />
         </Panel>
       </Group>
     </div>

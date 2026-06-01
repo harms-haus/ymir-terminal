@@ -102,8 +102,9 @@ describe('GitChangeTree', () => {
     // Each file node should have a status dot with the correct color
     for (const change of changes) {
       const fileNode = getByTestId(`change-file-${change.path}`);
-      // The first span child is the status dot
-      const dot = fileNode.querySelector('span') as HTMLElement;
+      // The second span child is the status dot (first is the filename)
+      const spans = fileNode.querySelectorAll('span');
+      const dot = spans[1] as HTMLElement;
       expect(dot).toBeTruthy();
       const expectedColor = GIT_STATUS_COLORS[change.status];
       expect(expectedColor).toBeDefined();

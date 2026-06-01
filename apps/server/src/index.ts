@@ -41,9 +41,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (key === '--port') {
       const port = parseInt(value, 10);
       if (Number.isNaN(port) || port < 0 || port > 65535) {
-        console.error(
-          `Invalid port: ${value}. Must be a number between 0 and 65535.`,
-        );
+        console.error(`Invalid port: ${value}. Must be a number between 0 and 65535.`);
         process.exit(1);
       }
       result.port = port;

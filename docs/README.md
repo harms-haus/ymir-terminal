@@ -149,49 +149,49 @@ interface MessageEnvelope<T = unknown> {
 
 ### Channel Reference
 
-| Channel             | Direction | Description                                                                                            |
-| ------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
-| `auth`              | request   | Authenticate with password                                                                             |
-| `terminal.create`   | request   | Spawn a new PTY                                                                                        |
-| `terminal.input`    | request   | Send keystrokes (base64)                                                                               |
-| `terminal.resize`   | request   | Resize terminal dimensions                                                                             |
-| `terminal.close`    | request   | Kill a PTY                                                                                             |
-| `terminal.output`   | event     | PTY output (base64)                                                                                    |
-| `terminal.exit`     | event     | PTY process exited (with exit code)                                                                    |
-| `workspace.list`    | request   | List saved workspaces                                                                                  |
-| `workspace.create`  | request   | Create a workspace                                                                                     |
-| `workspace.update`  | request   | Update workspace settings                                                                              |
-| `workspace.delete`  | request   | Delete a workspace                                                                                     |
-| `workspace.reorder` | request   | Reorder workspaces by ID array                                                                         |
-| `file.tree`         | request   | Get directory listing                                                                                  |
-| `file.read`         | request   | Read file contents                                                                                     |
-| `file.write`        | request   | Write file contents                                                                                    |
-| `file.create`       | request   | Create file or directory                                                                               |
-| `file.delete`       | request   | Delete file or directory                                                                               |
-| `file.rename`       | request   | Rename/move a file                                                                                     |
-| `file.change`       | event     | Filesystem change notification                                                                         |
-| `git.status`        | request   | Get git status for a path; optional `repoPath`, returns `hasRemote`, `ahead`, `behind`                 |
-| `git.log`           | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`); optional `repoPath` |
-| `git.repoDiscovery` | request   | Discover all git repositories in a workspace directory                                                 |
-| `git.stage`         | request   | Stage files in a git repository                                                                        |
-| `git.unstage`       | request   | Unstage files in a git repository                                                                      |
-| `git.discard`       | request   | Discard unstaged changes to files                                                                      |
-| `git.commit`        | request   | Commit staged changes                                                                                  |
-| `git.branches`      | request   | List branches in a git repository                                                                      |
-| `git.checkout`      | request   | Switch or create a branch                                                                              |
-| `git.push`          | request   | Push branch to origin                                                                                  |
-| `git.fetch`         | request   | Fetch from remote                                                                                      |
-| `git.worktreeList`  | request   | List git worktrees for a workspace                                                                     |
-| `git.worktreeCreate`| request   | Create a new git worktree                                                                              |
-| `git.worktreeRemove`| request   | Remove a git worktree                                                                                  |
-| `config.get`        | request   | Get a config value from server_config table                                                            |
-| `config.set`        | request   | Set a config value in server_config table                                                              |
-| `tab.list`          | request   | List tabs for a workspace (with terminal liveness)                                                     |
-| `tab.create`        | request   | Create a tab (terminal or editor)                                                                      |
-| `tab.update`        | request   | Update tab properties (active, title, sort order)                                                      |
-| `tab.delete`        | request   | Delete a tab                                                                                           |
-| `tab.reorder`       | request   | Reorder tabs by ID array                                                                               |
-| `connection.status` | event     | Connection status change                                                                               |
+| Channel              | Direction | Description                                                                                            |
+| -------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| `auth`               | request   | Authenticate with password                                                                             |
+| `terminal.create`    | request   | Spawn a new PTY                                                                                        |
+| `terminal.input`     | request   | Send keystrokes (base64)                                                                               |
+| `terminal.resize`    | request   | Resize terminal dimensions                                                                             |
+| `terminal.close`     | request   | Kill a PTY                                                                                             |
+| `terminal.output`    | event     | PTY output (base64)                                                                                    |
+| `terminal.exit`      | event     | PTY process exited (with exit code)                                                                    |
+| `workspace.list`     | request   | List saved workspaces                                                                                  |
+| `workspace.create`   | request   | Create a workspace                                                                                     |
+| `workspace.update`   | request   | Update workspace settings                                                                              |
+| `workspace.delete`   | request   | Delete a workspace                                                                                     |
+| `workspace.reorder`  | request   | Reorder workspaces by ID array                                                                         |
+| `file.tree`          | request   | Get directory listing                                                                                  |
+| `file.read`          | request   | Read file contents                                                                                     |
+| `file.write`         | request   | Write file contents                                                                                    |
+| `file.create`        | request   | Create file or directory                                                                               |
+| `file.delete`        | request   | Delete file or directory                                                                               |
+| `file.rename`        | request   | Rename/move a file                                                                                     |
+| `file.change`        | event     | Filesystem change notification                                                                         |
+| `git.status`         | request   | Get git status for a path; optional `repoPath`, returns `hasRemote`, `ahead`, `behind`                 |
+| `git.log`            | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`); optional `repoPath` |
+| `git.repoDiscovery`  | request   | Discover all git repositories in a workspace directory                                                 |
+| `git.stage`          | request   | Stage files in a git repository                                                                        |
+| `git.unstage`        | request   | Unstage files in a git repository                                                                      |
+| `git.discard`        | request   | Discard unstaged changes to files                                                                      |
+| `git.commit`         | request   | Commit staged changes                                                                                  |
+| `git.branches`       | request   | List branches in a git repository                                                                      |
+| `git.checkout`       | request   | Switch or create a branch                                                                              |
+| `git.push`           | request   | Push branch to origin                                                                                  |
+| `git.fetch`          | request   | Fetch from remote                                                                                      |
+| `git.worktreeList`   | request   | List git worktrees for a workspace                                                                     |
+| `git.worktreeCreate` | request   | Create a new git worktree                                                                              |
+| `git.worktreeRemove` | request   | Remove a git worktree                                                                                  |
+| `config.get`         | request   | Get a config value from server_config table                                                            |
+| `config.set`         | request   | Set a config value in server_config table                                                              |
+| `tab.list`           | request   | List tabs for a workspace (with terminal liveness)                                                     |
+| `tab.create`         | request   | Create a tab (terminal or editor)                                                                      |
+| `tab.update`         | request   | Update tab properties (active, title, sort order)                                                      |
+| `tab.delete`         | request   | Delete a tab                                                                                           |
+| `tab.reorder`        | request   | Reorder tabs by ID array                                                                               |
+| `connection.status`  | event     | Connection status change                                                                               |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 
@@ -210,13 +210,13 @@ The server requires a password to start. Without `--password` or `YMIR_PASSWORD`
 
 ### `packages/shared` — `@ymir/shared`
 
-| File                   | Purpose                                                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                                            |
-| `protocol/payloads.ts` | Request/event type constants, payload types (`GitLogRequest`, `GitLogItem`, `GitLogResponse`, `ConnectionStatusEvent`, etc.) |
-| `protocol/panes.ts`    | Split pane tree types                                                                                                        |
+| File                   | Purpose                                                                                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                                                                                                                                                          |
+| `protocol/payloads.ts` | Request/event type constants, payload types (`GitLogRequest`, `GitLogItem`, `GitLogResponse`, `ConnectionStatusEvent`, etc.)                                                                                                               |
+| `protocol/panes.ts`    | Split pane tree types                                                                                                                                                                                                                      |
 | `constants.ts`         | `VERSION`, platform booleans (`IS_WINDOWS`, `IS_MACOS`, `IS_LINUX`), binary names (`CLI_BINARY_NAME`, `APP_BINARY_NAME`, `SERVER_BINARY_NAME`), `GITHUB_REPO`, `YMIR_HOME_DIR_NAME`, default ports, paths, timeouts, reconnection settings |
-| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `expandTilde`, `getConfigDir`, `getDbPath`, `getYmirHomeDir`, `getClientDistDir`, `getServerBinaryPath`, `getAppBinaryPath` |
+| `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `expandTilde`, `getConfigDir`, `getDbPath`, `getYmirHomeDir`, `getClientDistDir`, `getServerBinaryPath`, `getAppBinaryPath`                                                                        |
 
 ### `apps/server` — `@ymir/server`
 
@@ -289,13 +289,13 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `ContentPane`              | `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation                                                                                                                                                                                                               |
 | `PaneContextMenu`          | Context menu for pane operations                                                                                                                                                                                                                                                                                                         |
 | `WorkspaceSidebar`         | Sidebar listing workspaces with expandable worktree sub-items, DnD sortable via `useDroppable`                                                                                                                                                                                                                                           |
-| `WorkspaceItem`            | Individual workspace item with expand/collapse chevron, worktree sub-items, context menu, and sortable via `useSortable`                                                                                                                                                                                                                  |
+| `WorkspaceItem`            | Individual workspace item with expand/collapse chevron, worktree sub-items, context menu, and sortable via `useSortable`                                                                                                                                                                                                                 |
 | `CreateWorkspaceDialog`    | Dialog for creating new workspaces                                                                                                                                                                                                                                                                                                       |
 | `FileTree`                 | Directory tree with context menu and inline git status                                                                                                                                                                                                                                                                                   |
 | `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)                                                                                                                                                                                                                                                                                   |
-| `WorktreeItem`              | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`                                                                                                                                                                                                          |
-| `WorktreeItemContextMenu`   | Context menu for worktree items (Copy Path, Remove Worktree)                                                                                                                                                                                                                                                                              |
-| `CreateWorktreeDialog`      | Modal dialog for creating git worktrees (branch name + optional base ref)                                                                                                                                                                                                                                                                 |
+| `WorktreeItem`             | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`                                                                                                                                                                                                          |
+| `WorktreeItemContextMenu`  | Context menu for worktree items (Copy Path, Remove Worktree)                                                                                                                                                                                                                                                                             |
+| `CreateWorktreeDialog`     | Modal dialog for creating git worktrees (branch name + optional base ref)                                                                                                                                                                                                                                                                |
 | `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split                                                                                                                                                                                            |
 | `GitPanel`                 | Multi-repo git changes panel — discovers repos, displays per-repo headers with branch selectors and push/fetch buttons, commit message input (Ctrl+Enter), and collapsible staged/unstaged tree views with context menus for stage/unstage/discard/diff. Props: `workspaceId`, `workspaceCwd`, `onOpenEditor`                            |
 | `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading                                                                                                                                     |
@@ -335,10 +335,10 @@ Tests exist in every package:
 
 Ymir uses two platform-aware directory roots (resolved by `@ymir/shared`):
 
-| Directory     | Unix                       | Windows                              | Purpose                                                                 |
-| ------------- | ------------------------- | ------------------------------------ | ----------------------------------------------------------------------- |
-| Config (data) | `~/.config/ymir`          | `%LOCALAPPDATA%\ymir`                | Database, password hash, Tauri auth file                                |
-| Home (binary) | `~/.ymir`                 | `%LOCALAPPDATA%\ymir`                | Installed binaries (CLI, server, Tauri app), client-dist                |
+| Directory     | Unix             | Windows               | Purpose                                                  |
+| ------------- | ---------------- | --------------------- | -------------------------------------------------------- |
+| Config (data) | `~/.config/ymir` | `%LOCALAPPDATA%\ymir` | Database, password hash, Tauri auth file                 |
+| Home (binary) | `~/.ymir`        | `%LOCALAPPDATA%\ymir` | Installed binaries (CLI, server, Tauri app), client-dist |
 
 Resolved by `getConfigDir()` and `getYmirHomeDir()` in `packages/shared/src/utils.ts`.
 
@@ -346,10 +346,10 @@ Resolved by `getConfigDir()` and `getYmirHomeDir()` in `packages/shared/src/util
 
 Ymir stores persistent data in SQLite:
 
-| Database   | Location                         | Purpose                                                                                             |
-| ---------- | -------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Persistent | `{getConfigDir()}/ymir.db`       | Workspaces, password hash, UI layout state                                                          |
-| Session    | In-memory (`:memory:`)           | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
+| Database   | Location                   | Purpose                                                                                             |
+| ---------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
+| Persistent | `{getConfigDir()}/ymir.db` | Workspaces, password hash, UI layout state                                                          |
+| Session    | In-memory (`:memory:`)     | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
 
 The workspaces table includes a `sort_order` column (integer) that persists drag-and-drop ordering. The `WorkspaceSummary` type returned by `workspace.list` includes `sortOrder: number` reflecting this column.
 
@@ -611,10 +611,10 @@ ghostty-web emits `onTitleChange` events when the terminal title changes (e.g. v
 
 The `ymir` CLI is a compiled Bun binary (`bun build --compile`) that serves as the primary entry point for end users. It dispatches to three commands:
 
-| Command   | Behavior                                                                                                                              |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| (default) | `launchApp()` — spawns the Tauri desktop app binary from `{getYmirHomeDir()}`, sets `YMIR_HOME`, `YMIR_STATIC_DIR`, `YMIR_SERVER_PATH` env vars, and detaches |
-| `web`     | `startWeb()` — spawns the server binary with `--host`, `--port`, `--staticDir`, and `YMIR_PASSWORD`; optionally opens the browser     |
+| Command   | Behavior                                                                                                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (default) | `launchApp()` — spawns the Tauri desktop app binary from `{getYmirHomeDir()}`, sets `YMIR_HOME`, `YMIR_STATIC_DIR`, `YMIR_SERVER_PATH` env vars, and detaches                                  |
+| `web`     | `startWeb()` — spawns the server binary with `--host`, `--port`, `--staticDir`, and `YMIR_PASSWORD`; optionally opens the browser                                                              |
 | `update`  | `selfUpdate()` — fetches the latest GitHub release, downloads platform-matched binaries in parallel, replaces them in `{getYmirHomeDir()}` atomically (rename on Unix, `.old` swap on Windows) |
 
 ### Binary Layout (`~/.ymir/`)
@@ -636,11 +636,11 @@ Binary names include `.exe` suffix on Windows (e.g. `ymir.exe`, `ymir-server.exe
 
 Three npm packages handle distribution:
 
-| Package                | Contents                                                  |
-| ---------------------- | --------------------------------------------------------- |
-| `ymir`                 | Main package — `bin/ymir.js` shim + `install.js` postinstall script that downloads the CLI binary to `~/.ymir/` |
-| `ymir-linux-x64`       | Platform-specific `bin/ymir` binary for Linux x64         |
-| `ymir-windows-x64`     | Platform-specific `bin/ymir.exe` binary for Windows x64   |
+| Package            | Contents                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `ymir`             | Main package — `bin/ymir.js` shim + `install.js` postinstall script that downloads the CLI binary to `~/.ymir/` |
+| `ymir-linux-x64`   | Platform-specific `bin/ymir` binary for Linux x64                                                               |
+| `ymir-windows-x64` | Platform-specific `bin/ymir.exe` binary for Windows x64                                                         |
 
 The `ymir` package declares `ymir-linux-x64` and `ymir-windows-x64` as `optionalDependencies`. The `bin/ymir.js` shim resolves the binary in order:
 
@@ -662,16 +662,16 @@ It checks for prerequisites (Bun, Rust, cargo, Tauri system deps), clones the re
 
 ### Build Scripts
 
-| Script                         | Purpose                                                                    |
-| ------------------------------ | -------------------------------------------------------------------------- |
-| `scripts/build-server.ts`      | Compile `apps/server` into a standalone binary via `bun build --compile`   |
-| `scripts/build-cli.ts`         | Compile `apps/cli` into a standalone binary via `bun build --compile`      |
-| `scripts/build-client-dist.ts` | Build client SPA + package as `.tar.gz` (Linux/macOS) or `.zip` (Windows) |
-| `scripts/build-all.ts`         | Orchestrate all builds: client → server → CLI → Tauri → extract            |
-| `scripts/extract-tauri-binary.ts` | Copy Tauri binary from `target/release/` to `dist/ymir-app`             |
-| `scripts/publish-npm.ts`       | Copy binaries, sync versions, publish all npm packages (`--dry-run` supported) |
-| `scripts/sync-version.ts`      | Read/check/set version across `constants.ts`, `Cargo.toml`, `tauri.conf.json`, and all `package.json` files |
-| `scripts/lib/build-utils.ts`   | Shared helpers: target map, `getPlatformTarget()`, `getTargetTriple()`, `runCommand()`, `ensureDir()` |
+| Script                            | Purpose                                                                                                     |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `scripts/build-server.ts`         | Compile `apps/server` into a standalone binary via `bun build --compile`                                    |
+| `scripts/build-cli.ts`            | Compile `apps/cli` into a standalone binary via `bun build --compile`                                       |
+| `scripts/build-client-dist.ts`    | Build client SPA + package as `.tar.gz` (Linux/macOS) or `.zip` (Windows)                                   |
+| `scripts/build-all.ts`            | Orchestrate all builds: client → server → CLI → Tauri → extract                                             |
+| `scripts/extract-tauri-binary.ts` | Copy Tauri binary from `target/release/` to `dist/ymir-app`                                                 |
+| `scripts/publish-npm.ts`          | Copy binaries, sync versions, publish all npm packages (`--dry-run` supported)                              |
+| `scripts/sync-version.ts`         | Read/check/set version across `constants.ts`, `Cargo.toml`, `tauri.conf.json`, and all `package.json` files |
+| `scripts/lib/build-utils.ts`      | Shared helpers: target map, `getPlatformTarget()`, `getTargetTriple()`, `runCommand()`, `ensureDir()`       |
 
 ### Version Synchronization
 
@@ -712,6 +712,7 @@ All npm publishing uses `NPM_TOKEN` from GitHub Secrets. Version consistency is 
 The desktop app uses a **sidecar pattern**: the Bun server is compiled with `bun build --compile` into a standalone binary that is bundled alongside the Tauri app.
 
 Startup sequence:
+
 1. Tauri app generates or retrieves a persistent password (`{getConfigDir()}/tauri-password`)
 2. Resolves the static directory via `SidecarManager::resolve_static_dir()` — checks `YMIR_STATIC_DIR` env var override first, then falls back to dev/resource dir
 3. Spawns the sidecar binary (from `YMIR_SERVER_PATH` env var override, or the bundled sidecar) with `--port=0 --host=127.0.0.1 --staticDir=<path>` and password via `YMIR_PASSWORD` env var
@@ -723,16 +724,17 @@ Startup sequence:
 
 The sidecar manager (`src-tauri/src/sidecar.rs`) supports two env var overrides for non-bundled installations (e.g. installed via `ymir update`):
 
-| Variable             | Purpose                                                              |
-| -------------------- | -------------------------------------------------------------------- |
-| `YMIR_STATIC_DIR`    | Override the client static files directory (checked before default)  |
-| `YMIR_SERVER_PATH`   | Override the server binary path (checked before bundled sidecar)     |
+| Variable           | Purpose                                                             |
+| ------------------ | ------------------------------------------------------------------- |
+| `YMIR_STATIC_DIR`  | Override the client static files directory (checked before default) |
+| `YMIR_SERVER_PATH` | Override the server binary path (checked before bundled sidecar)    |
 
 Both overrides validate that the path exists before using it, printing a warning and falling back if it doesn't.
 
 ### Frameless Window
 
 The window has `decorations: false` — no native title bar. Instead:
+
 - The `TopBar` component has `data-tauri-drag-region` making it draggable
 - Interactive children (buttons, inputs) have `pointerEvents: 'auto'` to remain clickable
 - Window controls (minimize, maximize, close) appear right of the panel toggles
@@ -741,25 +743,26 @@ The window has `decorations: false` — no native title bar. Instead:
 ### Auto-Authentication
 
 In Tauri mode, the `useTauri` hook detects the environment and the `useAuth` hook automatically:
+
 1. Calls `get_tauri_config` Tauri command to get the auto-generated password
 2. Calls `login(password)` to authenticate with the sidecar server
 3. The JWT token is stored in localStorage for subsequent requests
 
 ### Tauri Files
 
-| File                              | Purpose                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------ |
-| `src-tauri/src/lib.rs`            | App builder, sidecar startup, window URL configuration                         |
-| `src-tauri/src/sidecar.rs`        | `SidecarManager` — spawn, readiness detection (15s timeout), static dir resolution |
-| `src-tauri/src/auth.rs`           | Password generation (32-byte hex via getrandom), file persistence with 0600 permissions |
-| `src-tauri/tauri.conf.json`       | Window config (frameless, 1280×800), CSP, sidecar registration, resource bundling |
-| `src-tauri/capabilities/default.json` | Scoped shell permissions (sidecar only), window control permissions          |
+| File                                  | Purpose                                                                                 |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| `src-tauri/src/lib.rs`                | App builder, sidecar startup, window URL configuration                                  |
+| `src-tauri/src/sidecar.rs`            | `SidecarManager` — spawn, readiness detection (15s timeout), static dir resolution      |
+| `src-tauri/src/auth.rs`               | Password generation (32-byte hex via getrandom), file persistence with 0600 permissions |
+| `src-tauri/tauri.conf.json`           | Window config (frameless, 1280×800), CSP, sidecar registration, resource bundling       |
+| `src-tauri/capabilities/default.json` | Scoped shell permissions (sidecar only), window control permissions                     |
 
 ### Frontend Files
 
-| File                              | Purpose                                                      |
-| --------------------------------- | ------------------------------------------------------------ |
-| `apps/client/src/hooks/useTauri.ts` | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`) |
-| `apps/client/src/hooks/useAuth.ts`  | Auto-login when `isTauri` is true                           |
-| `apps/client/src/components/TopBar.tsx` | Drag region, window controls (conditional on `isTauri`)  |
-| `apps/client/src/lib/theme.ts`       | Window control theme constants                             |
+| File                                    | Purpose                                                             |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| `apps/client/src/hooks/useTauri.ts`     | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`) |
+| `apps/client/src/hooks/useAuth.ts`      | Auto-login when `isTauri` is true                                   |
+| `apps/client/src/components/TopBar.tsx` | Drag region, window controls (conditional on `isTauri`)             |
+| `apps/client/src/lib/theme.ts`          | Window control theme constants                                      |

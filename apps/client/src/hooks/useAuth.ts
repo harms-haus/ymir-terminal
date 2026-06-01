@@ -22,12 +22,15 @@ interface AuthState {
 const TOKEN_KEY = 'ymir-token';
 const getWsUrl = () => {
   // When running in Tauri with the sidecar, the port is injected via eval
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sidecarPort = (window as any).__YMIR_SIDECAR_PORT;
   if (sidecarPort) {
     return `ws://127.0.0.1:${sidecarPort}/ws`;
   }
   // Browser mode: connect to the same host
-  return (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws';
+  return (
+    (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws'
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -156,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         // Store the sidecar port so getWsUrl() can use it
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).__YMIR_SIDECAR_PORT = config.port;
         await login(config.password);
       } catch (err) {

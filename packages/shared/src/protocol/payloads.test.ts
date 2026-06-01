@@ -54,6 +54,7 @@ import {
   type GitWorktreeListRequest,
   type GitWorktreeCreateRequest,
   type GitWorktreeRemoveRequest,
+  type GitWorktreeMergeRequest,
   // Config
   type ConfigGetRequest,
   type ConfigGetResponse,
@@ -112,6 +113,7 @@ describe('REQUEST_TYPES', () => {
     'git.worktreeList',
     'git.worktreeCreate',
     'git.worktreeRemove',
+    'git.worktreeMerge',
     'config.get',
     'config.set',
     'tab.list',
@@ -125,8 +127,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 40 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(40);
+  it('has exactly 41 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(41);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -613,6 +615,7 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1' } satisfies GitWorktreeListRequest,
       { workspaceId: 'ws-1', branchName: 'feature-x' } satisfies GitWorktreeCreateRequest,
       { workspaceId: 'ws-1', worktreePath: '/path/to/wt' } satisfies GitWorktreeRemoveRequest,
+      { workspaceId: 'ws-1', worktreePath: '/path/to/wt' } satisfies GitWorktreeMergeRequest,
       { workspaceIds: ['ws-1', 'ws-2'] } satisfies WorkspaceReorderRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
@@ -633,15 +636,12 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 38 payload types: workspace.list has no body (WorkspaceListRequest = Record<string,never>)
-    // so REQUEST_TYPES (40) minus workspace.list minus workspace.reorder (has body) = 38.
-    // Actually: all 40 have payload types, but workspace.list's type is
-    // Record<string,never> which is included. So payloads covers all 40 types
-    // minus workspace.list (no distinguishing fields to satisfy) and the
-    // satisfies check is still valid via the union.
-    // Count: 40 REQUEST_TYPES - 2 no-body types (workspace.list = Record<string,never>,
-    // and we explicitly include all others) = we have all 38 typed payloads + 1 satisfies
-    // for workspace.reorder = total should be all entries minus workspace.list.
+    // 40 payload types: workspace.list has no body (WorkspaceListRequest = Record<string,never>)
+    // so REQUEST_TYPES (41) minus workspace.list = 40.
+    // All 41 have payload types, but workspace.list's type is
+    // Record<string,never> which has no distinguishing fields to satisfy.
+    // Count: 41 REQUEST_TYPES - 1 no-body type (workspace.list = Record<string,never>)
+    // = 40 typed payloads.
     expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });
 });

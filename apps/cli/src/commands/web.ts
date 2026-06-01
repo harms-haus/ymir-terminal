@@ -81,7 +81,7 @@ export function startWeb(args: string[]): void {
 
   if (!existsSync(serverPath)) {
     console.error(
-      `Ymir server not found at ${serverPath}.\nRun 'ymir update' to install the latest version.`
+      `Ymir server not found at ${serverPath}.\nRun 'ymir update' to install the latest version.`,
     );
     process.exit(1);
   }
@@ -94,7 +94,7 @@ export function startWeb(args: string[]): void {
     {
       stdio: 'inherit',
       env: { ...process.env, YMIR_PASSWORD: password },
-    }
+    },
   );
 
   server.on('error', (err) => {

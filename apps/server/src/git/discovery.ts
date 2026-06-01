@@ -61,8 +61,6 @@ async function walkDir(
       hasRemote: remote,
       ...tracking,
     });
-
-
   }
 
   // Recurse into subdirectories

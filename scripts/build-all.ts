@@ -81,7 +81,7 @@ console.log('✅ CLI built\n');
 // Step 4 & 5: Build Tauri app (unless skipped)
 if (!skipTauri) {
   console.log('📦 Step 4: Building Tauri app...');
-  const { success: tauriSuccess } = runCommand(['cargo', 'tauri', 'build'], { cwd: 'src-tauri' });
+  const { success: tauriSuccess } = runCommand(['bunx', 'tauri', 'build']);
   if (!tauriSuccess) {
     console.error('❌ Tauri build failed');
     process.exit(1);

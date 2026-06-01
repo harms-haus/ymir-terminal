@@ -104,24 +104,28 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
         // Not within workspace — check if it's a known worktree
         try {
           const worktrees = await listWorktrees(workspaceCwd);
-          const isKnownWorktree = worktrees.some(w => resolve(w.path) === resolvedCwd);
+          const isKnownWorktree = worktrees.some((w) => resolve(w.path) === resolvedCwd);
           if (!isKnownWorktree) {
             deleteTerminalInstance(sessionDb, terminalId);
-            conn.send(createError(
-              { id: req.id, channel: req.channel ?? 'terminal.create' },
-              ErrorCodes.PERMISSION_DENIED,
-              'Invalid cwd: path is not within the workspace or a known worktree',
-            ));
+            conn.send(
+              createError(
+                { id: req.id, channel: req.channel ?? 'terminal.create' },
+                ErrorCodes.PERMISSION_DENIED,
+                'Invalid cwd: path is not within the workspace or a known worktree',
+              ),
+            );
             return;
           }
           cwd = resolvedCwd;
         } catch {
           deleteTerminalInstance(sessionDb, terminalId);
-          conn.send(createError(
-            { id: req.id, channel: req.channel ?? 'terminal.create' },
-            ErrorCodes.PERMISSION_DENIED,
-            'Invalid cwd: path is not within the workspace or a known worktree',
-          ));
+          conn.send(
+            createError(
+              { id: req.id, channel: req.channel ?? 'terminal.create' },
+              ErrorCodes.PERMISSION_DENIED,
+              'Invalid cwd: path is not within the workspace or a known worktree',
+            ),
+          );
           return;
         }
       }

@@ -238,7 +238,7 @@ describe('BottomPanel', () => {
 
     await waitFor(() => {
       expect(mockCreateTerminalFn).toHaveBeenCalledTimes(1);
-      expect(mockCreateTerminalFn).toHaveBeenCalledWith('ws-1');
+      expect(mockCreateTerminalFn).toHaveBeenCalledWith('ws-1', undefined);
       expect(mockCreateTab).toHaveBeenCalledTimes(1);
       expect(mockCreateTab).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }),

@@ -1,11 +1,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import {
-  getYmirHomeDir,
-  APP_BINARY_NAME,
-  SERVER_BINARY_NAME,
-} from '@ymir/shared';
+import { getYmirHomeDir, APP_BINARY_NAME, SERVER_BINARY_NAME } from '@ymir/shared';
 
 export function launchApp(): void {
   const homeDir = getYmirHomeDir();
@@ -13,7 +9,7 @@ export function launchApp(): void {
 
   if (!existsSync(binaryPath)) {
     console.error(
-      `Ymir is not installed at ${binaryPath}.\nRun 'ymir update' to install the latest version.`
+      `Ymir is not installed at ${binaryPath}.\nRun 'ymir update' to install the latest version.`,
     );
     process.exit(1);
   }

@@ -7,3 +7,5 @@ bun.lock
 .env
 *.db
 eslint.config.js
+src-tauri/gen/
+src-tauri/target/

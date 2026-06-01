@@ -47,7 +47,10 @@ export function getBinaryName(name: string, bunTarget: string): string {
 }
 
 // Run a command and return success/failure
-export function runCommand(cmd: string[], options?: { cwd?: string; env?: Record<string, string> }): { success: boolean; exitCode: number } {
+export function runCommand(
+  cmd: string[],
+  options?: { cwd?: string; env?: Record<string, string> },
+): { success: boolean; exitCode: number } {
   const result = Bun.spawnSync(cmd, {
     cwd: options?.cwd,
     env: { ...process.env, ...options?.env },

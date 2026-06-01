@@ -13,19 +13,23 @@ A web-based terminal IDE with real-time collaboration, file management, and git 
 ## Installation
 
 ### npm (recommended)
+
 ```bash
 npm install -g ymir
 ```
 
 ### From source (requires Bun + Rust)
+
 ```bash
 bun run https://raw.githubusercontent.com/harms-haus/ymir-terminal/main/scripts/install.ts
 ```
 
 ### Manual download
+
 Download the latest release from [GitHub Releases](https://github.com/harms-haus/ymir-terminal/releases).
 
 ### Development
+
 ```bash
 bun install
 ```
@@ -40,21 +44,21 @@ bun run dev
 
 ## Scripts
 
-| Command                | Description                          |
-| ---------------------- | ------------------------------------ |
-| `bun run dev`          | Start concurrent server + client dev |
-| `bun run build`        | Build client for production          |
-| `bun run start`        | Start production server              |
-| `bun run test`         | Run all tests                        |
-| `bun run lint`         | Run ESLint                           |
-| `bun run lint:fix`     | Run ESLint with auto-fix             |
-| `bun run format`       | Format code with Prettier            |
-| `bun run format:check` | Check formatting with Prettier       |
-| `bun run typecheck`    | Run TypeScript type checking         |
-| `bun run build:sidecar` | Compile Bun server into standalone binary for Tauri sidecar |
-| `bun run build:client` | Build the client SPA (alias for `bun run --cwd apps/client build`) |
-| `bun run build:tauri`  | Full production desktop build (sidecar + client + Tauri bundle) |
-| `bun run dev:tauri`    | Run the desktop app in development mode with hot reload |
+| Command                 | Description                                                        |
+| ----------------------- | ------------------------------------------------------------------ |
+| `bun run dev`           | Start concurrent server + client dev                               |
+| `bun run build`         | Build client for production                                        |
+| `bun run start`         | Start production server                                            |
+| `bun run test`          | Run all tests                                                      |
+| `bun run lint`          | Run ESLint                                                         |
+| `bun run lint:fix`      | Run ESLint with auto-fix                                           |
+| `bun run format`        | Format code with Prettier                                          |
+| `bun run format:check`  | Check formatting with Prettier                                     |
+| `bun run typecheck`     | Run TypeScript type checking                                       |
+| `bun run build:sidecar` | Compile Bun server into standalone binary for Tauri sidecar        |
+| `bun run build:client`  | Build the client SPA (alias for `bun run --cwd apps/client build`) |
+| `bun run build:tauri`   | Full production desktop build (sidecar + client + Tauri bundle)    |
+| `bun run dev:tauri`     | Run the desktop app in development mode with hot reload            |
 
 ## Production
 

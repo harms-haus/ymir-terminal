@@ -13,7 +13,13 @@ interface GitPanelProps {
   onOpenGitTree?: (repoPath: string) => void;
 }
 
-export function GitPanel({ workspaceId, workspaceCwd, onOpenEditor, onOpenDiff, onOpenGitTree }: GitPanelProps) {
+export function GitPanel({
+  workspaceId,
+  workspaceCwd,
+  onOpenEditor,
+  onOpenDiff,
+  onOpenGitTree,
+}: GitPanelProps) {
   const git = useGitRepos(workspaceId, workspaceCwd);
   const [collapsedRepos, setCollapsedRepos] = useState<Set<string>>(new Set());
 

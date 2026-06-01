@@ -40,7 +40,7 @@ export function useFileSearch(workspaceId: string | null) {
   const [files, setFiles] = useState<FlattenedFile[]>([]);
 
   // Effective files: clear when workspace is deselected
-  const effectiveFiles = workspaceId ? files : [];
+  const effectiveFiles = useMemo(() => (workspaceId ? files : []), [workspaceId, files]);
 
   // Fetch file tree when workspaceId changes
   useEffect(() => {

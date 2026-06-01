@@ -59,7 +59,9 @@ async function main() {
       console.log('  ✓ webkit2gtk-4.1');
     } catch {
       console.error('Error: webkit2gtk-4.1 development libraries are required.');
-      console.error('  Install: sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libgtk-3-dev librsvg2-dev');
+      console.error(
+        '  Install: sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libgtk-3-dev librsvg2-dev',
+      );
       process.exit(1);
     }
   }
@@ -96,7 +98,7 @@ async function main() {
 
     // Step 7: Build Tauri app
     console.log('\nBuilding Tauri desktop app...');
-    run('cd src-tauri && cargo tauri build --no-bundle', { cwd: sourceDir });
+    run('bunx tauri build --no-bundle', { cwd: sourceDir });
 
     // Step 8: Extract Tauri binary
     console.log('\nExtracting Tauri binary...');
@@ -120,8 +122,10 @@ async function main() {
     if (!existsSync(serverSrc)) {
       // Try sidecar location
       const sidecarDir = join(sourceDir, 'src-tauri', 'binaries');
-      const files = execSync(IS_WINDOWS ? 'dir /b' : 'ls', { cwd: sidecarDir, encoding: 'utf-8' }).trim().split('\n');
-      const sidecar = files.find(f => f.includes('ymir-server'));
+      const files = execSync(IS_WINDOWS ? 'dir /b' : 'ls', { cwd: sidecarDir, encoding: 'utf-8' })
+        .trim()
+        .split('\n');
+      const sidecar = files.find((f) => f.includes('ymir-server'));
       if (sidecar) serverSrc = join(sidecarDir, sidecar);
     }
     const serverDest = join(ymirHome, `ymir-server${ext}`);
@@ -161,7 +165,9 @@ async function main() {
         mkdirSync(localBin, { recursive: true });
         execFileSync('ln', ['-sf', cliDest, join(localBin, 'ymir')], { stdio: 'inherit' });
         console.log(`  ✓ Created symlink in ${localBin}`);
-        console.log('  Add ~/.local/bin to PATH: echo "export PATH=$HOME/.local/bin:$PATH" >> ~/.bashrc');
+        console.log(
+          '  Add ~/.local/bin to PATH: echo "export PATH=$HOME/.local/bin:$PATH" >> ~/.bashrc',
+        );
       }
     } else {
       console.log(`  Add ${ymirHome} to your PATH: setx PATH "%PATH%;${ymirHome}"`);
@@ -179,7 +185,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Install failed:', err);
   process.exit(1);
 });

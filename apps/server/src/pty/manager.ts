@@ -2,7 +2,14 @@ import { basename } from 'node:path';
 import { existsSync } from 'node:fs';
 import { toBase64, fromBase64 } from '@ymir/shared';
 
-const UNIX_SHELLS = new Set(['/bin/bash', '/bin/zsh', '/bin/sh', '/usr/bin/bash', '/usr/bin/zsh', '/usr/bin/sh']);
+const UNIX_SHELLS = new Set([
+  '/bin/bash',
+  '/bin/zsh',
+  '/bin/sh',
+  '/usr/bin/bash',
+  '/usr/bin/zsh',
+  '/usr/bin/sh',
+]);
 const WINDOWS_SHELLS = new Set(['cmd.exe', 'powershell.exe', 'pwsh.exe']);
 
 const UNIX_FALLBACK = ['/bin/bash', '/bin/zsh', '/bin/sh'];

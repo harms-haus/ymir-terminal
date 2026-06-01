@@ -37,7 +37,9 @@ export function WorktreeItem({
       worktree={worktree}
       onCopyPath={onCopyPath}
       onMerge={() => onMergeWorktree?.(worktree.path, worktree.branch ?? '')}
-      onMergeConfirm={(_deleteAfterMerge) => onMergeWorktree?.(worktree.path, worktree.branch ?? '')}
+      onMergeConfirm={(_deleteAfterMerge) =>
+        onMergeWorktree?.(worktree.path, worktree.branch ?? '')
+      }
       targetBranch="main"
       onRemove={onRemove}
     >

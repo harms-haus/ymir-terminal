@@ -98,19 +98,15 @@ export function useReorderWorkspaces() {
   });
 }
 
-export function useWorktreeList(
-  workspaceId: string | null,
-  options?: { enabled?: boolean },
-) {
+export function useWorktreeList(workspaceId: string | null, options?: { enabled?: boolean }) {
   const { isConnected } = useConnectionStatus();
   return useQuery({
     queryKey: ['worktrees', workspaceId],
     enabled: !!workspaceId && options?.enabled !== false && isConnected,
     queryFn: async () => {
-      const response = await sendRequest<GitWorktreeListResponse>(
-        'git.worktreeList',
-        { workspaceId },
-      );
+      const response = await sendRequest<GitWorktreeListResponse>('git.worktreeList', {
+        workspaceId,
+      });
       return response.worktrees;
     },
   });
@@ -120,15 +116,8 @@ export function useCreateWorktree() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: {
-      workspaceId: string;
-      branchName: string;
-      startRef?: string;
-    }) => {
-      return sendRequest<GitWorktreeCreateResponse>(
-        'git.worktreeCreate',
-        payload,
-      );
+    mutationFn: async (payload: { workspaceId: string; branchName: string; startRef?: string }) => {
+      return sendRequest<GitWorktreeCreateResponse>('git.worktreeCreate', payload);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['workspaces'] });
@@ -143,11 +132,7 @@ export function useRemoveWorktree() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      workspaceId,
-      worktreePath,
-      force,
-    }: GitWorktreeRemoveRequest) => {
+    mutationFn: async ({ workspaceId, worktreePath, force }: GitWorktreeRemoveRequest) => {
       return sendRequest<void>('git.worktreeRemove', {
         workspaceId,
         worktreePath,

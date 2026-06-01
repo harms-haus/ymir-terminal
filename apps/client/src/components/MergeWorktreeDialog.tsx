@@ -145,8 +145,7 @@ function MergeWorktreeForm({
   return (
     <div>
       <div style={styles.message}>
-        Merge worktree{' '}
-        <span style={styles.branchName}>{branchName}</span> into{' '}
+        Merge worktree <span style={styles.branchName}>{branchName}</span> into{' '}
         <span style={styles.branchName}>{targetBranch}</span>?
       </div>
 
@@ -159,10 +158,7 @@ function MergeWorktreeForm({
           disabled={isLoading}
           style={styles.checkbox}
         />
-        <label
-          htmlFor="worktree-delete-after-merge"
-          style={styles.checkboxLabel}
-        >
+        <label htmlFor="worktree-delete-after-merge" style={styles.checkboxLabel}>
           Delete worktree after merge
         </label>
       </div>

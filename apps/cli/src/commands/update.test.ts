@@ -1,5 +1,11 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
-import { IS_WINDOWS, VERSION, CLI_BINARY_NAME, APP_BINARY_NAME, SERVER_BINARY_NAME } from '@ymir/shared';
+import {
+  IS_WINDOWS,
+  VERSION,
+  CLI_BINARY_NAME,
+  APP_BINARY_NAME,
+  SERVER_BINARY_NAME,
+} from '@ymir/shared';
 
 describe('update command', () => {
   describe('platform asset naming', () => {
@@ -75,7 +81,7 @@ describe('update command', () => {
               tag_name: `v${VERSION}`,
               assets: [],
             }),
-        } as Response)
+        } as Response),
       );
 
       const logs: string[] = [];
@@ -103,7 +109,7 @@ describe('update command', () => {
           ok: false,
           status: 500,
           statusText: 'Internal Server Error',
-        } as Response)
+        } as Response),
       );
 
       const originalError = console.error;
@@ -131,11 +137,9 @@ describe('update command', () => {
           json: () =>
             Promise.resolve({
               tag_name: 'v99.0.0',
-              assets: [
-                { name: 'ymir-arm64', browser_download_url: 'https://example.com/arm64' },
-              ],
+              assets: [{ name: 'ymir-arm64', browser_download_url: 'https://example.com/arm64' }],
             }),
-        } as Response)
+        } as Response),
       );
 
       const originalError = console.error;

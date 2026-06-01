@@ -1,27 +1,27 @@
 #!/usr/bin/env node
 
-"use strict";
+'use strict';
 
-var path = require("path");
-var fs = require("fs");
-var childProcess = require("child_process");
+var path = require('path');
+var fs = require('fs');
+var childProcess = require('child_process');
 
 function getPlatformPackageName() {
   var platform = process.platform;
   var arch = process.arch;
 
-  if (platform === "linux" && arch === "x64") {
-    return "ymir-linux-x64";
+  if (platform === 'linux' && arch === 'x64') {
+    return 'ymir-linux-x64';
   }
-  if (platform === "win32" && arch === "x64") {
-    return "ymir-windows-x64";
+  if (platform === 'win32' && arch === 'x64') {
+    return 'ymir-windows-x64';
   }
 
   return null;
 }
 
 function getBinaryName() {
-  return process.platform === "win32" ? "ymir.exe" : "ymir";
+  return process.platform === 'win32' ? 'ymir.exe' : 'ymir';
 }
 
 function tryResolveFromOptionalDep() {
@@ -29,9 +29,9 @@ function tryResolveFromOptionalDep() {
   if (!pkgName) return null;
 
   try {
-    var pkgPath = require.resolve(pkgName + "/package.json");
+    var pkgPath = require.resolve(pkgName + '/package.json');
     var pkgDir = path.dirname(pkgPath);
-    var binaryPath = path.join(pkgDir, "bin", getBinaryName());
+    var binaryPath = path.join(pkgDir, 'bin', getBinaryName());
 
     if (fs.existsSync(binaryPath)) {
       return binaryPath;
@@ -44,14 +44,11 @@ function tryResolveFromOptionalDep() {
 }
 
 function tryResolveFromHomeDir() {
-  var homeDir =
-    process.platform === "win32"
-      ? process.env.LOCALAPPDATA
-      : process.env.HOME;
+  var homeDir = process.platform === 'win32' ? process.env.LOCALAPPDATA : process.env.HOME;
 
   if (!homeDir) return null;
 
-  var dirName = process.platform === "win32" ? "ymir" : ".ymir";
+  var dirName = process.platform === 'win32' ? 'ymir' : '.ymir';
   var binaryPath = path.join(homeDir, dirName, getBinaryName());
 
   if (fs.existsSync(binaryPath)) {
@@ -78,23 +75,23 @@ var binary = findBinary();
 
 try {
   var result = childProcess.execFileSync(binary, process.argv.slice(2), {
-    stdio: "inherit",
+    stdio: 'inherit',
     env: process.env,
   });
   process.exit(result || 0);
 } catch (err) {
-  if (err.code === "ENOENT") {
+  if (err.code === 'ENOENT') {
     console.error(
-      "Error: ymir binary not found.\n" +
-        "Tried:\n" +
-        "  - Optional dependency package\n" +
-        "  - ~/.ymir/ymir\n" +
-        "  - PATH lookup\n\n" +
-        "Please install ymir or run 'npm install' to download the binary."
+      'Error: ymir binary not found.\n' +
+        'Tried:\n' +
+        '  - Optional dependency package\n' +
+        '  - ~/.ymir/ymir\n' +
+        '  - PATH lookup\n\n' +
+        "Please install ymir or run 'npm install' to download the binary.",
     );
     process.exit(1);
   }
-  if (typeof err.status === "number") {
+  if (typeof err.status === 'number') {
     process.exit(err.status);
   }
   throw err;

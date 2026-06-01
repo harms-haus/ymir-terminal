@@ -30,10 +30,22 @@ describe('registerGitHandlers', () => {
 
     getWorkspaceFn = mock((_db: unknown, id: string) => {
       if (id === 'ws-1') {
-        return { id: 'ws-1', name: 'Test', cwd: '/home/dev/project', color: '#007acc', sort_order: 0 };
+        return {
+          id: 'ws-1',
+          name: 'Test',
+          cwd: '/home/dev/project',
+          color: '#007acc',
+          sort_order: 0,
+        };
       }
       if (id === 'ws-nongit') {
-        return { id: 'ws-nongit', name: 'No Git', cwd: '/tmp/plain', color: '#007acc', sort_order: 0 };
+        return {
+          id: 'ws-nongit',
+          name: 'No Git',
+          cwd: '/tmp/plain',
+          color: '#007acc',
+          sort_order: 0,
+        };
       }
       return null;
     });
@@ -246,7 +258,13 @@ describe('registerGitHandlers', () => {
 
       const getWsFn = mock((_db: unknown, id: string) => {
         if (id === 'ws-abs') {
-          return { id: 'ws-abs', name: 'Abs', cwd: '/home/dev/project', color: '#007acc', sort_order: 0 };
+          return {
+            id: 'ws-abs',
+            name: 'Abs',
+            cwd: '/home/dev/project',
+            color: '#007acc',
+            sort_order: 0,
+          };
         }
         return null;
       });
@@ -263,7 +281,10 @@ describe('registerGitHandlers', () => {
       };
       registerGitHandlers(localRouter, localDeps);
 
-      const req = request('git.status', { workspaceId: 'ws-abs', repoPath: '/home/dev/project/subdir/repo' });
+      const req = request('git.status', {
+        workspaceId: 'ws-abs',
+        repoPath: '/home/dev/project/subdir/repo',
+      });
       await localRouter.route(localConn, req);
 
       // safePath allows /home/dev/project/subdir/repo because it's within /home/dev/project

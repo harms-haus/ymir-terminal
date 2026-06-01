@@ -64,7 +64,9 @@ function findBinaryByHeuristic(distDir: string, platformPkg: string): string | n
     return match ? join(distDir, match) : null;
   }
   if (platformPkg.includes('windows')) {
-    const match = entries.find((e) => e.includes('windows') && (e.endsWith('.exe') || e.includes('windows')));
+    const match = entries.find(
+      (e) => e.includes('windows') && (e.endsWith('.exe') || e.includes('windows')),
+    );
     return match ? join(distDir, match) : null;
   }
   return null;

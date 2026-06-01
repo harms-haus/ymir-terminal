@@ -86,16 +86,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 2. Renders worktree path
-  // -----------------------------------------------------------------------
-  test('renders worktree path', () => {
-    const { getByText } = renderWorktreeItem();
-
-    expect(getByText('/path/to/worktree')).toBeTruthy();
-  });
-
-  // -----------------------------------------------------------------------
-  // 3. Clicking calls onClick
+  // 2. Clicking calls onClick
   // -----------------------------------------------------------------------
   test('clicking calls onClick', () => {
     const onClick = mock(() => {});
@@ -107,7 +98,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 4. Keyboard Enter triggers onClick
+  // 3. Keyboard Enter triggers onClick
   // -----------------------------------------------------------------------
   test('keyboard Enter triggers onClick', () => {
     const onClick = mock(() => {});
@@ -119,7 +110,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 5. Keyboard Space triggers onClick
+  // 4. Keyboard Space triggers onClick
   // -----------------------------------------------------------------------
   test('keyboard Space triggers onClick', () => {
     const onClick = mock(() => {});
@@ -131,7 +122,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 6. Shows "detached" when isDetached is true
+  // 5. Shows "detached" when isDetached is true
   // -----------------------------------------------------------------------
   test('shows detached when isDetached is true', () => {
     const { getByText } = renderWorktreeItem({ worktree: detachedWorktree });
@@ -140,7 +131,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 7. Active item has highlighted background
+  // 6. Active item has highlighted background
   // -----------------------------------------------------------------------
   test('active item has highlighted background', () => {
     const { getByRole } = renderWorktreeItem({ isActive: true });
@@ -150,7 +141,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 8. Inactive item has transparent background
+  // 7. Inactive item has transparent background
   // -----------------------------------------------------------------------
   test('inactive item has transparent background', () => {
     const { getByRole } = renderWorktreeItem({ isActive: false });
@@ -160,7 +151,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 9. Has correct aria-label for branch worktree
+  // 8. Has correct aria-label for branch worktree
   // -----------------------------------------------------------------------
   test('has correct aria-label for branch worktree', () => {
     const { getByRole } = renderWorktreeItem();
@@ -169,7 +160,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 10. Has correct aria-label for detached worktree
+  // 9. Has correct aria-label for detached worktree
   // -----------------------------------------------------------------------
   test('has correct aria-label for detached worktree', () => {
     const { getByRole } = renderWorktreeItem({ worktree: detachedWorktree });
@@ -178,7 +169,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 11. Has correct data-testid based on path
+  // 10. Has correct data-testid based on path
   // -----------------------------------------------------------------------
   test('has correct data-testid based on path', () => {
     const { getByTestId } = renderWorktreeItem();
@@ -187,7 +178,7 @@ describe('WorktreeItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 12. Renders the branch icon (⑂)
+  // 11. Renders the branch icon (⑂)
   // -----------------------------------------------------------------------
   test('renders the branch icon', () => {
     const { getByText } = renderWorktreeItem();

@@ -47,10 +47,18 @@ async function getTauriWindow() {
  * start_dragging doesn't work (WebKitGTK can't relay pointer grabs to GDK).
  * Tracks mouse movement and repositions the window via the Tauri API.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let dragState: { startX: number; startY: number; winX: number; winY: number; window: any; PhysicalPosition: any } | null = null;
+let dragState: {
+  startX: number;
+  startY: number;
+  winX: number;
+  winY: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  window: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  PhysicalPosition: any;
+} | null = null;
 
-function startClientDrag(e: React.MouseEvent, appWindow: unknown) {
+function _startClientDrag(e: React.MouseEvent, appWindow: unknown) {
   if (!appWindow) return;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = appWindow as any;
@@ -74,7 +82,7 @@ function startClientDrag(e: React.MouseEvent, appWindow: unknown) {
   });
 }
 
-function onDragMove(e: React.MouseEvent) {
+function _onDragMove(e: React.MouseEvent) {
   if (!dragState) return;
   const dx = e.screenX - dragState.startX;
   const dy = e.screenY - dragState.startY;
@@ -84,7 +92,7 @@ function onDragMove(e: React.MouseEvent) {
   }
 }
 
-function stopClientDrag() {
+function _stopClientDrag() {
   dragState = null;
 }
 
@@ -114,8 +122,9 @@ export function TopBar({ commandBar }: TopBarProps) {
   const [isTauri, setIsTauri] = useState(false);
 
   useEffect(() => {
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect -- window is unavailable during SSR */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tauriDetected = !!(window as any).__TAURI_INTERNALS__;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsTauri(tauriDetected);
     if (tauriDetected) {
       getTauriWindow().then((w) => {
@@ -227,7 +236,15 @@ export function TopBar({ commandBar }: TopBarProps) {
       </div>
 
       {/* Right — Toggle buttons */}
-      <div style={{ flex: '0 0 auto', display: 'flex', gap: '4px', marginLeft: '16px', pointerEvents: 'auto' as const }}>
+      <div
+        style={{
+          flex: '0 0 auto',
+          display: 'flex',
+          gap: '4px',
+          marginLeft: '16px',
+          pointerEvents: 'auto' as const,
+        }}
+      >
         {/* Workspace (left sidebar) toggle */}
         <button
           className="topbar-toggle-btn"
@@ -417,7 +434,15 @@ export function TopBar({ commandBar }: TopBarProps) {
               }}
             >
               <svg viewBox="0 0 16 16" width={WINDOW_CTRL_ICON_SIZE} height={WINDOW_CTRL_ICON_SIZE}>
-                <rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1" />
+                <rect
+                  x="2.5"
+                  y="2.5"
+                  width="11"
+                  height="11"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                />
               </svg>
             </button>
 

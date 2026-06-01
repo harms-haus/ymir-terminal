@@ -187,7 +187,11 @@ interface GitHistoryPanelProps {
  * (@tanstack/react-virtual), custom per-row graph renderer with bezier curves,
  * and skip-based pagination via the `git.log` WebSocket channel.
  */
-export function GitHistoryPanel({ workspaceId, workspaceCwd, onCommitClick }: GitHistoryPanelProps) {
+export function GitHistoryPanel({
+  workspaceId,
+  workspaceCwd,
+  onCommitClick,
+}: GitHistoryPanelProps) {
   const [commits, setCommits] = useState<GitLogItem[]>([]);
   const [skip, setSkip] = useState(0);
   const [loading, setLoading] = useState(false);

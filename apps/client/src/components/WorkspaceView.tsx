@@ -17,10 +17,17 @@ import type { WorkspaceSummary, GitWorktreeInfo, GitWorktreeListResponse } from 
 import { useTheme } from '../hooks/useTheme';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { useQueries } from '@tanstack/react-query';
-import { useWorkspaces, useUpdateWorkspace, useDeleteWorkspace, useReorderWorkspaces, useRemoveWorktree, useMergeWorktree } from '../hooks/useWorkspaces';
+import {
+  useWorkspaces,
+  useUpdateWorkspace,
+  useDeleteWorkspace,
+  useReorderWorkspaces,
+  useRemoveWorktree,
+  useMergeWorktree,
+} from '../hooks/useWorkspaces';
 import { sendRequest } from '../lib/send-request';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
-import { DragDropProvider } from '@dnd-kit/react';
+import { DragDropProvider, type DragEndEvent, type DragOverEvent } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
 
 interface TerminalRegistryEntry {
@@ -189,62 +196,57 @@ function WorkspaceViewInner() {
     }
   }, [bottomActiveTabId, terminalRegistry]);
 
-  const handleDragOver = useCallback(
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const source = event.operation.source;
+    const target = event.operation.target;
+    if (!source?.id || !target?.id) return;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (event: any) => {
-      const source = event.operation?.source ?? event.source;
-      const target = event.operation?.target ?? event.target;
-      if (!source?.id || !target?.id) return;
+    const sourceGroup = (source as any).initialGroup ?? (source as any).group;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const targetGroup = (target as any).group ?? target?.data?.group;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sourceGroup = (source as any).initialGroup ?? source.group;
-      const targetGroup = target.group ?? target.data?.group;
+    // Workspace reorder — visual preview only (mutation fires on dragEnd)
+    if (source.type === 'workspace') {
+      return;
+    }
 
-      // Workspace reorder — visual preview only (mutation fires on dragEnd)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((source as any).type === 'workspace') {
-        return;
-      }
+    // Worktree reorder within workspace — cosmetic only (client-side visual reordering)
+    if (source.type === 'worktree') {
+      return;
+    }
 
-      // Worktree reorder within workspace — cosmetic only (client-side visual reordering)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((source as any).type === 'worktree') {
-        return;
-      }
+    // Suppress OptimisticSortingPlugin DOM mutation for cross-group drags
+    if (sourceGroup && targetGroup && sourceGroup !== targetGroup) {
+      event.preventDefault();
+      return;
+    }
 
-      // Suppress OptimisticSortingPlugin DOM mutation for cross-group drags
-      if (sourceGroup && targetGroup && sourceGroup !== targetGroup) {
-        event.preventDefault();
-        return;
-      }
-
-      // Same-group reorder
-      if (sourceGroup === 'content') {
-        const paneTabs = contentPaneRef.current?.getTabs() ?? [];
-        const ids = paneTabs.map((t) => t.id);
-        const reordered = move(ids, event);
-        if (Array.isArray(reordered)) {
-          const fromIndex = paneTabs.findIndex((t) => t.id === source.id);
-          const toIndex = reordered.indexOf(source.id as string);
-          if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-            contentPaneRef.current?.reorderTabs(fromIndex, toIndex);
-          }
-        }
-      } else if (sourceGroup === 'bottom') {
-        const paneTabs = bottomPanelRef.current?.getTabs() ?? [];
-        const ids = paneTabs.map((t) => t.id);
-        const reordered = move(ids, event);
-        if (Array.isArray(reordered)) {
-          const fromIndex = paneTabs.findIndex((t) => t.id === source.id);
-          const toIndex = reordered.indexOf(source.id as string);
-          if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-            bottomPanelRef.current?.reorderTabs(fromIndex, toIndex);
-          }
+    // Same-group reorder
+    if (sourceGroup === 'content') {
+      const paneTabs = contentPaneRef.current?.getTabs() ?? [];
+      const ids = paneTabs.map((t) => t.id);
+      const reordered = move(ids, event);
+      if (Array.isArray(reordered)) {
+        const fromIndex = paneTabs.findIndex((t) => t.id === source.id);
+        const toIndex = reordered.indexOf(source.id as string);
+        if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+          contentPaneRef.current?.reorderTabs(fromIndex, toIndex);
         }
       }
-    },
-    [],
-  );
+    } else if (sourceGroup === 'bottom') {
+      const paneTabs = bottomPanelRef.current?.getTabs() ?? [];
+      const ids = paneTabs.map((t) => t.id);
+      const reordered = move(ids, event);
+      if (Array.isArray(reordered)) {
+        const fromIndex = paneTabs.findIndex((t) => t.id === source.id);
+        const toIndex = reordered.indexOf(source.id as string);
+        if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+          bottomPanelRef.current?.reorderTabs(fromIndex, toIndex);
+        }
+      }
+    }
+  }, []);
 
   const activeWorkspaceId = useMemo(() => {
     if (selectedWorkspaceId) return selectedWorkspaceId;
@@ -260,7 +262,10 @@ function WorkspaceViewInner() {
 
   // Fetch worktrees for ALL workspaces eagerly (avoids chicken-and-egg deadlock
   // where expandedWorkspaces starts empty so data never loads)
-  const allWorkspaceIds = workspaces?.map((ws: WorkspaceSummary) => ws.id) ?? [];
+  const allWorkspaceIds = useMemo(
+    () => workspaces?.map((ws: WorkspaceSummary) => ws.id) ?? [],
+    [workspaces],
+  );
 
   const worktreeResults = useQueries({
     queries: allWorkspaceIds.map((id) => ({
@@ -281,34 +286,23 @@ function WorkspaceViewInner() {
       if (data) result[allWorkspaceIds[i]] = data;
     }
     return result;
-  // eslint-disable-next-line react-hooks/use-memo
-  }, [allWorkspaceIds, ...worktreeResults.map((r) => r.data)]);
+  }, [allWorkspaceIds, worktreeResults]);
 
   const handleDragEnd = useCallback(
-    (event: {
-      canceled: boolean;
-      operation: {
-        source?: { id?: string; group?: string } | null;
-        target?: { id?: string; group?: string } | null;
-      };
-    }) => {
+    (event: DragEndEvent) => {
       if (event.canceled) return;
       const source = event.operation.source;
       const target = event.operation.target;
-      if (
-        !source?.id ||
-        !(target?.group ?? (target as unknown as { data?: { group?: string } })?.data?.group)
-      )
-        return;
+      if (!source?.id || !(target as unknown as { data?: { group?: string } })?.data?.group) return;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sourceGroup = (source as any).initialGroup ?? source.group;
+      const sourceGroup = (source as any).initialGroup ?? (source as any).group;
       const targetGroup =
-        target!.group ?? (target! as unknown as { data?: { group?: string } })?.data?.group;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (target as any).group ?? (target as unknown as { data?: { group?: string } })?.data?.group;
 
       // Workspace reorder — commit final order on drag end
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((source as any).type === 'workspace') {
+      if (source.type === 'workspace') {
         const ws = workspacesRef.current;
         if (!ws) return;
         const workspaceIds = ws.map((w: WorkspaceSummary) => w.id);
@@ -498,7 +492,12 @@ function WorkspaceViewInner() {
 
   const handleMergeWorktree = useCallback(
     (workspaceId: string, worktreePath: string, _branch: string, deleteAfterMerge?: boolean) => {
-      mergeWorktreeMutation.mutate({ workspaceId, worktreePath, targetBranch: 'main', deleteAfterMerge });
+      mergeWorktreeMutation.mutate({
+        workspaceId,
+        worktreePath,
+        targetBranch: 'main',
+        deleteAfterMerge,
+      });
     },
     [mergeWorktreeMutation],
   );
@@ -579,7 +578,6 @@ function WorkspaceViewInner() {
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
-      {/* @ts-expect-error -- dnd-kit event type mismatch with our simplified handler */}
       <DragDropProvider onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <AppLayout
           topBar={topBar}

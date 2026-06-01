@@ -66,7 +66,9 @@ const mockUseTabs = mock(() => ({
 
 const mockUseCreateWorkspace = mock(() => ({
   mutateAsync: mock(() =>
-    Promise.resolve({ workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc', sortOrder: 0 } }),
+    Promise.resolve({
+      workspace: { id: 'ws-new', name: 'New', cwd: '/new', color: '#007acc', sortOrder: 0 },
+    }),
   ),
   isPending: false,
   isError: false,

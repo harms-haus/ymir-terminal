@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const cliPath = join(import.meta.dir, 'index.ts');
 
@@ -37,14 +38,19 @@ describe('CLI entry point', () => {
     expect(result.status).toBe(0);
   });
 
-  test('no args shows not installed error or starting message', () => {
-    const result = runCli([]);
-    // launchApp() will either print "not installed" (exit 1) or "Starting" (exit 0)
+  test('no args shows not installed error when binary is absent', () => {
+    // Redirect os.homedir() (via HOME) and LOCALAPPDATA to a temp directory so
+    // getYmirHomeDir() resolves to a path where no Tauri binary exists. This
+    // forces launchApp() into its "not installed" error branch without opening
+    // the desktop app.
+    const result = spawnSync('bun', [cliPath], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      env: { HOME: tmpdir(), LOCALAPPDATA: tmpdir(), PATH: process.env.PATH ?? '' },
+    });
     const output = result.stdout + result.stderr;
-    const hasExpectedOutput =
-      output.includes('not installed') ||
-      output.includes('Starting');
-    expect(hasExpectedOutput).toBe(true);
+    expect(output).toContain('not installed');
+    expect(result.status).toBe(1);
   });
 
   test('unknown command shows error', () => {

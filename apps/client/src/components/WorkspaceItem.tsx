@@ -43,7 +43,9 @@ export function WorkspaceItem({
 }: WorkspaceItemProps) {
   const linkedWorktrees = worktrees.filter((w) => !w.isMain);
   const hasLinkedWorktrees = linkedWorktrees.length > 0;
-  const hasActiveChildWorktree = activeWorktreePath != null && linkedWorktrees.some((wt: GitWorktreeInfo) => wt.path === activeWorktreePath);
+  const hasActiveChildWorktree =
+    activeWorktreePath != null &&
+    linkedWorktrees.some((wt: GitWorktreeInfo) => wt.path === activeWorktreePath);
   const isExpanded = isActive || hasActiveChildWorktree;
 
   const { ref: sortableRef, isDragging } = useSortable({
@@ -82,11 +84,11 @@ export function WorkspaceItem({
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            background: (isActive && !hasActiveChildWorktree) ? COLOR_WORKSPACE_ACTIVE : 'transparent',
+            background:
+              isActive && !hasActiveChildWorktree ? COLOR_WORKSPACE_ACTIVE : 'transparent',
             opacity: isDragging ? 0.4 : undefined,
           }}
         >
-
           <div
             data-testid={`ws-color-${workspace.id}`}
             role="button"
@@ -148,7 +150,9 @@ export function WorkspaceItem({
               worktree={wt}
               onCopyPath={() => onCopyWorktreePath(wt.path)}
               onMerge={() => onMergeWorktree(wt.path, wt.branch ?? '')}
-              onMergeConfirm={(deleteAfterMerge) => onMergeWorktree(wt.path, wt.branch ?? '', deleteAfterMerge)}
+              onMergeConfirm={(deleteAfterMerge) =>
+                onMergeWorktree(wt.path, wt.branch ?? '', deleteAfterMerge)
+              }
               targetBranch="main"
               onRemove={(force) => onRemoveWorktree(wt.path, force)}
             >

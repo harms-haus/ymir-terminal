@@ -86,9 +86,7 @@ export async function getCommitFileDiff(
   if (parentSha === '') {
     // Root commit with no parent
     originalContent = '';
-    modifiedContent = await gitShow(commitSha + ':' + filePath, repoDir).catch(
-      () => '',
-    );
+    modifiedContent = await gitShow(commitSha + ':' + filePath, repoDir).catch(() => '');
   } else {
     [originalContent, modifiedContent] = await Promise.all([
       gitShow(parentSha + ':' + filePath, repoDir).catch(() => ''),

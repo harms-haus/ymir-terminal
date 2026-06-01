@@ -93,9 +93,7 @@ function defaultProps(overrides: Record<string, unknown> = {}) {
     isActive: false,
     worktrees: [mainWorktree] as GitWorktreeInfo[],
     activeWorktreePath: null as string | null,
-    isExpanded: false,
     onSelect: mock(() => {}),
-    onToggleExpand: mock(() => {}),
     onRename: mock((_id: string, _newName: string) => {}),
     onSetCwd: mock((_id: string, _newCwd: string) => {}),
     onRemove: mock((_id: string) => {}),
@@ -146,85 +144,44 @@ describe('WorkspaceItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 3. No chevron when workspace has only main worktree
+  // 3. Linked worktrees not shown when workspace is inactive
   // -----------------------------------------------------------------------
-  test('does not show chevron when workspace has only main worktree', () => {
-    const { queryByTestId } = renderWorkspaceItem({
-      worktrees: [mainWorktree],
+  test('does not show linked worktrees when workspace is inactive', () => {
+    const { queryByTestId, queryByText } = renderWorkspaceItem({
+      worktrees: [mainWorktree, linkedWorktree1],
+      isActive: false,
+      activeWorktreePath: null,
     });
 
-    expect(queryByTestId('ws-expand-ws-1')).toBeNull();
+    expect(queryByTestId('ws-worktrees-ws-1')).toBeNull();
+    expect(queryByText('feature-branch')).toBeNull();
   });
 
   // -----------------------------------------------------------------------
-  // 4. Shows expand chevron when workspace has linked worktrees
+  // 4. Active workspace automatically expands linked worktrees
   // -----------------------------------------------------------------------
-  test('shows expand chevron when workspace has linked worktrees', () => {
-    const { getByTestId } = renderWorkspaceItem({
+  test('active workspace automatically expands linked worktrees', () => {
+    const { getByTestId, getByText } = renderWorkspaceItem({
       worktrees: [mainWorktree, linkedWorktree1],
+      isActive: true,
     });
 
-    const chevron = getByTestId('ws-expand-ws-1');
-    expect(chevron).toBeTruthy();
-    expect(chevron.textContent).toBe('▶'); // collapsed state
+    expect(getByTestId('ws-worktrees-ws-1')).toBeTruthy();
+    expect(getByText('feature-branch')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
-  // 5. Chevron shows ▼ when expanded
+  // 5. Active child worktree expands the list even if workspace inactive
   // -----------------------------------------------------------------------
-  test('chevron shows ▼ when expanded', () => {
-    const { getByTestId } = renderWorkspaceItem({
+  test('active child worktree expands the list even if workspace inactive', () => {
+    const { getByTestId, getByText } = renderWorkspaceItem({
       worktrees: [mainWorktree, linkedWorktree1],
-      isExpanded: true,
+      isActive: false,
+      activeWorktreePath: '/home/user/alpha-wt-feature',
     });
 
-    const chevron = getByTestId('ws-expand-ws-1');
-    expect(chevron.textContent).toBe('▼');
-  });
-
-  // -----------------------------------------------------------------------
-  // 6. Clicking chevron calls onToggleExpand
-  // -----------------------------------------------------------------------
-  test('clicking chevron calls onToggleExpand', () => {
-    const onToggleExpand = mock(() => {});
-    const { getByTestId } = renderWorkspaceItem({
-      worktrees: [mainWorktree, linkedWorktree1],
-      onToggleExpand,
-    });
-
-    fireEvent.click(getByTestId('ws-expand-ws-1'));
-
-    expect(onToggleExpand).toHaveBeenCalledTimes(1);
-  });
-
-  // -----------------------------------------------------------------------
-  // 7. Keyboard Enter on chevron calls onToggleExpand
-  // -----------------------------------------------------------------------
-  test('keyboard Enter on chevron calls onToggleExpand', () => {
-    const onToggleExpand = mock(() => {});
-    const { getByTestId } = renderWorkspaceItem({
-      worktrees: [mainWorktree, linkedWorktree1],
-      onToggleExpand,
-    });
-
-    fireEvent.keyDown(getByTestId('ws-expand-ws-1'), { key: 'Enter' });
-
-    expect(onToggleExpand).toHaveBeenCalledTimes(1);
-  });
-
-  // -----------------------------------------------------------------------
-  // 8. Keyboard Space on chevron calls onToggleExpand
-  // -----------------------------------------------------------------------
-  test('keyboard Space on chevron calls onToggleExpand', () => {
-    const onToggleExpand = mock(() => {});
-    const { getByTestId } = renderWorkspaceItem({
-      worktrees: [mainWorktree, linkedWorktree1],
-      onToggleExpand,
-    });
-
-    fireEvent.keyDown(getByTestId('ws-expand-ws-1'), { key: ' ' });
-
-    expect(onToggleExpand).toHaveBeenCalledTimes(1);
+    expect(getByTestId('ws-worktrees-ws-1')).toBeTruthy();
+    expect(getByText('feature-branch')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
@@ -233,7 +190,7 @@ describe('WorkspaceItem', () => {
   test('when expanded, renders worktree sub-items', () => {
     const { getByText, getByTestId } = renderWorkspaceItem({
       worktrees: [mainWorktree, linkedWorktree1, linkedWorktree2],
-      isExpanded: true,
+      isActive: true,
     });
 
     // The worktree list container should be rendered
@@ -250,7 +207,8 @@ describe('WorkspaceItem', () => {
   test('not expanded does not render worktree sub-items', () => {
     const { queryByTestId, queryByText } = renderWorkspaceItem({
       worktrees: [mainWorktree, linkedWorktree1],
-      isExpanded: false,
+      isActive: false,
+      activeWorktreePath: null,
     });
 
     expect(queryByTestId('ws-worktrees-ws-1')).toBeNull();
@@ -301,32 +259,27 @@ describe('WorkspaceItem', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 15. Chevron click does not bubble to workspace select
+  // 15. Clicking color dot also calls onSelect
   // -----------------------------------------------------------------------
-  test('chevron click does not bubble to workspace select', () => {
+  test('clicking color dot calls onSelect', () => {
     const onSelect = mock(() => {});
-    const onToggleExpand = mock(() => {});
-    const { getByTestId } = renderWorkspaceItem({
-      worktrees: [mainWorktree, linkedWorktree1],
-      onSelect,
-      onToggleExpand,
-    });
+    const { getByTestId } = renderWorkspaceItem({ onSelect });
 
-    fireEvent.click(getByTestId('ws-expand-ws-1'));
+    // Clicking the color dot triggers its own onClick and bubbles to the parent div
+    fireEvent.click(getByTestId('ws-color-ws-1'));
 
-    // onToggleExpand should be called, but onSelect should NOT
-    expect(onToggleExpand).toHaveBeenCalledTimes(1);
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(onSelect).toHaveBeenCalled();
+    expect(onSelect.mock.calls[0][0]).toBe('ws-1');
   });
 
   // -----------------------------------------------------------------------
-  // 16. Has correct aria-label
+  // 16. Has correct aria-label on color dot
   // -----------------------------------------------------------------------
-  test('has correct aria-label', () => {
+  test('has correct aria-label on color dot', () => {
     const { getByTestId } = renderWorkspaceItem();
 
-    const el = getByTestId('workspace-item-ws-1');
-    expect(el.getAttribute('aria-label')).toBe('Workspace: Project Alpha');
+    const dot = getByTestId('ws-color-ws-1');
+    expect(dot.getAttribute('aria-label')).toBe('Workspace: Project Alpha');
   });
 
   // -----------------------------------------------------------------------
@@ -336,7 +289,7 @@ describe('WorkspaceItem', () => {
     const onWorktreeSelect = mock(() => {});
     const { getByText } = renderWorkspaceItem({
       worktrees: [mainWorktree, linkedWorktree1],
-      isExpanded: true,
+      isActive: true,
       onWorktreeSelect,
     });
 

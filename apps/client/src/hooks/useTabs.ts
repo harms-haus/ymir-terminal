@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ServerTabInfo } from '@ymir/shared';
 
 export interface Tab {
@@ -57,8 +57,8 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
 
   // Derive public state from current workspace
   const currentWsState = currentWorkspaceId ? workspaceStates.get(currentWorkspaceId) : undefined;
-  const tabs = currentWsState?.tabs ?? [];
-  const activeTabId = currentWsState?.activeTabId ?? null;
+  const tabs = useMemo(() => currentWsState?.tabs ?? [], [currentWsState]);
+  const activeTabId = useMemo(() => currentWsState?.activeTabId ?? null, [currentWsState]);
 
   // Sync refs after render
   useEffect(() => {

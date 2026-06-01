@@ -34,10 +34,7 @@ export async function getCommitDetails(
         ['diff-tree', '--no-commit-id', '-r', '--name-status', '--root', commitSha],
         dirPath,
       ),
-      spawnGit(
-        ['diff-tree', '--no-commit-id', '--numstat', '-r', '--root', commitSha],
-        dirPath,
-      ),
+      spawnGit(['diff-tree', '--no-commit-id', '--numstat', '-r', '--root', commitSha], dirPath),
     ]);
 
     // Parse name-status → Map<filePath, status>

@@ -132,7 +132,9 @@ describe('useWorkspaces', () => {
 
     // Simulate server response for workspace.list
     const envelope = getLastSentEnvelope();
-    const workspaces = [{ id: '1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000', sortOrder: 0 }];
+    const workspaces = [
+      { id: '1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000', sortOrder: 0 },
+    ];
 
     simulateResponse(envelope.id!, { workspaces });
 

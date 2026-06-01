@@ -73,7 +73,9 @@ async function replaceBinaryWindows(tempPath: string, finalPath: string): Promis
 
   // Safe file deletion after a short delay (no shell injection risk)
   setTimeout(async () => {
-    try { await rm(oldPath, { force: true }); } catch {}
+    try {
+      await rm(oldPath, { force: true });
+    } catch {}
   }, 3000);
 }
 

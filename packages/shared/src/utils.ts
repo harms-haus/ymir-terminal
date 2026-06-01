@@ -1,4 +1,11 @@
-import { IS_WINDOWS, CONFIG_DIR, DB_FILE, SERVER_BINARY_NAME, YMIR_HOME_DIR_NAME, APP_BINARY_NAME } from './constants';
+import {
+  IS_WINDOWS,
+  CONFIG_DIR,
+  DB_FILE,
+  SERVER_BINARY_NAME,
+  YMIR_HOME_DIR_NAME,
+  APP_BINARY_NAME,
+} from './constants';
 
 // Node.js modules — only available in server/CLI context, not in browser
 let _os: typeof import('node:os') | null = null;
@@ -6,14 +13,24 @@ let _path: typeof import('node:path') | null = null;
 
 function getOs() {
   if (!_os) {
-    try { _os = require('node:os'); } catch { return null; }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      _os = require('node:os');
+    } catch {
+      return null;
+    }
   }
   return _os;
 }
 
 function getPath() {
   if (!_path) {
-    try { _path = require('node:path'); } catch { return null; }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      _path = require('node:path');
+    } catch {
+      return null;
+    }
   }
   return _path;
 }

@@ -45,9 +45,7 @@ export function initDatabase(dbPath: string): Database {
   `);
 
   // Idempotent migration: add sort_order column if it doesn't exist
-  const columns = db
-    .prepare('PRAGMA table_info(workspaces)')
-    .all() as { name: string }[];
+  const columns = db.prepare('PRAGMA table_info(workspaces)').all() as { name: string }[];
   const hasSortOrder = columns.some((col) => col.name === 'sort_order');
   if (!hasSortOrder) {
     db.run('ALTER TABLE workspaces ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');

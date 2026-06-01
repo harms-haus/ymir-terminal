@@ -112,14 +112,18 @@ export async function createWorktree(
 /**
  * Remove an existing worktree at the given absolute path.
  */
-export async function removeWorktree(dirPath: string, worktreePath: string, force?: boolean): Promise<void> {
+export async function removeWorktree(
+  dirPath: string,
+  worktreePath: string,
+  force?: boolean,
+): Promise<void> {
   if (!worktreePath.startsWith('/')) {
     throw new Error(`Worktree path must be an absolute path: ${worktreePath}`);
   }
 
   const resolved = resolve(worktreePath);
   const worktrees = await listWorktrees(dirPath);
-  const match = worktrees.find(w => resolve(w.path) === resolved);
+  const match = worktrees.find((w) => resolve(w.path) === resolved);
   if (!match) {
     throw new Error(`Path is not a worktree of this repository: ${worktreePath}`);
   }

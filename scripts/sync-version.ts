@@ -118,9 +118,7 @@ function main(): void {
     console.log(`  ${source.label}: ${status}`);
   }
 
-  const foundVersions = versions
-    .map((v) => v.version)
-    .filter((v): v is string => v !== null);
+  const foundVersions = versions.map((v) => v.version).filter((v): v is string => v !== null);
 
   const uniqueVersions = [...new Set(foundVersions)];
 

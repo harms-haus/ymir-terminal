@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
 import { useCreateWorktree } from '../hooks/useWorkspaces';
 import { cardStyle, inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
 import {
-  COLOR_BG_LOGIN,
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD,
   COLOR_TEXT_CARD_MUTED,
@@ -139,10 +138,7 @@ function CreateWorktreeForm({
 
   const branchNameInvalid = touched && branchName.length > 0 && !BRANCH_NAME_RE.test(branchName);
   const submitDisabled =
-    mutation.isPending ||
-    !branchName.trim() ||
-    branchNameInvalid ||
-    !workspaceId;
+    mutation.isPending || !branchName.trim() || branchNameInvalid || !workspaceId;
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -239,7 +235,12 @@ function CreateWorktreeForm({
 // Outer dialog — controls visibility, Escape key, backdrop click
 // ---------------------------------------------------------------------------
 
-export function CreateWorktreeDialog({ open, onClose, onCreated, workspaceId }: CreateWorktreeDialogProps) {
+export function CreateWorktreeDialog({
+  open,
+  onClose,
+  onCreated,
+  workspaceId,
+}: CreateWorktreeDialogProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Focus trap
