@@ -1,10 +1,10 @@
 /// <reference lib="dom" />
-import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+import { setupTestDom, setupAllMocks, renderWithProviders } from '../test-helpers/mock-setup';
 await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
@@ -115,6 +115,14 @@ const mockUseRemoveWorktree = mock(() => ({
   error: null,
 }));
 
+const mockUseMergeWorktree = mock(() => ({
+  mutate: mock(() => {}),
+  mutateAsync: mock(() => Promise.resolve()),
+  isPending: false,
+  isError: false,
+  error: null,
+}));
+
 mock.module('../hooks/useWorkspaces', () => ({
   useWorkspaces: mockUseWorkspaces,
   useCreateWorkspace: mockUseCreateWorkspace,
@@ -123,6 +131,7 @@ mock.module('../hooks/useWorkspaces', () => ({
   useReorderWorkspaces: mockUseReorderWorkspaces,
   useCreateWorktree: mockUseCreateWorktree,
   useRemoveWorktree: mockUseRemoveWorktree,
+  useMergeWorktree: mockUseMergeWorktree,
 }));
 
 mock.module('../hooks/useTheme', () => ({
@@ -269,7 +278,7 @@ const { WorkspaceView } = await import('./WorkspaceView');
 // ---------------------------------------------------------------------------
 
 function renderWorkspaceView() {
-  return render(React.createElement(WorkspaceView));
+  return renderWithProviders(React.createElement(WorkspaceView));
 }
 
 // ---------------------------------------------------------------------------
@@ -386,7 +395,7 @@ describe('WorkspaceView', () => {
 
     // createTerminal should have been called with ws-1 (the active workspace)
     expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
   });
 
   // -----------------------------------------------------------------------
@@ -400,7 +409,7 @@ describe('WorkspaceView', () => {
     fireEvent.click(addButtons[0]);
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
 
     // Switch to ws-2
     fireEvent.click(getByTestId('workspace-item-ws-2'));
@@ -411,7 +420,7 @@ describe('WorkspaceView', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     // createTerminal should now have been called with ws-2 as well
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-2');
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-2', undefined);
     expect(mockCreateTerminal).toHaveBeenCalledTimes(2);
   });
 
@@ -439,7 +448,7 @@ describe('WorkspaceView', () => {
     const addButtons = getAllByTestId('tab-add');
     fireEvent.click(addButtons[0]);
     await new Promise((r) => setTimeout(r, 0));
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-2');
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-2', undefined);
 
     // Switch back to ws-1 and create another terminal
     fireEvent.click(getByTestId('workspace-item-ws-1'));
@@ -448,6 +457,6 @@ describe('WorkspaceView', () => {
     const addButtonsAfter = getAllByTestId('tab-add');
     fireEvent.click(addButtonsAfter[0]);
     await new Promise((r) => setTimeout(r, 0));
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1');
+    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
   });
 });
