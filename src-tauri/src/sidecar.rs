@@ -1,5 +1,4 @@
 use regex::Regex;
-#[allow(unused_imports)]
 use std::path::PathBuf;
 use std::time::Duration;
 use tauri::Manager;
@@ -20,12 +19,13 @@ impl SidecarManager {
         if let Ok(dir) = std::env::var("YMIR_STATIC_DIR") {
             let path = std::path::Path::new(&dir);
             if path.exists() {
+                crate::log::global_log(&format!("[ymir] Using YMIR_STATIC_DIR={:?}", dir));
                 return Ok(dir);
             }
-            eprintln!(
+            crate::log::global_log(&format!(
                 "[ymir] WARNING: YMIR_STATIC_DIR={:?} does not exist, falling back",
                 dir
-            );
+            ));
         }
 
         #[cfg(debug_assertions)]
@@ -36,7 +36,9 @@ impl SidecarManager {
                 .parent()
                 .ok_or("no parent dir")?
                 .join("apps/client/dist");
-            Ok(path.to_string_lossy().to_string())
+            let resolved = path.to_string_lossy().to_string();
+            crate::log::global_log(&format!("[ymir] Static dir: {}", resolved));
+            Ok(resolved)
         }
 
         #[cfg(not(debug_assertions))]
@@ -45,10 +47,82 @@ impl SidecarManager {
                 .path()
                 .resource_dir()
                 .map_err(|e| format!("failed to get resource dir: {}", e))?;
-            Ok(resource_dir
-                .join("client/dist")
-                .to_string_lossy()
-                .to_string())
+            let resource_path = resource_dir.join("client/dist");
+
+            if resource_path.exists() {
+                let resolved = resource_path.to_string_lossy().to_string();
+                crate::log::global_log(&format!("[ymir] Static dir: {}", resolved));
+                return Ok(resolved);
+            }
+
+            // Fallbacks: check paths relative to the executable directory
+            let exe_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|d| d.to_path_buf()));
+
+            let mut fallbacks: Vec<(String, std::path::PathBuf)> = Vec::new();
+
+            if let Some(ref dir) = exe_dir {
+                fallbacks.push((
+                    "<exe_dir>/client-dist/".to_string(),
+                    dir.join("client-dist"),
+                ));
+                fallbacks.push((
+                    "<exe_dir>/../client-dist/".to_string(),
+                    dir.parent().map(|p| p.join("client-dist")).unwrap_or_default(),
+                ));
+            }
+
+            for (label, path) in &fallbacks {
+                if path.exists() {
+                    let resolved = path.to_string_lossy().to_string();
+                    crate::log::global_log(&format!(
+                        "[ymir] Static dir (fallback {}): {}",
+                        label, resolved
+                    ));
+                    return Ok(resolved);
+                }
+            }
+
+            // Nothing found — report all attempted paths
+            let mut tried: Vec<String> = vec![format!(
+                "resource_dir/client/dist: {:?}",
+                resource_path
+            )];
+            for (label, path) in &fallbacks {
+                tried.push(format!("{}: {:?}", label, path));
+            }
+            Err(format!(
+                "Could not find static files. Tried:\n  {}",
+                tried.join("\n  ")
+            ))
+        }
+    }
+
+    /// Configure a shell command with the standard sidecar args and environment.
+    fn configure_command(
+        cmd: tauri_plugin_shell::process::Command,
+        static_dir: &str,
+        password: &str,
+    ) -> tauri_plugin_shell::process::Command {
+        cmd.args(["--port", "0", "--host", "127.0.0.1", "--staticDir", static_dir])
+            .env("YMIR_PASSWORD", password)
+    }
+
+    /// Try to find the sidecar binary next to the current executable.
+    /// Returns the full path if it exists, None otherwise.
+    fn find_exe_relative_server() -> Option<PathBuf> {
+        let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))?;
+        let binary_name = if cfg!(windows) {
+            "ymir-server.exe"
+        } else {
+            "ymir-server"
+        };
+        let candidate = exe_dir.join(binary_name);
+        if candidate.exists() {
+            Some(candidate)
+        } else {
+            None
         }
     }
 
@@ -65,25 +139,37 @@ impl SidecarManager {
         password: &str,
         static_dir: &str,
     ) -> Result<(tauri_plugin_shell::process::CommandChild, u16), String> {
-        // Determine whether to use env var override or default sidecar
+        // Resolve which server binary to use, in priority order:
+        //   1. YMIR_SERVER_PATH env var
+        //   2. exe-relative fallback (ymir-server next to current executable)
+        //   3. Tauri sidecar resolution (with target triple)
         let (mut rx, child) = if let Ok(server_path) = std::env::var("YMIR_SERVER_PATH") {
             let path = std::path::Path::new(&server_path);
             if !path.exists() {
                 return Err(format!("YMIR_SERVER_PATH does not exist: {}", server_path));
             }
-            eprintln!("[ymir] Using YMIR_SERVER_PATH={:?}", server_path);
-            app.shell()
-                .command(&server_path)
-                .args(["--port", "0", "--host", "127.0.0.1", "--staticDir", static_dir])
-                .env("YMIR_PASSWORD", password)
+            crate::log::global_log(&format!("[ymir] Using YMIR_SERVER_PATH={:?}", server_path));
+            Self::configure_command(app.shell().command(&server_path), static_dir, password)
                 .spawn()
                 .map_err(|e| format!("failed to spawn server from YMIR_SERVER_PATH: {}", e))?
+        } else if let Some(exe_relative) = Self::find_exe_relative_server() {
+            crate::log::global_log(&format!(
+                "[ymir] Using exe-relative sidecar: {:?}",
+                exe_relative
+            ));
+            let path_str = exe_relative.to_str().ok_or_else(|| {
+                format!("exe-relative path is not valid UTF-8: {:?}", exe_relative)
+            })?;
+            Self::configure_command(app.shell().command(path_str), static_dir, password)
+                .spawn()
+                .map_err(|e| format!("failed to spawn exe-relative server: {}", e))?
         } else {
-            app.shell()
+            crate::log::global_log("[ymir] Using Tauri sidecar resolution");
+            let sidecar_cmd = app
+                .shell()
                 .sidecar("binaries/ymir-server")
-                .map_err(|e| format!("failed to create sidecar command: {}", e))?
-                .args(["--port", "0", "--host", "127.0.0.1", "--staticDir", static_dir])
-                .env("YMIR_PASSWORD", password)
+                .map_err(|e| format!("failed to create sidecar command: {}", e))?;
+            Self::configure_command(sidecar_cmd, static_dir, password)
                 .spawn()
                 .map_err(|e| format!("failed to spawn sidecar: {}", e))?
         };
@@ -97,7 +183,7 @@ impl SidecarManager {
                     match event {
                         CommandEvent::Stdout(line) => {
                             let output = String::from_utf8_lossy(&line);
-                            eprintln!("[sidecar stdout] {}", output);
+                            crate::log::global_log(&format!("[sidecar stdout] {}", output));
                             if let Some(caps) = port_re.captures(&output) {
                                 let port: u16 = caps[1]
                                     .parse()
@@ -107,7 +193,7 @@ impl SidecarManager {
                         }
                         CommandEvent::Stderr(line) => {
                             let output = String::from_utf8_lossy(&line);
-                            eprintln!("[sidecar stderr] {}", output);
+                            crate::log::global_log(&format!("[sidecar stderr] {}", output));
                         }
                         CommandEvent::Terminated(payload) => {
                             return Err(format!(

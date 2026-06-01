@@ -1,4 +1,5 @@
 mod auth;
+mod log;
 mod sidecar;
 
 use sidecar::SidecarManager;
@@ -27,6 +28,10 @@ fn get_tauri_config(state: tauri::State<'_, AppState>) -> TauriConfig {
 }
 
 pub fn run() {
+    if let Err(e) = crate::log::init() {
+        eprintln!("Failed to init logging: {}", e);
+    }
+
     // Fix 1: Force X11 backend. WebKitGTK's begin_move_drag() doesn't relay
     // pointer grabs from WebView JS events to GDK on native Wayland.
     // (tauri #10686, tao #1218). XWayland supports this correctly.
@@ -54,7 +59,7 @@ pub fn run() {
                 // (devUrl in tauri.conf.json) which proxies /ws to localhost:3000.
                 // We register dev state so get_tauri_config returns dev credentials
                 // for the auto-login flow.
-                eprintln!("[ymir] Dev mode — server started by beforeDevCommand");
+                crate::log::global_log("[ymir] Dev mode — server started by beforeDevCommand");
                 app_handle.manage(AppState {
                     port: 3000,
                     password: "dev".to_string(),
@@ -72,19 +77,19 @@ pub fn run() {
 
                     // 2. Get or create password
                     let password = auth::get_or_create_password(&config_dir);
-                    eprintln!("[ymir] Password ready");
+                    crate::log::global_log("[ymir] Password ready");
 
                     // 3. Resolve static files directory
                     let static_dir = SidecarManager::resolve_static_dir(&app_handle)
                         .expect("failed to resolve static dir");
-                    eprintln!("[ymir] Static dir: {}", static_dir);
+                    // Note: static_dir is logged by resolve_static_dir
 
                     // 4. Start sidecar and wait for readiness (blocks until port is parsed)
                     let (child, port) =
                         SidecarManager::start_sidecar(&app_handle, &password, &static_dir)
                             .await
                             .expect("failed to start sidecar");
-                    eprintln!("[ymir] Sidecar started on port {}", port);
+                    crate::log::global_log(&format!("[ymir] Sidecar started on port {}", port));
 
                     // 5. Store app state
                     app_handle.manage(AppState {
@@ -103,9 +108,9 @@ pub fn run() {
                             "window.__YMIR_SIDECAR_PORT = {};",
                             port
                         ));
-                        eprintln!("[ymir] Sidecar port {} injected into webview", port);
+                        crate::log::global_log(&format!("[ymir] Sidecar port {} injected into webview", port));
                     } else {
-                        eprintln!("[ymir] WARNING: main window not found");
+                        crate::log::global_log("[ymir] WARNING: main window not found");
                     }
                 });
 
@@ -123,7 +128,7 @@ pub fn run() {
                     if let Ok(mut guard) = state.sidecar_child.lock() {
                         if let Some(child) = guard.take() {
                             let _ = child.kill();
-                            eprintln!("[ymir] Sidecar killed on window close");
+                            crate::log::global_log("[ymir] Sidecar killed on window close");
                         }
                     }
                 }
