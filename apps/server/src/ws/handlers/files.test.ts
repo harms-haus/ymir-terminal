@@ -153,6 +153,7 @@ describe('registerFileHandlers', () => {
 
       expect(scanDirectoryFn).toHaveBeenCalledTimes(1);
       expect(scanDirectoryFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(scanDirectoryFn.mock.calls[0][1]).toEqual({ includeHidden: undefined });
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
@@ -162,6 +163,28 @@ describe('registerFileHandlers', () => {
 
       const payload = resp.payload as FileTreeResponse;
       expect(payload.tree).toEqual(fakeTree);
+    });
+
+    it('passes includeHidden: true to scanner when requested', async () => {
+      scanDirectoryFn.mockImplementation(() => []);
+
+      const req = request('file.tree', { workspaceId: 'ws-1', includeHidden: true });
+      await router.route(conn, req);
+
+      expect(scanDirectoryFn).toHaveBeenCalledTimes(1);
+      expect(scanDirectoryFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(scanDirectoryFn.mock.calls[0][1]).toEqual({ includeHidden: true });
+    });
+
+    it('does not include includeHidden option when not specified', async () => {
+      scanDirectoryFn.mockImplementation(() => []);
+
+      const req = request('file.tree', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      expect(scanDirectoryFn).toHaveBeenCalledTimes(1);
+      expect(scanDirectoryFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(scanDirectoryFn.mock.calls[0][1]).toEqual({ includeHidden: undefined });
     });
 
     it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {

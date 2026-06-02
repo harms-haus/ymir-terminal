@@ -68,7 +68,7 @@ export function registerTreeHandlers(
       }
     }
 
-    const tree = await doScan(scanRoot);
+    const tree = await doScan(scanRoot, { includeHidden: payload.includeHidden });
 
     const resp: ResponseEnvelope<FileTreeResponse> = createResponse(req, {
       tree,

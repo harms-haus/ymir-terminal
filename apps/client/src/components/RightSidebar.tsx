@@ -97,7 +97,7 @@ export function RightSidebar({
 
     sendRequest<{ tree: FileNode[] }>(
       'file.tree',
-      { workspaceId, ...(workspaceCwd ? { path: workspaceCwd } : {}) },
+      { workspaceId, includeHidden: true, ...(workspaceCwd ? { path: workspaceCwd } : {}) },
       { signal },
     )
       .then((res) => {
@@ -130,6 +130,7 @@ export function RightSidebar({
     if (!workspaceId) return;
     sendRequest<{ tree: FileNode[] }>('file.tree', {
       workspaceId,
+      includeHidden: true,
       ...(workspaceCwd ? { path: workspaceCwd } : {}),
     })
       .then((res) => setFileTree(res.tree))

@@ -8,6 +8,7 @@ export interface FileNode {
 export interface FileTreeRequest {
   workspaceId: string;
   path?: string;
+  includeHidden?: boolean;
 }
 
 export interface FileTreeResponse {
