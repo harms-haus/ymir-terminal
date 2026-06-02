@@ -37,6 +37,15 @@ interface TerminalRegistryEntry {
   workspaceId: string;
 }
 
+function boundsEqual(
+  a: { top: number; left: number; width: number; height: number } | null,
+  b: { top: number; left: number; width: number; height: number } | null,
+): boolean {
+  if (a === null && b === null) return true;
+  if (a === null || b === null) return false;
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
+}
+
 function WorkspaceViewInner() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -103,25 +112,30 @@ function WorkspaceViewInner() {
       const contentRect = contentTerminalRef.current?.getBoundingClientRect();
       const bottomRect = bottomTerminalRef.current?.getBoundingClientRect();
 
-      setContainerBounds({
-        content:
-          wrapperRect && contentRect
-            ? {
-                top: contentRect.top - wrapperRect.top,
-                left: contentRect.left - wrapperRect.left,
-                width: contentRect.width,
-                height: contentRect.height,
-              }
-            : null,
-        bottom:
-          wrapperRect && bottomRect
-            ? {
-                top: bottomRect.top - wrapperRect.top,
-                left: bottomRect.left - wrapperRect.left,
-                width: bottomRect.width,
-                height: bottomRect.height,
-              }
-            : null,
+      const newContent =
+        wrapperRect && contentRect
+          ? {
+              top: contentRect.top - wrapperRect.top,
+              left: contentRect.left - wrapperRect.left,
+              width: contentRect.width,
+              height: contentRect.height,
+            }
+          : null;
+      const newBottom =
+        wrapperRect && bottomRect
+          ? {
+              top: bottomRect.top - wrapperRect.top,
+              left: bottomRect.left - wrapperRect.left,
+              width: bottomRect.width,
+              height: bottomRect.height,
+            }
+          : null;
+
+      setContainerBounds((prev) => {
+        if (boundsEqual(prev.content, newContent) && boundsEqual(prev.bottom, newBottom)) {
+          return prev;
+        }
+        return { content: newContent, bottom: newBottom };
       });
     };
 
