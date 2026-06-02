@@ -19,21 +19,29 @@ const MockCodeMirror = ({
   extensions,
   theme,
   height,
+  style,
+  'data-testid': dataTestId,
+  onKeyDown,
 }: {
   value: string;
   onChange?: (value: string) => void;
   extensions?: unknown[];
   theme?: unknown;
   height?: string;
+  style?: React.CSSProperties;
+  'data-testid'?: string;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
 }) => {
   capturedOnChange = onChange;
   return React.createElement(
     'div',
     {
-      'data-testid': 'mock-codemirror',
+      'data-testid': dataTestId ?? 'mock-codemirror',
       'data-extensions-count': extensions?.length ?? 0,
       'data-theme': theme ? 'set' : 'unset',
       'data-height': height ?? '',
+      style,
+      onKeyDown,
     },
     React.createElement('div', { 'data-testid': 'cm-content' }, value),
   );
@@ -93,19 +101,19 @@ describe('CodeEditor', () => {
   test('accepts language prop and provides extensions', () => {
     const { getByTestId } = renderCodeEditor({ content: 'let x = 1;', language: 'javascript' });
 
-    expect(getByTestId('mock-codemirror').getAttribute('data-extensions-count')).toBe('1');
+    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('1');
   });
 
   test('no extensions when language is not provided', () => {
     const { getByTestId } = renderCodeEditor({ content: 'some text' });
 
-    expect(getByTestId('mock-codemirror').getAttribute('data-extensions-count')).toBe('0');
+    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('0');
   });
 
   test('no extensions when language is unrecognized', () => {
     const { getByTestId } = renderCodeEditor({ content: 'some text', language: 'brainfuck' });
 
-    expect(getByTestId('mock-codemirror').getAttribute('data-extensions-count')).toBe('0');
+    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('0');
   });
 
   // -----------------------------------------------------------------------

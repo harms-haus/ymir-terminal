@@ -133,7 +133,7 @@ export function AppLayout({
             onLayoutChanged={handleLayoutChanged}
           >
             <Panel id="content" defaultSize="75%" minSize="30%">
-              <main data-testid="main-content" style={{ height: '100%', overflow: 'auto' }}>
+              <main data-testid="main-content" style={{ height: '100%', overflow: 'hidden' }}>
                 {children ?? null}
               </main>
             </Panel>

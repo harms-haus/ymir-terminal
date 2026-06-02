@@ -232,7 +232,7 @@ export function DiffViewer({
         onOpenEditor={handleOpenEditor}
         commitSha={commitSha}
       />
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1 }}>
         <CodeMirror
           key={commitSha ? `${filePath}-${commitSha}` : filePath}
           value={modifiedContent}

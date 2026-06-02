@@ -43,21 +43,18 @@ export function CodeEditor({ content, language, onChange, onSave }: CodeEditorPr
   };
 
   return (
-    <div
+    <CodeMirror
       data-testid="code-editor"
-      style={{ height: '100%', overflow: 'auto' }}
+      value={content}
+      theme={oneDark}
+      extensions={extensions}
+      onChange={(value) => {
+        currentValueRef.current = value;
+        onChange?.(value);
+      }}
+      height="100%"
+      style={{ height: '100%' }}
       onKeyDown={handleKeyDown}
-    >
-      <CodeMirror
-        value={content}
-        theme={oneDark}
-        extensions={extensions}
-        onChange={(value) => {
-          currentValueRef.current = value;
-          onChange?.(value);
-        }}
-        height="100%"
-      />
-    </div>
+    />
   );
 }
