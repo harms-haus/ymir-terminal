@@ -171,7 +171,8 @@ function CreateWorktreeForm({
   const toggleFile = useCallback((file: string) => {
     setSelectedFiles((prev) => {
       const next = new Set(prev);
-      if (next.has(file)) next.delete(file); else next.add(file);
+      if (next.has(file)) next.delete(file);
+      else next.add(file);
       return next;
     });
   }, []);
@@ -182,11 +183,17 @@ function CreateWorktreeForm({
     const result: string[] = [];
     // Add configured files first (these are the important ones)
     for (const f of copyFilesData.configuredFiles) {
-      if (!seen.has(f)) { seen.add(f); result.push(f); }
+      if (!seen.has(f)) {
+        seen.add(f);
+        result.push(f);
+      }
     }
     // Then add untracked files not already listed
     for (const f of copyFilesData.untrackedFiles) {
-      if (!seen.has(f)) { seen.add(f); result.push(f); }
+      if (!seen.has(f)) {
+        seen.add(f);
+        result.push(f);
+      }
     }
     return result;
   }, [copyFilesData]);
@@ -442,7 +449,12 @@ export function CreateWorktreeDialog({
           aria-label="Create worktree"
         >
           <h2 style={styles.title}>Create Worktree</h2>
-          <CreateWorktreeForm onClose={onClose} onCreated={onCreated} workspaceId={workspaceId} workspaceCwd={workspaceCwd} />
+          <CreateWorktreeForm
+            onClose={onClose}
+            onCreated={onCreated}
+            workspaceId={workspaceId}
+            workspaceCwd={workspaceCwd}
+          />
         </div>
       </div>
     </>

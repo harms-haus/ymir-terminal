@@ -220,8 +220,10 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
   const doRemoveWorktree = deps._mocks?.removeWorktree ?? nativeRemoveWorktree;
   const doMergeWorktree = deps._mocks?.mergeWorktree ?? nativeMergeWorktree;
   const doListUntrackedFiles = deps._mocks?.listUntrackedFiles ?? nativeListUntrackedFiles;
-  const doReadWorktreeCopyConfig = deps._mocks?.readWorktreeCopyConfig ?? nativeReadWorktreeCopyConfig;
-  const doWriteWorktreeCopyConfig = deps._mocks?.writeWorktreeCopyConfig ?? nativeWriteWorktreeCopyConfig;
+  const doReadWorktreeCopyConfig =
+    deps._mocks?.readWorktreeCopyConfig ?? nativeReadWorktreeCopyConfig;
+  const doWriteWorktreeCopyConfig =
+    deps._mocks?.writeWorktreeCopyConfig ?? nativeWriteWorktreeCopyConfig;
   const doCopyFile = deps._mocks?.copyFile ?? nativeCopyFile;
 
   // --- git.status ---------------------------------------------------------
@@ -955,11 +957,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       const req = envelope as RequestEnvelope<GitWorktreeCopyFilesRequest>;
       const payload = req.payload;
 
-      if (
-        !payload ||
-        typeof payload !== 'object' ||
-        typeof payload.workspaceId !== 'string'
-      ) {
+      if (!payload || typeof payload !== 'object' || typeof payload.workspaceId !== 'string') {
         conn.send(
           createError(
             { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
@@ -1006,10 +1004,10 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
       ]);
 
       conn.send(
-        createResponse(
-          req,
-          { untrackedFiles, configuredFiles } satisfies GitWorktreeCopyFilesResponse,
-        ),
+        createResponse(req, {
+          untrackedFiles,
+          configuredFiles,
+        } satisfies GitWorktreeCopyFilesResponse),
       );
     },
   );
@@ -1074,7 +1072,10 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
 
       // ALWAYS copy .worktreecopy to the worktree if it exists
       try {
-        await doCopyFile(join(workspace.cwd, '.worktreecopy'), join(worktree.path, '.worktreecopy'));
+        await doCopyFile(
+          join(workspace.cwd, '.worktreecopy'),
+          join(worktree.path, '.worktreecopy'),
+        );
       } catch {
         // .worktreecopy may not exist yet, that's OK
       }

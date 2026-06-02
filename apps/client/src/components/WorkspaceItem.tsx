@@ -20,7 +20,12 @@ interface WorkspaceItemProps {
   onWorktreeSelect: (path: string) => void;
   onCopyWorktreePath: (path: string) => void;
   onRemoveWorktree: (path: string, force: boolean) => void;
-  onMergeWorktree: (path: string, branch: string, deleteAfterMerge?: boolean, filesToCopy?: string[]) => void;
+  onMergeWorktree: (
+    path: string,
+    branch: string,
+    deleteAfterMerge?: boolean,
+    filesToCopy?: string[],
+  ) => void;
   onCreateWorktree?: () => void;
 }
 

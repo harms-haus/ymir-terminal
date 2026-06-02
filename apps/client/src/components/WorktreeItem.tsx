@@ -11,7 +11,12 @@ interface WorktreeItemProps {
   onClick: () => void;
   onCopyPath: () => void;
   onRemove: (force: boolean) => void;
-  onMergeWorktree?: (path: string, branch: string, deleteAfterMerge?: boolean, filesToCopy?: string[]) => void;
+  onMergeWorktree?: (
+    path: string,
+    branch: string,
+    deleteAfterMerge?: boolean,
+    filesToCopy?: string[],
+  ) => void;
 }
 
 export function WorktreeItem({

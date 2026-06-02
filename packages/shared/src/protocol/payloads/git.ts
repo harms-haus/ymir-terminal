@@ -222,6 +222,6 @@ export interface GitWorktreeCopyFilesRequest {
 }
 
 export interface GitWorktreeCopyFilesResponse {
-  untrackedFiles: string[];  // relative paths of untracked files (excludes .worktreecopy)
+  untrackedFiles: string[]; // relative paths of untracked files (excludes .worktreecopy)
   configuredFiles: string[]; // paths listed in .worktreecopy (empty if file doesn't exist)
 }

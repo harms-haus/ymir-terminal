@@ -287,9 +287,7 @@ export async function listUntrackedFiles(dirPath: string): Promise<string[]> {
     );
   }
   const stdout = await new Response(proc.stdout).text();
-  return stdout
-    .split('\n')
-    .filter((line) => line.length > 0 && line !== '.worktreecopy');
+  return stdout.split('\n').filter((line) => line.length > 0 && line !== '.worktreecopy');
 }
 
 /**

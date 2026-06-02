@@ -176,10 +176,7 @@ export function useMergeWorktree() {
   });
 }
 
-export function useWorktreeCopyFiles(
-  workspaceId: string | null,
-  dirPath?: string,
-) {
+export function useWorktreeCopyFiles(workspaceId: string | null, dirPath?: string) {
   const { isConnected } = useConnectionStatus();
   return useQuery({
     queryKey: ['worktreeCopyFiles', workspaceId, dirPath],
