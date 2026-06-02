@@ -206,7 +206,7 @@ describe('BottomPanel', () => {
   // -----------------------------------------------------------------------
   // 8. Closing tabs to the right sends PTY close for each
   // -----------------------------------------------------------------------
-  test('closeTabsRight sends PTY close for each closed tab', () => {
+  test('closeTabsRight sends PTY close for each closed tab', async () => {
     mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 't2' },
@@ -214,29 +214,21 @@ describe('BottomPanel', () => {
     ];
     mocks.activeTabId = 'tab-1';
 
-    const confirmSpy = mock(() => true);
-    const originalConfirm = window.confirm;
-    window.confirm = confirmSpy;
+    const { container } = renderBottomPanel();
 
-    try {
-      const { container } = renderBottomPanel();
+    // Each tab has a context menu with tab-menu-close-right.
+    // Click the first one (tab-1's context menu "close right" item).
+    const closeRightItems = container.querySelectorAll('[data-testid="tab-menu-close-right"]');
+    expect(closeRightItems.length).toBe(3);
+    // Click the first context menu's close-right (for tab-1, which has tabs to its right)
+    fireEvent.click(closeRightItems[0]);
 
-      // Each tab has a context menu with tab-menu-close-right.
-      // Click the first one (tab-1's context menu "close right" item).
-      const closeRightItems = container.querySelectorAll('[data-testid="tab-menu-close-right"]');
-      expect(closeRightItems.length).toBe(3);
-      // Click the first context menu's close-right (for tab-1, which has tabs to its right)
-      fireEvent.click(closeRightItems[0]);
-
-      // Confirmation was shown for 2+ tabs
-      expect(confirmSpy).toHaveBeenCalled();
-      // Should send terminal.close for t2 and t3
+    // The confirm dialog is async, so we need to wait for the effects
+    await waitFor(() => {
       expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
       expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't3' });
       expect(mocks.closeTabsRight).toHaveBeenCalledWith('tab-1');
-    } finally {
-      window.confirm = originalConfirm;
-    }
+    });
   });
 
   // -----------------------------------------------------------------------

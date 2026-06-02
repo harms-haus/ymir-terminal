@@ -1,5 +1,6 @@
 import { AppContextMenu } from './AppContextMenu';
 import type { ContextMenuItem } from './AppContextMenu';
+import { useConfirm } from '../hooks/useDialog';
 
 interface FileTreeContextMenuProps {
   path: string;
@@ -36,6 +37,7 @@ export function FileTreeContextMenu({
   workspaceCwd,
   children,
 }: FileTreeContextMenuProps) {
+  const confirm = useConfirm();
   const items: ContextMenuItem[] = [];
 
   /* Directory-specific items */
@@ -121,11 +123,11 @@ export function FileTreeContextMenu({
     {
       label: 'Delete',
       testId: 'menu-delete',
-      action: () => {
+      action: async () => {
         const name = path.split('/').pop() || path;
-        if (window.confirm(`Delete "${name}"? This cannot be undone.`)) {
-          onDelete?.(path);
-        }
+        const ok = await confirm({ title: 'Delete File', message: `Delete "${name}"? This cannot be undone.`, confirmLabel: 'Delete', danger: true });
+        if (!ok) return;
+        onDelete?.(path);
       },
       destructive: true,
     },

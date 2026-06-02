@@ -31,11 +31,13 @@
 | `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable`                                                                                                                                                                                                                           |
 | `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename)                                                                                                                                                                                                                                                                 |
 | `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation                                                                                                                                                                                                                      |
-| `WorkspaceView`            | Top-level workspace view that wraps content in `PaneVisibilityProvider` and composes `TopBar` with `CommandBar` for the top bar; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; `DragDropProvider` for cross-pane terminal tab DnD                                                                |
+| `WorkspaceView`            | Top-level workspace view wrapped in `DialogProvider` as the outermost shell, then `ToastProvider`, `PaneVisibilityProvider`, and `FileClipboardProvider`; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; composes `TopBar` with `CommandBar`; `DragDropProvider` for cross-pane terminal tab DnD                            |
 | `TopBar`                   | Top bar with connection indicator (left), command bar slot (center), pane toggle buttons (right)                                                                                                                                                                                                                                           |
 | `WindowControls`           | Extracted Tauri window control buttons (minimize, maximize, close) with hover states; lazily loads `@tauri-apps/api/window`; no-ops when not running in Tauri                                                                                                                                                                              |
 | `PaneToggleButtons`        | Extracted pane toggle buttons (workspace/terminal/explorer) with active/hover states; consumed by `TopBar`                                                                                                                                                                                                                                 |
-| `Dialog`                   | Generic dialog wrapper with focus trap (Tab cycling), Escape-to-close, backdrop click-to-close, optional form wrapper with Cancel/Submit buttons, and auto-focus first input. Replaces duplicated dialog logic across `CreateWorkspaceDialog`, `CreateWorktreeDialog`, and other modal components                                          |
+| `Dialog`                   | Generic dialog shell rendered via `createPortal` at `document.body`, with focus trap (Tab cycling), auto-focus, focus restoration on close, Escape/backdrop-click close, body scroll lock, and optional `role` prop (`'dialog'` \| `'alertdialog'`) for ARIA semantics. Used by `CreateWorkspaceDialog`, `CreateWorktreeDialog`, and `DialogProvider` |
+| `DialogProvider`            | Context provider that manages a queue of confirm/prompt dialogs rendered via portal. Wraps the app at the `WorkspaceView` level; supports concurrent dialogs, each in its own `Dialog` shell                                                                                                                                               |
+| `useConfirm` / `usePrompt`  | Promise-based hooks replacing `window.confirm`/`window.prompt`. `useConfirm()` → `Promise<boolean>`, `usePrompt()` → `Promise<string \| null>`. Must be used within `<DialogProvider>`                                                                                                                                                   |
 | `AppContextMenu`           | Generic context menu wrapper built on `@radix-ui/react-context-menu`. Accepts an `items` array of `{ label, action, testId, icon?, destructive?, separatorAfter?, shortcutHint?, content? }` and renders them with consistent styling. Used by all 6 context menus (tab, workspace item, worktree item, git change, file tree, split pane) |
 | `CommandBar`               | File search and command palette (activated by click or Ctrl+K, `/` prefix for commands)                                                                                                                                                                                                                                                    |
 | `AnimatedPane`             | Slide animation wrapper for collapsible panels                                                                                                                                                                                                                                                                                             |
@@ -151,7 +153,54 @@ The `useGitRepos` hook manages all git state for the `GitPanel`. It accepts `wor
 
 Several reusable components were extracted to eliminate duplication across the UI:
 
-- **`Dialog`** — Generic modal wrapper (focus trap, Escape, backdrop click). Accepts `open`, `onClose`, `title`, optional `onSubmit`/`submitLabel`/`submitDisabled`, and `children`. When `onSubmit` is provided, it wraps children in a `<form>` with Cancel/Submit buttons. The `wide` prop expands the card. Used by `CreateWorkspaceDialog`, `CreateWorktreeDialog`, and other dialogs.
+- **`Dialog`** — Generic dialog shell rendered via `createPortal` to `document.body` (escaping stacking contexts). Props: `open`, `onClose`, `title`, `role?` (`'dialog'` | `'alertdialog'`), `children`, `testId?`, `wide?`. Features: focus trap (Tab cycling), auto-focus first input on open, focus restoration on close, Escape key close, backdrop click close, body scroll lock. Uses `Z_INDEX_DIALOG` (1100) from `theme.ts`. Card is 420px default, expanding to 520px with the `wide` prop. Backdrop is fixed-position `rgba(0, 0, 0, 0.5)` with flex-centered card.
+
+### Dialog System
+
+The dialog system provides promise-based confirm and prompt dialogs, replacing native `window.confirm`/`window.prompt` with styled, themed alternatives.
+
+**`DialogProvider`** wraps the component tree at the `WorkspaceView` level (`DialogProvider` > `ToastProvider` > `PaneVisibilityProvider` > `FileClipboardProvider` > `WorkspaceViewInner`). It maintains an array of active dialogs in state; each call to `showDialog()` pushes a new entry and returns a `Promise<DialogResult>` that resolves when the user interacts with the dialog. Multiple concurrent dialogs are supported — each renders in its own `Dialog` shell via `createPortal`.
+
+**`useConfirm()`** — returns a function that opens a confirm dialog:
+
+```tsx
+const confirm = useConfirm();
+const confirmed = await confirm({
+  title: 'Discard changes?',
+  message: 'You have unsaved changes that will be lost.',
+  confirmLabel: 'Discard',  // optional, defaults to "Confirm"
+  danger: true,             // optional, styles button as destructive (red)
+});
+// confirmed: boolean
+```
+
+The confirm dialog uses `role="alertdialog"`. When `danger: true`, the confirm button renders with destructive (red) styling.
+
+**`usePrompt()`** — returns a function that opens a prompt dialog with a text input:
+
+```tsx
+const prompt = usePrompt();
+const name = await prompt({
+  title: 'Rename workspace',
+  message: 'Enter a new name:',
+  defaultValue: currentName,    // optional
+  placeholder: 'Workspace name', // optional
+  submitLabel: 'Rename',        // optional, defaults to "Submit"
+});
+// name: string | null (null if cancelled)
+```
+
+The prompt dialog uses `role="dialog"`. Submit is disabled when the input is empty/whitespace. Pressing Enter submits the trimmed value.
+
+Both hooks throw if used outside a `<DialogProvider>`.
+
+The context types live in `contexts/DialogContext.tsx`:
+
+| Type             | Shape                                                                 |
+| ---------------- | --------------------------------------------------------------------- |
+| `ConfirmConfig`  | `{ type: 'confirm', title, message, confirmLabel?, danger? }`         |
+| `PromptConfig`   | `{ type: 'prompt', title, message, defaultValue?, placeholder?, submitLabel? }` |
+| `DialogResult`   | `{ type: 'confirm', confirmed: boolean } \| { type: 'prompt', value: string \| null }` |
 
 - **`AppContextMenu`** — Generic context menu built on Radix. Accepts an `items` array where each item has `label`, `action`, `testId`, plus optional `icon`, `destructive`, `separatorAfter`, `shortcutHint`, `disabled`, and `content` (for custom rendering). Props `minWidth`, `onCloseAutoFocus`, and `extraContent` control menu behavior. Used by all context menus: `TabContextMenu`, `WorkspaceItemContextMenu`, `WorktreeItemContextMenu`, `GitChangeContextMenu`, `FileTree` context menu, and `SplitPaneContextMenu`.
 

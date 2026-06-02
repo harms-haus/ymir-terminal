@@ -10,6 +10,7 @@ import {
   COLOR_GIT_ACTION_BG,
   COLOR_GIT_ACTION_HOVER,
   COLOR_BG_SECONDARY,
+  Z_INDEX_DROPDOWN,
 } from '../lib/theme';
 
 interface GitRepoHeaderProps {
@@ -197,7 +198,7 @@ export function GitRepoHeader({
                 position: 'absolute',
                 top: '100%',
                 right: 0,
-                zIndex: 1000,
+                zIndex: Z_INDEX_DROPDOWN,
                 background: COLOR_BG_SECONDARY,
                 border: `1px solid ${COLOR_BORDER}`,
                 borderRadius: 4,

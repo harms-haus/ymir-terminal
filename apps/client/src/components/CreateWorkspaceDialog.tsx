@@ -1,15 +1,20 @@
 import { useState, useCallback, useRef, type FormEvent } from 'react';
 import { useCreateWorkspace } from '../hooks/useWorkspaces';
-import { inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
+import {
+  inputGroupStyle,
+  inputStyle,
+  labelStyle,
+  cancelButtonStyle,
+  submitButtonBaseStyle,
+  submitButtonDisabledStyle,
+  errorBoxStyle,
+  spinnerStyle,
+  buttonRowStyle,
+} from '../lib/dialog-styles';
 import {
   COLOR_BG_LOGIN,
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD_MUTED,
-  COLOR_BTN_PRIMARY,
-  COLOR_BG_ERROR_CARD,
-  COLOR_BORDER_ERROR_CARD,
-  COLOR_TEXT_ERROR_CARD,
-  COLOR_SPINNER_TRACK,
 } from '../lib/theme';
 import { Dialog } from './Dialog';
 
@@ -24,82 +29,28 @@ interface CreateWorkspaceDialogProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles
+// Component-specific styles
 // ---------------------------------------------------------------------------
 
-const styles: Record<string, React.CSSProperties> = {
-  inputGroup: inputGroupStyle,
-  label: labelStyle,
-  input: inputStyle,
-  colorRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  colorInput: {
-    width: '40px',
-    height: '36px',
-    padding: '2px',
-    backgroundColor: COLOR_BG_LOGIN,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  colorHex: {
-    fontSize: '13px',
-    color: COLOR_TEXT_CARD_MUTED,
-  },
-  buttonRow: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '8px',
-    marginTop: '24px',
-  },
-  submitButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 600,
-    backgroundColor: COLOR_BTN_PRIMARY,
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  cancelButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 500,
-    backgroundColor: 'transparent',
-    color: COLOR_TEXT_CARD_MUTED,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  errorBox: {
-    backgroundColor: COLOR_BG_ERROR_CARD,
-    border: `1px solid ${COLOR_BORDER_ERROR_CARD}`,
-    borderRadius: '6px',
-    padding: '10px 12px',
-    marginBottom: '16px',
-    fontSize: '13px',
-    color: COLOR_TEXT_ERROR_CARD,
-  },
-  spinner: {
-    width: '14px',
-    height: '14px',
-    border: `2px solid ${COLOR_SPINNER_TRACK}`,
-    borderTopColor: '#ffffff',
-    borderRadius: '50%',
-    animation: 'spin 0.6s linear infinite',
-  },
+const colorRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+};
+
+const colorInputStyle: React.CSSProperties = {
+  width: '40px',
+  height: '36px',
+  padding: '2px',
+  backgroundColor: COLOR_BG_LOGIN,
+  border: `1px solid ${COLOR_BORDER_CARD}`,
+  borderRadius: '6px',
+  cursor: 'pointer',
+};
+
+const colorHexStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: COLOR_TEXT_CARD_MUTED,
 };
 
 // ---------------------------------------------------------------------------
@@ -142,13 +93,13 @@ function CreateWorkspaceForm({
   return (
     <form onSubmit={handleSubmit}>
       {mutation.isError && (
-        <div role="alert" style={styles.errorBox} data-testid="create-workspace-error">
+        <div role="alert" style={errorBoxStyle} data-testid="create-workspace-error">
           {mutation.error instanceof Error ? mutation.error.message : 'Failed to create workspace'}
         </div>
       )}
 
-      <div style={styles.inputGroup}>
-        <label htmlFor="workspace-name" style={styles.label}>
+      <div style={inputGroupStyle}>
+        <label htmlFor="workspace-name" style={labelStyle}>
           Name
         </label>
         <input
@@ -159,12 +110,12 @@ function CreateWorkspaceForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={mutation.isPending}
-          style={styles.input}
+          style={inputStyle}
         />
       </div>
 
-      <div style={styles.inputGroup}>
-        <label htmlFor="workspace-path" style={styles.label}>
+      <div style={inputGroupStyle}>
+        <label htmlFor="workspace-path" style={labelStyle}>
           Path
         </label>
         <input
@@ -174,33 +125,33 @@ function CreateWorkspaceForm({
           value={path}
           onChange={(e) => setPath(e.target.value)}
           disabled={mutation.isPending}
-          style={styles.input}
+          style={inputStyle}
         />
       </div>
 
-      <div style={styles.inputGroup}>
-        <label htmlFor="workspace-color" style={styles.label}>
+      <div style={inputGroupStyle}>
+        <label htmlFor="workspace-color" style={labelStyle}>
           Color
         </label>
-        <div style={styles.colorRow}>
+        <div style={colorRowStyle}>
           <input
             id="workspace-color"
             type="color"
             value={color}
             onChange={(e) => setColor(e.target.value)}
             disabled={mutation.isPending}
-            style={styles.colorInput}
+            style={colorInputStyle}
           />
-          <span style={styles.colorHex}>{color}</span>
+          <span style={colorHexStyle}>{color}</span>
         </div>
       </div>
 
-      <div style={styles.buttonRow}>
+      <div style={buttonRowStyle}>
         <button
           type="button"
           onClick={onClose}
           disabled={mutation.isPending}
-          style={styles.cancelButton}
+          style={cancelButtonStyle}
           data-testid="create-workspace-cancel"
         >
           Cancel
@@ -209,14 +160,14 @@ function CreateWorkspaceForm({
           type="submit"
           disabled={mutation.isPending || !name.trim() || !path.trim()}
           style={{
-            ...styles.submitButton,
+            ...submitButtonBaseStyle,
             ...(mutation.isPending || !name.trim() || !path.trim()
-              ? styles.submitButtonDisabled
+              ? submitButtonDisabledStyle
               : {}),
           }}
           data-testid="create-workspace-submit"
         >
-          {mutation.isPending && <span style={styles.spinner} />}
+          {mutation.isPending && <span style={spinnerStyle} />}
           {mutation.isPending ? 'Creating…' : 'Create'}
         </button>
       </div>

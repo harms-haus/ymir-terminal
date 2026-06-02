@@ -4,6 +4,7 @@ import {
   COLOR_BORDER,
   COLOR_HOVER_BG,
   COLOR_TEXT,
+  Z_INDEX_CONTEXT_MENU,
 } from './theme';
 
 /**
@@ -29,7 +30,7 @@ export function getMenuContainerStyle(minWidth: string = '160px'): React.CSSProp
     borderRadius: '4px',
     padding: '4px 0',
     minWidth,
-    zIndex: 1000,
+    zIndex: Z_INDEX_CONTEXT_MENU,
   };
 }
 

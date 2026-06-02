@@ -1,10 +1,16 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
+  cancelButtonStyle,
+  submitButtonBaseStyle,
+  submitButtonDisabledStyle,
+  spinnerStyle,
+  buttonRowStyle,
+} from '../lib/dialog-styles';
+import {
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD,
   COLOR_TEXT_CARD_MUTED,
   COLOR_BTN_PRIMARY,
-  COLOR_SPINNER_TRACK,
   COLOR_BG_CARD,
 } from '../lib/theme';
 import { useWorktreeCopyFiles } from '../hooks/useWorkspaces';
@@ -26,113 +32,79 @@ interface MergeWorktreeDialogProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles
+// Component-specific styles
 // ---------------------------------------------------------------------------
 
-const styles: Record<string, React.CSSProperties> = {
-  message: {
-    fontSize: '14px',
-    color: COLOR_TEXT_CARD,
-    marginBottom: '16px',
-    lineHeight: 1.5,
-  },
-  branchName: {
-    fontWeight: 600,
-  },
-  checkboxRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '24px',
-  },
-  checkbox: {
-    width: '16px',
-    height: '16px',
-    accentColor: COLOR_BTN_PRIMARY,
-    cursor: 'pointer',
-  },
-  checkboxLabel: {
-    fontSize: '13px',
-    color: COLOR_TEXT_CARD_MUTED,
-    cursor: 'pointer',
-    userSelect: 'none',
-  },
-  fileListContainer: {
-    maxHeight: '150px',
-    overflowY: 'auto' as const,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '6px',
-    padding: '8px',
-    marginBottom: '24px',
-    backgroundColor: COLOR_BG_CARD,
-  },
-  fileCheckboxRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '6px 0',
-    minHeight: '28px',
-  },
-  fileCheckboxLabel: {
-    fontSize: '13px',
-    color: COLOR_TEXT_CARD,
-    cursor: 'pointer',
-    userSelect: 'none',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
-  },
-  noFilesText: {
-    fontSize: '13px',
-    color: COLOR_TEXT_CARD_MUTED,
-    padding: '4px 0',
-  },
-  sectionLabel: {
-    fontSize: '13px',
-    color: COLOR_TEXT_CARD_MUTED,
-    marginBottom: '8px',
-  },
-  buttonRow: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '8px',
-  },
-  mergeButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 600,
-    backgroundColor: COLOR_BTN_PRIMARY,
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  mergeButtonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  cancelButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 500,
-    backgroundColor: 'transparent',
-    color: COLOR_TEXT_CARD_MUTED,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  spinner: {
-    width: '14px',
-    height: '14px',
-    border: `2px solid ${COLOR_SPINNER_TRACK}`,
-    borderTopColor: '#ffffff',
-    borderRadius: '50%',
-    animation: 'spin 0.6s linear infinite',
-  },
+const messageStyle: React.CSSProperties = {
+  fontSize: '14px',
+  color: COLOR_TEXT_CARD,
+  marginBottom: '16px',
+  lineHeight: 1.5,
+};
+
+const branchNameStyle: React.CSSProperties = {
+  fontWeight: 600,
+};
+
+const checkboxRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  marginBottom: '24px',
+};
+
+const checkboxStyle: React.CSSProperties = {
+  width: '16px',
+  height: '16px',
+  accentColor: COLOR_BTN_PRIMARY,
+  cursor: 'pointer',
+};
+
+const checkboxLabelStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: COLOR_TEXT_CARD_MUTED,
+  cursor: 'pointer',
+  userSelect: 'none',
+};
+
+const fileListContainerStyle: React.CSSProperties = {
+  maxHeight: '150px',
+  overflowY: 'auto' as const,
+  border: `1px solid ${COLOR_BORDER_CARD}`,
+  borderRadius: '6px',
+  padding: '8px',
+  marginBottom: '24px',
+  backgroundColor: COLOR_BG_CARD,
+};
+
+const fileCheckboxRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '6px 0',
+  minHeight: '28px',
+};
+
+const fileCheckboxLabelStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: COLOR_TEXT_CARD,
+  cursor: 'pointer',
+  userSelect: 'none',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap' as const,
+};
+
+const noFilesTextStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: COLOR_TEXT_CARD_MUTED,
+  padding: '4px 0',
+};
+
+const sectionLabelStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: COLOR_TEXT_CARD_MUTED,
+  marginBottom: '8px',
 };
 
 // ---------------------------------------------------------------------------
@@ -199,43 +171,43 @@ function MergeWorktreeForm({
 
   return (
     <div>
-      <div style={styles.message}>
-        Merge worktree <span style={styles.branchName}>{branchName}</span> into{' '}
-        <span style={styles.branchName}>{targetBranch}</span>?
+      <div style={messageStyle}>
+        Merge worktree <span style={branchNameStyle}>{branchName}</span> into{' '}
+        <span style={branchNameStyle}>{targetBranch}</span>?
       </div>
 
-      <div style={styles.checkboxRow}>
+      <div style={checkboxRowStyle}>
         <input
           id="worktree-delete-after-merge"
           type="checkbox"
           checked={deleteAfterMerge}
           onChange={(e) => setDeleteAfterMerge(e.target.checked)}
           disabled={isLoading}
-          style={styles.checkbox}
+          style={checkboxStyle}
         />
-        <label htmlFor="worktree-delete-after-merge" style={styles.checkboxLabel}>
+        <label htmlFor="worktree-delete-after-merge" style={checkboxLabelStyle}>
           Delete worktree after merge
         </label>
       </div>
 
       {allFiles.length > 0 && (
         <>
-          <div style={styles.sectionLabel}>Files to copy to target</div>
-          <div style={styles.fileListContainer}>
+          <div style={sectionLabelStyle}>Files to copy to target</div>
+          <div style={fileListContainerStyle}>
             {allFiles.map((file) => (
-              <div key={file} style={styles.fileCheckboxRow}>
+              <div key={file} style={fileCheckboxRowStyle}>
                 <input
                   id={`worktree-copy-file-${file}`}
                   type="checkbox"
                   checked={effectiveSelectedFiles.has(file)}
                   onChange={() => toggleFile(file)}
                   disabled={isLoading}
-                  style={styles.checkbox}
+                  style={checkboxStyle}
                 />
                 <label
                   htmlFor={`worktree-copy-file-${file}`}
                   title={file}
-                  style={styles.fileCheckboxLabel}
+                  style={fileCheckboxLabelStyle}
                 >
                   {file}
                 </label>
@@ -245,15 +217,15 @@ function MergeWorktreeForm({
         </>
       )}
       {allFiles.length === 0 && copyFiles && (
-        <div style={styles.noFilesText}>No untracked files</div>
+        <div style={noFilesTextStyle}>No untracked files</div>
       )}
 
-      <div style={styles.buttonRow}>
+      <div style={buttonRowStyle}>
         <button
           type="button"
           onClick={onClose}
           disabled={isLoading}
-          style={styles.cancelButton}
+          style={cancelButtonStyle}
           data-testid="merge-worktree-cancel"
         >
           Cancel
@@ -263,12 +235,12 @@ function MergeWorktreeForm({
           onClick={handleConfirm}
           disabled={isLoading}
           style={{
-            ...styles.mergeButton,
-            ...(isLoading ? styles.mergeButtonDisabled : {}),
+            ...submitButtonBaseStyle,
+            ...(isLoading ? submitButtonDisabledStyle : {}),
           }}
           data-testid="merge-worktree-confirm"
         >
-          {isLoading && <span style={styles.spinner} />}
+          {isLoading && <span style={spinnerStyle} />}
           {isLoading ? 'Merging…' : 'Merge'}
         </button>
       </div>

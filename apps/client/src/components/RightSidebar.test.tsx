@@ -8,6 +8,15 @@ import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
+// Mock useDialog hooks (used by RightSidebar for prompt dialogs)
+// ---------------------------------------------------------------------------
+
+mock.module('../hooks/useDialog', () => ({
+  useConfirm: () => async () => true,
+  usePrompt: () => async () => 'test-value',
+}));
+
+// ---------------------------------------------------------------------------
 // Mock ../lib/git-utils (imported by FileTree)
 // ---------------------------------------------------------------------------
 

@@ -10,6 +10,7 @@ import {
   COLOR_STATUS_DISCONNECTED,
   COLOR_STATUS_RECONNECTING,
   TOP_BAR_HEIGHT,
+  Z_INDEX_TOPBAR,
 } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ export function TopBar({ commandBar }: TopBarProps) {
         padding: '0 12px',
         flexShrink: 0,
         position: 'relative',
-        zIndex: 10,
+        zIndex: Z_INDEX_TOPBAR,
         userSelect: 'none',
       }}
     >

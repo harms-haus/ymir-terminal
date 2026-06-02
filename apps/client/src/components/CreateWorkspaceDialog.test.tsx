@@ -3,7 +3,7 @@ import { setupTestDom } from '../test-helpers/mock-setup';
 await setupTestDom();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, within, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ function renderDialog(
   const onClose = overrides.onClose ?? mock(() => {});
   const onCreated = overrides.onCreated ?? mock(() => {});
 
-  const result = render(
+  render(
     React.createElement(CreateWorkspaceDialog, {
       open: overrides.open ?? true,
       onClose,
@@ -52,7 +52,7 @@ function renderDialog(
     }),
   );
 
-  return { onClose, onCreated, ...result };
+  return { onClose, onCreated };
 }
 
 // ---------------------------------------------------------------------------
@@ -78,21 +78,21 @@ describe('CreateWorkspaceDialog', () => {
   // 1. Renders when open={true}
   // -----------------------------------------------------------------------
   test('renders when open={true}', () => {
-    const { getByTestId, getByText } = renderDialog({ open: true });
+    renderDialog({ open: true });
 
-    expect(getByTestId('create-workspace-dialog')).toBeTruthy();
-    expect(getByText('Create Workspace')).toBeTruthy();
-    expect(getByTestId('create-workspace-cancel')).toBeTruthy();
-    expect(getByTestId('create-workspace-submit')).toBeTruthy();
+    expect(within(document.body).getByTestId('create-workspace-dialog')).toBeTruthy();
+    expect(within(document.body).getByText('Create Workspace')).toBeTruthy();
+    expect(within(document.body).getByTestId('create-workspace-cancel')).toBeTruthy();
+    expect(within(document.body).getByTestId('create-workspace-submit')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
   // 2. Does not render content when open={false}
   // -----------------------------------------------------------------------
   test('does not render content when open={false}', () => {
-    const { queryByTestId } = renderDialog({ open: false });
+    renderDialog({ open: false });
 
-    expect(queryByTestId('create-workspace-dialog')).toBeNull();
+    expect(within(document.body).queryByTestId('create-workspace-dialog')).toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -100,9 +100,9 @@ describe('CreateWorkspaceDialog', () => {
   // -----------------------------------------------------------------------
   test('calls onClose when cancel button is clicked', () => {
     const onClose = mock(() => {});
-    const { getByTestId } = renderDialog({ open: true, onClose });
+    renderDialog({ open: true, onClose });
 
-    fireEvent.click(getByTestId('create-workspace-cancel'));
+    fireEvent.click(within(document.body).getByTestId('create-workspace-cancel'));
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });

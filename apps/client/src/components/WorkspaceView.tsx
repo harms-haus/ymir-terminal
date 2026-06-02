@@ -10,6 +10,7 @@ import { TerminalManager } from './TerminalManager';
 import { TopBar } from './TopBar';
 import { CommandBar } from './CommandBar';
 import { ToastProvider } from './ToastProvider';
+import { DialogProvider } from './DialogProvider';
 import { PaneVisibilityProvider, usePaneVisibility } from '../hooks/usePaneVisibility';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
 import { useTheme } from '../hooks/useTheme';
@@ -414,12 +415,14 @@ function WorkspaceViewInner() {
 
 export function WorkspaceView() {
   return (
-    <ToastProvider>
-      <PaneVisibilityProvider>
-        <FileClipboardProvider>
-          <WorkspaceViewInner />
-        </FileClipboardProvider>
-      </PaneVisibilityProvider>
-    </ToastProvider>
+    <DialogProvider>
+      <ToastProvider>
+        <PaneVisibilityProvider>
+          <FileClipboardProvider>
+            <WorkspaceViewInner />
+          </FileClipboardProvider>
+        </PaneVisibilityProvider>
+      </ToastProvider>
+    </DialogProvider>
   );
 }

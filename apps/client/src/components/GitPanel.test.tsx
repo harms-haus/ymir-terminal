@@ -8,6 +8,15 @@ import { render, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
+// Mock useDialog hooks (used by GitChangesSection for confirm dialogs)
+// ---------------------------------------------------------------------------
+
+mock.module('../hooks/useDialog', () => ({
+  useConfirm: () => async () => true,
+  usePrompt: () => async () => null,
+}));
+
+// ---------------------------------------------------------------------------
 // Mock send-request — the GitPanel's hook (useGitRepos) uses it for all
 // communication with the backend.
 // ---------------------------------------------------------------------------

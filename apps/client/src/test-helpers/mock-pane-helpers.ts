@@ -113,6 +113,12 @@ export function setupPaneMocks(): PaneMockHandle {
     sendRequestResponse: { tabs: [] },
   };
 
+  // --- useDialog ------------------------------------------------------------
+  mock.module('../hooks/useDialog', () => ({
+    useConfirm: () => async () => true,
+    usePrompt: () => async () => null,
+  }));
+
   // --- useTabs ---------------------------------------------------------------
   mock.module('../hooks/useTabs', () => ({
     useTabs: () => ({

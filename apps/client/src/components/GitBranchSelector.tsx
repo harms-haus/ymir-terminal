@@ -8,6 +8,7 @@ import {
   COLOR_GIT_BRANCH_BG,
   COLOR_GIT_BRANCH_BORDER,
   COLOR_GIT_BRANCH_HOVER,
+  Z_INDEX_DROPDOWN,
 } from '../lib/theme';
 
 interface GitBranchSelectorProps {
@@ -242,7 +243,7 @@ export function GitBranchSelector({
           position: 'absolute',
           top: '100%',
           left: 0,
-          zIndex: 1000,
+          zIndex: Z_INDEX_DROPDOWN,
           background: COLOR_BG_SECONDARY,
           border: `1px solid ${COLOR_BORDER}`,
           borderRadius: 4,

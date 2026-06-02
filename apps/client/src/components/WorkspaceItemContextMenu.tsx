@@ -9,6 +9,7 @@ import {
 } from '../lib/theme';
 import { AppContextMenu } from './AppContextMenu';
 import type { ContextMenuItem } from './AppContextMenu';
+import { useConfirm } from '../hooks/useDialog';
 
 interface WorkspaceItemContextMenuProps {
   workspace: { id: string; name: string; cwd: string; color: string };
@@ -29,6 +30,7 @@ export function WorkspaceItemContextMenu({
   onCreateWorktree,
   children,
 }: WorkspaceItemContextMenuProps) {
+  const confirm = useConfirm();
   const [editingField, setEditingField] = useState<'rename' | 'cwd' | null>(null);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -230,10 +232,10 @@ export function WorkspaceItemContextMenu({
     {
       label: 'Remove',
       testId: 'ws-menu-remove',
-      action: () => {
-        if (window.confirm(`Remove workspace "${workspace.name}"?`)) {
-          onRemove(workspace.id);
-        }
+      action: async () => {
+        const ok = await confirm({ title: 'Remove Workspace', message: `Remove workspace "${workspace.name}"?`, confirmLabel: 'Remove', danger: true });
+        if (!ok) return;
+        onRemove(workspace.id);
       },
       destructive: true,
     },

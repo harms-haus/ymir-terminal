@@ -275,3 +275,20 @@ export const COLOR_WINDOW_CTRL_HOVER = 'rgba(255,255,255,0.08)';
 
 /** Window control button default icon color */
 export const COLOR_WINDOW_CTRL_ICON = COLOR_TEXT;
+
+// ── Z-Index Layers ────────────────────────────────────────────────────────────
+
+/** The top bar / title bar chrome */
+export const Z_INDEX_TOPBAR = 10;
+
+/** Dropdown menus, popovers, and floating pickers */
+export const Z_INDEX_DROPDOWN = 1000;
+
+/** Right-click context menus */
+export const Z_INDEX_CONTEXT_MENU = 1000;
+
+/** Modal dialogs and overlays */
+export const Z_INDEX_DIALOG = 1100;
+
+/** Command palette / quick-open bar */
+export const Z_INDEX_COMMAND_BAR = 1201;

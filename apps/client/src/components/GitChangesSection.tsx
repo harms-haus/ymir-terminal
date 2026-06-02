@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GitFileChange } from '@ymir/shared';
 import { GitChangeTree } from './GitChangeTree';
+import { useConfirm } from '../hooks/useDialog';
 import {
   COLOR_TEXT_MUTED,
   COLOR_GIT_SECTION_HEADER,
@@ -30,6 +31,8 @@ export function GitChangesSection({
   onOpenEditor,
   onOpenDiff,
 }: GitChangesSectionProps) {
+  const confirm = useConfirm();
+
   return (
     <div
       data-testid="git-changes-section"
@@ -80,13 +83,13 @@ export function GitChangesSection({
           changes.length > 0 ? (
             <>
               <button
-                onClick={() => {
-                  if (window.confirm('Discard all unstaged changes? This cannot be undone.')) {
-                    onDiscardFiles(
-                      repoPath,
-                      changes.map((f) => f.path),
-                    );
-                  }
+                onClick={async () => {
+                  const ok = await confirm({ title: 'Discard All Changes', message: 'Discard all unstaged changes? This cannot be undone.', confirmLabel: 'Discard All', danger: true });
+                  if (!ok) return;
+                  onDiscardFiles(
+                    repoPath,
+                    changes.map((f) => f.path),
+                  );
                 }}
                 style={{
                   background: 'transparent',

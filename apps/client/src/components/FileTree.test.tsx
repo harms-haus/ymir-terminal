@@ -8,6 +8,15 @@ import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
+// Mock useDialog hooks (used by FileTreeContextMenu for confirm dialogs)
+// ---------------------------------------------------------------------------
+
+mock.module('../hooks/useDialog', () => ({
+  useConfirm: () => async () => true,
+  usePrompt: () => async () => null,
+}));
+
+// ---------------------------------------------------------------------------
 // Import component under test
 // ---------------------------------------------------------------------------
 

@@ -1,10 +1,15 @@
 import { useState, useCallback } from 'react';
 import {
-  COLOR_BORDER_CARD,
+  cancelButtonStyle,
+  dangerButtonStyle,
+  dangerButtonDisabledStyle,
+  spinnerStyle,
+  buttonRowStyle,
+} from '../lib/dialog-styles';
+import {
   COLOR_TEXT_CARD,
   COLOR_TEXT_CARD_MUTED,
   COLOR_DANGER,
-  COLOR_SPINNER_TRACK,
 } from '../lib/theme';
 import { Dialog } from './Dialog';
 
@@ -21,78 +26,39 @@ interface RemoveWorktreeDialogProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles
+// Component-specific styles
 // ---------------------------------------------------------------------------
 
-const styles: Record<string, React.CSSProperties> = {
-  message: {
-    fontSize: '14px',
-    color: COLOR_TEXT_CARD,
-    marginBottom: '16px',
-    lineHeight: 1.5,
-  },
-  branchName: {
-    fontWeight: 600,
-  },
-  checkboxRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    marginBottom: '24px',
-  },
-  checkbox: {
-    width: '16px',
-    height: '16px',
-    accentColor: COLOR_DANGER,
-    cursor: 'pointer',
-  },
-  checkboxLabel: {
-    fontSize: '13px',
-    color: COLOR_TEXT_CARD_MUTED,
-    cursor: 'pointer',
-    userSelect: 'none',
-  },
-  buttonRow: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '8px',
-  },
-  removeButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 600,
-    backgroundColor: COLOR_DANGER,
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  removeButtonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  cancelButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 500,
-    backgroundColor: 'transparent',
-    color: COLOR_TEXT_CARD_MUTED,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  spinner: {
-    width: '14px',
-    height: '14px',
-    border: `2px solid ${COLOR_SPINNER_TRACK}`,
-    borderTopColor: '#ffffff',
-    borderRadius: '50%',
-    animation: 'spin 0.6s linear infinite',
-  },
+const messageStyle: React.CSSProperties = {
+  fontSize: '14px',
+  color: COLOR_TEXT_CARD,
+  marginBottom: '16px',
+  lineHeight: 1.5,
+};
+
+const branchNameStyle: React.CSSProperties = {
+  fontWeight: 600,
+};
+
+const checkboxRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  marginBottom: '24px',
+};
+
+const checkboxStyle: React.CSSProperties = {
+  width: '16px',
+  height: '16px',
+  accentColor: COLOR_DANGER,
+  cursor: 'pointer',
+};
+
+const checkboxLabelStyle: React.CSSProperties = {
+  fontSize: '13px',
+  color: COLOR_TEXT_CARD_MUTED,
+  cursor: 'pointer',
+  userSelect: 'none',
 };
 
 // ---------------------------------------------------------------------------
@@ -119,30 +85,30 @@ function RemoveWorktreeForm({
 
   return (
     <div>
-      <div style={styles.message}>
-        Remove worktree <span style={styles.branchName}>{branchName}</span>?
+      <div style={messageStyle}>
+        Remove worktree <span style={branchNameStyle}>{branchName}</span>?
       </div>
 
-      <div style={styles.checkboxRow}>
+      <div style={checkboxRowStyle}>
         <input
           id="worktree-force-delete"
           type="checkbox"
           checked={force}
           onChange={(e) => setForce(e.target.checked)}
           disabled={isLoading}
-          style={styles.checkbox}
+          style={checkboxStyle}
         />
-        <label htmlFor="worktree-force-delete" style={styles.checkboxLabel}>
+        <label htmlFor="worktree-force-delete" style={checkboxLabelStyle}>
           Force delete (removes even with uncommitted changes)
         </label>
       </div>
 
-      <div style={styles.buttonRow}>
+      <div style={buttonRowStyle}>
         <button
           type="button"
           onClick={onClose}
           disabled={isLoading}
-          style={styles.cancelButton}
+          style={cancelButtonStyle}
           data-testid="remove-worktree-cancel"
         >
           Cancel
@@ -152,12 +118,12 @@ function RemoveWorktreeForm({
           onClick={handleConfirm}
           disabled={isLoading}
           style={{
-            ...styles.removeButton,
-            ...(isLoading ? styles.removeButtonDisabled : {}),
+            ...dangerButtonStyle,
+            ...(isLoading ? dangerButtonDisabledStyle : {}),
           }}
           data-testid="remove-worktree-confirm"
         >
-          {isLoading && <span style={styles.spinner} />}
+          {isLoading && <span style={spinnerStyle} />}
           {isLoading ? 'Removing…' : 'Remove'}
         </button>
       </div>

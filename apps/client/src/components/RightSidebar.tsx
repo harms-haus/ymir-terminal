@@ -6,6 +6,7 @@ import { GitPanel } from './GitPanel';
 import { GitHistoryPanel } from './GitHistoryPanel';
 import { sendRequest } from '../lib/send-request';
 import { useFileChange } from '../hooks/useFileChange';
+import { usePrompt } from '../hooks/useDialog';
 import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
@@ -46,6 +47,8 @@ export function RightSidebar({
   const sizesLoadedRef = useRef(false);
 
   const { clipboard, cut, copy, paste } = useFileClipboard();
+
+  const prompt = usePrompt();
 
   // Load persisted project sidebar panel sizes on mount
   useEffect(() => {
@@ -174,38 +177,38 @@ export function RightSidebar({
   );
 
   const handleNewFile = useCallback(
-    (parentDir: string) => {
-      const name = window.prompt('New file name:');
+    async (parentDir: string) => {
+      const name = await prompt({ title: 'New File', message: 'Enter file name:', placeholder: 'file.txt' });
       if (!name || !workspaceId) return;
       sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: false })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
-    [workspaceId, refreshFileTree],
+    [workspaceId, refreshFileTree, prompt],
   );
 
   const handleNewFolder = useCallback(
-    (parentDir: string) => {
-      const name = window.prompt('New folder name:');
+    async (parentDir: string) => {
+      const name = await prompt({ title: 'New Folder', message: 'Enter folder name:', placeholder: 'folder' });
       if (!name || !workspaceId) return;
       sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: true })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
-    [workspaceId, refreshFileTree],
+    [workspaceId, refreshFileTree, prompt],
   );
 
   const handleRename = useCallback(
-    (path: string) => {
+    async (path: string) => {
       const oldName = path.split('/').pop() || '';
-      const newName = window.prompt('New name:', oldName);
+      const newName = await prompt({ title: 'Rename', message: 'Enter new name:', defaultValue: oldName });
       if (!newName || !workspaceId) return;
       const parentDir = path.split('/').slice(0, -1).join('/') || '/';
       sendRequest('file.rename', { workspaceId, oldPath: path, newPath: parentDir + '/' + newName })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
-    [workspaceId, refreshFileTree],
+    [workspaceId, refreshFileTree, prompt],
   );
 
   const handleDelete = useCallback(

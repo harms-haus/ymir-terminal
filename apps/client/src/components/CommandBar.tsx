@@ -9,6 +9,7 @@ import {
   COLOR_TEXT_MUTED,
   COLOR_TEXT_DIM,
   TOP_BAR_HEIGHT,
+  Z_INDEX_COMMAND_BAR,
 } from '../lib/theme';
 import { useFileSearch } from '../hooks/useFileSearch';
 
@@ -202,7 +203,7 @@ export function CommandBar({ workspaceId, workspaceName, onFileSelect }: Command
             background: COLOR_BG_SECONDARY,
             border: `1px solid ${COLOR_COMMANDBAR_BORDER}`,
             borderRadius: '0 0 4px 4px',
-            zIndex: 1001,
+            zIndex: Z_INDEX_COMMAND_BAR,
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           }}
         >

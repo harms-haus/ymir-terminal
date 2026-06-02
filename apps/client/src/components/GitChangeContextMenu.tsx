@@ -1,6 +1,7 @@
 import type { GitFileChangeStatus } from '@ymir/shared';
 import { AppContextMenu } from './AppContextMenu';
 import type { ContextMenuItem } from './AppContextMenu';
+import { useConfirm } from '../hooks/useDialog';
 
 interface GitChangeContextMenuProps {
   path: string;
@@ -27,6 +28,7 @@ export function GitChangeContextMenu({
   onOpenEditor,
   children,
 }: GitChangeContextMenuProps) {
+  const confirm = useConfirm();
   let items: ContextMenuItem[] = [];
 
   /* UNSTAGED file */
@@ -36,10 +38,10 @@ export function GitChangeContextMenu({
       {
         label: 'Discard Changes',
         testId: 'git-ctx-discard',
-        action: () => {
-          if (window.confirm('Discard changes to ' + path + '?')) {
-            onDiscard?.(path);
-          }
+        action: async () => {
+          const ok = await confirm({ title: 'Discard Changes', message: `Discard changes to ${path}?`, confirmLabel: 'Discard', danger: true });
+          if (!ok) return;
+          onDiscard?.(path);
         },
         destructive: true,
         separatorAfter: true,
@@ -78,10 +80,10 @@ export function GitChangeContextMenu({
       {
         label: 'Discard All',
         testId: 'git-ctx-discard-all',
-        action: () => {
-          if (window.confirm('Discard all changes in ' + path + '?')) {
-            onDiscard?.(path);
-          }
+        action: async () => {
+          const ok = await confirm({ title: 'Discard All Changes', message: `Discard all changes in ${path}?`, confirmLabel: 'Discard', danger: true });
+          if (!ok) return;
+          onDiscard?.(path);
         },
         destructive: true,
       },

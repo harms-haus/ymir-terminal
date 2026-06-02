@@ -1,17 +1,22 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type FormEvent } from 'react';
 import { useCreateWorktree, useWorktreeCopyFiles } from '../hooks/useWorkspaces';
-import { inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
 import {
-  COLOR_BORDER_CARD,
-  COLOR_TEXT_CARD_MUTED,
-  COLOR_BTN_PRIMARY,
-  COLOR_BG_ERROR_CARD,
-  COLOR_BORDER_ERROR_CARD,
+  inputGroupStyle,
+  inputStyle,
+  labelStyle,
+  cancelButtonStyle,
+  submitButtonBaseStyle,
+  submitButtonDisabledStyle,
+  errorBoxStyle,
+  spinnerStyle,
+  buttonRowStyle,
+} from '../lib/dialog-styles';
+import {
   COLOR_TEXT_ERROR_CARD,
-  COLOR_SPINNER_TRACK,
   COLOR_TEXT,
   COLOR_TEXT_MUTED,
   COLOR_BORDER,
+  COLOR_BTN_PRIMARY,
 } from '../lib/theme';
 import { Dialog } from './Dialog';
 
@@ -34,69 +39,13 @@ interface CreateWorktreeDialogProps {
 const BRANCH_NAME_RE = /^[a-zA-Z0-9\/. _-]+$/;
 
 // ---------------------------------------------------------------------------
-// Styles
+// Component-specific styles
 // ---------------------------------------------------------------------------
 
-const styles: Record<string, React.CSSProperties> = {
-  inputGroup: inputGroupStyle,
-  label: labelStyle,
-  input: inputStyle,
-  validationError: {
-    fontSize: '12px',
-    color: COLOR_TEXT_ERROR_CARD,
-    marginTop: '4px',
-  },
-  buttonRow: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '8px',
-    marginTop: '24px',
-  },
-  submitButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 600,
-    backgroundColor: COLOR_BTN_PRIMARY,
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-  cancelButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: 500,
-    backgroundColor: 'transparent',
-    color: COLOR_TEXT_CARD_MUTED,
-    border: `1px solid ${COLOR_BORDER_CARD}`,
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  errorBox: {
-    backgroundColor: COLOR_BG_ERROR_CARD,
-    border: `1px solid ${COLOR_BORDER_ERROR_CARD}`,
-    borderRadius: '6px',
-    padding: '10px 12px',
-    marginBottom: '16px',
-    fontSize: '13px',
-    color: COLOR_TEXT_ERROR_CARD,
-  },
-  spinner: {
-    width: '14px',
-    height: '14px',
-    border: `2px solid ${COLOR_SPINNER_TRACK}`,
-    borderTopColor: '#ffffff',
-    borderRadius: '50%',
-    animation: 'spin 0.6s linear infinite',
-  },
+const validationErrorStyle: React.CSSProperties = {
+  fontSize: '12px',
+  color: COLOR_TEXT_ERROR_CARD,
+  marginTop: '4px',
 };
 
 // ---------------------------------------------------------------------------
@@ -211,13 +160,13 @@ function CreateWorktreeForm({
   return (
     <form onSubmit={handleSubmit}>
       {mutation.isError && (
-        <div role="alert" style={styles.errorBox} data-testid="create-worktree-error">
+        <div role="alert" style={errorBoxStyle} data-testid="create-worktree-error">
           {mutation.error instanceof Error ? mutation.error.message : 'Failed to create worktree'}
         </div>
       )}
 
-      <div style={styles.inputGroup}>
-        <label htmlFor="worktree-branch-name" style={styles.label}>
+      <div style={inputGroupStyle}>
+        <label htmlFor="worktree-branch-name" style={labelStyle}>
           Branch Name
         </label>
         <input
@@ -229,17 +178,17 @@ function CreateWorktreeForm({
           onChange={(e) => setBranchName(e.target.value)}
           onBlur={() => setTouched(true)}
           disabled={mutation.isPending}
-          style={styles.input}
+          style={inputStyle}
         />
         {branchNameInvalid && (
-          <div style={styles.validationError}>
+          <div style={validationErrorStyle}>
             Branch name can only contain letters, numbers, /, ., spaces, _, and -
           </div>
         )}
       </div>
 
-      <div style={styles.inputGroup}>
-        <label htmlFor="worktree-base-ref" style={styles.label}>
+      <div style={inputGroupStyle}>
+        <label htmlFor="worktree-base-ref" style={labelStyle}>
           Base Ref
         </label>
         <input
@@ -249,7 +198,7 @@ function CreateWorktreeForm({
           value={startRef}
           onChange={(e) => setStartRef(e.target.value)}
           disabled={mutation.isPending}
-          style={styles.input}
+          style={inputStyle}
         />
       </div>
 
@@ -318,11 +267,11 @@ function CreateWorktreeForm({
         </div>
       )}
 
-      <div style={styles.buttonRow}>
+      <div style={buttonRowStyle}>
         <button
           type="button"
           onClick={onClose}
-          style={styles.cancelButton}
+          style={cancelButtonStyle}
           data-testid="create-worktree-cancel"
         >
           Cancel
@@ -331,12 +280,12 @@ function CreateWorktreeForm({
           type="submit"
           disabled={submitDisabled}
           style={{
-            ...styles.submitButton,
-            ...(submitDisabled ? styles.submitButtonDisabled : {}),
+            ...submitButtonBaseStyle,
+            ...(submitDisabled ? submitButtonDisabledStyle : {}),
           }}
           data-testid="create-worktree-submit"
         >
-          {mutation.isPending && <span style={styles.spinner} />}
+          {mutation.isPending && <span style={spinnerStyle} />}
           {mutation.isPending ? 'Creating…' : 'Create'}
         </button>
       </div>

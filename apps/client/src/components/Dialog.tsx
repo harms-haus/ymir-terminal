@@ -1,10 +1,9 @@
-import { useEffect, useRef, useCallback, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useCallback, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { cardStyle } from '../lib/dialog-styles';
 import {
-  COLOR_BORDER_CARD,
-  COLOR_BTN_PRIMARY,
   COLOR_TEXT_CARD,
-  COLOR_TEXT_CARD_MUTED,
+  Z_INDEX_DIALOG,
 } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
@@ -15,9 +14,7 @@ export interface DialogProps {
   open: boolean;
   onClose: () => void;
   title: string;
-  onSubmit?: () => void;
-  submitLabel?: string;
-  submitDisabled?: boolean;
+  role?: 'dialog' | 'alertdialog';
   children: ReactNode;
   testId?: string;
   wide?: boolean;
@@ -34,7 +31,7 @@ const backdropStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1000,
+  zIndex: Z_INDEX_DIALOG,
 };
 
 const titleStyle: React.CSSProperties = {
@@ -44,43 +41,7 @@ const titleStyle: React.CSSProperties = {
   color: COLOR_TEXT_CARD,
 };
 
-const buttonRowStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: '8px',
-  marginTop: '24px',
-};
 
-const cancelButtonStyle: React.CSSProperties = {
-  padding: '8px 16px',
-  fontSize: '14px',
-  fontWeight: 500,
-  backgroundColor: 'transparent',
-  color: COLOR_TEXT_CARD_MUTED,
-  border: `1px solid ${COLOR_BORDER_CARD}`,
-  borderRadius: '6px',
-  cursor: 'pointer',
-};
-
-const submitButtonBase: React.CSSProperties = {
-  padding: '8px 16px',
-  fontSize: '14px',
-  fontWeight: 600,
-  backgroundColor: COLOR_BTN_PRIMARY,
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '8px',
-};
-
-const submitButtonDisabledStyle: React.CSSProperties = {
-  opacity: 0.6,
-  cursor: 'not-allowed',
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -93,19 +54,14 @@ const submitButtonDisabledStyle: React.CSSProperties = {
  * - Focus trap (Tab cycling) and auto-focus first input on mount
  * - Escape key → onClose
  * - Backdrop click → onClose
- * - Optional form wrapper with Cancel / Submit action buttons
  *
- * When `onSubmit` is provided the dialog wraps children in a `<form>` and
- * renders a Cancel + Submit button row. When omitted, children are rendered
- * as-is (useful for dialogs that manage their own action buttons).
+ * Renders via a portal at document.body to escape stacking contexts.
  */
 export function Dialog({
   open,
   onClose,
   title,
-  onSubmit,
-  submitLabel = 'Submit',
-  submitDisabled = false,
+  role = 'dialog',
   children,
   testId = 'dialog',
   wide = false,
@@ -129,6 +85,17 @@ export function Dialog({
     }, 0);
 
     return () => clearTimeout(timer);
+  }, [open]);
+
+  // -------------------------------------------------------------------
+  // Restore focus to the previously-focused element when dialog closes
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement;
+    return () => {
+      previouslyFocused?.focus?.();
+    };
   }, [open]);
 
   // -------------------------------------------------------------------
@@ -185,6 +152,16 @@ export function Dialog({
   }, [open, onClose]);
 
   // -------------------------------------------------------------------
+  // Lock background scroll when dialog is open
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  // -------------------------------------------------------------------
   // Backdrop click → close
   // -------------------------------------------------------------------
   const handleBackdropClick = useCallback(
@@ -197,17 +174,6 @@ export function Dialog({
   );
 
   // -------------------------------------------------------------------
-  // Form submission prevention
-  // -------------------------------------------------------------------
-  const handleFormSubmit = useCallback(
-    (e: FormEvent) => {
-      e.preventDefault();
-      onSubmit?.();
-    },
-    [onSubmit],
-  );
-
-  // -------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------
   if (!open) return null;
@@ -217,44 +183,42 @@ export function Dialog({
     ...(wide ? { maxWidth: '520px' } : {}),
   };
 
-  const content = onSubmit ? (
-    <form onSubmit={handleFormSubmit}>
-      {children}
-      <div style={buttonRowStyle}>
-        <button type="button" onClick={onClose} style={cancelButtonStyle}>
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={submitDisabled}
-          style={{
-            ...submitButtonBase,
-            ...(submitDisabled ? submitButtonDisabledStyle : {}),
-          }}
-        >
-          {submitLabel}
-        </button>
-      </div>
-    </form>
-  ) : (
-    children
-  );
-
-  return (
+  return createPortal(
     <>
-      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="${testId}"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="${testId}"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; } [data-testid="${testId}"] button:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: 2px; }`}</style>
       <div data-testid={testId} style={backdropStyle} onClick={handleBackdropClick}>
         <div
           ref={cardRef}
           style={cardStyleMerged}
-          role="dialog"
+          role={role}
           aria-modal="true"
           aria-label={title}
         >
           <h2 style={titleStyle}>{title}</h2>
-          {content}
+          {children}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Module-level style injection (injected once per page load)
+// ---------------------------------------------------------------------------
+
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    [data-testid] input:focus-visible,
+    [data-testid] button:focus-visible {
+      outline: 2px solid var(--accent, #007acc);
+      outline-offset: -1px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      [data-testid] span[style*="animation: spin"] {
+        animation: none !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
 }

@@ -4,8 +4,17 @@ await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, afterEach, afterAll, mock } from 'bun:test';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
+
+// ---------------------------------------------------------------------------
+// Mock useDialog hooks (used by FileTreeContextMenu for confirm dialogs)
+// ---------------------------------------------------------------------------
+
+mock.module('../hooks/useDialog', () => ({
+  useConfirm: () => async () => true,
+  usePrompt: () => async () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Import component under test (after mock)
@@ -194,24 +203,22 @@ describe('FileTreeContextMenu', () => {
   // -----------------------------------------------------------------------
   // 10. 'Delete' calls onDelete with the path
   // -----------------------------------------------------------------------
-  test('Delete calls onDelete with the path', () => {
+  test('Delete calls onDelete with the path', async () => {
     const onDelete = mock(() => {});
-    const originalConfirm = globalThis.confirm;
-    globalThis.confirm = () => true;
-    try {
-      const { container } = renderContextMenu({
-        isDirectory: true,
-        path: '/src/components',
-        onDelete,
-      });
+    const { container } = renderContextMenu({
+      isDirectory: true,
+      path: '/src/components',
+      onDelete,
+    });
 
-      const item = container.querySelector('[data-testid="menu-delete"]') as HTMLElement;
-      fireEvent.click(item);
+    const item = container.querySelector('[data-testid="menu-delete"]') as HTMLElement;
+    fireEvent.click(item);
 
+    // The mock useConfirm resolves to true, so onDelete should be called
+    // after the async confirm resolves
+    await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('/src/components');
-    } finally {
-      globalThis.confirm = originalConfirm;
-    }
+    });
   });
 
   // -----------------------------------------------------------------------

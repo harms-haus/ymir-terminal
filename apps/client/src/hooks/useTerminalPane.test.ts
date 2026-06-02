@@ -28,6 +28,18 @@ mock.module('../lib/ws-client', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock useDialog hooks (used by useTerminalPane for confirm dialogs)
+// ---------------------------------------------------------------------------
+
+let mockConfirmResult = true;
+let mockPromptResult: string | null = null;
+
+mock.module('./useDialog', () => ({
+  useConfirm: () => async () => mockConfirmResult,
+  usePrompt: () => async () => mockPromptResult,
+}));
+
+// ---------------------------------------------------------------------------
 // Import after mocking
 // ---------------------------------------------------------------------------
 
@@ -91,6 +103,8 @@ describe('useTerminalPane', () => {
     onTerminalRegistered.mockClear();
     onTerminalUnregistered.mockClear();
     messageHandlers = [];
+    mockConfirmResult = true;
+    mockPromptResult = null;
   });
 
   // -----------------------------------------------------------------------
@@ -351,112 +365,101 @@ describe('useTerminalPane', () => {
   // 3. Handles tab close with dirty file confirmation
   // -----------------------------------------------------------------------
   test('handleCloseTab prompts for dirty file and cancels if user declines', async () => {
-    const confirmSpy = mock(() => false);
-    const originalConfirm = globalThis.confirm;
-    globalThis.confirm = confirmSpy as typeof confirm;
+    mockConfirmResult = false;
 
-    try {
-      const dirtyFiles = new Set(['/dirty.ts']);
+    const dirtyFiles = new Set(['/dirty.ts']);
 
-      const { result } = renderHook(() =>
-        useTerminalPane({
-          workspaceId: 'ws-1',
-          pane: 'content',
-          dirtyFiles,
-        }),
-      );
+    const { result } = renderHook(() =>
+      useTerminalPane({
+        workspaceId: 'ws-1',
+        pane: 'content',
+        dirtyFiles,
+      }),
+    );
 
-      await waitFor(() => {
-        expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.list')).toBe(true);
+    await waitFor(() => {
+      expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.list')).toBe(true);
+    });
+
+    await act(async () => {
+      await respondToTabList([]);
+    });
+
+    // Create an editor tab with a dirty file
+    let tabId: string;
+    act(() => {
+      tabId = result.current.createTab({
+        type: 'editor',
+        title: 'Editor',
+        filePath: '/dirty.ts',
       });
+    });
 
-      await act(async () => {
-        await respondToTabList([]);
-      });
+    const createReq = getAllSentEnvelopes().find((e) => e.channel === 'tab.create');
+    if (createReq?.id) simulateResponse(createReq.id, { tabId: tabId! });
 
-      // Create an editor tab with a dirty file
-      let tabId: string;
-      act(() => {
-        tabId = result.current.createTab({
-          type: 'editor',
-          title: 'Editor',
-          filePath: '/dirty.ts',
-        });
-      });
+    mockSend.mockClear();
 
-      const createReq = getAllSentEnvelopes().find((e) => e.channel === 'tab.create');
-      if (createReq?.id) simulateResponse(createReq.id, { tabId: tabId! });
+    // Try to close — confirm returns false (user declines)
+    act(() => {
+      result.current.handleCloseTab(tabId!);
+    });
 
-      mockSend.mockClear();
-
-      // Try to close — user declines
-      act(() => {
-        result.current.handleCloseTab(tabId!);
-      });
-
-      expect(confirmSpy).toHaveBeenCalled();
+    // Wait for the async confirm to resolve
+    await waitFor(() => {
       // Tab should NOT be closed
       expect(result.current.tabs.find((t) => t.id === tabId!)).toBeDefined();
-      // No tab.delete should have been sent
-      expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.delete')).toBe(false);
-    } finally {
-      globalThis.confirm = originalConfirm;
-    }
+    });
+    // No tab.delete should have been sent
+    expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.delete')).toBe(false);
   });
 
   test('handleCloseTab proceeds when user confirms dirty file close', async () => {
-    const confirmSpy = mock(() => true);
-    const originalConfirm = globalThis.confirm;
-    globalThis.confirm = confirmSpy as typeof confirm;
+    mockConfirmResult = true;
 
-    try {
-      const dirtyFiles = new Set(['/dirty.ts']);
+    const dirtyFiles = new Set(['/dirty.ts']);
 
-      const { result } = renderHook(() =>
-        useTerminalPane({
-          workspaceId: 'ws-1',
-          pane: 'content',
-          dirtyFiles,
-        }),
-      );
+    const { result } = renderHook(() =>
+      useTerminalPane({
+        workspaceId: 'ws-1',
+        pane: 'content',
+        dirtyFiles,
+      }),
+    );
 
-      await waitFor(() => {
-        expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.list')).toBe(true);
+    await waitFor(() => {
+      expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.list')).toBe(true);
+    });
+
+    await act(async () => {
+      await respondToTabList([]);
+    });
+
+    let tabId: string;
+    act(() => {
+      tabId = result.current.createTab({
+        type: 'editor',
+        title: 'Editor',
+        filePath: '/dirty.ts',
       });
+    });
 
-      await act(async () => {
-        await respondToTabList([]);
-      });
+    const createReq = getAllSentEnvelopes().find((e) => e.channel === 'tab.create');
+    if (createReq?.id) simulateResponse(createReq.id, { tabId: tabId! });
 
-      let tabId: string;
-      act(() => {
-        tabId = result.current.createTab({
-          type: 'editor',
-          title: 'Editor',
-          filePath: '/dirty.ts',
-        });
-      });
+    mockSend.mockClear();
 
-      const createReq = getAllSentEnvelopes().find((e) => e.channel === 'tab.create');
-      if (createReq?.id) simulateResponse(createReq.id, { tabId: tabId! });
+    // Confirm close (mockConfirmResult = true)
+    act(() => {
+      result.current.handleCloseTab(tabId!);
+    });
 
-      mockSend.mockClear();
-
-      // Confirm close
-      act(() => {
-        result.current.handleCloseTab(tabId!);
-      });
-
-      expect(confirmSpy).toHaveBeenCalled();
-      // Tab should be closed
-      await waitFor(() => {
-        expect(result.current.tabs.find((t) => t.id === tabId!)).toBeUndefined();
-      });
-      // tab.delete should have been sent
-      expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.delete')).toBe(true);
-    } finally {
-      globalThis.confirm = originalConfirm;
-    }
+    // Tab should be closed
+    await waitFor(() => {
+      expect(result.current.tabs.find((t) => t.id === tabId!)).toBeUndefined();
+    });
+    // tab.delete should have been sent
+    expect(getAllSentEnvelopes().some((e) => e.channel === 'tab.delete')).toBe(true);
   });
 
   // -----------------------------------------------------------------------
