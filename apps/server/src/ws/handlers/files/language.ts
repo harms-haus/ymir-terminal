@@ -1,4 +1,4 @@
-import { extname } from 'node:path';
+import { extname, basename as pathBasename } from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Extension → language map
@@ -85,7 +85,7 @@ export const FILENAME_MAP: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 export function detectLanguage(filePath: string): string {
-  const basename = filePath.split('/').pop() ?? '';
+  const basename = pathBasename(filePath);
   if (basename in FILENAME_MAP) {
     return FILENAME_MAP[basename];
   }

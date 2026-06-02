@@ -135,21 +135,26 @@ describe('PTYManager', () => {
   it('create() defaults to SHELL env var when no shell option', () => {
     const originalShell = process.env.SHELL;
     process.env.SHELL = '/bin/zsh';
+    try {
+      const onData = mock((_data: string) => {});
+      manager.create('test-default-shell', {
+        cwd: '/home/user',
+        cols: 80,
+        rows: 24,
+        onData,
+      });
 
-    const onData = mock((_data: string) => {});
-    manager.create('test-default-shell', {
-      cwd: '/home/user',
-      cols: 80,
-      rows: 24,
-      onData,
-    });
-
-    expect((Bun as any).spawn).toHaveBeenCalledWith(
-      ['/bin/zsh'],
-      expect.objectContaining({ cwd: '/home/user' }),
-    );
-
-    process.env.SHELL = originalShell;
+      expect((Bun as any).spawn).toHaveBeenCalledWith(
+        ['/bin/zsh'],
+        expect.objectContaining({ cwd: '/home/user' }),
+      );
+    } finally {
+      if (originalShell === undefined) {
+        delete process.env.SHELL;
+      } else {
+        process.env.SHELL = originalShell;
+      }
+    }
   });
 
   it('create() invokes onData with base64-encoded data from terminal', () => {

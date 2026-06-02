@@ -197,7 +197,7 @@ describe('registerWorkspaceHandlers', () => {
       const payload = resp.payload as WorkspaceCreateResponse;
       expect(payload.workspace).toBeDefined();
       expect(payload.workspace.name).toBe('My Project');
-      expect(payload.workspace.cwd).toBe('/home/dev');
+      expect(payload.workspace.cwd).toBe(path.resolve('/home/dev'));
       expect(payload.workspace.color).toBe('#007acc');
     });
 

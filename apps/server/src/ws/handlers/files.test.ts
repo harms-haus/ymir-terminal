@@ -152,7 +152,7 @@ describe('registerFileHandlers', () => {
       await router.route(conn, req);
 
       expect(scanDirectoryFn).toHaveBeenCalledTimes(1);
-      expect(scanDirectoryFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
+      expect(scanDirectoryFn.mock.calls[0][0]).toBe('/home/dev/project');
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
