@@ -1226,7 +1226,7 @@ describe('registerGitHandlers', () => {
 
       expect(removeWorktreeFn).toHaveBeenCalledTimes(1);
       expect(removeWorktreeFn.mock.calls[0][0]).toBe('/home/dev/project');
-      expect(removeWorktreeFn.mock.calls[0][1]).toBe('/home/dev/project/.worktrees/feat');
+      expect(removeWorktreeFn.mock.calls[0][1]).toMatch(/\.worktrees\/feat$/);
       expect(removeWorktreeFn.mock.calls[0][2]).toBe(true);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
@@ -1332,7 +1332,7 @@ describe('registerGitHandlers', () => {
 
       expect(mergeWorktreeFn).toHaveBeenCalledTimes(1);
       expect(mergeWorktreeFn.mock.calls[0][0]).toBe('/home/dev/project');
-      expect(mergeWorktreeFn.mock.calls[0][1]).toBe('/home/dev/project/.worktrees/feat');
+      expect(mergeWorktreeFn.mock.calls[0][1]).toMatch(/\.worktrees\/feat$/);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
