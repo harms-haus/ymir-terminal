@@ -1,0 +1,13 @@
+diff --git a/dist/ghostty-web.js b/dist/ghostty-web.js
+index a4ca427b95288e70c782ce303013cd644893dcec..f18afccb5eeb09c815c3d2b2f54a5b9d9db44242 100644
+--- a/dist/ghostty-web.js
++++ b/dist/ghostty-web.js
+@@ -2387,7 +2387,7 @@ class IA {
+    */
+   writeInternal(A, B) {
+     var g;
+-    this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (g = this.linkDetector) == null || g.invalidateCache(), this.viewportY !== 0 && this.scrollToBottom(), typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), B && requestAnimationFrame(B);
++    this.wasmTerm.write(A), this.processTerminalResponses(), typeof A == "string" && A.includes("\x07") ? this.bellEmitter.fire() : A instanceof Uint8Array && A.includes(7) && this.bellEmitter.fire(), (g = this.linkDetector) == null || g.invalidateCache(), typeof A == "string" && A.includes("\x1B]") && this.checkForTitleChange(A), B && requestAnimationFrame(B);
+   }
+   /**
+    * Write data with newline
