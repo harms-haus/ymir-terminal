@@ -1,4 +1,5 @@
 import type { Database } from 'bun:sqlite';
+import type { GitStashEntry } from '@ymir/shared';
 import type { MessageRouter } from '../../router';
 import {
   type GitStatusResponse,
@@ -189,7 +190,7 @@ export interface GitDeps {
       dirPath: string,
       options?: { includeUntracked?: boolean; message?: string },
     ) => Promise<string>;
-    stashList?: (dirPath: string) => Promise<import('@ymir/shared').GitStashEntry[]>;
+    stashList?: (dirPath: string) => Promise<GitStashEntry[]>;
     stashApply?: (dirPath: string, stashRef?: string) => Promise<void>;
     stashPop?: (dirPath: string, stashRef?: string) => Promise<void>;
     stashDrop?: (dirPath: string, stashRef: string) => Promise<void>;
@@ -294,7 +295,7 @@ export interface ResolvedGitDeps {
     dirPath: string,
     options?: { includeUntracked?: boolean; message?: string },
   ) => Promise<string>;
-  doStashList: (dirPath: string) => Promise<import('@ymir/shared').GitStashEntry[]>;
+  doStashList: (dirPath: string) => Promise<GitStashEntry[]>;
   doStashApply: (dirPath: string, stashRef?: string) => Promise<void>;
   doStashPop: (dirPath: string, stashRef?: string) => Promise<void>;
   doStashDrop: (dirPath: string, stashRef: string) => Promise<void>;

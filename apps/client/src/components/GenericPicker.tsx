@@ -92,12 +92,14 @@ export function GenericPicker({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Reset state when dialog opens
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       setQuery('');
       setHighlightedIndex(0);
     }
-  }, [open]);
+    prevOpenRef.current = open;
+  });
 
   // Auto-focus input when dialog opens
   useEffect(() => {
@@ -119,13 +121,11 @@ export function GenericPicker({
       })
     : items;
 
-  // Keep highlighted index in bounds when filtered list changes
-  useEffect(() => {
-    setHighlightedIndex((prev) => {
-      if (filtered.length === 0) return 0;
-      return Math.min(prev, filtered.length - 1);
-    });
-  }, [filtered.length]);
+  // Keep highlighted index in bounds - use callback in query change instead of effect
+  const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    setHighlightedIndex(0);
+  }, []);
 
   // Scroll highlighted item into view
   useEffect(() => {
@@ -159,7 +159,7 @@ export function GenericPicker({
         ref={inputRef}
         style={inputStyle}
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={handleQueryChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         aria-label="Filter items"
