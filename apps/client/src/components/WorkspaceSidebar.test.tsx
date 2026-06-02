@@ -22,6 +22,7 @@ const mockUseWorkspaces = mock(() => ({
 
 mock.module('../hooks/useWorkspaces', () => ({
   useWorkspaces: mockUseWorkspaces,
+  useWorktreeCopyFiles: mock(() => ({ data: null, isLoading: false })),
 }));
 
 // ---------------------------------------------------------------------------

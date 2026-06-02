@@ -132,6 +132,7 @@ mock.module('../hooks/useWorkspaces', () => ({
   useCreateWorktree: mockUseCreateWorktree,
   useRemoveWorktree: mockUseRemoveWorktree,
   useMergeWorktree: mockUseMergeWorktree,
+  useWorktreeCopyFiles: mock(() => ({ data: null, isLoading: false })),
 }));
 
 mock.module('../hooks/useTheme', () => ({
