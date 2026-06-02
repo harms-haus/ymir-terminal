@@ -233,7 +233,12 @@ export function WorkspaceItemContextMenu({
       label: 'Remove',
       testId: 'ws-menu-remove',
       action: async () => {
-        const ok = await confirm({ title: 'Remove Workspace', message: `Remove workspace "${workspace.name}"?`, confirmLabel: 'Remove', danger: true });
+        const ok = await confirm({
+          title: 'Remove Workspace',
+          message: `Remove workspace "${workspace.name}"?`,
+          confirmLabel: 'Remove',
+          danger: true,
+        });
         if (!ok) return;
         onRemove(workspace.id);
       },

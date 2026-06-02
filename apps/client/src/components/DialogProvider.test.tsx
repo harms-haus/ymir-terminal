@@ -23,7 +23,9 @@ function useConfirmDirect() {
   if (!ctx) throw new Error('useConfirm must be used within a DialogProvider');
   return useCallback(
     (opts: { title: string; message: string; confirmLabel?: string; danger?: boolean }) =>
-      ctx.showDialog({ type: 'confirm', ...opts }).then((r) => (r as { confirmed: boolean }).confirmed),
+      ctx
+        .showDialog({ type: 'confirm', ...opts })
+        .then((r) => (r as { confirmed: boolean }).confirmed),
     [ctx],
   );
 }
@@ -32,8 +34,16 @@ function usePromptDirect() {
   const ctx = useContext(DialogContext);
   if (!ctx) throw new Error('usePrompt must be used within a DialogProvider');
   return useCallback(
-    (opts: { title: string; message: string; defaultValue?: string; placeholder?: string; submitLabel?: string }) =>
-      ctx.showDialog({ type: 'prompt', ...opts }).then((r) => (r as { value: string | null }).value),
+    (opts: {
+      title: string;
+      message: string;
+      defaultValue?: string;
+      placeholder?: string;
+      submitLabel?: string;
+    }) =>
+      ctx
+        .showDialog({ type: 'prompt', ...opts })
+        .then((r) => (r as { value: string | null }).value),
     [ctx],
   );
 }
@@ -43,11 +53,7 @@ function usePromptDirect() {
 // ---------------------------------------------------------------------------
 
 /** A component that calls useConfirmDirect and exposes the result via callback. */
-function ConfirmTester({
-  onResult,
-}: {
-  onResult: (confirmed: boolean) => void;
-}) {
+function ConfirmTester({ onResult }: { onResult: (confirmed: boolean) => void }) {
   const confirm = useConfirmDirect();
 
   const handleClick = useCallback(async () => {
@@ -66,11 +72,7 @@ function ConfirmTester({
 }
 
 /** A component that calls usePromptDirect and exposes the result via callback. */
-function PromptTester({
-  onResult,
-}: {
-  onResult: (value: string | null) => void;
-}) {
+function PromptTester({ onResult }: { onResult: (value: string | null) => void }) {
   const prompt = usePromptDirect();
 
   const handleClick = useCallback(async () => {
@@ -126,11 +128,7 @@ describe('DialogProvider', () => {
     const onResult = mock((_confirmed: boolean) => {});
 
     render(
-      React.createElement(
-        DialogProvider,
-        null,
-        React.createElement(ConfirmTester, { onResult }),
-      ),
+      React.createElement(DialogProvider, null, React.createElement(ConfirmTester, { onResult })),
     );
 
     // Click the trigger to open the dialog
@@ -148,9 +146,7 @@ describe('DialogProvider', () => {
     // Click the Confirm button (not Cancel)
     const buttons = within(document.body).getAllByRole('button');
     // "Trigger Confirm" button + Cancel + Confirm
-    const confirmButton = buttons.find(
-      (btn) => btn.textContent === 'Confirm',
-    );
+    const confirmButton = buttons.find((btn) => btn.textContent === 'Confirm');
     expect(confirmButton).toBeTruthy();
     fireEvent.click(confirmButton!);
 
@@ -167,11 +163,7 @@ describe('DialogProvider', () => {
     const onResult = mock((_confirmed: boolean) => {});
 
     render(
-      React.createElement(
-        DialogProvider,
-        null,
-        React.createElement(ConfirmTester, { onResult }),
-      ),
+      React.createElement(DialogProvider, null, React.createElement(ConfirmTester, { onResult })),
     );
 
     // Click the trigger to open the dialog
@@ -202,11 +194,7 @@ describe('DialogProvider', () => {
     const onResult = mock((_value: string | null) => {});
 
     render(
-      React.createElement(
-        DialogProvider,
-        null,
-        React.createElement(PromptTester, { onResult }),
-      ),
+      React.createElement(DialogProvider, null, React.createElement(PromptTester, { onResult })),
     );
 
     // Click the trigger to open the dialog
@@ -248,11 +236,7 @@ describe('DialogProvider', () => {
     const onResult = mock((_value: string | null) => {});
 
     render(
-      React.createElement(
-        DialogProvider,
-        null,
-        React.createElement(PromptTester, { onResult }),
-      ),
+      React.createElement(DialogProvider, null, React.createElement(PromptTester, { onResult })),
     );
 
     // Click the trigger to open the dialog
@@ -283,11 +267,7 @@ describe('DialogProvider', () => {
     const onResult = mock((_value: string | null) => {});
 
     render(
-      React.createElement(
-        DialogProvider,
-        null,
-        React.createElement(PromptTester, { onResult }),
-      ),
+      React.createElement(DialogProvider, null, React.createElement(PromptTester, { onResult })),
     );
 
     // Click the trigger to open the dialog

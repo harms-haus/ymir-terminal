@@ -22,12 +22,7 @@ export function useConfirm(): (opts: {
   }
 
   return useCallback(
-    (opts: {
-      title: string;
-      message: string;
-      confirmLabel?: string;
-      danger?: boolean;
-    }) =>
+    (opts: { title: string; message: string; confirmLabel?: string; danger?: boolean }) =>
       ctx
         .showDialog({ type: 'confirm', ...opts })
         .then((result) => (result as { confirmed: boolean }).confirmed),

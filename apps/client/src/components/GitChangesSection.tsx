@@ -84,7 +84,12 @@ export function GitChangesSection({
             <>
               <button
                 onClick={async () => {
-                  const ok = await confirm({ title: 'Discard All Changes', message: 'Discard all unstaged changes? This cannot be undone.', confirmLabel: 'Discard All', danger: true });
+                  const ok = await confirm({
+                    title: 'Discard All Changes',
+                    message: 'Discard all unstaged changes? This cannot be undone.',
+                    confirmLabel: 'Discard All',
+                    danger: true,
+                  });
                   if (!ok) return;
                   onDiscardFiles(
                     repoPath,

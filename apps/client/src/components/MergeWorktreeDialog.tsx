@@ -216,9 +216,7 @@ function MergeWorktreeForm({
           </div>
         </>
       )}
-      {allFiles.length === 0 && copyFiles && (
-        <div style={noFilesTextStyle}>No untracked files</div>
-      )}
+      {allFiles.length === 0 && copyFiles && <div style={noFilesTextStyle}>No untracked files</div>}
 
       <div style={buttonRowStyle}>
         <button

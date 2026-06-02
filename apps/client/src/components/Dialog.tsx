@@ -1,10 +1,7 @@
 import { useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cardStyle } from '../lib/dialog-styles';
-import {
-  COLOR_TEXT_CARD,
-  Z_INDEX_DIALOG,
-} from '../lib/theme';
+import { COLOR_TEXT_CARD, Z_INDEX_DIALOG } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,8 +37,6 @@ const titleStyle: React.CSSProperties = {
   margin: '0 0 24px 0',
   color: COLOR_TEXT_CARD,
 };
-
-
 
 // ---------------------------------------------------------------------------
 // Component
@@ -158,7 +153,9 @@ export function Dialog({
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [open]);
 
   // -------------------------------------------------------------------
@@ -186,13 +183,7 @@ export function Dialog({
   return createPortal(
     <>
       <div data-testid={testId} style={backdropStyle} onClick={handleBackdropClick}>
-        <div
-          ref={cardRef}
-          style={cardStyleMerged}
-          role={role}
-          aria-modal="true"
-          aria-label={title}
-        >
+        <div ref={cardRef} style={cardStyleMerged} role={role} aria-modal="true" aria-label={title}>
           <h2 style={titleStyle}>{title}</h2>
           {children}
         </div>

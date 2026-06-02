@@ -178,7 +178,11 @@ export function RightSidebar({
 
   const handleNewFile = useCallback(
     async (parentDir: string) => {
-      const name = await prompt({ title: 'New File', message: 'Enter file name:', placeholder: 'file.txt' });
+      const name = await prompt({
+        title: 'New File',
+        message: 'Enter file name:',
+        placeholder: 'file.txt',
+      });
       if (!name || !workspaceId) return;
       sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: false })
         .then(refreshFileTree)
@@ -189,7 +193,11 @@ export function RightSidebar({
 
   const handleNewFolder = useCallback(
     async (parentDir: string) => {
-      const name = await prompt({ title: 'New Folder', message: 'Enter folder name:', placeholder: 'folder' });
+      const name = await prompt({
+        title: 'New Folder',
+        message: 'Enter folder name:',
+        placeholder: 'folder',
+      });
       if (!name || !workspaceId) return;
       sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: true })
         .then(refreshFileTree)
@@ -201,7 +209,11 @@ export function RightSidebar({
   const handleRename = useCallback(
     async (path: string) => {
       const oldName = path.split('/').pop() || '';
-      const newName = await prompt({ title: 'Rename', message: 'Enter new name:', defaultValue: oldName });
+      const newName = await prompt({
+        title: 'Rename',
+        message: 'Enter new name:',
+        defaultValue: oldName,
+      });
       if (!newName || !workspaceId) return;
       const parentDir = path.split('/').slice(0, -1).join('/') || '/';
       sendRequest('file.rename', { workspaceId, oldPath: path, newPath: parentDir + '/' + newName })

@@ -39,7 +39,12 @@ export function GitChangeContextMenu({
         label: 'Discard Changes',
         testId: 'git-ctx-discard',
         action: async () => {
-          const ok = await confirm({ title: 'Discard Changes', message: `Discard changes to ${path}?`, confirmLabel: 'Discard', danger: true });
+          const ok = await confirm({
+            title: 'Discard Changes',
+            message: `Discard changes to ${path}?`,
+            confirmLabel: 'Discard',
+            danger: true,
+          });
           if (!ok) return;
           onDiscard?.(path);
         },
@@ -81,7 +86,12 @@ export function GitChangeContextMenu({
         label: 'Discard All',
         testId: 'git-ctx-discard-all',
         action: async () => {
-          const ok = await confirm({ title: 'Discard All Changes', message: `Discard all changes in ${path}?`, confirmLabel: 'Discard', danger: true });
+          const ok = await confirm({
+            title: 'Discard All Changes',
+            message: `Discard all changes in ${path}?`,
+            confirmLabel: 'Discard',
+            danger: true,
+          });
           if (!ok) return;
           onDiscard?.(path);
         },

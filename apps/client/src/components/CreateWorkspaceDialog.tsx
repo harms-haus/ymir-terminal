@@ -11,11 +11,7 @@ import {
   spinnerStyle,
   buttonRowStyle,
 } from '../lib/dialog-styles';
-import {
-  COLOR_BG_LOGIN,
-  COLOR_BORDER_CARD,
-  COLOR_TEXT_CARD_MUTED,
-} from '../lib/theme';
+import { COLOR_BG_LOGIN, COLOR_BORDER_CARD, COLOR_TEXT_CARD_MUTED } from '../lib/theme';
 import { Dialog } from './Dialog';
 
 // ---------------------------------------------------------------------------

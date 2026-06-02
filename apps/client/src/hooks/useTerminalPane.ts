@@ -131,9 +131,14 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
       const tab = tabs.find((t) => t.id === tabId);
       if (dirtyFiles && tab?.filePath && dirtyFiles.has(tab.filePath)) {
         const fileName = tab.filePath.split('/').pop() || tab.filePath;
-        const ok = await confirm({ title: 'Close Tab', message: `"${fileName}" has unsaved changes. Close without saving?`, confirmLabel: 'Close', danger: true });
+        const ok = await confirm({
+          title: 'Close Tab',
+          message: `"${fileName}" has unsaved changes. Close without saving?`,
+          confirmLabel: 'Close',
+          danger: true,
+        });
         if (!ok) return;
-        if (!tabsRef.current.find(t => t.id === tabId)) return;
+        if (!tabsRef.current.find((t) => t.id === tabId)) return;
       }
       if (tab?.terminalId) {
         sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(console.error);
@@ -154,14 +159,19 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
         );
         if (dirtyEditorsToClose.length > 0) {
           const names = dirtyEditorsToClose.map((t) => t.filePath!.split('/').pop()).join(', ');
-          const ok = await confirm({ title: 'Close Tabs', message: `"${names}" has unsaved changes. Close without saving?`, confirmLabel: 'Close', danger: true });
+          const ok = await confirm({
+            title: 'Close Tabs',
+            message: `"${names}" has unsaved changes. Close without saving?`,
+            confirmLabel: 'Close',
+            danger: true,
+          });
           if (!ok) return;
-          if (!tabsRef.current.find(t => t.id === tabId)) return;
+          if (!tabsRef.current.find((t) => t.id === tabId)) return;
         }
       } else if (confirmMultipleText && tabsToClose.length > 1) {
         const ok = await confirm({ title: 'Close Tabs', message: confirmMultipleText });
         if (!ok) return;
-        if (!tabsRef.current.find(t => t.id === tabId)) return;
+        if (!tabsRef.current.find((t) => t.id === tabId)) return;
       }
       tabsToClose.forEach((t) => {
         if (t.terminalId) {
@@ -183,14 +193,19 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
         );
         if (dirtyEditorsToClose.length > 0) {
           const names = dirtyEditorsToClose.map((t) => t.filePath!.split('/').pop()).join(', ');
-          const ok = await confirm({ title: 'Close Tabs', message: `"${names}" has unsaved changes. Close without saving?`, confirmLabel: 'Close', danger: true });
+          const ok = await confirm({
+            title: 'Close Tabs',
+            message: `"${names}" has unsaved changes. Close without saving?`,
+            confirmLabel: 'Close',
+            danger: true,
+          });
           if (!ok) return;
-          if (!tabsRef.current.find(t => t.id === tabId)) return;
+          if (!tabsRef.current.find((t) => t.id === tabId)) return;
         }
       } else if (confirmMultipleText && tabsToClose.length > 1) {
         const ok = await confirm({ title: 'Close Tabs', message: confirmMultipleText });
         if (!ok) return;
-        if (!tabsRef.current.find(t => t.id === tabId)) return;
+        if (!tabsRef.current.find((t) => t.id === tabId)) return;
       }
       tabsToClose.forEach((t) => {
         if (t.terminalId) {

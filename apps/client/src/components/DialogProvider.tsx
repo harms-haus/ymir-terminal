@@ -1,7 +1,12 @@
 import { useState, useCallback, useRef, useMemo, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { DialogContext } from '../contexts/DialogContext';
-import type { ConfirmConfig, DialogConfig, DialogResult, PromptConfig } from '../contexts/DialogContext';
+import type {
+  ConfirmConfig,
+  DialogConfig,
+  DialogResult,
+  PromptConfig,
+} from '../contexts/DialogContext';
 import { Dialog } from './Dialog';
 import {
   inputStyle,
@@ -71,9 +76,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                 <ConfirmDialogEntry
                   key={id}
                   config={config}
-                  onResult={(confirmed) =>
-                    resolveDialog(id, { type: 'confirm', confirmed })
-                  }
+                  onResult={(confirmed) => resolveDialog(id, { type: 'confirm', confirmed })}
                 />
               );
             }
@@ -82,9 +85,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
               <PromptDialogEntry
                 key={id}
                 config={config}
-                onResult={(value) =>
-                  resolveDialog(id, { type: 'prompt', value })
-                }
+                onResult={(value) => resolveDialog(id, { type: 'prompt', value })}
               />
             );
           })}
@@ -120,11 +121,7 @@ function ConfirmDialogEntry({
           Cancel
         </button>
         <button
-          style={
-            config.danger
-              ? dangerButtonStyle
-              : submitButtonBaseStyle
-          }
+          style={config.danger ? dangerButtonStyle : submitButtonBaseStyle}
           onClick={() => onResult(true)}
         >
           {config.confirmLabel ?? 'Confirm'}

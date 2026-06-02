@@ -125,7 +125,12 @@ export function FileTreeContextMenu({
       testId: 'menu-delete',
       action: async () => {
         const name = path.split('/').pop() || path;
-        const ok = await confirm({ title: 'Delete File', message: `Delete "${name}"? This cannot be undone.`, confirmLabel: 'Delete', danger: true });
+        const ok = await confirm({
+          title: 'Delete File',
+          message: `Delete "${name}"? This cannot be undone.`,
+          confirmLabel: 'Delete',
+          danger: true,
+        });
         if (!ok) return;
         onDelete?.(path);
       },

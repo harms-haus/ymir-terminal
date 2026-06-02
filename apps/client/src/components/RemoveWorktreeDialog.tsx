@@ -6,11 +6,7 @@ import {
   spinnerStyle,
   buttonRowStyle,
 } from '../lib/dialog-styles';
-import {
-  COLOR_TEXT_CARD,
-  COLOR_TEXT_CARD_MUTED,
-  COLOR_DANGER,
-} from '../lib/theme';
+import { COLOR_TEXT_CARD, COLOR_TEXT_CARD_MUTED, COLOR_DANGER } from '../lib/theme';
 import { Dialog } from './Dialog';
 
 // ---------------------------------------------------------------------------
