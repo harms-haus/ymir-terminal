@@ -169,6 +169,8 @@ interface MessageEnvelope<T = unknown> {
 | `file.create`        | request   | Create file or directory                                                                               |
 | `file.delete`        | request   | Delete file or directory                                                                               |
 | `file.rename`        | request   | Rename/move a file                                                                                     |
+| `file.copy`           | request   | Copy a file or directory to a target directory (auto-renames on conflict)                           |
+| `file.move`           | request   | Move a file or directory to a target directory (auto-renames on conflict)                           |
 | `file.change`        | event     | Filesystem change notification                                                                         |
 | `git.status`         | request   | Get git status for a path; optional `repoPath`, returns `hasRemote`, `ahead`, `behind`                 |
 | `git.log`            | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`); optional `repoPath` |
@@ -263,7 +265,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | Module        | Responsibility                                           |
 | ------------- | -------------------------------------------------------- |
 | `tree.ts`     | File tree reading, directory scanning                    |
-| `crud.ts`     | File create, write, delete, rename                       |
+| `crud.ts`     | File create, write, delete, rename, copy, move                       |
 | `language.ts` | Language detection from file extensions/filenames        |
 | `shared.ts`   | Shared utilities (`safePath`, `resolveWorkspace`, types) |
 | `index.ts`    | Re-exports `registerFileHandlers`                        |

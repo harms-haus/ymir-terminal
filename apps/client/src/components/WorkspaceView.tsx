@@ -29,6 +29,7 @@ import { sendRequest } from '../lib/send-request';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider, type DragEndEvent, type DragOverEvent } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
+import { FileClipboardProvider } from '../contexts/FileClipboardContext';
 
 interface TerminalRegistryEntry {
   terminalId: string;
@@ -695,7 +696,9 @@ export function WorkspaceView() {
   return (
     <ToastProvider>
       <PaneVisibilityProvider>
-        <WorkspaceViewInner />
+        <FileClipboardProvider>
+          <WorkspaceViewInner />
+        </FileClipboardProvider>
       </PaneVisibilityProvider>
     </ToastProvider>
   );

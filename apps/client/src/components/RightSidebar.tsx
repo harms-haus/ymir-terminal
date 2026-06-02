@@ -10,6 +10,7 @@ import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
 import { mergeDeletedFiles } from '../lib/git-utils';
+import { useFileClipboard } from '../contexts/FileClipboardContext';
 import {
   COLOR_BORDER,
   COLOR_ERROR,
@@ -43,6 +44,8 @@ export function RightSidebar({
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const explorerGroupRef = useRef<GroupImperativeHandle>(null);
   const sizesLoadedRef = useRef(false);
+
+  const { clipboard, cut, copy, paste } = useFileClipboard();
 
   // Load persisted project sidebar panel sizes on mount
   useEffect(() => {
@@ -215,6 +218,31 @@ export function RightSidebar({
     [workspaceId, refreshFileTree],
   );
 
+  const handleCut = useCallback(
+    (path: string) => {
+      if (!workspaceId) return;
+      cut(path, workspaceId);
+    },
+    [workspaceId, cut],
+  );
+
+  const handleCopy = useCallback(
+    (path: string) => {
+      if (!workspaceId) return;
+      copy(path, workspaceId);
+    },
+    [workspaceId, copy],
+  );
+
+  const handlePaste = useCallback(
+    async (targetDir: string) => {
+      if (!workspaceId) return;
+      await paste(targetDir, workspaceId);
+      refreshFileTree();
+    },
+    [workspaceId, paste, refreshFileTree],
+  );
+
   return (
     <div
       data-testid="right-sidebar-content"
@@ -309,6 +337,11 @@ export function RightSidebar({
                 onDelete={handleDelete}
                 gitStatus={effectiveGitStatus}
                 workspaceRoot={workspaceCwd}
+                onCut={handleCut}
+                onCopy={handleCopy}
+                onPaste={handlePaste}
+                clipboardHasItem={clipboard.mode !== null}
+                workspaceCwd={workspaceCwd}
               />
             ) : (
               <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>

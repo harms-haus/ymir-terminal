@@ -64,6 +64,7 @@ const sendRequestSpy = spyOn(sendRequestModule, 'sendRequest').mockResolvedValue
 // ---------------------------------------------------------------------------
 
 const { RightSidebar } = await import('./RightSidebar');
+const { FileClipboardProvider } = await import('../contexts/FileClipboardContext');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -74,7 +75,13 @@ function renderRightSidebar(
   onFileSelect: (path: string) => void = mock(() => {}),
   workspaceCwd?: string,
 ) {
-  return render(React.createElement(RightSidebar, { workspaceId, onFileSelect, workspaceCwd }));
+  return render(
+    React.createElement(
+      FileClipboardProvider,
+      null,
+      React.createElement(RightSidebar, { workspaceId, onFileSelect, workspaceCwd }),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

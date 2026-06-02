@@ -1,11 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { resolve } from 'node:path';
-import { describe, expect, it, beforeEach, mock } from 'bun:test';
+import { resolve, join } from 'node:path';
+import { mkdtemp, writeFile, mkdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { existsSync } from 'node:fs';
+import { describe, expect, it, beforeEach, afterEach, mock } from 'bun:test';
 import { ErrorCodes, type FileTreeResponse, type FileReadResponse } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerFileHandlers } from './files/index';
 import type { FileDeps } from './files/index';
+import * as fileOps from '../../files/operations';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -521,5 +525,376 @@ describe('registerFileHandlers', () => {
       const resp = conn.sent[0] as Record<string, unknown>;
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration tests for file.copy and file.move (real filesystem)
+// ---------------------------------------------------------------------------
+
+describe('file.copy (integration)', () => {
+  let router: MessageRouter;
+  let conn: ReturnType<typeof mockConn>;
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'ymir-copy-test-'));
+    router = new MessageRouter();
+    conn = mockConn();
+
+    const deps: FileDeps = {
+      persistentDb: {} as any,
+      scanner: { scanDirectory: mock(() => []) },
+      operations: {
+        readFile: fileOps.readFile,
+        writeFile: fileOps.writeFile,
+        deleteFile: fileOps.deleteFile,
+        renameFile: fileOps.renameFile,
+        createFile: fileOps.createFile,
+        createDirectory: fileOps.createDirectory,
+      },
+      watcher: {},
+      _mocks: {
+        getWorkspace: mock((_db: unknown, id: string) => {
+          if (id === 'ws-1') {
+            return {
+              id: 'ws-1',
+              name: 'Test',
+              cwd: tmpDir,
+              color: '#007acc',
+              sort_order: 0,
+            };
+          }
+          return null;
+        }),
+      },
+    };
+
+    registerFileHandlers(router, deps);
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('copies a file to destDir', async () => {
+    // Create source file and dest dir inside workspace
+    await writeFile(join(tmpDir, 'source.txt'), 'hello world');
+    await mkdir(join(tmpDir, 'dest'));
+
+    const req = request('file.copy', {
+      workspaceId: 'ws-1',
+      srcPath: 'source.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.type).toBe('response');
+    expect(resp.error).toBeUndefined();
+    expect(resp.payload).toEqual({ success: true });
+
+    // Verify file exists in dest dir with correct content
+    const copied = await readFile(join(tmpDir, 'dest', 'source.txt'), 'utf-8');
+    expect(copied).toBe('hello world');
+  });
+
+  it('copies a directory recursively', async () => {
+    // Create nested structure: dir/subdir/file.txt
+    await mkdir(join(tmpDir, 'srcdir', 'subdir'), { recursive: true });
+    await writeFile(join(tmpDir, 'srcdir', 'subdir', 'file.txt'), 'nested content');
+    await mkdir(join(tmpDir, 'dest'));
+
+    const req = request('file.copy', {
+      workspaceId: 'ws-1',
+      srcPath: 'srcdir',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.type).toBe('response');
+    expect(resp.error).toBeUndefined();
+    expect(resp.payload).toEqual({ success: true });
+
+    // Verify all files copied
+    const copied = await readFile(join(tmpDir, 'dest', 'srcdir', 'subdir', 'file.txt'), 'utf-8');
+    expect(copied).toBe('nested content');
+  });
+
+  it('auto-renames on conflict', async () => {
+    // Create source file
+    await writeFile(join(tmpDir, 'note.txt'), 'original');
+    // Create dest dir with a file of the same name
+    await mkdir(join(tmpDir, 'dest'));
+    await writeFile(join(tmpDir, 'dest', 'note.txt'), 'existing');
+
+    const req = request('file.copy', {
+      workspaceId: 'ws-1',
+      srcPath: 'note.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.type).toBe('response');
+    expect(resp.error).toBeUndefined();
+    expect(resp.payload).toEqual({ success: true });
+
+    // Original file should still exist in dest
+    const existing = await readFile(join(tmpDir, 'dest', 'note.txt'), 'utf-8');
+    expect(existing).toBe('existing');
+
+    // Copy should have " copy" suffix
+    const copied = await readFile(join(tmpDir, 'dest', 'note copy.txt'), 'utf-8');
+    expect(copied).toBe('original');
+  });
+
+  it('rejects path traversal in srcPath', async () => {
+    await mkdir(join(tmpDir, 'dest'));
+
+    const req = request('file.copy', {
+      workspaceId: 'ws-1',
+      srcPath: '../../../etc/passwd',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+  });
+
+  it('rejects path traversal in destDir', async () => {
+    await writeFile(join(tmpDir, 'source.txt'), 'hello world');
+
+    const req = request('file.copy', {
+      workspaceId: 'ws-1',
+      srcPath: 'source.txt',
+      destDir: '../../../tmp',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+  });
+
+  it('returns INVALID_MESSAGE when srcPath is missing', async () => {
+    const req = request('file.copy', {
+      workspaceId: 'ws-1',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+  });
+
+  it('returns INVALID_MESSAGE when destDir is missing', async () => {
+    const req = request('file.copy', {
+      workspaceId: 'ws-1',
+      srcPath: 'source.txt',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+  });
+
+  it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+    const req = request('file.copy', {
+      workspaceId: 'nonexistent',
+      srcPath: 'source.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+  });
+
+  it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+    const req = request('file.copy', {
+      srcPath: 'source.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+  });
+});
+
+describe('file.move (integration)', () => {
+  let router: MessageRouter;
+  let conn: ReturnType<typeof mockConn>;
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'ymir-move-test-'));
+    router = new MessageRouter();
+    conn = mockConn();
+
+    const deps: FileDeps = {
+      persistentDb: {} as any,
+      scanner: { scanDirectory: mock(() => []) },
+      operations: {
+        readFile: fileOps.readFile,
+        writeFile: fileOps.writeFile,
+        deleteFile: fileOps.deleteFile,
+        renameFile: fileOps.renameFile,
+        createFile: fileOps.createFile,
+        createDirectory: fileOps.createDirectory,
+      },
+      watcher: {},
+      _mocks: {
+        getWorkspace: mock((_db: unknown, id: string) => {
+          if (id === 'ws-1') {
+            return {
+              id: 'ws-1',
+              name: 'Test',
+              cwd: tmpDir,
+              color: '#007acc',
+              sort_order: 0,
+            };
+          }
+          return null;
+        }),
+      },
+    };
+
+    registerFileHandlers(router, deps);
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('moves a file to destDir', async () => {
+    // Create source file and dest dir
+    await writeFile(join(tmpDir, 'move-me.txt'), 'move content');
+    await mkdir(join(tmpDir, 'dest'));
+
+    const req = request('file.move', {
+      workspaceId: 'ws-1',
+      srcPath: 'move-me.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.type).toBe('response');
+    expect(resp.error).toBeUndefined();
+    expect(resp.payload).toEqual({ success: true });
+
+    // Source should no longer exist
+    expect(existsSync(join(tmpDir, 'move-me.txt'))).toBe(false);
+
+    // File should exist in dest
+    const moved = await readFile(join(tmpDir, 'dest', 'move-me.txt'), 'utf-8');
+    expect(moved).toBe('move content');
+  });
+
+  it('auto-renames on conflict', async () => {
+    // Create source file
+    await writeFile(join(tmpDir, 'doc.txt'), 'source content');
+    // Create dest dir with a file of the same name
+    await mkdir(join(tmpDir, 'dest'));
+    await writeFile(join(tmpDir, 'dest', 'doc.txt'), 'existing content');
+
+    const req = request('file.move', {
+      workspaceId: 'ws-1',
+      srcPath: 'doc.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.type).toBe('response');
+    expect(resp.error).toBeUndefined();
+    expect(resp.payload).toEqual({ success: true });
+
+    // Original file in dest should still exist
+    const existing = await readFile(join(tmpDir, 'dest', 'doc.txt'), 'utf-8');
+    expect(existing).toBe('existing content');
+
+    // Moved file should have " copy" suffix
+    const moved = await readFile(join(tmpDir, 'dest', 'doc copy.txt'), 'utf-8');
+    expect(moved).toBe('source content');
+
+    // Source should be gone
+    expect(existsSync(join(tmpDir, 'doc.txt'))).toBe(false);
+  });
+
+  it('rejects path traversal in srcPath', async () => {
+    await mkdir(join(tmpDir, 'dest'));
+
+    const req = request('file.move', {
+      workspaceId: 'ws-1',
+      srcPath: '../../../etc/passwd',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+  });
+
+  it('rejects path traversal in destDir', async () => {
+    await writeFile(join(tmpDir, 'move-me.txt'), 'hello world');
+
+    const req = request('file.move', {
+      workspaceId: 'ws-1',
+      srcPath: 'move-me.txt',
+      destDir: '../../../tmp',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
+  });
+
+  it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+    const req = request('file.move', {
+      srcPath: 'move-me.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+  });
+
+  it('returns INVALID_MESSAGE when srcPath is missing', async () => {
+    const req = request('file.move', {
+      workspaceId: 'ws-1',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+  });
+
+  it('returns INVALID_MESSAGE when destDir is missing', async () => {
+    const req = request('file.move', {
+      workspaceId: 'ws-1',
+      srcPath: 'move-me.txt',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+  });
+
+  it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+    const req = request('file.move', {
+      workspaceId: 'nonexistent',
+      srcPath: 'move-me.txt',
+      destDir: 'dest',
+    });
+    await router.route(conn, req);
+
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
   });
 });

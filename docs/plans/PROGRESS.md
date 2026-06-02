@@ -342,3 +342,51 @@ Fixed workspace tab isolation so each workspace has its own independent set of t
 - [x] 10.8 Auto-login for Tauri environment
 - [x] 10.9 Window controls and drag region in TopBar
 - [x] 10.10 Build scripts for sidecar and Tauri
+
+---
+
+## File Tree Context Menu: Cut, Copy, Paste
+
+_2026-06-02_
+
+Added clipboard operations (cut, copy, paste) to the file tree context menu with keyboard shortcuts and auto-rename conflict resolution.
+
+### New Files
+
+- `apps/client/src/contexts/FileClipboardContext.tsx` — React Context for clipboard state management (cut/copy/paste)
+
+### Files Modified
+
+- `packages/shared/src/protocol/payloads/file.ts` — Added `FileCopyRequest` and `FileMoveRequest` types
+- `packages/shared/src/protocol/payloads/index.ts` — Added `file.copy` and `file.move` to `REQUEST_TYPES`
+- `apps/server/src/files/operations.ts` — Added `findAvailableName` (conflict resolution) and `copyDirectory` (recursive copy)
+- `apps/server/src/ws/handlers/files/crud.ts` — Added `file.copy` and `file.move` WebSocket handlers
+- `apps/client/src/components/FileTreeContextMenu.tsx` — Added Cut, Copy, Paste, Copy Path, Copy Relative Path menu items with keyboard shortcut hints
+- `apps/client/src/components/FileTree.tsx` — Added clipboard prop threading and keyboard shortcuts (Ctrl/Cmd+C/X/V)
+- `apps/client/src/components/RightSidebar.tsx` — Wired clipboard handlers
+- `apps/client/src/components/WorkspaceView.tsx` — Wrapped with `FileClipboardProvider`
+
+### Features
+
+1. **Cut** — Marks file/directory for moving (⌘X / Ctrl+X)
+2. **Copy** — Marks file/directory for copying (⌘C / Ctrl+C)
+3. **Paste** — Pastes into target directory with auto-rename on conflict (⌘V / Ctrl+V)
+4. **Copy Path** — Copies absolute file path to system clipboard (⇧⌘C / Shift+Ctrl+C)
+5. **Copy Relative Path** — Copies relative path to system clipboard
+6. **Keyboard shortcuts** — Ctrl/Cmd+C/X/V work on focused tree node
+7. **Auto-rename** — Server automatically resolves name conflicts ("file copy.ts", "file copy 2.ts")
+
+### Security
+
+- Path traversal prevention via `safePath()` on both `srcPath` and `destDir`
+- Server-side guard against circular copy/move (can't paste into self/descendant)
+- `COPYFILE_EXCL` flag prevents TOCTOU race conditions
+- Cross-workspace paste blocked (clipboard scoped to workspace)
+- Clipboard cleared only on successful paste
+
+### Test Coverage
+
+- 21 context menu tests (10 new)
+- 49 server handler tests (17 new for file.copy/file.move)
+- 21 operations tests (6 new for findAvailableName/copyDirectory)
+- 48 protocol type tests (updated)

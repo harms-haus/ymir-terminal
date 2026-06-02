@@ -35,6 +35,8 @@ import type {
   FileDeleteRequest,
   FileRenameRequest,
   FileCreateRequest,
+  FileCopyRequest,
+  FileMoveRequest,
   FileChangeEvent,
 } from './file';
 import type {
@@ -89,6 +91,8 @@ export const REQUEST_TYPES = [
   'file.delete',
   'file.rename',
   'file.create',
+  'file.copy',
+  'file.move',
   'git.status',
   'git.log',
   'git.repoDiscovery',
@@ -149,6 +153,8 @@ export type RequestPayload =
   | FileDeleteRequest
   | FileRenameRequest
   | FileCreateRequest
+  | FileCopyRequest
+  | FileMoveRequest
   | GitStatusRequest
   | GitLogRequest
   | GitRepoDiscoveryRequest

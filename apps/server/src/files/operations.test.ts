@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { join } from 'node:path';
-import { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import {
   readFile,
@@ -9,6 +9,8 @@ import {
   renameFile,
   createFile,
   createDirectory,
+  findAvailableName,
+  copyDirectory,
 } from './operations';
 
 let tempDir: string;
@@ -138,5 +140,61 @@ describe('createDirectory', () => {
     const dirPath = join(tempDir, 'exists');
     await createDirectory(dirPath);
     expect(createDirectory(dirPath)).resolves.toBeUndefined();
+  });
+});
+
+// ── findAvailableName ─────────────────────────────────────────────────────────
+
+describe('findAvailableName', () => {
+  test('returns baseName when no conflict', async () => {
+    const result = await findAvailableName(tempDir, 'foo.txt');
+    expect(result).toBe('foo.txt');
+  });
+
+  test('appends " copy" on conflict (preserving extension)', async () => {
+    writeFileSync(join(tempDir, 'foo.ts'), '');
+    const result = await findAvailableName(tempDir, 'foo.ts');
+    expect(result).toBe('foo copy.ts');
+  });
+
+  test('appends " copy 2" when " copy" also exists', async () => {
+    writeFileSync(join(tempDir, 'bar.txt'), '');
+    writeFileSync(join(tempDir, 'bar copy.txt'), '');
+    const result = await findAvailableName(tempDir, 'bar.txt');
+    expect(result).toBe('bar copy 2.txt');
+  });
+
+  test('works with no extension (e.g., "Makefile")', async () => {
+    writeFileSync(join(tempDir, 'Makefile'), '');
+    const result = await findAvailableName(tempDir, 'Makefile');
+    expect(result).toBe('Makefile copy');
+  });
+});
+
+// ── copyDirectory ─────────────────────────────────────────────────────────────
+
+describe('copyDirectory', () => {
+  test('copies a directory with files recursively', async () => {
+    const srcDir = join(tempDir, 'src');
+    const destDir = join(tempDir, 'dest');
+    mkdirSync(join(srcDir, 'sub'), { recursive: true });
+    writeFileSync(join(srcDir, 'a.txt'), 'aaa');
+    writeFileSync(join(srcDir, 'sub', 'b.txt'), 'bbb');
+
+    await copyDirectory(srcDir, destDir);
+
+    expect(existsSync(join(destDir, 'a.txt'))).toBe(true);
+    expect(existsSync(join(destDir, 'sub', 'b.txt'))).toBe(true);
+  });
+
+  test('preserves file contents', async () => {
+    const srcDir = join(tempDir, 'src');
+    const destDir = join(tempDir, 'dest');
+    mkdirSync(srcDir, { recursive: true });
+    writeFileSync(join(srcDir, 'data.txt'), 'hello world');
+
+    await copyDirectory(srcDir, destDir);
+
+    expect(readFileSync(join(destDir, 'data.txt'), 'utf-8')).toBe('hello world');
   });
 });

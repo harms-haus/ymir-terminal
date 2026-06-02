@@ -15,10 +15,33 @@ interface FileTreeContextMenuProps {
   onRename?: (path: string) => void;
   onDelete?: (path: string) => void;
   onOpenEditor?: (path: string) => void;
+  onCut?: (path: string) => void;
+  onCopy?: (path: string) => void;
+  onPaste?: (targetDir: string) => void;
+  clipboardHasItem?: boolean;
+  workspaceCwd?: string;
   children: React.ReactNode;
 }
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+const mod = isMac ? '⌘' : 'Ctrl+';
+const shift = isMac ? '⇧' : 'Shift+';
+
+function ShortcutHint({ shortcut }: { shortcut: string }) {
+  return (
+    <span style={{ marginLeft: 'auto', fontSize: '11px', opacity: 0.6, paddingLeft: '16px' }}>
+      {shortcut}
+    </span>
+  );
+}
+
 const FILE_TREE_CONTEXT_MENU_CSS = getContextMenuCss('context-menu');
+
+const flexMenuItemStyle: React.CSSProperties = {
+  ...menuItemStyle,
+  display: 'flex',
+  alignItems: 'center',
+};
 
 export function FileTreeContextMenu({
   path,
@@ -28,6 +51,11 @@ export function FileTreeContextMenu({
   onRename,
   onDelete,
   onOpenEditor,
+  onCut,
+  onCopy,
+  onPaste,
+  clipboardHasItem,
+  workspaceCwd,
   children,
 }: FileTreeContextMenuProps) {
   return (
@@ -64,6 +92,67 @@ export function FileTreeContextMenu({
               Open in Editor
             </ContextMenu.Item>
           )}
+
+          <ContextMenu.Separator style={separatorStyle} />
+
+          <ContextMenu.Item
+            data-testid="menu-cut"
+            onSelect={() => onCut?.(path)}
+            style={flexMenuItemStyle}
+          >
+            Cut
+            <ShortcutHint shortcut={`${mod}X`} />
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            data-testid="menu-copy"
+            onSelect={() => onCopy?.(path)}
+            style={flexMenuItemStyle}
+          >
+            Copy
+            <ShortcutHint shortcut={`${mod}C`} />
+          </ContextMenu.Item>
+
+          {isDirectory && (
+            <ContextMenu.Item
+              data-testid="menu-paste"
+              disabled={!clipboardHasItem}
+              onSelect={() => onPaste?.(path)}
+              style={
+                clipboardHasItem
+                  ? flexMenuItemStyle
+                  : { ...flexMenuItemStyle, opacity: 0.4 }
+              }
+            >
+              Paste
+              <ShortcutHint shortcut={`${mod}V`} />
+            </ContextMenu.Item>
+          )}
+
+          <ContextMenu.Separator style={separatorStyle} />
+
+          <ContextMenu.Item
+            data-testid="menu-copy-path"
+            onSelect={() => {
+              const absolutePath = workspaceCwd ? `${workspaceCwd}/${path}` : path;
+              navigator.clipboard.writeText(absolutePath);
+            }}
+            style={flexMenuItemStyle}
+          >
+            Copy Path
+            <ShortcutHint shortcut={`${shift}${mod}C`} />
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            data-testid="menu-copy-relative-path"
+            onSelect={() => {
+              navigator.clipboard.writeText(path);
+            }}
+            style={flexMenuItemStyle}
+          >
+            Copy Relative Path
+          </ContextMenu.Item>
+
+          <ContextMenu.Separator style={separatorStyle} />
+
           <ContextMenu.Item
             data-testid="menu-rename"
             onSelect={() => onRename?.(path)}

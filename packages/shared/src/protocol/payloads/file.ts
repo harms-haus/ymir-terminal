@@ -48,6 +48,18 @@ export interface FileCreateRequest {
   isDirectory: boolean;
 }
 
+export interface FileCopyRequest {
+  workspaceId: string;
+  srcPath: string;
+  destDir: string;
+}
+
+export interface FileMoveRequest {
+  workspaceId: string;
+  srcPath: string;
+  destDir: string;
+}
+
 export interface FileChangeEvent {
   workspaceId: string;
   path: string;

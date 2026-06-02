@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import type { FileNode, GitStatusResponse } from '@ymir/shared';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { buildGitPathMap, computeDirectoryStatus } from '../lib/git-utils';
@@ -18,6 +18,11 @@ interface FileTreeProps {
   onRename?: (path: string) => void;
   onDelete?: (path: string) => void;
   onOpenEditor?: (path: string) => void;
+  onCut?: (path: string) => void;
+  onCopy?: (path: string) => void;
+  onPaste?: (targetDir: string) => void;
+  clipboardHasItem?: boolean;
+  workspaceCwd?: string;
 }
 
 export function FileTree({
@@ -31,11 +36,56 @@ export function FileTree({
   onRename,
   onDelete,
   onOpenEditor,
+  onCut,
+  onCopy,
+  onPaste,
+  clipboardHasItem,
+  workspaceCwd,
 }: FileTreeProps) {
-  // @ts-expect-error -- gitStatus may be undefined from hook, buildGitPathMap accepts null
-  const gitPathMap = useMemo(() => buildGitPathMap(gitStatus), [gitStatus]);
+  const gitPathMap = useMemo(() => buildGitPathMap(gitStatus ?? null), [gitStatus]);
 
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, FileNode>();
+    function walk(nodes: FileNode[]) {
+      for (const n of nodes) {
+        map.set(n.path, n);
+        if (n.children) walk(n.children);
+      }
+    }
+    walk(tree);
+    return map;
+  }, [tree]);
+
+  const lastClickedPathRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (!isMod) return;
+
+      const activePath = selectedPath || lastClickedPathRef.current;
+      if (!activePath) return;
+
+      if (e.key === 'c' && !e.shiftKey) {
+        e.preventDefault();
+        onCopy?.(activePath);
+      } else if (e.key === 'x' && !e.shiftKey) {
+        e.preventDefault();
+        onCut?.(activePath);
+      } else if (e.key === 'v') {
+        const node = nodeMap.get(activePath);
+        if (node?.isDirectory && clipboardHasItem) {
+          e.preventDefault();
+          onPaste?.(activePath);
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPath, nodeMap, onCopy, onCut, onPaste, clipboardHasItem]);
 
   const toggleExpanded = (path: string) => {
     setExpandedPaths((prev) => {
@@ -64,6 +114,12 @@ export function FileTree({
           onOpenEditor={onOpenEditor}
           expandedPaths={expandedPaths}
           onToggleExpanded={toggleExpanded}
+          onCut={onCut}
+          onCopy={onCopy}
+          onPaste={onPaste}
+          clipboardHasItem={clipboardHasItem}
+          workspaceCwd={workspaceCwd}
+          lastClickedPathRef={lastClickedPathRef}
         />
       ))}
     </div>
@@ -93,6 +149,12 @@ function FileTreeNode({
   onOpenEditor,
   expandedPaths,
   onToggleExpanded,
+  onCut,
+  onCopy,
+  onPaste,
+  clipboardHasItem,
+  workspaceCwd,
+  lastClickedPathRef,
 }: {
   node: FileNode;
   onFileSelect: (path: string) => void;
@@ -107,6 +169,12 @@ function FileTreeNode({
   onOpenEditor?: (path: string) => void;
   expandedPaths: Set<string>;
   onToggleExpanded: (path: string) => void;
+  onCut?: (path: string) => void;
+  onCopy?: (path: string) => void;
+  onPaste?: (targetDir: string) => void;
+  clipboardHasItem?: boolean;
+  workspaceCwd?: string;
+  lastClickedPathRef: React.RefObject<string | null>;
 }) {
   const expanded = expandedPaths.has(node.path);
 
@@ -122,6 +190,7 @@ function FileTreeNode({
   const statusLabel = gitEntry ? GIT_STATUS_LABELS[gitEntry.status] || gitEntry.status : undefined;
 
   const handleClick = () => {
+    lastClickedPathRef.current = node.path;
     if (node.isDirectory) {
       onToggleExpanded(node.path);
     } else {
@@ -139,6 +208,11 @@ function FileTreeNode({
         onRename={onRename}
         onDelete={onDelete}
         onOpenEditor={onOpenEditor}
+        onCut={onCut}
+        onCopy={onCopy}
+        onPaste={onPaste}
+        clipboardHasItem={clipboardHasItem}
+        workspaceCwd={workspaceCwd}
       >
         <div
           data-testid={`tree-node-${node.path}`}
@@ -239,6 +313,12 @@ function FileTreeNode({
               onOpenEditor={onOpenEditor}
               expandedPaths={expandedPaths}
               onToggleExpanded={onToggleExpanded}
+              onCut={onCut}
+              onCopy={onCopy}
+              onPaste={onPaste}
+              clipboardHasItem={clipboardHasItem}
+              workspaceCwd={workspaceCwd}
+              lastClickedPathRef={lastClickedPathRef}
             />
           ))}
         </div>

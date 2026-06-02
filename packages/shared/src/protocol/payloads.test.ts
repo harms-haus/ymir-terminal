@@ -33,6 +33,8 @@ import {
   type FileDeleteRequest,
   type FileRenameRequest,
   type FileCreateRequest,
+  type FileCopyRequest,
+  type FileMoveRequest,
   type FileChangeEvent,
   // Git
   type GitFileChange,
@@ -97,6 +99,8 @@ describe('REQUEST_TYPES', () => {
     'file.delete',
     'file.rename',
     'file.create',
+    'file.copy',
+    'file.move',
     'git.status',
     'git.log',
     'git.repoDiscovery',
@@ -129,8 +133,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 42 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(42);
+  it('has exactly 44 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(44);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -499,6 +503,30 @@ describe('FileCreateRequest', () => {
   });
 });
 
+describe('FileCopyRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: FileCopyRequest = {
+      workspaceId: 'ws-1',
+      srcPath: '/src/a.ts',
+      destDir: '/src/sub',
+    };
+    const parsed: FileCopyRequest = JSON.parse(JSON.stringify(payload));
+    expect(parsed).toEqual(payload);
+  });
+});
+
+describe('FileMoveRequest', () => {
+  it('round-trips through JSON', () => {
+    const payload: FileMoveRequest = {
+      workspaceId: 'ws-1',
+      srcPath: '/src/a.ts',
+      destDir: '/src/sub',
+    };
+    const parsed: FileMoveRequest = JSON.parse(JSON.stringify(payload));
+    expect(parsed).toEqual(payload);
+  });
+});
+
 describe('FileChangeEvent', () => {
   it('round-trips through JSON', () => {
     const payload: FileChangeEvent = {
@@ -589,6 +617,8 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', path: '/a' } satisfies FileDeleteRequest,
       { workspaceId: 'ws-1', oldPath: '/a', newPath: '/b' } satisfies FileRenameRequest,
       { workspaceId: 'ws-1', path: '/a', isDirectory: false } satisfies FileCreateRequest,
+      { workspaceId: 'ws-1', srcPath: '/src/a.ts', destDir: '/src/sub' } satisfies FileCopyRequest,
+      { workspaceId: 'ws-1', srcPath: '/src/a.ts', destDir: '/src/sub' } satisfies FileMoveRequest,
       { workspaceId: 'ws-1' } satisfies GitStatusRequest,
       { workspaceId: 'ws-1', skip: 0, limit: 50 } satisfies GitLogRequest,
       { workspaceId: 'ws-1' } satisfies GitRepoDiscoveryRequest,
@@ -639,12 +669,12 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 40 payload types: workspace.list has no body (WorkspaceListRequest = Record<string,never>)
-    // so REQUEST_TYPES (42) minus workspace.list = 41.
-    // All 42 have payload types, but workspace.list's type is
+    // 42 payload types: workspace.list has no body (WorkspaceListRequest = Record<string,never>)
+    // so REQUEST_TYPES (44) minus workspace.list = 43.
+    // All 44 have payload types, but workspace.list's type is
     // Record<string,never> which has no distinguishing fields to satisfy.
-    // Count: 41 REQUEST_TYPES - 1 no-body type (workspace.list = Record<string,never>)
-    // = 40 typed payloads.
+    // Count: 43 REQUEST_TYPES - 1 no-body type (workspace.list = Record<string,never>)
+    // = 42 typed payloads.
     expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });
 });

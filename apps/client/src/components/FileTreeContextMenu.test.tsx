@@ -26,6 +26,11 @@ function renderContextMenu(
     onRename?: (path: string) => void;
     onDelete?: (path: string) => void;
     onOpenEditor?: (path: string) => void;
+    onCut?: (path: string) => void;
+    onCopy?: (path: string) => void;
+    onPaste?: (targetDir: string) => void;
+    clipboardHasItem?: boolean;
+    workspaceCwd?: string;
   } = {},
 ) {
   const onNewFile = overrides.onNewFile ?? mock(() => {});
@@ -33,6 +38,9 @@ function renderContextMenu(
   const onRename = overrides.onRename ?? mock(() => {});
   const onDelete = overrides.onDelete ?? mock(() => {});
   const onOpenEditor = overrides.onOpenEditor ?? mock(() => {});
+  const onCut = overrides.onCut ?? mock(() => {});
+  const onCopy = overrides.onCopy ?? mock(() => {});
+  const onPaste = overrides.onPaste ?? mock(() => {});
 
   const result = render(
     React.createElement(
@@ -45,12 +53,27 @@ function renderContextMenu(
         onRename,
         onDelete,
         onOpenEditor,
+        onCut,
+        onCopy,
+        onPaste,
+        clipboardHasItem: overrides.clipboardHasItem ?? false,
+        workspaceCwd: overrides.workspaceCwd ?? '/home/user/project',
       } as React.Attributes & React.ComponentProps<typeof FileTreeContextMenu>,
       React.createElement('div', { 'data-testid': 'trigger' }, 'Trigger'),
     ),
   );
 
-  return { ...result, onNewFile, onNewFolder, onRename, onDelete, onOpenEditor };
+  return {
+    ...result,
+    onNewFile,
+    onNewFolder,
+    onRename,
+    onDelete,
+    onOpenEditor,
+    onCut,
+    onCopy,
+    onPaste,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -206,5 +229,190 @@ describe('FileTreeContextMenu', () => {
     fireEvent.click(item);
 
     expect(onOpenEditor).toHaveBeenCalledWith('/src/index.ts');
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. Directory menu contains Cut, Copy, Paste, Copy Path, Copy Relative Path
+  // -----------------------------------------------------------------------
+  test('directory menu contains Cut, Copy, Paste, Copy Path, Copy Relative Path', () => {
+    const { container } = renderContextMenu({
+      isDirectory: true,
+      clipboardHasItem: true,
+    });
+
+    expect(container.querySelector('[data-testid="menu-cut"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-copy"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-paste"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-copy-path"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-copy-relative-path"]')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. File menu contains Cut, Copy, Copy Path, Copy Relative Path but NOT Paste
+  // -----------------------------------------------------------------------
+  test('file menu contains Cut, Copy, Copy Path, Copy Relative Path but not Paste', () => {
+    const { container } = renderContextMenu({
+      isDirectory: false,
+      path: '/src/index.ts',
+    });
+
+    expect(container.querySelector('[data-testid="menu-cut"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-copy"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-copy-path"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-copy-relative-path"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-paste"]')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // 14. Cut calls onCut with the correct path
+  // -----------------------------------------------------------------------
+  test('Cut calls onCut with the correct path', () => {
+    const onCut = mock(() => {});
+    const { container } = renderContextMenu({ isDirectory: true, path: '/src', onCut });
+
+    const item = container.querySelector('[data-testid="menu-cut"]') as HTMLElement;
+    fireEvent.click(item);
+
+    expect(onCut).toHaveBeenCalledWith('/src');
+  });
+
+  // -----------------------------------------------------------------------
+  // 15. Copy calls onCopy with the correct path
+  // -----------------------------------------------------------------------
+  test('Copy calls onCopy with the correct path', () => {
+    const onCopy = mock(() => {});
+    const { container } = renderContextMenu({ isDirectory: true, path: '/src', onCopy });
+
+    const item = container.querySelector('[data-testid="menu-copy"]') as HTMLElement;
+    fireEvent.click(item);
+
+    expect(onCopy).toHaveBeenCalledWith('/src');
+  });
+
+  // -----------------------------------------------------------------------
+  // 16. Paste calls onPaste with the correct path (directory only)
+  // -----------------------------------------------------------------------
+  test('Paste calls onPaste with the correct path for a directory', () => {
+    const onPaste = mock(() => {});
+    const { container } = renderContextMenu({
+      isDirectory: true,
+      path: '/src',
+      onPaste,
+      clipboardHasItem: true,
+    });
+
+    const item = container.querySelector('[data-testid="menu-paste"]') as HTMLElement;
+    fireEvent.click(item);
+
+    expect(onPaste).toHaveBeenCalledWith('/src');
+  });
+
+  // -----------------------------------------------------------------------
+  // 17. Copy Path writes absolute path to navigator.clipboard
+  // -----------------------------------------------------------------------
+  test('Copy Path writes absolute path to navigator.clipboard', async () => {
+    const writeText = mock(() => Promise.resolve());
+    const originalClipboard = globalThis.navigator.clipboard;
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    try {
+      const { container } = renderContextMenu({
+        isDirectory: true,
+        path: 'src/components',
+        workspaceCwd: '/home/user/project',
+      });
+
+      const item = container.querySelector('[data-testid="menu-copy-path"]') as HTMLElement;
+      fireEvent.click(item);
+
+      expect(writeText).toHaveBeenCalledWith('/home/user/project/src/components');
+    } finally {
+      Object.defineProperty(globalThis.navigator, 'clipboard', {
+        value: originalClipboard,
+        configurable: true,
+      });
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // 18. Copy Relative Path writes relative path to navigator.clipboard
+  // -----------------------------------------------------------------------
+  test('Copy Relative Path writes relative path to navigator.clipboard', () => {
+    const writeText = mock(() => Promise.resolve());
+    const originalClipboard = globalThis.navigator.clipboard;
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    try {
+      const { container } = renderContextMenu({
+        isDirectory: true,
+        path: 'src/components',
+      });
+
+      const item = container.querySelector(
+        '[data-testid="menu-copy-relative-path"]',
+      ) as HTMLElement;
+      fireEvent.click(item);
+
+      expect(writeText).toHaveBeenCalledWith('src/components');
+    } finally {
+      Object.defineProperty(globalThis.navigator, 'clipboard', {
+        value: originalClipboard,
+        configurable: true,
+      });
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // 19. Paste is disabled/greyed when clipboardHasItem is false
+  // -----------------------------------------------------------------------
+  test('Paste is disabled/greyed when clipboardHasItem is false', () => {
+    const onPaste = mock(() => {});
+    const { container } = renderContextMenu({
+      isDirectory: true,
+      onPaste,
+      clipboardHasItem: false,
+    });
+
+    const item = container.querySelector('[data-testid="menu-paste"]') as HTMLElement;
+    expect(item).toBeTruthy();
+    // Should have opacity 0.4 when disabled
+    const style = (item as HTMLElement).style;
+    expect(style.opacity).toBe('0.4');
+  });
+
+  // -----------------------------------------------------------------------
+  // 20. Paste does not call onPaste when clipboardHasItem is false
+  // -----------------------------------------------------------------------
+  test('Paste does not call onPaste when clipboardHasItem is false', () => {
+    const onPaste = mock(() => {});
+    const { container } = renderContextMenu({
+      isDirectory: true,
+      onPaste,
+      clipboardHasItem: false,
+    });
+
+    const item = container.querySelector('[data-testid="menu-paste"]') as HTMLElement;
+    fireEvent.click(item);
+
+    expect(onPaste).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // 21. Paste is not rendered for files
+  // -----------------------------------------------------------------------
+  test('Paste is not rendered for files', () => {
+    const { container } = renderContextMenu({
+      isDirectory: false,
+      path: '/src/index.ts',
+      clipboardHasItem: true,
+    });
+
+    expect(container.querySelector('[data-testid="menu-paste"]')).toBeNull();
   });
 });
