@@ -1,7 +1,14 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import type { WorkspaceSummary, GitWorktreeInfo, GitWorktreeListResponse } from '@ymir/shared';
-import { useWorkspaces, useUpdateWorkspace, useDeleteWorkspace, useReorderWorkspaces, useRemoveWorktree, useMergeWorktree } from './useWorkspaces';
+import {
+  useWorkspaces,
+  useUpdateWorkspace,
+  useDeleteWorkspace,
+  useReorderWorkspaces,
+  useRemoveWorktree,
+  useMergeWorktree,
+} from './useWorkspaces';
 import { sendRequest } from '../lib/send-request';
 
 interface UseWorkspaceSelectionParams {
@@ -64,7 +71,9 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
   });
 
   // Create a stable key from the data to avoid recompute on every render
-  const worktreeDataKey = worktreeResults.map(r => r.data ? JSON.stringify(r.data) : 'null').join('|');
+  const worktreeDataKey = worktreeResults
+    .map((r) => (r.data ? JSON.stringify(r.data) : 'null'))
+    .join('|');
 
   /* eslint-disable react-hooks/exhaustive-deps -- worktreeDataKey is the stable fingerprint of worktreeResults */
   const worktreesByWorkspace = useMemo<Record<string, GitWorktreeInfo[]>>(() => {
@@ -135,7 +144,11 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
   }, []);
 
   const handleCopyWorktreePath = useCallback((path: string) => {
-    try { navigator.clipboard.writeText(path); } catch { console.warn('Failed to copy to clipboard'); }
+    try {
+      navigator.clipboard.writeText(path);
+    } catch {
+      console.warn('Failed to copy to clipboard');
+    }
   }, []);
 
   const handleRemoveWorktree = useCallback(

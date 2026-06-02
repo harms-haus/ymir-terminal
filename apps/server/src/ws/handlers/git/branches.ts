@@ -14,17 +14,8 @@ import { resolveSafeRepoPath } from './shared';
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerBranchesHandlers(
-  router: MessageRouter,
-  deps: ResolvedGitDeps,
-): void {
-  const {
-    doListBranches,
-    doCreateBranch,
-    doCheckoutBranch,
-    doGetWorkspace,
-    persistentDb,
-  } = deps;
+export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
+  const { doListBranches, doCreateBranch, doCheckoutBranch, doGetWorkspace, persistentDb } = deps;
 
   // --- git.branches -------------------------------------------------------
   router.handle('git.branches', async (conn: ClientConnection, envelope) => {

@@ -251,13 +251,12 @@ mock.module('@dnd-kit/react', () => ({
 // component in RightSidebar.test.tsx, causing all its tests to fail.
 const _rightSidebarMod = await import('./RightSidebar');
 const _rightSidebarSpy = spyOn(_rightSidebarMod, 'RightSidebar');
-_rightSidebarSpy.mockImplementation(
-  ({ workspaceId }: { workspaceId?: string | null }) =>
-    React.createElement(
-      'div',
-      { 'data-testid': 'right-sidebar' },
-      `RightSidebar: ${workspaceId ?? 'none'}`,
-    ),
+_rightSidebarSpy.mockImplementation(({ workspaceId }: { workspaceId?: string | null }) =>
+  React.createElement(
+    'div',
+    { 'data-testid': 'right-sidebar' },
+    `RightSidebar: ${workspaceId ?? 'none'}`,
+  ),
 );
 
 // Mock useTerminal (used by useCreateTerminalTab which is used by ContentPane/BottomPanel)

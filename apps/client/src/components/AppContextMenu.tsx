@@ -63,9 +63,7 @@ export function AppContextMenu({
             const itemStyle: React.CSSProperties = {
               ...menuItemStyle,
               ...(item.destructive ? { color: COLOR_ERROR } : {}),
-              ...(item.disabled
-                ? { opacity: 0.4, cursor: 'not-allowed' }
-                : {}),
+              ...(item.disabled ? { opacity: 0.4, cursor: 'not-allowed' } : {}),
               ...(item.shortcutHint || item.icon ? { display: 'flex', alignItems: 'center' } : {}),
               ...item.style,
             };

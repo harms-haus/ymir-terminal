@@ -25,7 +25,10 @@ import {
   createBranch as nativeCreateBranch,
   checkoutBranch as nativeCheckoutBranch,
 } from '../../../git/branches';
-import { pushBranch as nativePushBranch, fetchRemote as nativeFetchRemote } from '../../../git/remote';
+import {
+  pushBranch as nativePushBranch,
+  fetchRemote as nativeFetchRemote,
+} from '../../../git/remote';
 import {
   getDiffData as nativeGetDiffData,
   getCommitFileDiff as nativeGetCommitFileDiff,
@@ -66,23 +69,14 @@ export interface GitDeps {
     ) => Promise<
       (GitStatusResponse & { hasRemote: boolean; ahead: number; behind: number }) | null
     >;
-    getGitLog?: (
-      dirPath: string,
-      skip: number,
-      limit: number,
-    ) => Promise<GitLogItem[]>;
+    getGitLog?: (dirPath: string, skip: number, limit: number) => Promise<GitLogItem[]>;
     getWorkspace?: (db: Database, id: string) => Workspace | null;
-    discoverRepos?: (
-      workspaceCwd: string,
-      maxDepth?: number,
-    ) => Promise<GitRepoInfo[]>;
+    discoverRepos?: (workspaceCwd: string, maxDepth?: number) => Promise<GitRepoInfo[]>;
     stageFiles?: (dirPath: string, files: string[]) => Promise<void>;
     unstageFiles?: (dirPath: string, files: string[]) => Promise<void>;
     discardChanges?: (dirPath: string, files: string[]) => Promise<void>;
     commitChanges?: (dirPath: string, message: string) => Promise<string>;
-    listBranches?: (
-      dirPath: string,
-    ) => Promise<{ branches: GitBranch[]; current: string | null }>;
+    listBranches?: (dirPath: string) => Promise<{ branches: GitBranch[]; current: string | null }>;
     createBranch?: (dirPath: string, name: string) => Promise<void>;
     checkoutBranch?: (dirPath: string, name: string) => Promise<void>;
     pushBranch?: (dirPath: string, branch: string) => Promise<void>;
@@ -97,10 +91,7 @@ export interface GitDeps {
       additions: number;
       deletions: number;
     }>;
-    getCommitDetails?: (
-      dirPath: string,
-      commitSha: string,
-    ) => Promise<CommitDetails | null>;
+    getCommitDetails?: (dirPath: string, commitSha: string) => Promise<CommitDetails | null>;
     getCommitFileDiff?: (
       repoDir: string,
       commitSha: string,
@@ -140,9 +131,7 @@ export interface ResolvedGitDeps {
   doGetGitStatus: (dirPath: string) => Promise<GitStatusResponse | null>;
   doGetGitStatusEnhanced: (
     dirPath: string,
-  ) => Promise<
-    (GitStatusResponse & { hasRemote: boolean; ahead: number; behind: number }) | null
-  >;
+  ) => Promise<(GitStatusResponse & { hasRemote: boolean; ahead: number; behind: number }) | null>;
   doGetGitLog: (dirPath: string, skip: number, limit: number) => Promise<GitLogItem[]>;
   doGetWorkspace: (db: Database, id: string) => Workspace | null;
   doDiscoverRepos: (workspaceCwd: string, maxDepth?: number) => Promise<GitRepoInfo[]>;
@@ -150,9 +139,7 @@ export interface ResolvedGitDeps {
   doUnstageFiles: (dirPath: string, files: string[]) => Promise<void>;
   doDiscardChanges: (dirPath: string, files: string[]) => Promise<void>;
   doCommitChanges: (dirPath: string, message: string) => Promise<string>;
-  doListBranches: (
-    dirPath: string,
-  ) => Promise<{ branches: GitBranch[]; current: string | null }>;
+  doListBranches: (dirPath: string) => Promise<{ branches: GitBranch[]; current: string | null }>;
   doCreateBranch: (dirPath: string, name: string) => Promise<void>;
   doCheckoutBranch: (dirPath: string, name: string) => Promise<void>;
   doPushBranch: (dirPath: string, branch: string) => Promise<void>;
@@ -227,8 +214,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     doRemoveWorktree: deps._mocks?.removeWorktree ?? nativeRemoveWorktree,
     doMergeWorktree: deps._mocks?.mergeWorktree ?? nativeMergeWorktree,
     doListUntrackedFiles: deps._mocks?.listUntrackedFiles ?? nativeListUntrackedFiles,
-    doReadWorktreeCopyConfig:
-      deps._mocks?.readWorktreeCopyConfig ?? nativeReadWorktreeCopyConfig,
+    doReadWorktreeCopyConfig: deps._mocks?.readWorktreeCopyConfig ?? nativeReadWorktreeCopyConfig,
     doWriteWorktreeCopyConfig:
       deps._mocks?.writeWorktreeCopyConfig ?? nativeWriteWorktreeCopyConfig,
     doCopyFile: deps._mocks?.copyFile ?? nativeCopyFile,

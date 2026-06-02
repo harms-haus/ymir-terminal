@@ -38,27 +38,31 @@ const { TerminalManager } = await import('./TerminalManager');
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeTerminalEntry(overrides: Partial<{
-  terminalId: string;
-  tabId: string;
-  owningPane: 'content' | 'bottom';
-  isActive: boolean;
-}> = {}) {
+function makeTerminalEntry(
+  overrides: Partial<{
+    terminalId: string;
+    tabId: string;
+    owningPane: 'content' | 'bottom';
+    isActive: boolean;
+  }> = {},
+) {
   return {
     terminalId: overrides.terminalId ?? `term-${crypto.randomUUID().slice(0, 8)}`,
     tabId: overrides.tabId ?? `tab-${crypto.randomUUID().slice(0, 8)}`,
-    owningPane: overrides.owningPane ?? 'content' as const,
+    owningPane: overrides.owningPane ?? ('content' as const),
     isActive: overrides.isActive ?? true,
     onTitleChange: mock(() => {}),
     onCwdChange: mock(() => {}),
   };
 }
 
-function renderManager(options: {
-  terminals?: ReturnType<typeof makeTerminalEntry>[];
-  contentBounds?: { top: number; left: number; width: number; height: number } | null;
-  bottomBounds?: { top: number; left: number; width: number; height: number } | null;
-} = {}) {
+function renderManager(
+  options: {
+    terminals?: ReturnType<typeof makeTerminalEntry>[];
+    contentBounds?: { top: number; left: number; width: number; height: number } | null;
+    bottomBounds?: { top: number; left: number; width: number; height: number } | null;
+  } = {},
+) {
   const {
     terminals = [],
     contentBounds = { top: 0, left: 0, width: 800, height: 600 },

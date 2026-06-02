@@ -13,10 +13,7 @@ import { resolveSafeRepoPath } from './shared';
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerRemoteHandlers(
-  router: MessageRouter,
-  deps: ResolvedGitDeps,
-): void {
+export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
   const { doPushBranch, doFetchRemote, doGetWorkspace, persistentDb } = deps;
 
   // --- git.push -----------------------------------------------------------

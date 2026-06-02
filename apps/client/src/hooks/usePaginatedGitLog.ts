@@ -38,9 +38,7 @@ function reducer(state: State, action: Action): State {
     case 'RESET':
       return { ...initialState, generation: state.generation + 1 };
     case 'FETCH_START':
-      return action.generation !== state.generation
-        ? state
-        : { ...state, loading: true };
+      return action.generation !== state.generation ? state : { ...state, loading: true };
     case 'FETCH_SUCCESS': {
       if (action.generation !== state.generation) return state;
       return {

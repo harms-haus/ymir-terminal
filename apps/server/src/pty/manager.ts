@@ -41,10 +41,7 @@ export class PTYManager {
     }
   >();
 
-  constructor(
-    platform?: string,
-    deps?: { existsSync?: (path: string) => boolean },
-  ) {
+  constructor(platform?: string, deps?: { existsSync?: (path: string) => boolean }) {
     this.#deps = { existsSync: deps?.existsSync ?? ((p: string) => existsSync(p)) };
     this.#isWindows = (platform ?? process.platform) === 'win32';
     this.#allowedShells = this.#isWindows ? WINDOWS_SHELLS : UNIX_SHELLS;

@@ -20,10 +20,7 @@ import type { MessageRouter } from '../../router';
 // Registration — tree & read handlers
 // ---------------------------------------------------------------------------
 
-export function registerTreeHandlers(
-  router: MessageRouter,
-  deps: FileDeps,
-): void {
+export function registerTreeHandlers(router: MessageRouter, deps: FileDeps): void {
   const { scanner: scannerMod, operations: ops } = deps;
   const doScan = scannerMod.scanDirectory ?? scanDirectory;
   const doRead = ops.readFile ?? fileOps.readFile;

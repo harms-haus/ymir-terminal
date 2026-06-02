@@ -56,10 +56,7 @@ async function copyWorktreeFiles(
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerWorktreeHandlers(
-  router: MessageRouter,
-  deps: ResolvedGitDeps,
-): void {
+export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
   const {
     doListWorktrees,
     doCreateWorktree,
@@ -107,66 +104,63 @@ export function registerWorktreeHandlers(
   });
 
   // --- git.worktreeCopyFiles ---------------------------------------------
-  router.handle(
-    'git.worktreeCopyFiles',
-    async (conn: ClientConnection, envelope) => {
-      const req = envelope as RequestEnvelope<GitWorktreeCopyFilesRequest>;
-      const payload = req.payload;
+  router.handle('git.worktreeCopyFiles', async (conn: ClientConnection, envelope) => {
+    const req = envelope as RequestEnvelope<GitWorktreeCopyFilesRequest>;
+    const payload = req.payload;
 
-      if (!payload || typeof payload !== 'object' || typeof payload.workspaceId !== 'string') {
-        conn.send(
-          createError(
-            { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
-            ErrorCodes.INVALID_MESSAGE,
-            'Missing required field: workspaceId',
-          ),
-        );
-        return;
-      }
-
-      const workspace = doGetWorkspace(persistentDb, payload.workspaceId);
-      if (!workspace) {
-        conn.send(
-          createError(
-            { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
-            ErrorCodes.WORKSPACE_NOT_FOUND,
-            `Workspace not found: ${payload.workspaceId}`,
-          ),
-        );
-        return;
-      }
-
-      let resolvedDir: string;
-      if (payload.dirPath) {
-        try {
-          resolvedDir = safePath(workspace.cwd, payload.dirPath);
-        } catch {
-          conn.send(
-            createError(
-              { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
-              ErrorCodes.PERMISSION_DENIED,
-              'Path traversal detected',
-            ),
-          );
-          return;
-        }
-      } else {
-        resolvedDir = workspace.cwd;
-      }
-
-      const [untrackedFiles, configuredFiles] = await Promise.all([
-        doListUntrackedFiles(resolvedDir),
-        doReadWorktreeCopyConfig(resolvedDir),
-      ]);
-
+    if (!payload || typeof payload !== 'object' || typeof payload.workspaceId !== 'string') {
       conn.send(
-        createResponse(req, {
-          untrackedFiles,
-          configuredFiles,
-        } satisfies GitWorktreeCopyFilesResponse),
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing required field: workspaceId',
+        ),
       );
-    },
-  );
+      return;
+    }
+
+    const workspace = doGetWorkspace(persistentDb, payload.workspaceId);
+    if (!workspace) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
+          ErrorCodes.WORKSPACE_NOT_FOUND,
+          `Workspace not found: ${payload.workspaceId}`,
+        ),
+      );
+      return;
+    }
+
+    let resolvedDir: string;
+    if (payload.dirPath) {
+      try {
+        resolvedDir = safePath(workspace.cwd, payload.dirPath);
+      } catch {
+        conn.send(
+          createError(
+            { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
+            ErrorCodes.PERMISSION_DENIED,
+            'Path traversal detected',
+          ),
+        );
+        return;
+      }
+    } else {
+      resolvedDir = workspace.cwd;
+    }
+
+    const [untrackedFiles, configuredFiles] = await Promise.all([
+      doListUntrackedFiles(resolvedDir),
+      doReadWorktreeCopyConfig(resolvedDir),
+    ]);
+
+    conn.send(
+      createResponse(req, {
+        untrackedFiles,
+        configuredFiles,
+      } satisfies GitWorktreeCopyFilesResponse),
+    );
+  });
 
   // --- git.worktreeCreate -------------------------------------------------
   router.handle('git.worktreeCreate', async (conn: ClientConnection, envelope) => {

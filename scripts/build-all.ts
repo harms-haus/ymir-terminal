@@ -1,4 +1,10 @@
-import { getPlatformTarget, getTargetTriple, getBinaryName, runCommand, formatSize } from './lib/build-utils';
+import {
+  getPlatformTarget,
+  getTargetTriple,
+  getBinaryName,
+  runCommand,
+  formatSize,
+} from './lib/build-utils';
 import { join } from 'node:path';
 import { statSync } from 'node:fs';
 

@@ -3,12 +3,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import {
-  stageFiles,
-  unstageFiles,
-  discardChanges,
-  commitChanges,
-} from './operations';
+import { stageFiles, unstageFiles, discardChanges, commitChanges } from './operations';
 
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });

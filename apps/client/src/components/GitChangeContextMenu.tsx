@@ -45,16 +45,29 @@ export function GitChangeContextMenu({
         separatorAfter: true,
       },
       { label: 'View Diff', testId: 'git-ctx-diff', action: () => onOpenDiff?.(path) },
-      { label: 'Open in Editor', testId: 'git-ctx-open-editor', action: () => onOpenEditor?.(path) },
+      {
+        label: 'Open in Editor',
+        testId: 'git-ctx-open-editor',
+        action: () => onOpenEditor?.(path),
+      },
     ];
   }
 
   /* STAGED file */
   if (isStaged && !isDirectory) {
     items = [
-      { label: 'Unstage', testId: 'git-ctx-unstage', action: () => onUnstage?.(path), separatorAfter: true },
+      {
+        label: 'Unstage',
+        testId: 'git-ctx-unstage',
+        action: () => onUnstage?.(path),
+        separatorAfter: true,
+      },
       { label: 'View Diff', testId: 'git-ctx-staged-diff', action: () => onOpenDiff?.(path) },
-      { label: 'Open in Editor', testId: 'git-ctx-open-editor-staged', action: () => onOpenEditor?.(path) },
+      {
+        label: 'Open in Editor',
+        testId: 'git-ctx-open-editor-staged',
+        action: () => onOpenEditor?.(path),
+      },
     ];
   }
 

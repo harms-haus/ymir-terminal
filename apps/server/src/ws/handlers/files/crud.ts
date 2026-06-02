@@ -19,10 +19,7 @@ import type { MessageRouter } from '../../router';
 // Registration — create, write, delete, rename, copy, move handlers
 // ---------------------------------------------------------------------------
 
-export function registerCrudHandlers(
-  router: MessageRouter,
-  deps: FileDeps,
-): void {
+export function registerCrudHandlers(router: MessageRouter, deps: FileDeps): void {
   const { operations: ops } = deps;
   const doWrite = ops.writeFile ?? fileOps.writeFile;
   const doDelete = ops.deleteFile ?? fileOps.deleteFile;

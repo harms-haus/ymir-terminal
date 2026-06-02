@@ -3,11 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { sendRequest } from '../lib/send-request';
 import { formatRelativeTime } from '../lib/git-utils';
 import { usePaginatedGitLog } from '../hooks/usePaginatedGitLog';
-import type {
-  GitLogItem,
-  GitCommitDetailsResponse,
-  GitCommitFileChange,
-} from '@ymir/shared';
+import type { GitLogItem, GitCommitDetailsResponse, GitCommitFileChange } from '@ymir/shared';
 import {
   COLOR_TEXT,
   COLOR_TEXT_MUTED,

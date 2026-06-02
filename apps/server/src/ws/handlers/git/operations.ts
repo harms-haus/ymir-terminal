@@ -16,10 +16,7 @@ import { resolveSafeRepoPath } from './shared';
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerOperationsHandlers(
-  router: MessageRouter,
-  deps: ResolvedGitDeps,
-): void {
+export function registerOperationsHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
   const {
     doStageFiles,
     doUnstageFiles,
@@ -68,7 +65,13 @@ export function registerOperationsHandlers(
     if (absPath === null) return;
     for (const f of payload.files) {
       if (typeof f !== 'string' || f.includes('..') || f.startsWith('/')) {
-        conn.send(createError({ id: req.id, channel: req.channel ?? 'git.stage' }, ErrorCodes.INVALID_MESSAGE, 'Invalid file path in files array'));
+        conn.send(
+          createError(
+            { id: req.id, channel: req.channel ?? 'git.stage' },
+            ErrorCodes.INVALID_MESSAGE,
+            'Invalid file path in files array',
+          ),
+        );
         return;
       }
     }
@@ -115,7 +118,13 @@ export function registerOperationsHandlers(
     if (absPath === null) return;
     for (const f of payload.files) {
       if (typeof f !== 'string' || f.includes('..') || f.startsWith('/')) {
-        conn.send(createError({ id: req.id, channel: req.channel ?? 'git.unstage' }, ErrorCodes.INVALID_MESSAGE, 'Invalid file path in files array'));
+        conn.send(
+          createError(
+            { id: req.id, channel: req.channel ?? 'git.unstage' },
+            ErrorCodes.INVALID_MESSAGE,
+            'Invalid file path in files array',
+          ),
+        );
         return;
       }
     }
@@ -162,7 +171,13 @@ export function registerOperationsHandlers(
     if (absPath === null) return;
     for (const f of payload.files) {
       if (typeof f !== 'string' || f.includes('..') || f.startsWith('/')) {
-        conn.send(createError({ id: req.id, channel: req.channel ?? 'git.discard' }, ErrorCodes.INVALID_MESSAGE, 'Invalid file path in files array'));
+        conn.send(
+          createError(
+            { id: req.id, channel: req.channel ?? 'git.discard' },
+            ErrorCodes.INVALID_MESSAGE,
+            'Invalid file path in files array',
+          ),
+        );
         return;
       }
     }

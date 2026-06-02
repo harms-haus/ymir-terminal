@@ -10,10 +10,7 @@ export type { FileDeps } from './shared';
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerFileHandlers(
-  router: MessageRouter,
-  deps: FileDeps,
-): void {
+export function registerFileHandlers(router: MessageRouter, deps: FileDeps): void {
   registerTreeHandlers(router, deps);
   registerCrudHandlers(router, deps);
 }

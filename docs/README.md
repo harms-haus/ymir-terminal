@@ -4,14 +4,14 @@
 
 ## Documentation Index
 
-| Document | Description |
-| --- | --- |
-| [Architecture](architecture.md) | Overview, monorepo structure, tech stack, project layout, getting started, testing, configuration, Windows support |
-| [WebSocket Protocol](protocol.md) | JSON envelope format, message flow, full channel reference, authentication flow |
-| [Components](components.md) | React component reference, project sidebar, git panels and hooks, inline git status, accessibility notes |
-| [Tab System](tab-system.md) | Tab interface, `useTabs` hook, `TabBar` component, drag-and-drop architecture, imperative handles, OSC 7 CWD tracking, batch close behavior |
-| [CLI & Distribution](cli-distribution.md) | CLI commands, binary layout, npm packages, build scripts, version synchronization, release process |
-| [Desktop App](desktop-app.md) | Tauri sidecar pattern, frameless window, auto-authentication, Tauri file reference, frontend integration files |
+| Document                                  | Description                                                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Architecture](architecture.md)           | Overview, monorepo structure, tech stack, project layout, getting started, testing, configuration, Windows support                          |
+| [WebSocket Protocol](protocol.md)         | JSON envelope format, message flow, full channel reference, authentication flow                                                             |
+| [Components](components.md)               | React component reference, project sidebar, git panels and hooks, inline git status, accessibility notes                                    |
+| [Tab System](tab-system.md)               | Tab interface, `useTabs` hook, `TabBar` component, drag-and-drop architecture, imperative handles, OSC 7 CWD tracking, batch close behavior |
+| [CLI & Distribution](cli-distribution.md) | CLI commands, binary layout, npm packages, build scripts, version synchronization, release process                                          |
+| [Desktop App](desktop-app.md)             | Tauri sidecar pattern, frameless window, auto-authentication, Tauri file reference, frontend integration files                              |
 
 ## Quick Links
 

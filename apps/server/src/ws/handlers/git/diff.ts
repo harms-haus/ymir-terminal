@@ -17,10 +17,7 @@ import { resolveSafeRepoPath, SHA_REGEX } from './shared';
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerDiffHandlers(
-  router: MessageRouter,
-  deps: ResolvedGitDeps,
-): void {
+export function registerDiffHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
   const { doGetDiffData, doGetCommitDetails, doGetCommitFileDiff, doGetWorkspace, persistentDb } =
     deps;
 

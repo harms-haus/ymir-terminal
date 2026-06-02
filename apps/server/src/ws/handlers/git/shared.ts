@@ -85,9 +85,7 @@ export async function handleGitRequest(
   if (
     payload == null ||
     typeof payload !== 'object' ||
-    !requiredFields.every(
-      (f) => typeof (payload as Record<string, unknown>)[f] === 'string',
-    )
+    !requiredFields.every((f) => typeof (payload as Record<string, unknown>)[f] === 'string')
   ) {
     const err: ResponseEnvelope = createError(
       { id: req.id, channel: req.channel ?? channel },

@@ -59,9 +59,10 @@ export class MockConnection extends ClientConnection {
  * @param overrides - Optional overrides for sessionId / isAuthenticated.
  *                    Defaults: `sessionId` → random UUID, `isAuthenticated` → true.
  */
-export function mockConn(
-  overrides?: { sessionId?: string; isAuthenticated?: boolean },
-): MockConnection {
+export function mockConn(overrides?: {
+  sessionId?: string;
+  isAuthenticated?: boolean;
+}): MockConnection {
   const sent: unknown[] = [];
   const ws = {
     send: (data: string) => {

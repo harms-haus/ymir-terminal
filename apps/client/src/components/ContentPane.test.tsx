@@ -508,7 +508,14 @@ describe('ContentPane', () => {
   // -----------------------------------------------------------------------
   test('transferTabOut followed by receiveTab round-trips terminal data', async () => {
     mocks.tabs = [
-      { id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 'term-1', workspaceId: 'ws-1', cwd: '/home/user' },
+      {
+        id: 'tab-1',
+        type: 'terminal',
+        title: 'My Term',
+        terminalId: 'term-1',
+        workspaceId: 'ws-1',
+        cwd: '/home/user',
+      },
     ];
     mocks.activeTabId = 'tab-1';
 

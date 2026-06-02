@@ -50,7 +50,9 @@ function simulateResponse(requestId: string, payload: unknown) {
 }
 
 function getAllSentEnvelopes(): MessageEnvelope[] {
-  return (mockSend.mock.calls as unknown as Array<[unknown, ...unknown[]]>).map((c) => c[0] as MessageEnvelope);
+  return (mockSend.mock.calls as unknown as Array<[unknown, ...unknown[]]>).map(
+    (c) => c[0] as MessageEnvelope,
+  );
 }
 
 /**

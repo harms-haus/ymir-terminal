@@ -956,7 +956,12 @@ describe('registerGitHandlers', () => {
     it('returns worktrees for a valid workspace', async () => {
       const fakeWorktrees: GitWorktreeInfo[] = [
         { path: '/home/dev/project', branch: 'main', isMain: true, isDetached: false },
-        { path: '/home/dev/project-ht-feature', branch: 'feature', isMain: false, isDetached: false },
+        {
+          path: '/home/dev/project-ht-feature',
+          branch: 'feature',
+          isMain: false,
+          isDetached: false,
+        },
       ];
       const listWorktreesFn = mock(async (_dirPath: string) => fakeWorktrees);
 
@@ -1140,11 +1145,9 @@ describe('registerGitHandlers', () => {
     });
 
     it('returns INTERNAL_ERROR when createWorktree throws', async () => {
-      const createWorktreeFn = mock(
-        async () => {
-          throw new Error('worktree already exists');
-        },
-      );
+      const createWorktreeFn = mock(async () => {
+        throw new Error('worktree already exists');
+      });
       const copyFileFn = mock(async (_src: string, _dest: string) => {});
 
       const localRouter = new MessageRouter();
@@ -1232,11 +1235,9 @@ describe('registerGitHandlers', () => {
     });
 
     it('returns INTERNAL_ERROR when removeWorktree throws', async () => {
-      const removeWorktreeFn = mock(
-        async () => {
-          throw new Error('worktree has uncommitted changes');
-        },
-      );
+      const removeWorktreeFn = mock(async () => {
+        throw new Error('worktree has uncommitted changes');
+      });
 
       const localRouter = new MessageRouter();
       const localConn = mockConn();
@@ -1344,9 +1345,11 @@ describe('registerGitHandlers', () => {
     });
 
     it('copies filesToCopy before merging', async () => {
-      const mergeWorktreeFn = mock(
-        async () => ({ success: true, message: 'ok', worktreeRemoved: false }),
-      );
+      const mergeWorktreeFn = mock(async () => ({
+        success: true,
+        message: 'ok',
+        worktreeRemoved: false,
+      }));
       const copyFileFn = mock(async (_src: string, _dest: string) => {});
       const writeConfigFn = mock(async (_dir: string, _files: string[]) => {});
 
@@ -1381,11 +1384,9 @@ describe('registerGitHandlers', () => {
     });
 
     it('returns INTERNAL_ERROR when mergeWorktree throws', async () => {
-      const mergeWorktreeFn = mock(
-        async () => {
-          throw new Error('merge conflict');
-        },
-      );
+      const mergeWorktreeFn = mock(async () => {
+        throw new Error('merge conflict');
+      });
       const copyFileFn = mock(async (_src: string, _dest: string) => {});
 
       const localRouter = new MessageRouter();
@@ -1416,10 +1417,7 @@ describe('registerGitHandlers', () => {
   // -----------------------------------------------------------------------
   describe('git.worktreeCopyFiles', () => {
     it('returns untracked and configured files for a valid workspace', async () => {
-      const listUntrackedFn = mock(async (_dirPath: string) => [
-        'src/new-file.ts',
-        '.env',
-      ]);
+      const listUntrackedFn = mock(async (_dirPath: string) => ['src/new-file.ts', '.env']);
       const readConfigFn = mock(async (_dirPath: string) => ['.env', 'config.json']);
 
       const localRouter = new MessageRouter();
@@ -1471,14 +1469,12 @@ describe('registerGitHandlers', () => {
   // -----------------------------------------------------------------------
   describe('git.diffData', () => {
     it('returns diff for a staged file', async () => {
-      const getDiffDataFn = mock(
-        async (_repoDir: string, _filePath: string, _staged: boolean) => ({
-          originalContent: 'old line\n',
-          modifiedContent: 'new line\n',
-          additions: 1,
-          deletions: 1,
-        }),
-      );
+      const getDiffDataFn = mock(async (_repoDir: string, _filePath: string, _staged: boolean) => ({
+        originalContent: 'old line\n',
+        modifiedContent: 'new line\n',
+        additions: 1,
+        deletions: 1,
+      }));
 
       const localRouter = new MessageRouter();
       const localConn = mockConn();
@@ -1663,12 +1659,7 @@ describe('registerGitHandlers', () => {
   describe('git.commitDiff', () => {
     it('returns diff for a valid commit and parent SHA', async () => {
       const getCommitFileDiffFn = mock(
-        async (
-          _repoDir: string,
-          _commitSha: string,
-          _parentSha: string,
-          _filePath: string,
-        ) => ({
+        async (_repoDir: string, _commitSha: string, _parentSha: string, _filePath: string) => ({
           originalContent: 'old\n',
           modifiedContent: 'new\n',
           additions: 1,
@@ -1753,14 +1744,12 @@ describe('registerGitHandlers', () => {
     });
 
     it('accepts empty string parentSha for root commits', async () => {
-      const getCommitFileDiffFn = mock(
-        async () => ({
-          originalContent: '',
-          modifiedContent: 'first\n',
-          additions: 1,
-          deletions: 0,
-        }),
-      );
+      const getCommitFileDiffFn = mock(async () => ({
+        originalContent: '',
+        modifiedContent: 'first\n',
+        additions: 1,
+        deletions: 0,
+      }));
 
       const localRouter = new MessageRouter();
       const localConn = mockConn();

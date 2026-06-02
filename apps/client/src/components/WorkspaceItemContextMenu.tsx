@@ -143,57 +143,65 @@ export function WorkspaceItemContextMenu({
   const items: ContextMenuItem[] = [
     /* Rename */
     ...(editingField === 'rename'
-      ? [{
-          label: 'Rename',
-          testId: 'ws-menu-rename-input',
-          action: () => {},
-          content: (
-            <div style={{ padding: '0', width: '100%' }}>
-              <input
-                ref={inputRef}
-                aria-label="Rename workspace"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={commitEdit}
-                onKeyDown={handleInputKeyDown}
-                style={inputStyle}
-              />
-            </div>
-          ),
-          style: { padding: '6px 12px' } as React.CSSProperties,
-        }]
-      : [{
-          label: 'Rename',
-          testId: 'ws-menu-rename',
-          action: handleStartRename,
-        }]),
+      ? [
+          {
+            label: 'Rename',
+            testId: 'ws-menu-rename-input',
+            action: () => {},
+            content: (
+              <div style={{ padding: '0', width: '100%' }}>
+                <input
+                  ref={inputRef}
+                  aria-label="Rename workspace"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={handleInputKeyDown}
+                  style={inputStyle}
+                />
+              </div>
+            ),
+            style: { padding: '6px 12px' } as React.CSSProperties,
+          },
+        ]
+      : [
+          {
+            label: 'Rename',
+            testId: 'ws-menu-rename',
+            action: handleStartRename,
+          },
+        ]),
 
     /* Set CWD */
     ...(editingField === 'cwd'
-      ? [{
-          label: 'Set CWD',
-          testId: 'ws-menu-set-cwd-input',
-          action: () => {},
-          content: (
-            <div style={{ padding: '0', width: '100%' }}>
-              <input
-                ref={inputRef}
-                aria-label="Set workspace directory"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={commitEdit}
-                onKeyDown={handleInputKeyDown}
-                style={inputStyle}
-              />
-            </div>
-          ),
-          style: { padding: '6px 12px' } as React.CSSProperties,
-        }]
-      : [{
-          label: 'Set CWD',
-          testId: 'ws-menu-set-cwd',
-          action: handleStartSetCwd,
-        }]),
+      ? [
+          {
+            label: 'Set CWD',
+            testId: 'ws-menu-set-cwd-input',
+            action: () => {},
+            content: (
+              <div style={{ padding: '0', width: '100%' }}>
+                <input
+                  ref={inputRef}
+                  aria-label="Set workspace directory"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={handleInputKeyDown}
+                  style={inputStyle}
+                />
+              </div>
+            ),
+            style: { padding: '6px 12px' } as React.CSSProperties,
+          },
+        ]
+      : [
+          {
+            label: 'Set CWD',
+            testId: 'ws-menu-set-cwd',
+            action: handleStartSetCwd,
+          },
+        ]),
 
     /* Change Color */
     {

@@ -63,7 +63,9 @@ describe('useCreateTerminalTab', () => {
     mockCreateTerminal.mockImplementation(async () => 'term-123');
     const createTab = mock(() => 'tab-456');
     const onCreated = mock((_terminalId: string, _tabId: string) => {});
-    const tabs = [{ id: 'existing', type: 'terminal' as const, title: 'Terminal 1', workspaceId: 'ws-1' }];
+    const tabs = [
+      { id: 'existing', type: 'terminal' as const, title: 'Terminal 1', workspaceId: 'ws-1' },
+    ];
 
     const { result } = renderHook(() =>
       useCreateTerminalTab('ws-1', tabs, createTab as any, onCreated),

@@ -18,10 +18,7 @@ import { resolveSafeRepoPath } from './shared';
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerStatusHandlers(
-  router: MessageRouter,
-  deps: ResolvedGitDeps,
-): void {
+export function registerStatusHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
   const {
     doGetGitStatus,
     doGetGitStatusEnhanced,

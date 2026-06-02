@@ -1,9 +1,4 @@
-import {
-  IS_WINDOWS,
-  CONFIG_DIR,
-  DB_FILE,
-  YMIR_HOME_DIR_NAME,
-} from './constants';
+import { IS_WINDOWS, CONFIG_DIR, DB_FILE, YMIR_HOME_DIR_NAME } from './constants';
 
 // Node.js modules — only available in server/CLI context, not in browser
 let _os: typeof import('node:os') | null = null; // eslint-disable-line @typescript-eslint/consistent-type-imports
@@ -96,5 +91,3 @@ export function getYmirHomeDir(): string {
   }
   return path.join(os.homedir(), YMIR_HOME_DIR_NAME);
 }
-
-

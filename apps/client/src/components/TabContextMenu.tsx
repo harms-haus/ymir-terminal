@@ -56,19 +56,23 @@ export function TabContextMenu({
       separatorAfter: !!(onMoveToBottom || onMoveToContent),
     },
     ...(onMoveToBottom
-      ? [{
-          label: 'Move to Bottom Pane',
-          testId: 'tab-menu-move-to-bottom' as const,
-          action: onMoveToBottom,
-          separatorAfter: !onMoveToContent,
-        }]
+      ? [
+          {
+            label: 'Move to Bottom Pane',
+            testId: 'tab-menu-move-to-bottom' as const,
+            action: onMoveToBottom,
+            separatorAfter: !onMoveToContent,
+          },
+        ]
       : []),
     ...(onMoveToContent
-      ? [{
-          label: 'Move to Content Pane',
-          testId: 'tab-menu-move-to-content' as const,
-          action: onMoveToContent,
-        }]
+      ? [
+          {
+            label: 'Move to Content Pane',
+            testId: 'tab-menu-move-to-content' as const,
+            action: onMoveToContent,
+          },
+        ]
       : []),
   ];
 
@@ -80,11 +84,7 @@ export function TabContextMenu({
   }, []);
 
   return (
-    <AppContextMenu
-      items={items}
-      testId="tab-context-menu"
-      onCloseAutoFocus={handleCloseAutoFocus}
-    >
+    <AppContextMenu items={items} testId="tab-context-menu" onCloseAutoFocus={handleCloseAutoFocus}>
       {children}
     </AppContextMenu>
   );

@@ -78,11 +78,11 @@ Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 
 Several protocol types use union types for correctness:
 
-| Type                      | Field    | Union                                                                                                    |
-| ------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| `ConnectionStatusEvent`   | `status` | `'connecting' \| 'connected' \| 'disconnected' \| 'reconnecting'` (was bare `string`)                     |
-| `TabCreateRequest`        | `diffRef` | `'staged' \| 'unstaged' \| 'commit' \| null` (was bare `string`)                                        |
-| `TabInfo`                 | —        | Renamed from `ServerTabInfo` throughout the protocol; includes `tabType`, `diffRef`, `repoPath`, etc.   |
+| Type                    | Field     | Union                                                                                                 |
+| ----------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `ConnectionStatusEvent` | `status`  | `'connecting' \| 'connected' \| 'disconnected' \| 'reconnecting'` (was bare `string`)                 |
+| `TabCreateRequest`      | `diffRef` | `'staged' \| 'unstaged' \| 'commit' \| null` (was bare `string`)                                      |
+| `TabInfo`               | —         | Renamed from `ServerTabInfo` throughout the protocol; includes `tabType`, `diffRef`, `repoPath`, etc. |
 
 ### Removed Types
 

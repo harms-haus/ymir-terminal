@@ -1,9 +1,5 @@
 import { useState } from 'react';
-import {
-  COLOR_TEXT,
-  COLOR_TOPBAR_HOVER_BG,
-  COLOR_TOPBAR_ACTIVE_BG,
-} from '../lib/theme';
+import { COLOR_TEXT, COLOR_TOPBAR_HOVER_BG, COLOR_TOPBAR_ACTIVE_BG } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
 // Types

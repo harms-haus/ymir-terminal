@@ -15,10 +15,7 @@ import { createError, createResponse } from '../../router';
 export interface FileDeps {
   persistentDb: Database;
   scanner: {
-    scanDirectory: (
-      dirPath: string,
-      options?: ScanOptions,
-    ) => Promise<FileNode[]>;
+    scanDirectory: (dirPath: string, options?: ScanOptions) => Promise<FileNode[]>;
   };
   operations: {
     readFile: (path: string) => Promise<string>;

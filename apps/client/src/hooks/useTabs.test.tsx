@@ -1149,7 +1149,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;
+    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;
     expect(event.type).toBe('create');
     expect(event.tabType).toBe('terminal');
     expect(event.title).toBe('My Terminal');
@@ -1183,7 +1183,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;
+    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;
     expect(event.type).toBe('close');
     expect(event.tabId).toBe(tabId);
   });
@@ -1215,7 +1215,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;
+    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;
     expect(event.type).toBe('activate');
     expect(event.tabId).toBe(id1);
     expect(event.workspaceId).toBe('ws-events');
@@ -1250,7 +1250,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;;
+    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;;
     expect(event.type).toBe('reorder');
     expect(event.workspaceId).toBe('ws-events');
     // tabIds contains all three tab IDs (the ref-based read may fire before

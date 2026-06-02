@@ -84,7 +84,7 @@ Bun Server
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `protocol/types.ts`    | Envelope types (`MessageEnvelope`), `ErrorCodes` constant, `ErrorCode` union type                                                                                                                                                          |
 | `protocol/payloads.ts` | Request/event type constants, payload types (`GitLogRequest`, `GitLogItem`, `GitLogResponse`, `ConnectionStatusEvent`, etc.)                                                                                                               |
-| `protocol/panes.ts`    | _Removed_ — previously defined `SplitDirection`, `PaneNode`, `SplitNode`, `LayoutNode` (never used at runtime)                                                                                                                                                            |
+| `protocol/panes.ts`    | _Removed_ — previously defined `SplitDirection`, `PaneNode`, `SplitNode`, `LayoutNode` (never used at runtime)                                                                                                                             |
 | `constants.ts`         | `VERSION`, platform booleans (`IS_WINDOWS`, `IS_MACOS`, `IS_LINUX`), binary names (`CLI_BINARY_NAME`, `APP_BINARY_NAME`, `SERVER_BINARY_NAME`), `GITHUB_REPO`, `YMIR_HOME_DIR_NAME`, default ports, paths, timeouts, reconnection settings |
 | `utils.ts`             | `generateId`, `toBase64`, `fromBase64`, `expandTilde`, `getConfigDir`, `getDbPath`, `getYmirHomeDir`, `getClientDistDir`, `getServerBinaryPath`, `getAppBinaryPath`                                                                        |
 
@@ -119,16 +119,16 @@ Bun Server
 
 **Git handler structure:** The git handlers are split into focused modules under `ws/handlers/git/`:
 
-| Module          | Registration function       | Responsibility                                                       |
-| --------------- | --------------------------- | -------------------------------------------------------------------- |
-| `status.ts`     | `registerStatusHandlers`    | `git.status`, `git.repoDiscovery`                                    |
-| `operations.ts` | `registerOperationsHandlers`| `git.stage`, `git.unstage`, `git.discard`, `git.commit`             |
-| `branches.ts`   | `registerBranchesHandlers`  | `git.branches`, `git.checkout`                                       |
-| `remote.ts`     | `registerRemoteHandlers`    | `git.push`, `git.fetch`                                              |
-| `diff.ts`       | `registerDiffHandlers`      | `git.diffData`, `git.commitDetails`, `git.commitDiff`                |
-| `worktrees.ts`  | `registerWorktreeHandlers`  | `git.worktreeList`, `git.worktreeCreate`, `git.worktreeRemove`, merge |
-| `shared.ts`     | —                           | Re-exports for sub-modules (`safePath`, `resolveWorkspace`, types)   |
-| `index.ts`      | `registerGitHandlers`       | Resolves deps (native + mock), delegates to domain registrations     |
+| Module          | Registration function        | Responsibility                                                        |
+| --------------- | ---------------------------- | --------------------------------------------------------------------- |
+| `status.ts`     | `registerStatusHandlers`     | `git.status`, `git.repoDiscovery`                                     |
+| `operations.ts` | `registerOperationsHandlers` | `git.stage`, `git.unstage`, `git.discard`, `git.commit`               |
+| `branches.ts`   | `registerBranchesHandlers`   | `git.branches`, `git.checkout`                                        |
+| `remote.ts`     | `registerRemoteHandlers`     | `git.push`, `git.fetch`                                               |
+| `diff.ts`       | `registerDiffHandlers`       | `git.diffData`, `git.commitDetails`, `git.commitDiff`                 |
+| `worktrees.ts`  | `registerWorktreeHandlers`   | `git.worktreeList`, `git.worktreeCreate`, `git.worktreeRemove`, merge |
+| `shared.ts`     | —                            | Re-exports for sub-modules (`safePath`, `resolveWorkspace`, types)    |
+| `index.ts`      | `registerGitHandlers`        | Resolves deps (native + mock), delegates to domain registrations      |
 
 **Handler registration pattern:**
 
@@ -213,12 +213,12 @@ The `--staticDir` option overrides the default static file directory. In develop
 
 The client extracts complex stateful logic into dedicated hooks, each with a single responsibility:
 
-| Hook                       | Purpose                                                                                                                                                                                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useTerminalRegistry`      | Tracks all live terminals across both content and bottom panes. Maintains a `terminalRegistry` array of `{ terminalId, tabId, owningPane, workspaceId }` entries, a `terminalRefsMap` for focus management, a stable `callbackCacheRef` for `onTitleChange`/`onCwdChange` per tab, and computed `terminalEntries` for `TerminalManager`. Auto-focuses the active terminal in each pane when the active tab changes. |
-| `useWorkspaceSelection`    | Manages workspace and worktree selection state. Derives `activeWorkspaceId` from `selectedWorkspaceId` (falls back to first workspace), fetches worktrees for all workspaces eagerly via `useQueries`, and exposes handlers for workspace CRUD, worktree CRUD, color/accents, and dialog state. |
-| `usePaneBounds`            | Tracks container bounds for the content and bottom terminal areas using `ResizeObserver`. Computes `{ top, left, width, height }` relative to a wrapper div for overlay positioning. Skips observation while pane visibility is loading to avoid stale refs.                                                               |
-| `usePaginatedGitLog`       | Reusable pagination + infinite scroll for git commit history. Uses `useReducer` with a generation counter to discard stale responses after workspace/repo changes. Provides a `sentinelRef` (via `react-intersection-observer`) that auto-fetches the next page when scrolled into view. Page size defaults to 50.                                                          |
+| Hook                    | Purpose                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTerminalRegistry`   | Tracks all live terminals across both content and bottom panes. Maintains a `terminalRegistry` array of `{ terminalId, tabId, owningPane, workspaceId }` entries, a `terminalRefsMap` for focus management, a stable `callbackCacheRef` for `onTitleChange`/`onCwdChange` per tab, and computed `terminalEntries` for `TerminalManager`. Auto-focuses the active terminal in each pane when the active tab changes. |
+| `useWorkspaceSelection` | Manages workspace and worktree selection state. Derives `activeWorkspaceId` from `selectedWorkspaceId` (falls back to first workspace), fetches worktrees for all workspaces eagerly via `useQueries`, and exposes handlers for workspace CRUD, worktree CRUD, color/accents, and dialog state.                                                                                                                     |
+| `usePaneBounds`         | Tracks container bounds for the content and bottom terminal areas using `ResizeObserver`. Computes `{ top, left, width, height }` relative to a wrapper div for overlay positioning. Skips observation while pane visibility is loading to avoid stale refs.                                                                                                                                                        |
+| `usePaginatedGitLog`    | Reusable pagination + infinite scroll for git commit history. Uses `useReducer` with a generation counter to discard stale responses after workspace/repo changes. Provides a `sentinelRef` (via `react-intersection-observer`) that auto-fetches the next page when scrolled into view. Page size defaults to 50.                                                                                                  |
 
 ## Testing
 
