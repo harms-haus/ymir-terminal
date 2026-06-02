@@ -6,6 +6,8 @@ import type {
   GitBranch,
   GitBranchesResponse,
   GitRepoDiscoveryResponse,
+  GitStashEntry,
+  GitRemoteEntry,
 } from '@ymir/shared';
 
 export interface UseGitReposReturn {
@@ -25,6 +27,40 @@ export interface UseGitReposReturn {
   fetch: (repoPath: string) => Promise<void>;
   pushLoading: Map<string, boolean>;
   fetchLoading: Map<string, boolean>;
+  // Stash
+  stashPush: (repoPath: string, options?: { includeUntracked?: boolean; message?: string }) => Promise<void>;
+  stashList: (repoPath: string) => Promise<GitStashEntry[]>;
+  stashApply: (repoPath: string, stashRef?: string) => Promise<void>;
+  stashPop: (repoPath: string, stashRef?: string) => Promise<void>;
+  stashDrop: (repoPath: string, stashRef: string) => Promise<void>;
+  stashClear: (repoPath: string) => Promise<void>;
+  // Pull / sync
+  pull: (repoPath: string, options?: { rebase?: boolean }) => Promise<void>;
+  sync: (repoPath: string) => Promise<void>;
+  // Merge / rebase
+  merge: (repoPath: string, branch: string) => Promise<string>;
+  rebase: (repoPath: string, branch: string) => Promise<string>;
+  rebaseAbort: (repoPath: string) => Promise<void>;
+  isRebaseInProgress: (repoPath: string) => Promise<boolean>;
+  // Enhanced commit
+  commitAmend: (repoPath: string, options?: { message?: string; noEdit?: boolean }) => Promise<string>;
+  commitAll: (repoPath: string, message: string, options?: { includeUntracked?: boolean; amend?: boolean }) => Promise<string>;
+  resetSoft: (repoPath: string, ref?: string) => Promise<void>;
+  // Bulk changes
+  stageAll: (repoPath: string) => Promise<void>;
+  unstageAll: (repoPath: string) => Promise<void>;
+  discardAll: (repoPath: string) => Promise<void>;
+  // Enhanced branch
+  branchRename: (repoPath: string, oldName: string, newName: string) => Promise<void>;
+  branchDelete: (repoPath: string, name: string, force?: boolean) => Promise<void>;
+  branchDeleteRemote: (repoPath: string, remote: string, branch: string) => Promise<void>;
+  branchPublish: (repoPath: string, remote?: string) => Promise<void>;
+  listRemoteBranches: (repoPath: string) => Promise<GitBranch[]>;
+  createBranchFrom: (repoPath: string, name: string, startPoint: string) => Promise<void>;
+  // Remote management
+  remoteList: (repoPath: string) => Promise<GitRemoteEntry[]>;
+  remoteAdd: (repoPath: string, name: string, url: string) => Promise<void>;
+  remoteRemove: (repoPath: string, name: string) => Promise<void>;
 }
 
 export function useGitRepos(
@@ -259,6 +295,311 @@ export function useGitRepos(
     [workspaceId, refreshRepo],
   );
 
+  // -----------------------------------------------------------------
+  // Stash
+  // -----------------------------------------------------------------
+
+  const stashPushFn = useCallback(
+    async (repoPath: string, options?: { includeUntracked?: boolean; message?: string }) => {
+      if (!workspaceId) return;
+      await sendRequest('git.stashPush', { workspaceId, repoPath, ...options });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const stashListFn = useCallback(
+    async (repoPath: string): Promise<GitStashEntry[]> => {
+      if (!workspaceId) return [];
+      const result = await sendRequest<{ stashes: GitStashEntry[] }>('git.stashList', { workspaceId, repoPath });
+      return result.stashes;
+    },
+    [workspaceId],
+  );
+
+  const stashApplyFn = useCallback(
+    async (repoPath: string, stashRef?: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.stashApply', { workspaceId, repoPath, stashRef });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const stashPopFn = useCallback(
+    async (repoPath: string, stashRef?: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.stashPop', { workspaceId, repoPath, stashRef });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const stashDropFn = useCallback(
+    async (repoPath: string, stashRef: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.stashDrop', { workspaceId, repoPath, stashRef });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const stashClearFn = useCallback(
+    async (repoPath: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.stashClear', { workspaceId, repoPath });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  // -----------------------------------------------------------------
+  // Pull / sync
+  // -----------------------------------------------------------------
+
+  const pullFn = useCallback(
+    async (repoPath: string, options?: { rebase?: boolean }) => {
+      if (!workspaceId) return;
+      await sendRequest('git.pull', { workspaceId, repoPath, ...options }, { timeout: 60_000 });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const syncFn = useCallback(
+    async (repoPath: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.sync', { workspaceId, repoPath }, { timeout: 60_000 });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  // -----------------------------------------------------------------
+  // Merge / rebase
+  // -----------------------------------------------------------------
+
+  const mergeFn = useCallback(
+    async (repoPath: string, branch: string): Promise<string> => {
+      if (!workspaceId) return '';
+      const result = await sendRequest<{ result: string }>(
+        'git.merge',
+        { workspaceId, repoPath, branch },
+        { timeout: 60_000 },
+      );
+      await refreshRepo(repoPath);
+      return result.result;
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const rebaseFn = useCallback(
+    async (repoPath: string, branch: string): Promise<string> => {
+      if (!workspaceId) return '';
+      const result = await sendRequest<{ result: string }>(
+        'git.rebase',
+        { workspaceId, repoPath, branch },
+        { timeout: 60_000 },
+      );
+      await refreshRepo(repoPath);
+      return result.result;
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const rebaseAbortFn = useCallback(
+    async (repoPath: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.rebaseAbort', { workspaceId, repoPath });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const isRebaseInProgressFn = useCallback(
+    async (repoPath: string): Promise<boolean> => {
+      if (!workspaceId) return false;
+      const result = await sendRequest<{ inProgress: boolean }>('git.rebaseStatus', {
+        workspaceId,
+        repoPath,
+      });
+      return result.inProgress;
+    },
+    [workspaceId],
+  );
+
+  // -----------------------------------------------------------------
+  // Enhanced commit
+  // -----------------------------------------------------------------
+
+  const commitAmendFn = useCallback(
+    async (repoPath: string, options?: { message?: string; noEdit?: boolean }): Promise<string> => {
+      if (!workspaceId) return '';
+      const result = await sendRequest<{ commitHash: string }>('git.commitAmend', {
+        workspaceId,
+        repoPath,
+        ...options,
+      });
+      await refreshRepo(repoPath);
+      return result.commitHash;
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const commitAllFn = useCallback(
+    async (
+      repoPath: string,
+      message: string,
+      options?: { includeUntracked?: boolean; amend?: boolean },
+    ): Promise<string> => {
+      if (!workspaceId) return '';
+      const result = await sendRequest<{ commitHash: string }>('git.commitAll', {
+        workspaceId,
+        repoPath,
+        message,
+        ...options,
+      });
+      await refreshRepo(repoPath);
+      return result.commitHash;
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const resetSoftFn = useCallback(
+    async (repoPath: string, ref?: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.resetSoft', { workspaceId, repoPath, ref });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  // -----------------------------------------------------------------
+  // Bulk changes
+  // -----------------------------------------------------------------
+
+  const stageAllFn = useCallback(
+    async (repoPath: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.stageAll', { workspaceId, repoPath });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const unstageAllFn = useCallback(
+    async (repoPath: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.unstageAll', { workspaceId, repoPath });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const discardAllFn = useCallback(
+    async (repoPath: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.discardAll', { workspaceId, repoPath });
+      await refreshRepo(repoPath, { statusOnly: true });
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  // -----------------------------------------------------------------
+  // Enhanced branch
+  // -----------------------------------------------------------------
+
+  const branchRenameFn = useCallback(
+    async (repoPath: string, oldName: string, newName: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.branchRename', { workspaceId, repoPath, oldName, newName });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const branchDeleteFn = useCallback(
+    async (repoPath: string, name: string, force?: boolean) => {
+      if (!workspaceId) return;
+      await sendRequest('git.branchDelete', { workspaceId, repoPath, name, force });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const branchDeleteRemoteFn = useCallback(
+    async (repoPath: string, remote: string, branch: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.branchDeleteRemote', { workspaceId, repoPath, remote, branch });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const branchPublishFn = useCallback(
+    async (repoPath: string, remote?: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.branchPublish', { workspaceId, repoPath, remote }, { timeout: 60_000 });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const listRemoteBranchesFn = useCallback(
+    async (repoPath: string): Promise<GitBranch[]> => {
+      if (!workspaceId) return [];
+      const result = await sendRequest<{ branches: GitBranch[] }>('git.branchesRemote', {
+        workspaceId,
+        repoPath,
+      });
+      return result.branches;
+    },
+    [workspaceId],
+  );
+
+  const createBranchFromFn = useCallback(
+    async (repoPath: string, name: string, startPoint: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.branchCreateFrom', { workspaceId, repoPath, name, startPoint });
+      await loadData();
+    },
+    [workspaceId, loadData],
+  );
+
+  // -----------------------------------------------------------------
+  // Remote management
+  // -----------------------------------------------------------------
+
+  const remoteListFn = useCallback(
+    async (repoPath: string): Promise<GitRemoteEntry[]> => {
+      if (!workspaceId) return [];
+      const result = await sendRequest<{ remotes: GitRemoteEntry[] }>('git.remoteList', {
+        workspaceId,
+        repoPath,
+      });
+      return result.remotes;
+    },
+    [workspaceId],
+  );
+
+  const remoteAddFn = useCallback(
+    async (repoPath: string, name: string, url: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.remoteAdd', { workspaceId, repoPath, name, url });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
+  const remoteRemoveFn = useCallback(
+    async (repoPath: string, name: string) => {
+      if (!workspaceId) return;
+      await sendRequest('git.remoteRemove', { workspaceId, repoPath, name });
+      await refreshRepo(repoPath);
+    },
+    [workspaceId, refreshRepo],
+  );
+
   return {
     repos,
     repoStatuses,
@@ -276,5 +617,39 @@ export function useGitRepos(
     fetch: fetchFn,
     pushLoading,
     fetchLoading,
+    // Stash
+    stashPush: stashPushFn,
+    stashList: stashListFn,
+    stashApply: stashApplyFn,
+    stashPop: stashPopFn,
+    stashDrop: stashDropFn,
+    stashClear: stashClearFn,
+    // Pull / sync
+    pull: pullFn,
+    sync: syncFn,
+    // Merge / rebase
+    merge: mergeFn,
+    rebase: rebaseFn,
+    rebaseAbort: rebaseAbortFn,
+    isRebaseInProgress: isRebaseInProgressFn,
+    // Enhanced commit
+    commitAmend: commitAmendFn,
+    commitAll: commitAllFn,
+    resetSoft: resetSoftFn,
+    // Bulk changes
+    stageAll: stageAllFn,
+    unstageAll: unstageAllFn,
+    discardAll: discardAllFn,
+    // Enhanced branch
+    branchRename: branchRenameFn,
+    branchDelete: branchDeleteFn,
+    branchDeleteRemote: branchDeleteRemoteFn,
+    branchPublish: branchPublishFn,
+    listRemoteBranches: listRemoteBranchesFn,
+    createBranchFrom: createBranchFromFn,
+    // Remote management
+    remoteList: remoteListFn,
+    remoteAdd: remoteAddFn,
+    remoteRemove: remoteRemoveFn,
   };
 }

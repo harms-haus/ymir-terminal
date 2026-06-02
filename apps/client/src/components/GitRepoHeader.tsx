@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
 import type { GitRepoInfo, GitBranch } from '@ymir/shared';
+import type { UseGitReposReturn } from '../hooks/useGitRepos';
 import { GitBranchSelector } from './GitBranchSelector';
-import { toast } from 'sonner';
+import { GitRepoMenu } from './GitRepoMenu';
 import {
   COLOR_TEXT,
   COLOR_TEXT_MUTED,
@@ -9,13 +9,12 @@ import {
   COLOR_GIT_REPO_HEADER_BG,
   COLOR_GIT_ACTION_BG,
   COLOR_GIT_ACTION_HOVER,
-  COLOR_BG_SECONDARY,
-  Z_INDEX_DROPDOWN,
 } from '../lib/theme';
 
 interface GitRepoHeaderProps {
   repoInfo: GitRepoInfo;
   branches: GitBranch[];
+  gitOps: UseGitReposReturn;
   onCheckout: (branch: string) => void;
   onCreateBranch: (name: string) => void;
   onPush: (branch: string) => void;
@@ -40,6 +39,7 @@ const actionButtonStyle: React.CSSProperties = {
 export function GitRepoHeader({
   repoInfo,
   branches,
+  gitOps,
   onCheckout,
   onCreateBranch,
   onPush,
@@ -50,24 +50,6 @@ export function GitRepoHeader({
   pushLoading = false,
   fetchLoading = false,
 }: GitRepoHeaderProps) {
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-
-  // Click outside to close more menu
-  useEffect(() => {
-    if (!moreMenuOpen) return;
-    function handleMouseDown(e: MouseEvent) {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setMoreMenuOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [moreMenuOpen]);
-
-  const toggleMoreMenu = useCallback(() => {
-    setMoreMenuOpen((prev) => !prev);
-  }, []);
 
   return (
     <div
@@ -175,155 +157,53 @@ export function GitRepoHeader({
         >
           ⊞
         </button>
-        <div ref={moreMenuRef} style={{ position: 'relative', display: 'inline-flex' }}>
+        <GitRepoMenu
+          repoInfo={repoInfo}
+          branches={branches}
+          status={gitOps.repoStatuses.get(repoInfo.path)}
+          isRebaseInProgress={false}
+          onPull={(rebase) => gitOps.pull(repoInfo.path, { rebase })}
+          onPush={(branch) => gitOps.push(repoInfo.path, branch)}
+          onFetch={() => gitOps.fetch(repoInfo.path)}
+          onSync={(_branch) => gitOps.sync(repoInfo.path)}
+          onCommitAmend={(opts) => gitOps.commitAmend(repoInfo.path, opts)}
+          onCommitAll={(msg, opts) => gitOps.commitAll(repoInfo.path, msg, opts)}
+          onResetSoft={() => gitOps.resetSoft(repoInfo.path)}
+          onRebaseAbort={() => gitOps.rebaseAbort(repoInfo.path)}
+          onStageAll={() => gitOps.stageAll(repoInfo.path)}
+          onUnstageAll={() => gitOps.unstageAll(repoInfo.path)}
+          onDiscardAll={() => gitOps.discardAll(repoInfo.path)}
+          onMerge={(branch) => gitOps.merge(repoInfo.path, branch)}
+          onRebase={(branch) => gitOps.rebase(repoInfo.path, branch)}
+          onCreateBranch={(name) => gitOps.checkout(repoInfo.path, name, true)}
+          onCreateBranchFrom={(name, start) => gitOps.createBranchFrom(repoInfo.path, name, start)}
+          onRenameBranch={(old, newName) => gitOps.branchRename(repoInfo.path, old, newName)}
+          onDeleteBranch={(name) => gitOps.branchDelete(repoInfo.path, name)}
+          onDeleteRemoteBranch={(remote, branch) => gitOps.branchDeleteRemote(repoInfo.path, remote, branch)}
+          onPublishBranch={() => gitOps.branchPublish(repoInfo.path)}
+          onRemoteAdd={(name, url) => gitOps.remoteAdd(repoInfo.path, name, url)}
+          onRemoteRemove={(name) => gitOps.remoteRemove(repoInfo.path, name)}
+          onStashPush={async (opts) => {
+            await gitOps.stashPush(repoInfo.path, opts);
+            return '';
+          }}
+          onStashApply={(ref) => gitOps.stashApply(repoInfo.path, ref)}
+          onStashPop={(ref) => gitOps.stashPop(repoInfo.path, ref)}
+          onStashDrop={(ref) => gitOps.stashDrop(repoInfo.path, ref)}
+          onStashClear={() => gitOps.stashClear(repoInfo.path)}
+          onFetchStashList={() => gitOps.stashList(repoInfo.path)}
+          onFetchRemoteList={() => gitOps.remoteList(repoInfo.path)}
+          onFetchRemoteBranches={() => gitOps.listRemoteBranches(repoInfo.path)}
+        >
           <button
             data-testid="git-more-menu"
             aria-label="More actions"
             title="More Actions"
-            onClick={toggleMoreMenu}
             style={actionButtonStyle}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = COLOR_GIT_ACTION_BG;
-            }}
           >
             ⋯
           </button>
-          {moreMenuOpen && (
-            <div
-              role="menu"
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                zIndex: Z_INDEX_DROPDOWN,
-                background: COLOR_BG_SECONDARY,
-                border: `1px solid ${COLOR_BORDER}`,
-                borderRadius: 4,
-                minWidth: 120,
-              }}
-            >
-              <div
-                role="menuitem"
-                tabIndex={-1}
-                onClick={() => {
-                  toast.info('Not yet implemented');
-                  setMoreMenuOpen(false);
-                }}
-                style={{
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  color: COLOR_TEXT,
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = undefined as unknown as string;
-                }}
-              >
-                Pull
-              </div>
-              <div
-                role="menuitem"
-                tabIndex={-1}
-                onClick={() => {
-                  toast.info('Not yet implemented');
-                  setMoreMenuOpen(false);
-                }}
-                style={{
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  color: COLOR_TEXT,
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = undefined as unknown as string;
-                }}
-              >
-                Push
-              </div>
-              <div
-                role="menuitem"
-                tabIndex={-1}
-                onClick={() => {
-                  toast.info('Not yet implemented');
-                  setMoreMenuOpen(false);
-                }}
-                style={{
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  color: COLOR_TEXT,
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = undefined as unknown as string;
-                }}
-              >
-                Commit
-              </div>
-              <div
-                role="menuitem"
-                tabIndex={-1}
-                onClick={() => {
-                  toast.info('Not yet implemented');
-                  setMoreMenuOpen(false);
-                }}
-                style={{
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  color: COLOR_TEXT,
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = undefined as unknown as string;
-                }}
-              >
-                Branch
-              </div>
-              <div style={{ borderTop: `1px solid ${COLOR_BORDER}`, margin: '2px 0' }} />
-              <div
-                role="menuitem"
-                tabIndex={-1}
-                onClick={() => {
-                  toast.info('Not yet implemented');
-                  setMoreMenuOpen(false);
-                }}
-                style={{
-                  padding: '4px 8px',
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  color: COLOR_TEXT,
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = COLOR_GIT_ACTION_HOVER;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = undefined as unknown as string;
-                }}
-              >
-                Stash
-              </div>
-            </div>
-          )}
-        </div>
+        </GitRepoMenu>
       </div>
     </div>
   );

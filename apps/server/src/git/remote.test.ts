@@ -3,7 +3,7 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { pushBranch, fetchRemote } from './remote';
+import { pushBranch, fetchRemote, listRemotes, addRemote, removeRemote } from './remote';
 
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });
@@ -140,6 +140,100 @@ describe('git remote', () => {
       initRepo(testDir);
       run('git remote add origin /non/existent/path.git', testDir);
       await expect(fetchRemote(testDir)).rejects.toThrow('Fetch failed:');
+    });
+  });
+
+  describe('listRemotes', () => {
+    it('returns empty array when no remotes are configured', async () => {
+      initRepo(testDir);
+
+      const remotes = await listRemotes(testDir);
+
+      expect(remotes).toEqual([]);
+    });
+
+    it('lists a single remote with fetch and push URLs', async () => {
+      initRepo(testDir);
+      run('git remote add origin https://example.com/repo.git', testDir);
+
+      const remotes = await listRemotes(testDir);
+
+      expect(remotes).toHaveLength(1);
+      expect(remotes[0].name).toBe('origin');
+      expect(remotes[0].fetchUrl).toBe('https://example.com/repo.git');
+      expect(remotes[0].pushUrl).toBe('https://example.com/repo.git');
+    });
+
+    it('lists multiple remotes', async () => {
+      initRepo(testDir);
+      run('git remote add origin https://example.com/origin.git', testDir);
+      run('git remote add upstream https://example.com/upstream.git', testDir);
+
+      const remotes = await listRemotes(testDir);
+
+      expect(remotes).toHaveLength(2);
+      const names = remotes.map((r) => r.name);
+      expect(names).toContain('origin');
+      expect(names).toContain('upstream');
+    });
+
+    it('handles separate push URL', async () => {
+      initRepo(testDir);
+      run('git remote add origin https://example.com/fetch.git', testDir);
+      run('git remote set-url --push origin https://example.com/push.git', testDir);
+
+      const remotes = await listRemotes(testDir);
+
+      expect(remotes).toHaveLength(1);
+      expect(remotes[0].fetchUrl).toBe('https://example.com/fetch.git');
+      expect(remotes[0].pushUrl).toBe('https://example.com/push.git');
+    });
+  });
+
+  describe('addRemote', () => {
+    it('adds a new remote to the repository', async () => {
+      initRepo(testDir);
+
+      await addRemote(testDir, 'origin', 'https://example.com/repo.git');
+
+      const remotes = await listRemotes(testDir);
+      expect(remotes).toHaveLength(1);
+      expect(remotes[0].name).toBe('origin');
+      expect(remotes[0].fetchUrl).toBe('https://example.com/repo.git');
+    });
+
+    it('throws for invalid remote name', async () => {
+      initRepo(testDir);
+      await expect(
+        addRemote(testDir, 'bad name!', 'https://example.com/repo.git'),
+      ).rejects.toThrow('Invalid remote name');
+    });
+
+    it('throws for remote name with special characters', async () => {
+      initRepo(testDir);
+      await expect(
+        addRemote(testDir, 'bad$name', 'https://example.com/repo.git'),
+      ).rejects.toThrow('Invalid remote name');
+    });
+  });
+
+  describe('removeRemote', () => {
+    it('removes an existing remote', async () => {
+      initRepo(testDir);
+      run('git remote add origin https://example.com/repo.git', testDir);
+
+      expect((await listRemotes(testDir)).length).toBe(1);
+
+      await removeRemote(testDir, 'origin');
+
+      expect((await listRemotes(testDir))).toEqual([]);
+    });
+
+    it('throws for invalid remote name', async () => {
+      initRepo(testDir);
+      await expect(removeRemote(testDir, 'bad!')).rejects.toThrow(
+        'Invalid remote name',
+      );
     });
   });
 });

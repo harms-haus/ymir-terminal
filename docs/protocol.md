@@ -57,10 +57,42 @@ interface MessageEnvelope<T = unknown> {
 | `git.branches`       | request   | List branches in a git repository                                                                      |
 | `git.checkout`       | request   | Switch or create a branch                                                                              |
 | `git.push`           | request   | Push branch to origin                                                                                  |
-| `git.fetch`          | request   | Fetch from remote                                                                                      |
-| `git.worktreeList`   | request   | List git worktrees for a workspace                                                                     |
-| `git.worktreeCreate` | request   | Create a new git worktree                                                                              |
-| `git.worktreeRemove` | request   | Remove a git worktree                                                                                  |
+| `git.fetch`             | request   | Fetch from remote                                                                                      |
+| `git.diffData`          | request   | Get diff for a file (staged or unstaged)                                                               |
+| `git.commitDetails`     | request   | Get commit body and changed files                                                                      |
+| `git.commitDiff`        | request   | Get diff of a specific file between a commit and its parent                                            |
+| `git.worktreeList`      | request   | List git worktrees for a workspace                                                                     |
+| `git.worktreeCreate`    | request   | Create a new git worktree                                                                              |
+| `git.worktreeRemove`    | request   | Remove a git worktree                                                                                  |
+| `git.worktreeMerge`     | request   | Merge a worktree branch back into a target branch                                                      |
+| `git.worktreeCopyFiles` | request   | List untracked files and configured copy files for worktree setup                                       |
+| `git.stashPush`         | request   | Stash current changes                                                                                  |
+| `git.stashList`         | request   | List stash entries                                                                                     |
+| `git.stashApply`        | request   | Apply a stash without removing it                                                                      |
+| `git.stashPop`          | request   | Apply a stash and remove it                                                                            |
+| `git.stashDrop`         | request   | Drop a specific stash entry                                                                            |
+| `git.stashClear`        | request   | Clear all stash entries                                                                                |
+| `git.pull`              | request   | Pull from remote (optionally with rebase)                                                              |
+| `git.sync`              | request   | Sync: stash, pull, and pop                                                                             |
+| `git.merge`             | request   | Merge a branch into the current branch                                                                 |
+| `git.rebase`            | request   | Rebase current branch onto target                                                                      |
+| `git.rebaseAbort`       | request   | Abort an in-progress rebase                                                                            |
+| `git.rebaseStatus`      | request   | Check if a rebase is in progress                                                                       |
+| `git.commitAmend`       | request   | Amend the last commit                                                                                  |
+| `git.commitAll`         | request   | Stage all changes and commit in one step                                                               |
+| `git.resetSoft`         | request   | Soft reset to a ref (keeps changes staged)                                                             |
+| `git.stageAll`          | request   | Stage all changes                                                                                      |
+| `git.unstageAll`        | request   | Unstage all changes                                                                                    |
+| `git.discardAll`        | request   | Discard all unstaged changes                                                                           |
+| `git.branchRename`      | request   | Rename a branch                                                                                        |
+| `git.branchDelete`      | request   | Delete a local branch                                                                                  |
+| `git.branchDeleteRemote`| request   | Delete a remote branch                                                                                 |
+| `git.branchPublish`     | request   | Publish current branch to remote                                                                       |
+| `git.branchesRemote`    | request   | List remote branches                                                                                   |
+| `git.branchCreateFrom`  | request   | Create a new branch from a specific start point                                                        |
+| `git.remoteAdd`         | request   | Add a remote                                                                                           |
+| `git.remoteRemove`      | request   | Remove a remote                                                                                        |
+| `git.remoteList`        | request   | List remotes                                                                                           |
 | `config.get`         | request   | Get a config value from server_config table                                                            |
 | `config.set`         | request   | Set a config value in server_config table                                                              |
 | `tab.list`           | request   | List tabs for a workspace (with terminal liveness)                                                     |
@@ -71,6 +103,88 @@ interface MessageEnvelope<T = unknown> {
 | `connection.status`  | event     | Connection status change                                                                               |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
+
+## Git Channel Type Reference
+
+All git request payloads include `workspaceId` (and usually `repoPath`).
+Only the distinguishing fields are listed below.
+
+### Diff & Commit Inspection
+
+| Channel                | Request type              | Response type              | Fields                                                                                         |
+| ---------------------- | ------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `git.diffData`         | `GitDiffDataRequest`      | `GitDiffDataResponse`      | req: `filePath`, `staged`; res: `originalContent`, `modifiedContent`, `additions`, `deletions` |
+| `git.commitDetails`    | `GitCommitDetailsRequest` | `GitCommitDetailsResponse` | req: `commitSha`; res: `body`, `files` (`GitCommitFileChange[]`)                               |
+| `git.commitDiff`       | `GitCommitDiffRequest`    | `GitCommitDiffResponse`    | req: `commitSha`, `parentSha` (`''` for root), `filePath`; res: same shape as `GitDiffDataResponse` |
+
+### Stash Operations
+
+| Channel         | Request type           | Response type          | Fields                                                                 |
+| --------------- | ---------------------- | ---------------------- | ---------------------------------------------------------------------- |
+| `git.stashPush` | `GitStashPushRequest`  | `GitStashPushResponse` | req: `includeUntracked?`, `message?`; res: `stashRef`                  |
+| `git.stashList` | `GitStashListRequest`  | `GitStashListResponse` | res: `stashes` (`GitStashEntry[]` with `index`, `ref`, `message`)      |
+| `git.stashApply`| `GitStashApplyRequest` | —                      | req: `stashRef?` (defaults to latest)                                  |
+| `git.stashPop`  | `GitStashPopRequest`   | —                      | req: `stashRef?` (defaults to latest)                                  |
+| `git.stashDrop` | `GitStashDropRequest`  | —                      | req: `stashRef` (required)                                             |
+| `git.stashClear`| `GitStashClearRequest` | —                      | —                                                                      |
+
+### Pull / Sync
+
+| Channel    | Request type      | Response type | Fields                                        |
+| ---------- | ----------------- | ------------- | --------------------------------------------- |
+| `git.pull` | `GitPullRequest`  | —             | req: `rebase?`                                |
+| `git.sync` | `GitSyncRequest`  | —             | Stash → pull → pop in one operation           |
+
+### Merge / Rebase
+
+| Channel           | Request type              | Response type               | Fields                                                 |
+| ----------------- | ------------------------- | --------------------------- | ------------------------------------------------------ |
+| `git.merge`       | `GitMergeRequest`         | `GitMergeResponse`          | req: `branch`; res: `result`                           |
+| `git.rebase`      | `GitRebaseRequest`        | —                           | req: `branch`                                          |
+| `git.rebaseAbort` | `GitRebaseAbortRequest`   | —                           | —                                                      |
+| `git.rebaseStatus`| `GitRebaseStatusRequest`  | `GitRebaseStatusResponse`   | res: `inProgress`                                      |
+
+### Enhanced Commit
+
+| Channel          | Request type              | Response type              | Fields                                                                   |
+| ---------------- | ------------------------- | -------------------------- | ------------------------------------------------------------------------ |
+| `git.commitAmend`| `GitCommitAmendRequest`   | `GitCommitAmendResponse`   | req: `message?`, `noEdit?`; res: `commitHash`                            |
+| `git.commitAll`  | `GitCommitAllRequest`     | `GitCommitAllResponse`     | req: `message`, `includeUntracked?`, `amend?`; res: `commitHash`         |
+| `git.resetSoft`  | `GitResetSoftRequest`     | —                          | req: `ref?` (defaults to HEAD)                                           |
+
+### Bulk Change Operations
+
+| Channel          | Request type            | Response type | Fields |
+| ---------------- | ----------------------- | ------------- | ------ |
+| `git.stageAll`   | `GitStageAllRequest`    | —             | —      |
+| `git.unstageAll` | `GitUnstageAllRequest`  | —             | —      |
+| `git.discardAll` | `GitDiscardAllRequest`  | —             | —      |
+
+### Enhanced Branch Operations
+
+| Channel                | Request type                  | Response type                 | Fields                                                              |
+| ---------------------- | ----------------------------- | ----------------------------- | ------------------------------------------------------------------- |
+| `git.branchRename`     | `GitBranchRenameRequest`      | —                             | req: `oldName`, `newName`                                          |
+| `git.branchDelete`     | `GitBranchDeleteRequest`      | —                             | req: `name`, `force?`                                              |
+| `git.branchDeleteRemote`| `GitBranchDeleteRemoteRequest`| —                            | req: `remote`, `branch`                                            |
+| `git.branchPublish`    | `GitBranchPublishRequest`     | —                             | req: `remote?` (defaults to origin)                                |
+| `git.branchesRemote`   | `GitBranchesRemoteRequest`    | `GitBranchesRemoteResponse`   | res: `branches` (`GitBranch[]`)                                    |
+| `git.branchCreateFrom` | `GitBranchCreateFromRequest`  | —                             | req: `name`, `startPoint`                                          |
+
+### Remote Management
+
+| Channel          | Request type           | Response type           | Fields                                              |
+| ---------------- | ---------------------- | ----------------------- | --------------------------------------------------- |
+| `git.remoteAdd`  | `GitRemoteAddRequest`  | —                       | req: `name`, `url`                                  |
+| `git.remoteRemove`| `GitRemoteRemoveRequest`| —                      | req: `name`                                         |
+| `git.remoteList` | `GitRemoteListRequest` | `GitRemoteListResponse` | res: `remotes` (`GitRemoteEntry[]` with `name`, `fetchUrl`, `pushUrl`) |
+
+### Worktree Extended Operations
+
+| Channel               | Request type                 | Response type                  | Fields                                                                                    |
+| --------------------- | ---------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
+| `git.worktreeMerge`   | `GitWorktreeMergeRequest`    | `GitWorktreeMergeResponse`     | req: `worktreePath`, `targetBranch?`, `deleteAfterMerge?`, `filesToCopy?`; res: `success`, `message`, `worktreeRemoved?` |
+| `git.worktreeCopyFiles`| `GitWorktreeCopyFilesRequest`| `GitWorktreeCopyFilesResponse` | req: `dirPath?`; res: `untrackedFiles[]`, `configuredFiles[]`                              |
 
 ## Protocol Type Reference
 

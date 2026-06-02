@@ -225,3 +225,241 @@ export interface GitWorktreeCopyFilesResponse {
   untrackedFiles: string[]; // relative paths of untracked files (excludes .worktreecopy)
   configuredFiles: string[]; // paths listed in .worktreecopy (empty if file doesn't exist)
 }
+
+// ---------------------------------------------------------------------------
+// Shared types
+// ---------------------------------------------------------------------------
+
+export interface GitStashEntry {
+  index: number;
+  ref: string;
+  message: string;
+  branchName: string | null;
+}
+
+export interface GitRemoteEntry {
+  name: string;
+  fetchUrl: string;
+  pushUrl: string;
+}
+
+// ---------------------------------------------------------------------------
+// Stash channels
+// ---------------------------------------------------------------------------
+
+export interface GitStashPushRequest {
+  workspaceId: string;
+  repoPath: string;
+  includeUntracked?: boolean;
+  message?: string;
+}
+
+export interface GitStashPushResponse {
+  stashRef: string;
+}
+
+export interface GitStashListRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+export interface GitStashListResponse {
+  stashes: GitStashEntry[];
+}
+
+export interface GitStashApplyRequest {
+  workspaceId: string;
+  repoPath: string;
+  stashRef?: string;
+}
+
+export interface GitStashPopRequest {
+  workspaceId: string;
+  repoPath: string;
+  stashRef?: string;
+}
+
+export interface GitStashDropRequest {
+  workspaceId: string;
+  repoPath: string;
+  stashRef: string;
+}
+
+export interface GitStashClearRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+// ---------------------------------------------------------------------------
+// Pull / Sync channels
+// ---------------------------------------------------------------------------
+
+export interface GitPullRequest {
+  workspaceId: string;
+  repoPath: string;
+  rebase?: boolean;
+}
+
+export interface GitSyncRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+// ---------------------------------------------------------------------------
+// Merge / Rebase channels
+// ---------------------------------------------------------------------------
+
+export interface GitMergeRequest {
+  workspaceId: string;
+  repoPath: string;
+  branch: string;
+}
+
+export interface GitMergeResponse {
+  result: string;
+}
+
+export interface GitRebaseRequest {
+  workspaceId: string;
+  repoPath: string;
+  branch: string;
+}
+
+export interface GitRebaseAbortRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+export interface GitRebaseStatusRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+export interface GitRebaseStatusResponse {
+  inProgress: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced commit channels
+// ---------------------------------------------------------------------------
+
+export interface GitCommitAmendRequest {
+  workspaceId: string;
+  repoPath: string;
+  message?: string;
+  noEdit?: boolean;
+}
+
+export interface GitCommitAmendResponse {
+  commitHash: string;
+}
+
+export interface GitCommitAllRequest {
+  workspaceId: string;
+  repoPath: string;
+  message: string;
+  includeUntracked?: boolean;
+  amend?: boolean;
+}
+
+export interface GitCommitAllResponse {
+  commitHash: string;
+}
+
+export interface GitResetSoftRequest {
+  workspaceId: string;
+  repoPath: string;
+  ref?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Bulk change channels
+// ---------------------------------------------------------------------------
+
+export interface GitStageAllRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+export interface GitUnstageAllRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+export interface GitDiscardAllRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced branch channels
+// ---------------------------------------------------------------------------
+
+export interface GitBranchRenameRequest {
+  workspaceId: string;
+  repoPath: string;
+  oldName: string;
+  newName: string;
+}
+
+export interface GitBranchDeleteRequest {
+  workspaceId: string;
+  repoPath: string;
+  name: string;
+  force?: boolean;
+}
+
+export interface GitBranchDeleteRemoteRequest {
+  workspaceId: string;
+  repoPath: string;
+  remote: string;
+  branch: string;
+}
+
+export interface GitBranchPublishRequest {
+  workspaceId: string;
+  repoPath: string;
+  remote?: string;
+}
+
+export interface GitBranchesRemoteRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+export interface GitBranchesRemoteResponse {
+  branches: GitBranch[];
+}
+
+export interface GitBranchCreateFromRequest {
+  workspaceId: string;
+  repoPath: string;
+  name: string;
+  startPoint: string;
+}
+
+// ---------------------------------------------------------------------------
+// Remote management channels
+// ---------------------------------------------------------------------------
+
+export interface GitRemoteAddRequest {
+  workspaceId: string;
+  repoPath: string;
+  name: string;
+  url: string;
+}
+
+export interface GitRemoteRemoveRequest {
+  workspaceId: string;
+  repoPath: string;
+  name: string;
+}
+
+export interface GitRemoteListRequest {
+  workspaceId: string;
+  repoPath: string;
+}
+
+export interface GitRemoteListResponse {
+  remotes: GitRemoteEntry[];
+}

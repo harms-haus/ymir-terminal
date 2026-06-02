@@ -97,6 +97,7 @@ export function GitPanel({
             <GitRepoHeader
               repoInfo={repo}
               branches={branches}
+              gitOps={git}
               collapsed={collapsedRepos.has(repo.path)}
               onToggleCollapse={() => toggleRepoCollapse(repo.path)}
               onCheckout={(branch) => git.checkout(repo.path, branch)}

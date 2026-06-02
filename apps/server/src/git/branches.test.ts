@@ -3,7 +3,17 @@ import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { listBranches, createBranch, checkoutBranch } from './branches';
+import {
+  listBranches,
+  createBranch,
+  checkoutBranch,
+  renameBranch,
+  deleteBranch,
+  deleteRemoteBranch,
+  publishBranch,
+  listRemoteBranches,
+  createBranchFrom,
+} from './branches';
 
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });
@@ -99,6 +109,298 @@ describe('git branches', () => {
 
       ({ current } = await listBranches(testDir));
       expect(current).toBe('other-branch');
+    });
+  });
+
+  describe('renameBranch', () => {
+    it('renames an existing branch', async () => {
+      initRepo(testDir);
+      run('git branch old-name', testDir);
+
+      await renameBranch(testDir, 'old-name', 'new-name');
+
+      const names = (await listBranches(testDir)).branches.map((b) => b.name);
+      expect(names).not.toContain('old-name');
+      expect(names).toContain('new-name');
+    });
+
+    it('throws for invalid old branch name', async () => {
+      initRepo(testDir);
+      await expect(renameBranch(testDir, 'bad!', 'new-name')).rejects.toThrow(
+        'Invalid branch name',
+      );
+    });
+
+    it('throws for invalid new branch name', async () => {
+      initRepo(testDir);
+      await expect(renameBranch(testDir, 'main', 'bad!')).rejects.toThrow(
+        'Invalid branch name',
+      );
+    });
+  });
+
+  describe('deleteBranch', () => {
+    it('deletes a merged branch (non-forced)', async () => {
+      initRepo(testDir);
+      run('git branch to-delete', testDir);
+
+      await deleteBranch(testDir, 'to-delete');
+
+      const names = (await listBranches(testDir)).branches.map((b) => b.name);
+      expect(names).not.toContain('to-delete');
+    });
+
+    it('force-deletes a branch', async () => {
+      initRepo(testDir);
+      // Create a branch with a divergent commit so -d would fail
+      run('git checkout -b diverged', testDir);
+      writeFileSync(join(testDir, 'diverged.txt'), 'content');
+      run('git add .', testDir);
+      run('git commit -m "diverged commit"', testDir);
+      // Go back to the initial branch
+      const initialBranch = (await listBranches(testDir)).branches.find(
+        (b) => b.name !== 'diverged',
+      )!.name;
+      run(`git checkout ${initialBranch}`, testDir);
+
+      await deleteBranch(testDir, 'diverged', true);
+
+      const names = (await listBranches(testDir)).branches.map((b) => b.name);
+      expect(names).not.toContain('diverged');
+    });
+
+    it('throws for invalid branch name', async () => {
+      initRepo(testDir);
+      await expect(deleteBranch(testDir, 'bad!')).rejects.toThrow(
+        'Invalid branch name',
+      );
+    });
+  });
+
+  describe('deleteRemoteBranch', () => {
+    it('throws for invalid remote name', async () => {
+      initRepo(testDir);
+      await expect(deleteRemoteBranch(testDir, 'bad!', 'main')).rejects.toThrow(
+        'Invalid name',
+      );
+    });
+
+    it('throws for invalid branch name', async () => {
+      initRepo(testDir);
+      await expect(deleteRemoteBranch(testDir, 'origin', 'bad!')).rejects.toThrow(
+        'Invalid branch name',
+      );
+    });
+
+    it('deletes a remote branch', async () => {
+      const remoteDir = join(
+        tmpdir(),
+        `ymir-remote-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(remoteDir, { recursive: true });
+      try {
+        run('git init --bare', remoteDir);
+
+        initRepo(testDir);
+        run(`git remote add origin ${remoteDir}`, testDir);
+
+        // Create and push a branch
+        run('git checkout -b feature', testDir);
+        writeFileSync(join(testDir, 'feat.txt'), 'content');
+        run('git add .', testDir);
+        run('git commit -m "feature"', testDir);
+        run('git push -u origin feature', testDir);
+
+        // Switch back to initial branch
+        const initialBranch = (await listBranches(testDir)).branches.find(
+          (b) => !b.name.startsWith('feature'),
+        )!.name;
+        run(`git checkout ${initialBranch}`, testDir);
+
+        await deleteRemoteBranch(testDir, 'origin', 'feature');
+
+        // Verify the remote branch is gone
+        const remoteBranches = await listRemoteBranches(testDir);
+        const names = remoteBranches.branches.map((b) => b.name);
+        expect(names.some((n) => n === 'origin/feature')).toBe(false);
+      } finally {
+        rmSync(remoteDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('publishBranch', () => {
+    it('pushes and sets upstream to origin by default', async () => {
+      const remoteDir = join(
+        tmpdir(),
+        `ymir-remote-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(remoteDir, { recursive: true });
+      try {
+        run('git init --bare', remoteDir);
+
+        initRepo(testDir);
+        run(`git remote add origin ${remoteDir}`, testDir);
+
+        await publishBranch(testDir);
+
+        // Verify the branch was pushed
+        const localHead = execSync('git rev-parse HEAD', {
+          cwd: testDir,
+          encoding: 'utf-8',
+        }).trim();
+        const remoteHead = execSync('git rev-parse HEAD', {
+          cwd: remoteDir,
+          encoding: 'utf-8',
+        }).trim();
+        expect(remoteHead).toBe(localHead);
+
+        // Verify tracking is set
+        const tracking = execSync('git rev-parse --abbrev-ref @{u}', {
+          cwd: testDir,
+          encoding: 'utf-8',
+        }).trim();
+        expect(tracking).toContain('origin/');
+      } finally {
+        rmSync(remoteDir, { recursive: true, force: true });
+      }
+    });
+
+    it('pushes to a custom remote', async () => {
+      const remoteDir = join(
+        tmpdir(),
+        `ymir-remote-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(remoteDir, { recursive: true });
+      try {
+        run('git init --bare', remoteDir);
+
+        initRepo(testDir);
+        run(`git remote add upstream ${remoteDir}`, testDir);
+
+        await publishBranch(testDir, 'upstream');
+
+        const localHead = execSync('git rev-parse HEAD', {
+          cwd: testDir,
+          encoding: 'utf-8',
+        }).trim();
+        const remoteHead = execSync('git rev-parse HEAD', {
+          cwd: remoteDir,
+          encoding: 'utf-8',
+        }).trim();
+        expect(remoteHead).toBe(localHead);
+      } finally {
+        rmSync(remoteDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('listRemoteBranches', () => {
+    it('returns empty array when no remotes are configured', async () => {
+      initRepo(testDir);
+
+      const result = await listRemoteBranches(testDir);
+
+      expect(result.branches).toEqual([]);
+      expect(result.current).toBeNull();
+    });
+
+    it('lists remote branches from a configured remote', async () => {
+      const remoteDir = join(
+        tmpdir(),
+        `ymir-remote-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(remoteDir, { recursive: true });
+      try {
+        run('git init --bare', remoteDir);
+
+        initRepo(testDir);
+        run(`git remote add origin ${remoteDir}`, testDir);
+        run('git push -u origin HEAD', testDir);
+
+        // Fetch to get remote refs
+        run('git fetch', testDir);
+
+        const result = await listRemoteBranches(testDir);
+
+        expect(result.current).toBeNull();
+        expect(result.branches.length).toBeGreaterThanOrEqual(1);
+        for (const b of result.branches) {
+          expect(b.isRemote).toBe(true);
+          expect(b.isCurrent).toBe(false);
+          expect(b.name).toContain('origin/');
+        }
+      } finally {
+        rmSync(remoteDir, { recursive: true, force: true });
+      }
+    });
+
+    it('skips HEAD symlink lines (->)', async () => {
+      const remoteDir = join(
+        tmpdir(),
+        `ymir-remote-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      mkdirSync(remoteDir, { recursive: true });
+      try {
+        run('git init --bare', remoteDir);
+
+        initRepo(testDir);
+        run(`git remote add origin ${remoteDir}`, testDir);
+        run('git push -u origin HEAD', testDir);
+        run('git fetch', testDir);
+
+        const result = await listRemoteBranches(testDir);
+
+        // Should not contain any entries with '->'
+        for (const b of result.branches) {
+          expect(b.name).not.toContain('->');
+        }
+      } finally {
+        rmSync(remoteDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('createBranchFrom', () => {
+    it('creates a new branch from a specified start point', async () => {
+      initRepo(testDir);
+      // Create a second commit
+      writeFileSync(join(testDir, 'file.txt'), 'content');
+      run('git add .', testDir);
+      run('git commit -m "second commit"', testDir);
+
+      // Get the first commit hash as start point
+      const firstCommit = execSync('git rev-parse HEAD~1', {
+        cwd: testDir,
+        encoding: 'utf-8',
+      }).trim();
+
+      await createBranchFrom(testDir, 'from-first', firstCommit);
+
+      const { branches, current } = await listBranches(testDir);
+      expect(branches.map((b) => b.name)).toContain('from-first');
+      expect(current).toBe('from-first');
+
+      // The new branch should point to the first commit
+      const head = execSync('git rev-parse HEAD', {
+        cwd: testDir,
+        encoding: 'utf-8',
+      }).trim();
+      expect(head).toBe(firstCommit);
+    });
+
+    it('throws for invalid branch name', async () => {
+      initRepo(testDir);
+      await expect(createBranchFrom(testDir, 'bad!', 'HEAD')).rejects.toThrow(
+        'Invalid branch name',
+      );
+    });
+
+    it('throws for invalid start point', async () => {
+      initRepo(testDir);
+      await expect(
+        createBranchFrom(testDir, 'my-branch', 'bad;point'),
+      ).rejects.toThrow('Invalid start point');
     });
   });
 });

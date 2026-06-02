@@ -59,6 +59,33 @@ import type {
   GitWorktreeRemoveRequest,
   GitWorktreeMergeRequest,
   GitWorktreeCopyFilesRequest,
+  GitStashPushRequest,
+  GitStashListRequest,
+  GitStashApplyRequest,
+  GitStashPopRequest,
+  GitStashDropRequest,
+  GitStashClearRequest,
+  GitPullRequest,
+  GitSyncRequest,
+  GitMergeRequest,
+  GitRebaseRequest,
+  GitRebaseAbortRequest,
+  GitRebaseStatusRequest,
+  GitCommitAmendRequest,
+  GitCommitAllRequest,
+  GitResetSoftRequest,
+  GitStageAllRequest,
+  GitUnstageAllRequest,
+  GitDiscardAllRequest,
+  GitBranchRenameRequest,
+  GitBranchDeleteRequest,
+  GitBranchDeleteRemoteRequest,
+  GitBranchPublishRequest,
+  GitBranchesRemoteRequest,
+  GitBranchCreateFromRequest,
+  GitRemoteAddRequest,
+  GitRemoteRemoveRequest,
+  GitRemoteListRequest,
 } from './git';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
@@ -112,6 +139,33 @@ export const REQUEST_TYPES = [
   'git.worktreeRemove',
   'git.worktreeMerge',
   'git.worktreeCopyFiles',
+  'git.stashPush',
+  'git.stashList',
+  'git.stashApply',
+  'git.stashPop',
+  'git.stashDrop',
+  'git.stashClear',
+  'git.pull',
+  'git.sync',
+  'git.merge',
+  'git.rebase',
+  'git.rebaseAbort',
+  'git.rebaseStatus',
+  'git.commitAmend',
+  'git.commitAll',
+  'git.resetSoft',
+  'git.stageAll',
+  'git.unstageAll',
+  'git.discardAll',
+  'git.branchRename',
+  'git.branchDelete',
+  'git.branchDeleteRemote',
+  'git.branchPublish',
+  'git.branchesRemote',
+  'git.branchCreateFrom',
+  'git.remoteAdd',
+  'git.remoteRemove',
+  'git.remoteList',
   'config.get',
   'config.set',
   'tab.list',
@@ -174,6 +228,33 @@ export type RequestPayload =
   | GitWorktreeRemoveRequest
   | GitWorktreeMergeRequest
   | GitWorktreeCopyFilesRequest
+  | GitStashPushRequest
+  | GitStashListRequest
+  | GitStashApplyRequest
+  | GitStashPopRequest
+  | GitStashDropRequest
+  | GitStashClearRequest
+  | GitPullRequest
+  | GitSyncRequest
+  | GitMergeRequest
+  | GitRebaseRequest
+  | GitRebaseAbortRequest
+  | GitRebaseStatusRequest
+  | GitCommitAmendRequest
+  | GitCommitAllRequest
+  | GitResetSoftRequest
+  | GitStageAllRequest
+  | GitUnstageAllRequest
+  | GitDiscardAllRequest
+  | GitBranchRenameRequest
+  | GitBranchDeleteRequest
+  | GitBranchDeleteRemoteRequest
+  | GitBranchPublishRequest
+  | GitBranchesRemoteRequest
+  | GitBranchCreateFromRequest
+  | GitRemoteAddRequest
+  | GitRemoteRemoveRequest
+  | GitRemoteListRequest
   | ConfigGetRequest
   | ConfigSetRequest
   | TabListRequest

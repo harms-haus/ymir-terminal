@@ -8,6 +8,7 @@ import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
  */
 export interface SendRequestOptions {
   signal?: AbortSignal;
+  timeout?: number;  // custom timeout in milliseconds, defaults to 10_000
 }
 
 export function sendRequest<T>(
@@ -27,7 +28,7 @@ export function sendRequest<T>(
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error('Request timeout'));
-    }, 10_000);
+    }, options?.timeout ?? 10_000);
 
     const unsub = wsClient.onMessage((envelope: MessageEnvelope) => {
       if (envelope.id === id) {

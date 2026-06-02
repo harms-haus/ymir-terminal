@@ -290,6 +290,100 @@ export function setupAllMocks(): void {
     };
   });
 
+  // --- @radix-ui/react-dropdown-menu -----------------------------------------
+  bunMock.module('@radix-ui/react-dropdown-menu', () => {
+    const DdmRoot = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children);
+
+    const DdmTrigger = ({
+      children,
+      asChild,
+    }: {
+      children: React.ReactNode;
+      asChild?: boolean;
+    }) =>
+      asChild
+        ? children
+        : React.createElement('div', { 'data-testid': 'dropdown-trigger' }, children);
+
+    const DdmPortal = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children);
+
+    const DdmContent = ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement('div', props, children);
+
+    const DdmItem = ({
+      children,
+      onSelect,
+      disabled,
+      ...props
+    }: {
+      children: React.ReactNode;
+      onSelect?: () => void;
+      disabled?: boolean;
+      [key: string]: unknown;
+    }) =>
+      React.createElement(
+        'div',
+        {
+          ...props,
+          onClick: disabled ? undefined : onSelect,
+          'aria-disabled': disabled || undefined,
+        },
+        children,
+      );
+
+    const DdmSeparator = (props: { [key: string]: unknown }) =>
+      React.createElement('div', { ...props, role: 'separator' });
+
+    const DdmSub = ({ children }: { children: React.ReactNode }) => children;
+
+    const DdmSubTrigger = ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement('div', { ...props, 'data-subtrigger': '' }, children);
+
+    const DdmSubContent = ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement('div', props, children);
+
+    const DdmLabel = ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement('div', props, children);
+
+    const DdmGroup = ({ children }: { children: React.ReactNode }) => children;
+
+    return {
+      Root: DdmRoot,
+      Trigger: DdmTrigger,
+      Portal: DdmPortal,
+      Content: DdmContent,
+      Item: DdmItem,
+      Separator: DdmSeparator,
+      Sub: DdmSub,
+      SubTrigger: DdmSubTrigger,
+      SubContent: DdmSubContent,
+      Label: DdmLabel,
+      Group: DdmGroup,
+    };
+  });
+
   // --- @dnd-kit/react -------------------------------------------------------
   bunMock.module('@dnd-kit/react', () => ({
     DragDropProvider: ({ children }: { children: React.ReactNode }) => children,

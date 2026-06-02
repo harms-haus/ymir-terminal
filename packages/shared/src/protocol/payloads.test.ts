@@ -48,6 +48,33 @@ import {
   type GitWorktreeRemoveRequest,
   type GitWorktreeMergeRequest,
   type GitWorktreeCopyFilesRequest,
+  type GitStashPushRequest,
+  type GitStashListRequest,
+  type GitStashApplyRequest,
+  type GitStashPopRequest,
+  type GitStashDropRequest,
+  type GitStashClearRequest,
+  type GitPullRequest,
+  type GitSyncRequest,
+  type GitMergeRequest,
+  type GitRebaseRequest,
+  type GitRebaseAbortRequest,
+  type GitRebaseStatusRequest,
+  type GitCommitAmendRequest,
+  type GitCommitAllRequest,
+  type GitResetSoftRequest,
+  type GitStageAllRequest,
+  type GitUnstageAllRequest,
+  type GitDiscardAllRequest,
+  type GitBranchRenameRequest,
+  type GitBranchDeleteRequest,
+  type GitBranchDeleteRemoteRequest,
+  type GitBranchPublishRequest,
+  type GitBranchesRemoteRequest,
+  type GitBranchCreateFromRequest,
+  type GitRemoteAddRequest,
+  type GitRemoteRemoveRequest,
+  type GitRemoteListRequest,
   // Config
   type ConfigGetRequest,
   type ConfigSetRequest,
@@ -107,6 +134,33 @@ describe('REQUEST_TYPES', () => {
     'git.worktreeRemove',
     'git.worktreeMerge',
     'git.worktreeCopyFiles',
+    'git.stashPush',
+    'git.stashList',
+    'git.stashApply',
+    'git.stashPop',
+    'git.stashDrop',
+    'git.stashClear',
+    'git.pull',
+    'git.sync',
+    'git.merge',
+    'git.rebase',
+    'git.rebaseAbort',
+    'git.rebaseStatus',
+    'git.commitAmend',
+    'git.commitAll',
+    'git.resetSoft',
+    'git.stageAll',
+    'git.unstageAll',
+    'git.discardAll',
+    'git.branchRename',
+    'git.branchDelete',
+    'git.branchDeleteRemote',
+    'git.branchPublish',
+    'git.branchesRemote',
+    'git.branchCreateFrom',
+    'git.remoteAdd',
+    'git.remoteRemove',
+    'git.remoteList',
     'config.get',
     'config.set',
     'tab.list',
@@ -120,8 +174,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 44 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(44);
+  it('has exactly 71 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(71);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -224,6 +278,67 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', worktreePath: '/path/to/wt' } satisfies GitWorktreeRemoveRequest,
       { workspaceId: 'ws-1', worktreePath: '/path/to/wt' } satisfies GitWorktreeMergeRequest,
       { workspaceId: 'ws-1' } satisfies GitWorktreeCopyFilesRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        includeUntracked: true,
+        message: 'save point',
+      } satisfies GitStashPushRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitStashListRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitStashApplyRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitStashPopRequest,
+      { workspaceId: 'ws-1', repoPath: '.', stashRef: 'stash@{0}' } satisfies GitStashDropRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitStashClearRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitPullRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitSyncRequest,
+      { workspaceId: 'ws-1', repoPath: '.', branch: 'feature' } satisfies GitMergeRequest,
+      { workspaceId: 'ws-1', repoPath: '.', branch: 'feature' } satisfies GitRebaseRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitRebaseAbortRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitRebaseStatusRequest,
+      { workspaceId: 'ws-1', repoPath: '.', message: 'amend' } satisfies GitCommitAmendRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        message: 'all',
+        includeUntracked: true,
+      } satisfies GitCommitAllRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitResetSoftRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitStageAllRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitUnstageAllRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitDiscardAllRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        oldName: 'old',
+        newName: 'new',
+      } satisfies GitBranchRenameRequest,
+      { workspaceId: 'ws-1', repoPath: '.', name: 'bad' } satisfies GitBranchDeleteRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        remote: 'origin',
+        branch: 'old',
+      } satisfies GitBranchDeleteRemoteRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitBranchPublishRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitBranchesRemoteRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        name: 'feat',
+        startPoint: 'main',
+      } satisfies GitBranchCreateFromRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        name: 'upstream',
+        url: 'https://example.com/repo.git',
+      } satisfies GitRemoteAddRequest,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        name: 'upstream',
+      } satisfies GitRemoteRemoveRequest,
+      { workspaceId: 'ws-1', repoPath: '.' } satisfies GitRemoteListRequest,
       { workspaceIds: ['ws-1', 'ws-2'] } satisfies WorkspaceReorderRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
@@ -244,12 +359,8 @@ describe('RequestPayload union', () => {
       const parsed = JSON.parse(JSON.stringify(p));
       expect(parsed).toEqual(p);
     }
-    // 42 payload types: workspace.list has no body (WorkspaceListRequest = Record<string,never>)
-    // so REQUEST_TYPES (44) minus workspace.list = 43.
-    // All 44 have payload types, but workspace.list's type is
-    // Record<string,never> which has no distinguishing fields to satisfy.
-    // Count: 43 REQUEST_TYPES - 1 no-body type (workspace.list = Record<string,never>)
-    // = 42 typed payloads.
+    // workspace.list has no body (WorkspaceListRequest = Record<string,never>), so
+    // REQUEST_TYPES.length - 1 = number of typed payloads with distinguishable fields.
     expect(payloads).toHaveLength(REQUEST_TYPES.length - 1);
   });
 });
