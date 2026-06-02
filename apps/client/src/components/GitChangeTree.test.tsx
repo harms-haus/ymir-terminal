@@ -11,7 +11,7 @@ import type { GitFileChange } from '@ymir/shared';
 
 // Mock GitChangeContextMenu before importing GitChangeTree
 mock.module('./GitChangeContextMenu', () => ({
-  GitChangeContextMenu: ({ children }: React.ReactNode | { children: React.ReactNode }) =>
+  GitChangeContextMenu: ({ children }: { children: React.ReactNode }) =>
     React.createElement('div', { 'data-testid': 'mock-context-menu' }, children),
 }));
 

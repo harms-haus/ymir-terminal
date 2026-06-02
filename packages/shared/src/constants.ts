@@ -14,7 +14,6 @@ const _platform = detectPlatform();
 
 export const IS_WINDOWS = _platform === 'win32';
 export const IS_MACOS = _platform === 'darwin';
-export const IS_LINUX = _platform === 'linux';
 
 export const CLI_BINARY_NAME = IS_WINDOWS ? 'ymir.exe' : 'ymir';
 export const APP_BINARY_NAME = IS_WINDOWS ? 'ymir-app.exe' : 'ymir-app';

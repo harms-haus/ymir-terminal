@@ -25,9 +25,10 @@ export interface PTYOptions {
 }
 
 export class PTYManager {
-  private readonly isWindows: boolean;
-  private readonly allowedShells: Set<string>;
-  private readonly fallbackOrder: string[];
+  readonly #isWindows: boolean;
+  readonly #allowedShells: Set<string>;
+  readonly #fallbackOrder: string[];
+  readonly #deps: { existsSync: (path: string) => boolean };
 
   terminals = new Map<
     string,
@@ -40,10 +41,14 @@ export class PTYManager {
     }
   >();
 
-  constructor(platform?: string) {
-    this.isWindows = (platform ?? process.platform) === 'win32';
-    this.allowedShells = this.isWindows ? WINDOWS_SHELLS : UNIX_SHELLS;
-    this.fallbackOrder = this.isWindows ? WINDOWS_FALLBACK : UNIX_FALLBACK;
+  constructor(
+    platform?: string,
+    deps?: { existsSync?: (path: string) => boolean },
+  ) {
+    this.#deps = { existsSync: deps?.existsSync ?? ((p: string) => existsSync(p)) };
+    this.#isWindows = (platform ?? process.platform) === 'win32';
+    this.#allowedShells = this.#isWindows ? WINDOWS_SHELLS : UNIX_SHELLS;
+    this.#fallbackOrder = this.#isWindows ? WINDOWS_FALLBACK : UNIX_FALLBACK;
   }
 
   create(id: string, options: PTYOptions): string {
@@ -68,19 +73,21 @@ export class PTYManager {
       },
     });
 
-    const requestedShell = this.isWindows
+    const requestedShell = this.#isWindows
       ? options.shell || basename(process.env.COMSPEC || 'cmd.exe')
       : options.shell || process.env.SHELL || '/bin/bash';
-    const shellToValidate = this.isWindows ? basename(requestedShell) : requestedShell;
-    if (!this.allowedShells.has(shellToValidate)) {
+    const shellToValidate = this.#isWindows ? basename(requestedShell) : requestedShell;
+    if (!this.#allowedShells.has(shellToValidate)) {
       throw new Error(`Shell not allowed: ${requestedShell}`);
     }
 
     let shell = requestedShell;
-    if (this.isWindows) {
+    if (this.#isWindows) {
       // Windows shells are resolved via PATH; no existsSync check needed
-    } else if (!existsSync(shell)) {
-      const fallback = this.fallbackOrder.find((s) => this.allowedShells.has(s) && existsSync(s));
+    } else if (!this.#deps.existsSync(shell)) {
+      const fallback = this.#fallbackOrder.find(
+        (s) => this.#allowedShells.has(s) && this.#deps.existsSync(s),
+      );
       if (!fallback) {
         throw new Error('No supported shell found on this system');
       }
@@ -160,7 +167,7 @@ export class PTYManager {
       // microtask to delete the Map entry hasn't run yet), skip SIGWINCH to
       // avoid signalling a recycled PID.
       // On Windows, ConPTY handles resize via terminal.resize() directly.
-      if (!this.isWindows) {
+      if (!this.#isWindows) {
         if (entry.exited) return;
         try {
           process.kill(entry.process.pid, 'SIGWINCH');

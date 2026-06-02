@@ -78,7 +78,7 @@ function teardownMockWS() {
 // ---------------------------------------------------------------------------
 
 describe('WSClient', () => {
-  let wsClientModule: typeof import('./ws-client');
+  let wsClientModule: typeof import('./ws-client'); // eslint-disable-line @typescript-eslint/consistent-type-imports
 
   beforeEach(async () => {
     setupMockWS();

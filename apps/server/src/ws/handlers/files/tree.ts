@@ -14,13 +14,14 @@ import { scanDirectory } from '../../../files/scanner';
 import * as fileOps from '../../../files/operations';
 import { detectLanguage } from './language';
 import { safePath, resolveWorkspace, type FileDeps } from './shared';
+import type { MessageRouter } from '../../router';
 
 // ---------------------------------------------------------------------------
 // Registration — tree & read handlers
 // ---------------------------------------------------------------------------
 
 export function registerTreeHandlers(
-  router: import('../../router').MessageRouter,
+  router: MessageRouter,
   deps: FileDeps,
 ): void {
   const { scanner: scannerMod, operations: ops } = deps;

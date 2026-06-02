@@ -1,3 +1,4 @@
+/** Path validation utilities for ensuring file/git operations stay within workspace boundaries. */
 import { resolve, sep } from 'node:path';
 import { realpathSync } from 'node:fs';
 import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/shared';

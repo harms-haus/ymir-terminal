@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import { setupTestDom, setupAllMocks, setReactInputValue } from '../test-helpers/mock-setup';
+import { setupPaneMocks, resetPaneMocks } from '../test-helpers/mock-pane-helpers';
 await setupTestDom();
 setupAllMocks();
 
@@ -7,141 +8,7 @@ import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'b
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
-// ---------------------------------------------------------------------------
-// Mock useTabs
-// ---------------------------------------------------------------------------
-
-const mockCreateTab = mock(() => {
-  return 'mock-tab-id';
-});
-const mockCloseTab = mock(() => {});
-const mockActivateTab = mock(() => {});
-const mockUpdateTabTitle = mock(() => {});
-const mockUpdateTabCwd = mock(() => {});
-const mockReorderTabs = mock(() => {});
-const mockCloseTabsRight = mock(() => {});
-const mockCloseOtherTabs = mock(() => {});
-const mockSetDisplayTitle = mock(() => {});
-const mockSwitchWorkspace = mock(() => {});
-const mockLoadTabs = mock(() => {});
-
-let mockTabsState: Array<{
-  id: string;
-  type: 'terminal' | 'editor';
-  title: string;
-  terminalId?: string;
-  filePath?: string;
-}> = [];
-let mockActiveTabIdState: string | null = null;
-
-mock.module('../hooks/useTabs', () => ({
-  useTabs: () => ({
-    tabs: mockTabsState,
-    activeTabId: mockActiveTabIdState,
-    createTab: mockCreateTab,
-    closeTab: mockCloseTab,
-    activateTab: mockActivateTab,
-    updateTabTitle: mockUpdateTabTitle,
-    updateTabCwd: mockUpdateTabCwd,
-    reorderTabs: mockReorderTabs,
-    closeTabsRight: mockCloseTabsRight,
-    closeOtherTabs: mockCloseOtherTabs,
-    setDisplayTitle: mockSetDisplayTitle,
-    switchWorkspace: mockSwitchWorkspace,
-    loadTabs: mockLoadTabs,
-  }),
-  Tab: null, // type export, not used at runtime
-}));
-
-// ---------------------------------------------------------------------------
-// Mock useTerminal
-// ---------------------------------------------------------------------------
-
-const mockSendData = mock(() => {});
-const mockOnOutput = mock(() => () => {});
-const mockCreateTerminal = mock(() => Promise.resolve('term-1'));
-const mockCloseTerminal = mock(() => Promise.resolve());
-const mockResizeTerminal = mock(() => {});
-
-mock.module('../hooks/useTerminal', () => ({
-  useTerminal: () => ({
-    sendData: mockSendData,
-    onOutput: mockOnOutput,
-    createTerminal: mockCreateTerminal,
-    closeTerminal: mockCloseTerminal,
-    resizeTerminal: mockResizeTerminal,
-  }),
-}));
-
-// ---------------------------------------------------------------------------
-// Mock sendRequest
-// ---------------------------------------------------------------------------
-
-let mockSendRequestResponse: unknown = { tabs: [] };
-const mockSendRequest = mock(() => Promise.resolve(mockSendRequestResponse));
-
-mock.module('../lib/send-request', () => ({
-  sendRequest: mockSendRequest,
-}));
-
-// ---------------------------------------------------------------------------
-// Mock TabContextMenu — faithful mock that renders menu items with
-// data-testid attributes.  Prevents leak from TabBar.test.tsx's stub mock
-// (which omits the menu items) when running all tests together.
-// ---------------------------------------------------------------------------
-
-mock.module('./TabContextMenu', () => ({
-  TabContextMenu: ({
-    canCloseRight,
-    canCloseOthers,
-    onClose,
-    onCloseRight,
-    onCloseOthers,
-    onRename,
-    children,
-  }: {
-    canCloseRight: boolean;
-    canCloseOthers: boolean;
-    onClose: () => void;
-    onCloseRight: () => void;
-    onCloseOthers: () => void;
-    onRename: () => void;
-    children: React.ReactNode;
-  }) =>
-    React.createElement(
-      'div',
-      null,
-      children,
-      React.createElement(
-        'div',
-        { 'data-testid': 'tab-menu-close', onClick: () => onClose() },
-        'Close',
-      ),
-      React.createElement(
-        'div',
-        {
-          'data-testid': 'tab-menu-close-others',
-          onClick: canCloseOthers ? () => onCloseOthers() : undefined,
-          'aria-disabled': !canCloseOthers || undefined,
-        },
-        'Close Others',
-      ),
-      React.createElement(
-        'div',
-        {
-          'data-testid': 'tab-menu-close-right',
-          onClick: canCloseRight ? () => onCloseRight() : undefined,
-          'aria-disabled': !canCloseRight || undefined,
-        },
-        'Close to the Right',
-      ),
-      React.createElement(
-        'div',
-        { 'data-testid': 'tab-menu-rename', onClick: () => onRename() },
-        'Rename',
-      ),
-    ),
-}));
+const mocks = setupPaneMocks();
 
 const { ContentPane } = await import('./ContentPane');
 import type { TerminalPanelHandle as ContentPaneHandle } from '../hooks/useTerminalPanel';
@@ -169,29 +36,7 @@ async function flush() {
 
 describe('ContentPane', () => {
   beforeEach(() => {
-    mockTabsState = [];
-    mockActiveTabIdState = null;
-    mockCreateTab.mockClear();
-    mockCloseTab.mockClear();
-    mockActivateTab.mockClear();
-    mockUpdateTabTitle.mockClear();
-    mockUpdateTabCwd.mockClear();
-    mockReorderTabs.mockClear();
-    mockCloseTabsRight.mockClear();
-    mockCloseOtherTabs.mockClear();
-    mockSetDisplayTitle.mockClear();
-    mockSwitchWorkspace.mockClear();
-    mockLoadTabs.mockClear();
-    mockSendData.mockClear();
-    mockOnOutput.mockClear();
-    mockCreateTerminal.mockClear();
-    mockCreateTerminal.mockImplementation(() => Promise.resolve('term-1'));
-    mockCloseTerminal.mockClear();
-    mockResizeTerminal.mockClear();
-    mockSendRequest.mockClear();
-    // Reset to default implementation (returns mockSendRequestResponse)
-    mockSendRequest.mockImplementation(() => Promise.resolve(mockSendRequestResponse));
-    mockSendRequestResponse = { tabs: [] };
+    resetPaneMocks(mocks);
   });
 
   afterEach(() => {
@@ -202,8 +47,8 @@ describe('ContentPane', () => {
   // 1. ContentPane renders with tab bar and terminal container
   // -----------------------------------------------------------------------
   test('renders with tab bar and terminal container', () => {
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { getByTestId } = renderContentPane();
 
@@ -225,10 +70,10 @@ describe('ContentPane', () => {
     // Wait for the async createTerminal + createTab to complete
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
-    expect(mockCreateTab).toHaveBeenCalledTimes(1);
-    expect(mockCreateTab).toHaveBeenCalledWith(
+    expect(mocks.createTerminal).toHaveBeenCalledTimes(1);
+    expect(mocks.createTerminal).toHaveBeenCalledWith('ws-1', undefined);
+    expect(mocks.createTab).toHaveBeenCalledTimes(1);
+    expect(mocks.createTab).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'terminal', terminalId: 'term-1' }),
     );
   });
@@ -237,46 +82,46 @@ describe('ContentPane', () => {
   // 3. Closing tab works and sends close request for terminal tabs
   // -----------------------------------------------------------------------
   test('closing terminal tab calls sendRequest to close server PTY', () => {
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { getByTestId } = renderContentPane();
 
     const closeButton = getByTestId('tab-close-tab-1');
     fireEvent.click(closeButton);
 
-    expect(mockCloseTab).toHaveBeenCalledTimes(1);
-    expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
-    expect(mockSendRequest).toHaveBeenCalledTimes(1);
-    expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 'term-1' });
+    expect(mocks.closeTab).toHaveBeenCalledTimes(1);
+    expect(mocks.closeTab).toHaveBeenCalledWith('tab-1');
+    expect(mocks.sendRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 'term-1' });
   });
 
   // -----------------------------------------------------------------------
   // 3b. Closing a non-terminal tab does not call sendRequest
   // -----------------------------------------------------------------------
   test('closing editor tab does not call sendRequest', () => {
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
 
     const { getByTestId } = renderContentPane();
 
     const closeButton = getByTestId('tab-close-tab-1');
     fireEvent.click(closeButton);
 
-    expect(mockCloseTab).toHaveBeenCalledTimes(1);
-    expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
-    expect(mockSendRequest).not.toHaveBeenCalled();
+    expect(mocks.closeTab).toHaveBeenCalledTimes(1);
+    expect(mocks.closeTab).toHaveBeenCalledWith('tab-1');
+    expect(mocks.sendRequest).not.toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
   // 4. Active tab is reflected in tab bar selection
   // -----------------------------------------------------------------------
   test('active tab is reflected in tab bar selection', () => {
-    mockTabsState = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
     ];
-    mockActiveTabIdState = 'tab-2';
+    mocks.activeTabId = 'tab-2';
 
     const { getByTestId } = renderContentPane();
 
@@ -302,9 +147,9 @@ describe('ContentPane', () => {
   // 6. Shows CodeEditor for editor tabs after file content loads
   // -----------------------------------------------------------------------
   test('shows CodeEditor for editor tabs after file content loads', async () => {
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
-    mockSendRequestResponse = { content: 'const x = 1;', language: 'javascript' };
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
+    mocks.sendRequestResponse = { content: 'const x = 1;', language: 'javascript' };
 
     const { getByTestId } = renderContentPane('ws-1');
 
@@ -312,7 +157,7 @@ describe('ContentPane', () => {
     await flush();
 
     expect(getByTestId('code-editor')).toBeTruthy();
-    expect(mockSendRequest).toHaveBeenCalledWith(
+    expect(mocks.sendRequest).toHaveBeenCalledWith(
       'file.read',
       expect.objectContaining({ workspaceId: 'ws-1', path: '/src/foo.ts' }),
     );
@@ -326,7 +171,7 @@ describe('ContentPane', () => {
     const pendingCreate = new Promise<string>((resolve) => {
       resolveCreate = resolve;
     });
-    mockCreateTerminal.mockImplementation(() => pendingCreate);
+    mocks.createTerminal.mockImplementation(() => pendingCreate);
 
     const { getByTestId } = renderContentPane('ws-1');
 
@@ -336,7 +181,7 @@ describe('ContentPane', () => {
     fireEvent.click(addButton);
 
     // Only one createTerminal call should have gone through
-    expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
+    expect(mocks.createTerminal).toHaveBeenCalledTimes(1);
 
     // Resolve the pending create
     resolveCreate!('term-new');
@@ -351,7 +196,7 @@ describe('ContentPane', () => {
     const originalError = console.error;
     console.error = consoleErrorSpy;
 
-    mockCreateTerminal.mockImplementation(() => Promise.reject(new Error('creation failed')));
+    mocks.createTerminal.mockImplementation(() => Promise.reject(new Error('creation failed')));
 
     const { getByTestId } = renderContentPane('ws-1');
 
@@ -362,7 +207,7 @@ describe('ContentPane', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalled();
     // createTab should NOT have been called since creation failed
-    expect(mockCreateTab).not.toHaveBeenCalled();
+    expect(mocks.createTab).not.toHaveBeenCalled();
 
     console.error = originalError;
   });
@@ -371,11 +216,11 @@ describe('ContentPane', () => {
   // 9. Shows loading indicator while fetching file content
   // -----------------------------------------------------------------------
   test('shows loading indicator while fetching file content', () => {
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
     // Keep sendRequest pending so the loading state persists
     let resolvePending: (value: unknown) => void;
-    mockSendRequest.mockImplementation(
+    mocks.sendRequest.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolvePending = resolve;
@@ -397,9 +242,9 @@ describe('ContentPane', () => {
   // 10. Shows error message when file read fails
   // -----------------------------------------------------------------------
   test('shows error message when file read fails', async () => {
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
-    mockSendRequest.mockImplementation(() => Promise.reject(new Error('File not found')));
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
+    mocks.sendRequest.mockImplementation(() => Promise.reject(new Error('File not found')));
 
     const { container, queryByTestId } = renderContentPane('ws-1');
 
@@ -414,9 +259,9 @@ describe('ContentPane', () => {
   // 11. Save triggers sendRequest with file.write
   // -----------------------------------------------------------------------
   test('save triggers sendRequest with file.write and correct payload', async () => {
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
-    mockSendRequestResponse = { content: 'const x = 1;', language: 'javascript' };
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
+    mocks.sendRequestResponse = { content: 'const x = 1;', language: 'javascript' };
 
     const { getByTestId } = renderContentPane('ws-1');
 
@@ -429,7 +274,7 @@ describe('ContentPane', () => {
     const editor = getByTestId('code-editor');
     fireEvent.keyDown(editor, { key: 's', ctrlKey: true });
 
-    expect(mockSendRequest).toHaveBeenCalledWith(
+    expect(mocks.sendRequest).toHaveBeenCalledWith(
       'file.write',
       expect.objectContaining({
         workspaceId: 'ws-1',
@@ -443,8 +288,8 @@ describe('ContentPane', () => {
   // 12. No CodeEditor when no editor tab is active
   // -----------------------------------------------------------------------
   test('no CodeEditor when no editor tab is active', () => {
-    mockTabsState = [];
-    mockActiveTabIdState = null;
+    mocks.tabs = [];
+    mocks.activeTabId = null;
 
     const { queryByTestId } = renderContentPane('ws-1');
 
@@ -455,8 +300,8 @@ describe('ContentPane', () => {
   // 13. No CodeEditor when a terminal tab is active
   // -----------------------------------------------------------------------
   test('no CodeEditor when terminal tab is active', () => {
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { queryByTestId } = renderContentPane('ws-1');
 
@@ -467,12 +312,12 @@ describe('ContentPane', () => {
   // 14. handleCloseRight closes tabs to the right and sends terminal.close
   // -----------------------------------------------------------------------
   test('handleCloseRight closes tabs to the right and sends terminal.close', () => {
-    mockTabsState = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
       { id: 'tab-3', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
     ];
-    mockActiveTabIdState = 'tab-1';
+    mocks.activeTabId = 'tab-1';
 
     const { container, getByTestId } = renderContentPane();
 
@@ -486,21 +331,21 @@ describe('ContentPane', () => {
     // Click the first context menu's close-right (for tab-1, which has tabs to its right)
     fireEvent.click(closeRightItems[0]);
 
-    expect(mockCloseTabsRight).toHaveBeenCalledTimes(1);
-    expect(mockCloseTabsRight).toHaveBeenCalledWith('tab-1');
+    expect(mocks.closeTabsRight).toHaveBeenCalledTimes(1);
+    expect(mocks.closeTabsRight).toHaveBeenCalledWith('tab-1');
     // Should have sent terminal.close for term-2 (the terminal to the right)
-    expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 'term-2' });
+    expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 'term-2' });
   });
 
   // -----------------------------------------------------------------------
   // 15. handleCloseOthers closes all other tabs
   // -----------------------------------------------------------------------
   test('handleCloseOthers closes all other tabs and sends terminal.close', () => {
-    mockTabsState = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2' },
     ];
-    mockActiveTabIdState = 'tab-2';
+    mocks.activeTabId = 'tab-2';
 
     const { container, getByTestId } = renderContentPane();
 
@@ -514,18 +359,18 @@ describe('ContentPane', () => {
     // Click the second context menu's close-others (for tab-2)
     fireEvent.click(closeOthersItems[1]);
 
-    expect(mockCloseOtherTabs).toHaveBeenCalledTimes(1);
-    expect(mockCloseOtherTabs).toHaveBeenCalledWith('tab-2');
+    expect(mocks.closeOtherTabs).toHaveBeenCalledTimes(1);
+    expect(mocks.closeOtherTabs).toHaveBeenCalledWith('tab-2');
     // Should have sent terminal.close for term-1
-    expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 'term-1' });
+    expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 'term-1' });
   });
 
   // -----------------------------------------------------------------------
   // 16. transferTabOut imperative handle removes a terminal tab and returns its data
   // -----------------------------------------------------------------------
   test('transferTabOut removes terminal tab and returns data without sending terminal.close', async () => {
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<ContentPaneHandle>();
     renderContentPane('ws-1', ref);
@@ -539,17 +384,17 @@ describe('ContentPane', () => {
       cwd: undefined,
       customTitle: undefined,
     });
-    expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
+    expect(mocks.closeTab).toHaveBeenCalledWith('tab-1');
     // Should NOT send terminal.close — the PTY stays alive during cross-pane transfer
-    expect(mockSendRequest).not.toHaveBeenCalledWith('terminal.close', expect.anything());
+    expect(mocks.sendRequest).not.toHaveBeenCalledWith('terminal.close', expect.anything());
   });
 
   // -----------------------------------------------------------------------
   // 17. transferTabOut returns null for non-terminal or non-existent tabs
   // -----------------------------------------------------------------------
   test('transferTabOut returns null for editor tabs or non-existent tabs', async () => {
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<ContentPaneHandle>();
     renderContentPane('ws-1', ref);
@@ -558,15 +403,15 @@ describe('ContentPane', () => {
 
     expect(ref.current?.transferTabOut('tab-1')).toBeNull();
     expect(ref.current?.transferTabOut('non-existent')).toBeNull();
-    expect(mockCloseTab).not.toHaveBeenCalled();
+    expect(mocks.closeTab).not.toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
   // 18. receiveTab imperative handle creates a terminal tab
   // -----------------------------------------------------------------------
   test('receiveTab creates a terminal tab with given data', async () => {
-    mockTabsState = [];
-    mockActiveTabIdState = null;
+    mocks.tabs = [];
+    mocks.activeTabId = null;
 
     const ref = React.createRef<ContentPaneHandle>();
     renderContentPane('ws-1', ref);
@@ -574,7 +419,7 @@ describe('ContentPane', () => {
     await flush();
 
     ref.current?.receiveTab('term-moved', 'Moved Terminal', '/home/user');
-    expect(mockCreateTab).toHaveBeenCalledWith({
+    expect(mocks.createTab).toHaveBeenCalledWith({
       type: 'terminal',
       title: 'Moved Terminal',
       terminalId: 'term-moved',
@@ -586,11 +431,11 @@ describe('ContentPane', () => {
   // 19. getTabs imperative handle returns current tabs
   // -----------------------------------------------------------------------
   test('getTabs returns current tabs', async () => {
-    mockTabsState = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
       { id: 'tab-2', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' },
     ];
-    mockActiveTabIdState = 'tab-1';
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<ContentPaneHandle>();
     renderContentPane('ws-1', ref);
@@ -607,8 +452,8 @@ describe('ContentPane', () => {
   // 20. Rename flow calls setDisplayTitle (not updateTabTitle)
   // -----------------------------------------------------------------------
   test('rename flow calls setDisplayTitle', async () => {
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { container } = renderContentPane('ws-1');
 
@@ -630,17 +475,17 @@ describe('ContentPane', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     // setDisplayTitle should be called (not updateTabTitle)
-    expect(mockSetDisplayTitle).toHaveBeenCalledTimes(1);
-    expect(mockSetDisplayTitle).toHaveBeenCalledWith('tab-1', 'Renamed Tab');
-    expect(mockUpdateTabTitle).not.toHaveBeenCalled();
+    expect(mocks.setDisplayTitle).toHaveBeenCalledTimes(1);
+    expect(mocks.setDisplayTitle).toHaveBeenCalledWith('tab-1', 'Renamed Tab');
+    expect(mocks.updateTabTitle).not.toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
   // 21. receiveTab returns the new tabId from createTab
   // -----------------------------------------------------------------------
   test('receiveTab returns the new tabId', async () => {
-    mockTabsState = [];
-    mockActiveTabIdState = null;
+    mocks.tabs = [];
+    mocks.activeTabId = null;
 
     const ref = React.createRef<ContentPaneHandle>();
     renderContentPane('ws-1', ref);
@@ -650,7 +495,7 @@ describe('ContentPane', () => {
     const tabId = ref.current?.receiveTab('term-xfer', 'Transferred', '/home');
     expect(typeof tabId).toBe('string');
     expect(tabId).toBe('mock-tab-id');
-    expect(mockCreateTab).toHaveBeenCalledWith({
+    expect(mocks.createTab).toHaveBeenCalledWith({
       type: 'terminal',
       title: 'Transferred',
       terminalId: 'term-xfer',
@@ -662,10 +507,10 @@ describe('ContentPane', () => {
   // 22. transferTabOut followed by receiveTab round-trips terminal data
   // -----------------------------------------------------------------------
   test('transferTabOut followed by receiveTab round-trips terminal data', async () => {
-    mockTabsState = [
-      { id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 'term-1', cwd: '/home/user' },
+    mocks.tabs = [
+      { id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 'term-1', workspaceId: 'ws-1', cwd: '/home/user' },
     ];
-    mockActiveTabIdState = 'tab-1';
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<ContentPaneHandle>();
     renderContentPane('ws-1', ref);
@@ -689,7 +534,7 @@ describe('ContentPane', () => {
       data!.customTitle,
     );
     expect(typeof newTabId).toBe('string');
-    expect(mockCreateTab).toHaveBeenCalledWith({
+    expect(mocks.createTab).toHaveBeenCalledWith({
       type: 'terminal',
       title: 'My Term',
       terminalId: 'term-1',
@@ -722,8 +567,8 @@ describe('ContentPane', () => {
   // -----------------------------------------------------------------------
   test('onTerminalUnregistered is called when a terminal tab is closed', async () => {
     const mockOnTerminalUnregistered = mock(() => {});
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { getByTestId } = renderContentPane('ws-1', undefined, {
       onTerminalUnregistered: mockOnTerminalUnregistered,
@@ -754,8 +599,8 @@ describe('ContentPane', () => {
     expect(mockOnActiveTabChange).toHaveBeenCalledWith(null);
 
     // Change mock state and rerender
-    mockActiveTabIdState = 'tab-1';
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
 
     rerender(
       React.createElement(ContentPane, {
@@ -772,8 +617,8 @@ describe('ContentPane', () => {
   // -----------------------------------------------------------------------
   test('cross-pane transfer: transferTabOut does not call onTerminalUnregistered', async () => {
     const onTerminalUnregistered = mock(() => {});
-    mockTabsState = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }];
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<ContentPaneHandle>();
     renderContentPane('ws-1', ref, { onTerminalUnregistered });
@@ -795,8 +640,8 @@ describe('ContentPane', () => {
   // -----------------------------------------------------------------------
   test('workspace tab isolation: tabs change when workspaceId switches', async () => {
     // Start with ws-1, no tabs
-    mockTabsState = [];
-    mockActiveTabIdState = null;
+    mocks.tabs = [];
+    mocks.activeTabId = null;
 
     const { getByTestId, queryByTestId, rerender, container } = renderContentPane('ws-1');
 
@@ -805,14 +650,14 @@ describe('ContentPane', () => {
     await flush();
 
     // Mock createTab was called (the real hook would update state)
-    expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
-    expect(mockCreateTab).toHaveBeenCalled();
+    expect(mocks.createTerminal).toHaveBeenCalledWith('ws-1', undefined);
+    expect(mocks.createTab).toHaveBeenCalled();
 
     // Simulate what useTabs/useTerminalPane would do: add the tab to the state
-    mockTabsState = [
+    mocks.tabs = [
       { id: 'mock-tab-id', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
     ];
-    mockActiveTabIdState = 'mock-tab-id';
+    mocks.activeTabId = 'mock-tab-id';
 
     rerender(React.createElement(ContentPane, { workspaceId: 'ws-1' }));
 
@@ -820,8 +665,8 @@ describe('ContentPane', () => {
     expect(getByTestId('tab-mock-tab-id')).toBeTruthy();
 
     // Switch to ws-2 — simulate the real hook behavior (empty tabs for new workspace)
-    mockTabsState = [];
-    mockActiveTabIdState = null;
+    mocks.tabs = [];
+    mocks.activeTabId = null;
     rerender(React.createElement(ContentPane, { workspaceId: 'ws-2' }));
 
     // Should show "No tabs open" — workspace ws-2 has no tabs
@@ -829,10 +674,10 @@ describe('ContentPane', () => {
     expect(queryByTestId('tab-mock-tab-id')).toBeNull();
 
     // Switch back to ws-1 — simulate tabs being restored
-    mockTabsState = [
+    mocks.tabs = [
       { id: 'mock-tab-id', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' },
     ];
-    mockActiveTabIdState = 'mock-tab-id';
+    mocks.activeTabId = 'mock-tab-id';
     rerender(React.createElement(ContentPane, { workspaceId: 'ws-1' }));
 
     // Tab should be restored
@@ -844,9 +689,9 @@ describe('ContentPane', () => {
   // -----------------------------------------------------------------------
   test('editor tab workspace scoping: editor tab hidden when switching workspace', async () => {
     // Start with ws-1 with an editor tab
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
-    mockSendRequestResponse = { content: 'const x = 1;', language: 'typescript' };
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
+    mocks.sendRequestResponse = { content: 'const x = 1;', language: 'typescript' };
 
     const { getByTestId, queryByTestId, rerender } = renderContentPane('ws-1');
 
@@ -855,16 +700,16 @@ describe('ContentPane', () => {
     expect(getByTestId('code-editor')).toBeTruthy();
 
     // Switch to ws-2 — no tabs (simulates workspace isolation)
-    mockTabsState = [];
-    mockActiveTabIdState = null;
+    mocks.tabs = [];
+    mocks.activeTabId = null;
     rerender(React.createElement(ContentPane, { workspaceId: 'ws-2' }));
 
     // CodeEditor should not be visible in ws-2
     expect(queryByTestId('code-editor')).toBeNull();
 
     // Switch back to ws-1
-    mockTabsState = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
-    mockActiveTabIdState = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'editor', title: 'foo.ts', filePath: '/src/foo.ts' }];
+    mocks.activeTabId = 'tab-1';
     rerender(React.createElement(ContentPane, { workspaceId: 'ws-1' }));
 
     await flush();

@@ -57,53 +57,6 @@ describe('registerTabHandlers', () => {
   }
 
   // =========================================================================
-  // 1. Handler registration
-  // =========================================================================
-
-  describe('handler registration', () => {
-    it('registers tab.list handler', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
-      const req = request('tab.list', { workspaceId: 'ws-1' });
-      const result = await router.route(conn, req);
-      // null means a handler was found (no unmatched-channel error)
-      expect(result).toBeNull();
-    });
-
-    it('registers tab.create handler', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
-      const req = request('tab.create', {
-        workspaceId: 'ws-1',
-        tabType: 'terminal',
-        title: 'T1',
-        pane: 'content',
-      });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers tab.update handler', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
-      const req = request('tab.update', { tabId: 'some-id', active: true });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers tab.delete handler', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
-      const req = request('tab.delete', { tabId: 'some-id' });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers tab.reorder handler', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
-      const req = request('tab.reorder', { tabIds: ['a', 'b'] });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-  });
-
-  // =========================================================================
   // 2. tab.create — terminal
   // =========================================================================
 

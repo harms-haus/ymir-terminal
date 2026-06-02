@@ -1,21 +1,6 @@
-import { getPlatformTarget, runCommand, ensureDir } from './lib/build-utils';
+import { getPlatformTarget, runCommand, ensureDir, parseBuildArgs } from './lib/build-utils';
 import { join } from 'node:path';
 import { statSync } from 'node:fs';
-
-function parseArgs(args: string[]): { target?: string; outdir: string } {
-  let target: string | undefined;
-  let outdir = 'dist';
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--target' && args[i + 1]) {
-      target = args[++i];
-    } else if (args[i] === '--outdir' && args[i + 1]) {
-      outdir = args[++i];
-    }
-  }
-
-  return { target, outdir };
-}
 
 function getPlatformName(bunTarget: string): string {
   if (bunTarget.includes('linux')) return 'linux';
@@ -24,7 +9,7 @@ function getPlatformName(bunTarget: string): string {
   return 'unknown';
 }
 
-const { target, outdir } = parseArgs(process.argv.slice(2));
+const { target, outdir } = parseBuildArgs(process.argv.slice(2));
 const bunTarget = target ?? getPlatformTarget();
 const platform = getPlatformName(bunTarget);
 const isWindows = bunTarget.includes('windows');

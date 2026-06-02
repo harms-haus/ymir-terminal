@@ -27,6 +27,30 @@ export async function spawnGit(args: string[], cwd: string): Promise<string> {
   return text;
 }
 
+/**
+ * Spawn a git command that throws on non-zero exit codes.
+ * Unlike `spawnGit` (which silently returns ''), this captures stderr
+ * so callers can meaningfully handle failures.
+ */
+export async function spawnGitChecked(args: string[], cwd: string): Promise<string> {
+  const proc = Bun.spawn(['git', ...args], {
+    cwd,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  });
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    const detail = stderr.trim() || `git exited with code ${exitCode}`;
+    throw new Error(`git ${args.join(' ')} failed (exit ${exitCode}): ${detail}`);
+  }
+  return stdout;
+}
+
 export async function getCurrentBranch(dirPath: string): Promise<string | null> {
   const out = await spawnGit(['rev-parse', '--abbrev-ref', 'HEAD'], dirPath);
   return out.trim() || null;

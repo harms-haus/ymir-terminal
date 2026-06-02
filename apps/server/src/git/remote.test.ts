@@ -42,7 +42,7 @@ describe('git remote', () => {
       run('git init --bare', remoteDir);
 
       // Set up working repo cloned from the bare remote
-      run(`git clone ${remoteDir} ${testDir}`);
+      run(`git clone ${remoteDir} ${testDir}`, tmpdir());
       run('git config user.email "test@test.com"', testDir);
       run('git config user.name "Test"', testDir);
 
@@ -89,7 +89,7 @@ describe('git remote', () => {
 
       // Clone to create working repo
       const workerDir = testDir;
-      run(`git clone ${remoteDir} ${workerDir}`);
+      run(`git clone ${remoteDir} ${workerDir}`, tmpdir());
       run('git config user.email "test@test.com"', workerDir);
       run('git config user.name "Test"', workerDir);
 
@@ -103,7 +103,7 @@ describe('git remote', () => {
       const otherDir = join(tmpdir(), `ymir-other-${Date.now()}`);
       mkdirSync(otherDir, { recursive: true });
       try {
-        run(`git clone ${remoteDir} ${otherDir}`);
+        run(`git clone ${remoteDir} ${otherDir}`, tmpdir());
         run('git config user.email "test@test.com"', otherDir);
         run('git config user.name "Test"', otherDir);
         writeFileSync(join(otherDir, 'extra.txt'), 'extra content');

@@ -14,13 +14,24 @@ import { MessageRouter } from '../router';
 import { registerTerminalHandlers } from './terminal';
 import { initSessionDb, createSession, type Database } from '../../db/session';
 import { initDatabase as initPersistentDb } from '../../db/persistent';
+import { type PTYManager } from '../../pty/manager';
+
+type MockPty = {
+  terminals: Map<string, { terminal: unknown; process: unknown }>;
+  create: Mock<(id: string, options: unknown) => string>;
+  write: Mock<(id: string, data: string) => void>;
+  resize: Mock<(id: string, cols: number, rows: number) => void>;
+  kill: Mock<(id: string) => void>;
+  has: Mock<(id: string) => boolean>;
+  killAll: Mock<() => void>;
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /** Build a fake PTY manager with jest-style mocks. */
-function mockPtyManager() {
+function mockPtyManager(): MockPty & PTYManager {
   return {
     terminals: new Map<string, { terminal: unknown; process: unknown }>(),
     create: mock((...args: unknown[]) => args[0] as string) as Mock<
@@ -31,7 +42,7 @@ function mockPtyManager() {
     kill: mock(() => {}) as Mock<(id: string) => void>,
     has: mock(() => true) as Mock<(id: string) => boolean>,
     killAll: mock(() => {}) as Mock<() => void>,
-  };
+  } as MockPty & PTYManager;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,28 +67,6 @@ describe('registerTerminalHandlers', () => {
     // Create a client session so foreign keys are satisfied
     sessionId = createSession(sessionDb);
     conn.sessionId = sessionId;
-  });
-
-  // -------------------------------------------------------------------------
-  // 1. Handler registration
-  // -------------------------------------------------------------------------
-
-  it('registers handlers for terminal channels', () => {
-    registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
-
-    // We verify that routing to each channel succeeds (returns null from route)
-    // rather than returning a "no handler" error.
-    // Actually test by dispatching — the handler should be found (no
-    // INVALID_MESSAGE error). We use minimal payloads.
-    const req = request('terminal.create', {
-      workspaceId: 'ws-1',
-    } satisfies TerminalCreateRequest);
-
-    // Should not throw / should resolve without "no handler" error
-    // The route method returns null on success or an error ResponseEnvelope.
-    expect(
-      router.route(conn, req).then((r) => r === null || r?.error?.code !== 'INVALID_MESSAGE'),
-    ).resolves.toBe(true);
   });
 
   // -------------------------------------------------------------------------

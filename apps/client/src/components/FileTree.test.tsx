@@ -74,7 +74,7 @@ function renderFileTreeWithGitStatus(
       tree,
       onFileSelect,
       workspaceId: 'ws-1',
-      gitStatus,
+      gitStatus: gitStatus as Parameters<typeof FileTree>[0]['gitStatus'],
       workspaceRoot,
     }),
   );

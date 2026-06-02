@@ -3,6 +3,8 @@ import type { Workspace } from '../../../db/persistent';
 import { getWorkspace as dbGetWorkspace } from '../../../db/persistent';
 import { safePath as _safePath } from '../../../lib/handler-validation';
 import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/shared';
+import type { ScanOptions } from '../../../files/scanner';
+import type { FileNode } from '@ymir/shared';
 import type { ClientConnection } from '../../connection';
 import { createError, createResponse } from '../../router';
 
@@ -15,8 +17,8 @@ export interface FileDeps {
   scanner: {
     scanDirectory: (
       dirPath: string,
-      options?: import('../../../files/scanner').ScanOptions,
-    ) => Promise<import('@ymir/shared').FileNode[]>;
+      options?: ScanOptions,
+    ) => Promise<FileNode[]>;
   };
   operations: {
     readFile: (path: string) => Promise<string>;
@@ -29,7 +31,6 @@ export interface FileDeps {
     copyDirectory: (srcPath: string, destPath: string) => Promise<void>;
     findAvailableName: (dirPath: string, baseName: string) => Promise<string>;
   };
-  watcher: Record<string, unknown>;
   /** Internal: allows tests to inject mock functions. */
   _mocks?: {
     getWorkspace?: (db: Database, id: string) => Workspace | null;

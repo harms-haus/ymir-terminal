@@ -11,13 +11,13 @@ import React from 'react';
 // Import component under test (after mock)
 // ---------------------------------------------------------------------------
 
-const { PaneContextMenu } = await import('./PaneContextMenu');
+const { SplitPaneContextMenu } = await import('./SplitPaneContextMenu');
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderPaneContextMenu(
+function renderSplitPaneContextMenu(
   overrides: {
     paneId?: string;
     isOnlyPane?: boolean;
@@ -32,14 +32,14 @@ function renderPaneContextMenu(
 
   const result = render(
     React.createElement(
-      PaneContextMenu,
+      SplitPaneContextMenu,
       {
         paneId: overrides.paneId ?? 'pane-1',
         isOnlyPane: overrides.isOnlyPane ?? false,
         onSplitRight,
         onSplitDown,
         onClosePane,
-      } as React.Attributes & React.ComponentProps<typeof PaneContextMenu>,
+      } as React.Attributes & React.ComponentProps<typeof SplitPaneContextMenu>,
       React.createElement('div', { 'data-testid': 'trigger' }, 'Trigger'),
     ),
   );
@@ -56,7 +56,7 @@ afterAll(() => {
   mock.restore();
 });
 
-describe('PaneContextMenu', () => {
+describe('SplitPaneContextMenu', () => {
   afterEach(() => {
     cleanup();
   });
@@ -65,7 +65,7 @@ describe('PaneContextMenu', () => {
   // 1. Right-clicking a pane shows context menu with split options
   // -----------------------------------------------------------------------
   test('renders context menu with split options', () => {
-    const { container } = renderPaneContextMenu();
+    const { container } = renderSplitPaneContextMenu();
 
     const menu = container.querySelector('[data-testid="pane-context-menu"]');
     expect(menu).toBeTruthy();
@@ -78,7 +78,7 @@ describe('PaneContextMenu', () => {
   // 2. Menu has: Split Right, Split Down, Close Pane
   // -----------------------------------------------------------------------
   test('menu contains Split Right, Split Down, and Close Pane options', () => {
-    const { container } = renderPaneContextMenu();
+    const { container } = renderSplitPaneContextMenu();
 
     expect(container.querySelector('[data-testid="split-right"]')?.textContent).toBe('Split Right');
     expect(container.querySelector('[data-testid="split-down"]')?.textContent).toBe('Split Down');
@@ -90,7 +90,7 @@ describe('PaneContextMenu', () => {
   // -----------------------------------------------------------------------
   test('Split Right calls onSplitRight with paneId', () => {
     const onSplitRight = mock(() => {});
-    const { container } = renderPaneContextMenu({ paneId: 'pane-42', onSplitRight });
+    const { container } = renderSplitPaneContextMenu({ paneId: 'pane-42', onSplitRight });
 
     const item = container.querySelector('[data-testid="split-right"]') as HTMLElement;
     fireEvent.click(item);
@@ -100,7 +100,7 @@ describe('PaneContextMenu', () => {
 
   test('Split Down calls onSplitDown with paneId', () => {
     const onSplitDown = mock(() => {});
-    const { container } = renderPaneContextMenu({ paneId: 'pane-99', onSplitDown });
+    const { container } = renderSplitPaneContextMenu({ paneId: 'pane-99', onSplitDown });
 
     const item = container.querySelector('[data-testid="split-down"]') as HTMLElement;
     fireEvent.click(item);
@@ -110,7 +110,7 @@ describe('PaneContextMenu', () => {
 
   test('Close Pane calls onClosePane with paneId', () => {
     const onClosePane = mock(() => {});
-    const { container } = renderPaneContextMenu({
+    const { container } = renderSplitPaneContextMenu({
       paneId: 'pane-7',
       isOnlyPane: false,
       onClosePane,
@@ -127,7 +127,7 @@ describe('PaneContextMenu', () => {
   // -----------------------------------------------------------------------
   test('Close Pane is disabled when it is the only pane', () => {
     const onClosePane = mock(() => {});
-    const { container } = renderPaneContextMenu({ isOnlyPane: true, onClosePane });
+    const { container } = renderSplitPaneContextMenu({ isOnlyPane: true, onClosePane });
 
     const closeItem = container.querySelector('[data-testid="close-pane"]') as HTMLElement;
     expect(closeItem.getAttribute('aria-disabled')).toBe('true');
@@ -138,7 +138,7 @@ describe('PaneContextMenu', () => {
   });
 
   test('Close Pane is enabled when there are multiple panes', () => {
-    const { container } = renderPaneContextMenu({ isOnlyPane: false });
+    const { container } = renderSplitPaneContextMenu({ isOnlyPane: false });
 
     const closeItem = container.querySelector('[data-testid="close-pane"]') as HTMLElement;
     expect(closeItem.getAttribute('aria-disabled')).toBeNull();

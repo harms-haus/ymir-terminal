@@ -3,7 +3,7 @@ import { setupTestDom, setupAllMocks, renderWithProviders } from '../test-helper
 await setupTestDom();
 setupAllMocks();
 
-import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock, spyOn } from 'bun:test';
 import { cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
@@ -169,15 +169,15 @@ mock.module('../hooks/usePaneVisibility', () => ({
   PaneVisibilityProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-const mockSendRequest = mock((method: string) => {
+// Use spyOn instead of mock.module to avoid cross-file mock contamination.
+// mock.module is process-scoped and would pollute other test files (e.g. RightSidebar.test.tsx).
+const _sendRequestMod = await import('../lib/send-request');
+const mockSendRequest = spyOn(_sendRequestMod, 'sendRequest');
+mockSendRequest.mockImplementation(((method: string) => {
   if (method === 'tab.list') return Promise.resolve({ tabs: [] });
   if (method === 'file.read') return Promise.resolve({ content: '', language: '' });
   return Promise.resolve({ tree: [] });
-});
-
-mock.module('../lib/send-request', () => ({
-  sendRequest: mockSendRequest,
-}));
+}) as any);
 
 mock.module('../lib/ws-client', () => ({
   wsClient: {
@@ -246,14 +246,19 @@ mock.module('@dnd-kit/react', () => ({
 // sendRequest, useTerminal, etc.) that these components depend on.
 // ---------------------------------------------------------------------------
 
-mock.module('./RightSidebar', () => ({
-  RightSidebar: ({ workspaceId }: { workspaceId?: string | null }) =>
+// Use spyOn instead of mock.module to avoid cross-file mock contamination.
+// mock.module('./RightSidebar') is process-scoped and would replace the real
+// component in RightSidebar.test.tsx, causing all its tests to fail.
+const _rightSidebarMod = await import('./RightSidebar');
+const _rightSidebarSpy = spyOn(_rightSidebarMod, 'RightSidebar');
+_rightSidebarSpy.mockImplementation(
+  ({ workspaceId }: { workspaceId?: string | null }) =>
     React.createElement(
       'div',
       { 'data-testid': 'right-sidebar' },
       `RightSidebar: ${workspaceId ?? 'none'}`,
     ),
-}));
+);
 
 // Mock useTerminal (used by useCreateTerminalTab which is used by ContentPane/BottomPanel)
 const mockCreateTerminal = mock(() => Promise.resolve('mock-term-id'));
@@ -316,8 +321,8 @@ describe('WorkspaceView', () => {
   test('renders all major sections: sidebar, content, right sidebar, bottom panel', () => {
     const { getByTestId, getAllByTestId } = renderWorkspaceView();
 
-    expect(getByTestId('workspace-sidebar')).toBeTruthy();
-    expect(getByTestId('main-content')).toBeTruthy();
+    expect(getByTestId('workspace-sidebar')).toBeDefined();
+    expect(getByTestId('main-content')).toBeDefined();
     // RightSidebar is wrapped in an aside by AppLayout, producing two elements with this testid
     expect(getAllByTestId('right-sidebar').length).toBeGreaterThanOrEqual(1);
     expect(getAllByTestId('bottom-panel').length).toBeGreaterThanOrEqual(1);
@@ -353,7 +358,7 @@ describe('WorkspaceView', () => {
   test('ToastProvider wraps everything', () => {
     const { getByTestId } = renderWorkspaceView();
 
-    expect(getByTestId('toaster')).toBeTruthy();
+    expect(getByTestId('toaster')).toBeDefined();
   });
 
   // -----------------------------------------------------------------------
@@ -373,8 +378,8 @@ describe('WorkspaceView', () => {
     renderWorkspaceView();
 
     // After rendering, the DragDropProvider mock should have captured the handlers
-    expect(mockOnDragOver).toBeTruthy();
-    expect(mockOnDragEnd).toBeTruthy();
+    expect(mockOnDragOver).toBeDefined();
+    expect(mockOnDragEnd).toBeDefined();
   });
 
   // =========================================================================
@@ -433,7 +438,7 @@ describe('WorkspaceView', () => {
 
     // Initially ws-1 is auto-selected — ContentPane renders with workspaceId ws-1
     const contentPane = getByTestId('content-pane');
-    expect(contentPane).toBeTruthy();
+    expect(contentPane).toBeDefined();
 
     // The tab-add button should be present (canAddTerminal is true when workspaceId is set)
     expect(getAllByTestId('tab-add').length).toBeGreaterThanOrEqual(1);
@@ -443,7 +448,7 @@ describe('WorkspaceView', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     // ContentPane should still be rendered (workspaceId changed to ws-2)
-    expect(getByTestId('content-pane')).toBeTruthy();
+    expect(getByTestId('content-pane')).toBeDefined();
 
     // Create a terminal now — should use ws-2
     const addButtons = getAllByTestId('tab-add');

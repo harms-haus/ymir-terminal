@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { ServerTabInfo } from '@ymir/shared';
+import type { TabInfo } from '@ymir/shared';
 
 export interface Tab {
   id: string;
@@ -86,7 +86,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // ---------------------------------------------------------------------------
   // loadTabs
   // ---------------------------------------------------------------------------
-  const loadTabs = useCallback((workspaceId: string, serverTabs: ServerTabInfo[]) => {
+  const loadTabs = useCallback((workspaceId: string, serverTabs: TabInfo[]) => {
     const sorted = [...serverTabs].sort((a, b) => a.sortOrder - b.sortOrder);
     const mappedTabs: Tab[] = sorted.map((st) => ({
       id: st.id,

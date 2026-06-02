@@ -8,34 +8,59 @@
 
 import { Database } from 'bun:sqlite';
 import { PROTOCOL_VERSION, type RequestEnvelope } from '@ymir/shared';
+import { ClientConnection } from '../ws/connection';
 
 // ---------------------------------------------------------------------------
 // Mock connection
 // ---------------------------------------------------------------------------
 
-export interface MockConnection {
-  sessionId: string;
-  isAuthenticated: boolean;
-  lastActive: Date;
-  ws: { send: (data: string) => void; close: () => void };
-  sent: unknown[];
-  send(data: unknown): void;
-  sendRaw(data: string): void;
-  close(): void;
+/**
+ * A {@link ClientConnection} subclass with extra test-only properties.
+ *
+ * Extending the real class ensures structural compatibility (including
+ * ECMAScript private fields like `#ws`) so tests pass strict type checks
+ * without `as any` casts.
+ */
+export class MockConnection extends ClientConnection {
+  /** Re-declared as writable so tests can override the value. */
+  declare sessionId: string;
+  /** Every argument passed to `send()` or captured from `ws.send()`. */
+  sent: unknown[] = [];
+
+  constructor(
+    ws: { send: (data: string) => void; close: () => void },
+    overrides?: { sessionId?: string; isAuthenticated?: boolean },
+  ) {
+    super(ws);
+    if (overrides?.sessionId) (this as { sessionId: string }).sessionId = overrides.sessionId;
+    if (overrides?.isAuthenticated !== undefined) this.isAuthenticated = overrides.isAuthenticated;
+  }
+
+  /** @override – capture the envelope in `sent`. */
+  override send(envelope: unknown): void {
+    this.sent.push(envelope);
+  }
+
+  /** @override – capture raw data in `sent`. */
+  override sendRaw(data: string): void {
+    this.sent.push(data);
+  }
+
+  /** @override – no-op for tests. */
+  override close(): void {}
 }
 
 /**
- * Create a minimal mock connection object that tracks sent messages.
+ * Create a mock connection that tracks sent messages.
  *
- * Matches the local `mockConn()` definitions used in auth, terminal, files,
- * git, and workspaces handler tests. The `sent` array captures every argument
- * passed to `send()`.
+ * Returns a {@link MockConnection} (which extends {@link ClientConnection})
+ * so it is assignable anywhere `ClientConnection` is expected.
  *
  * @param overrides - Optional overrides for sessionId / isAuthenticated.
  *                    Defaults: `sessionId` → random UUID, `isAuthenticated` → true.
  */
 export function mockConn(
-  overrides?: Partial<Pick<MockConnection, 'sessionId' | 'isAuthenticated'>>,
+  overrides?: { sessionId?: string; isAuthenticated?: boolean },
 ): MockConnection {
   const sent: unknown[] = [];
   const ws = {
@@ -44,20 +69,10 @@ export function mockConn(
     },
     close: () => {},
   };
-  return {
-    sessionId: overrides?.sessionId ?? crypto.randomUUID(),
-    isAuthenticated: overrides?.isAuthenticated ?? true,
-    lastActive: new Date(),
-    ws,
-    sent,
-    send(data: unknown) {
-      sent.push(data);
-    },
-    sendRaw(data: string) {
-      sent.push(data);
-    },
-    close() {},
-  };
+  const conn = new MockConnection(ws, overrides);
+  // Share the sent array so ws.send also populates conn.sent
+  conn.sent = sent;
+  return conn;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +119,6 @@ export function request<T = unknown>(
 export function createMockSessionDb(): Database {
   const db = new Database(':memory:');
   db.exec('PRAGMA foreign_keys = ON');
-  db.exec('PRAGMA journal_mode = WAL');
 
   db.exec(`
     CREATE TABLE client_sessions (
@@ -116,11 +130,16 @@ export function createMockSessionDb(): Database {
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES client_sessions(id) ON DELETE CASCADE,
       workspace_id TEXT NOT NULL,
-      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor')),
+      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
       title TEXT,
       file_path TEXT,
+      pane TEXT NOT NULL DEFAULT 'content' CHECK(pane IN ('content', 'bottom')),
       active INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
+      diff_ref TEXT,
+      repo_path TEXT,
+      commit_sha TEXT,
+      parent_sha TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

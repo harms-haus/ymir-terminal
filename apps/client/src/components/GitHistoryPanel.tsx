@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-import { useInView } from 'react-intersection-observer';
+import { useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { sendRequest } from '../lib/send-request';
-import type { GitLogItem, GitLogResponse } from '@ymir/shared';
+import { formatRelativeTime } from '../lib/git-utils';
+import { usePaginatedGitLog } from '../hooks/usePaginatedGitLog';
 import { COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_ERROR, GIT_GRAPH_COLORS } from '../lib/theme';
 import {
   LANE_WIDTH,
@@ -15,19 +14,7 @@ import type { LaneInfo, ActiveLane } from '../lib/git-graph';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 50;
 const ROW_HEIGHT = 24;
-
-// ── formatRelativeTime ──────────────────────────────────────────────────────
-
-function formatRelativeTime(unixSeconds: number): string {
-  const diff = Math.floor(Date.now() / 1000) - unixSeconds;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-  return `${Math.floor(diff / 2592000)}mo ago`;
-}
 
 // ── CommitRow ───────────────────────────────────────────────────────────────
 
@@ -192,68 +179,16 @@ export function GitHistoryPanel({
   workspaceCwd,
   onCommitClick,
 }: GitHistoryPanelProps) {
-  const [commits, setCommits] = useState<GitLogItem[]>([]);
-  const [skip, setSkip] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // ── Paginated git log ──────────────────────────────────────────────
+
+  const { commits, loading, error, sentinelRef, reload } = usePaginatedGitLog({
+    workspaceId,
+    repoPath: workspaceCwd ?? null,
+  });
 
   // ── Scrollable container ref for virtualizer ────────────────────────
 
   const parentRef = useRef<HTMLDivElement>(null);
-
-  // ── Generation counter to discard stale fetches ───────────────────────
-
-  const generationRef = useRef(0);
-
-  // ── loadCommits ─────────────────────────────────────────────────────────
-
-  const loadCommits = useCallback(async () => {
-    if (!workspaceId || loading || !hasMore) return;
-    const gen = generationRef.current;
-    setLoading(true);
-    try {
-      const res = await sendRequest<GitLogResponse>('git.log', {
-        workspaceId,
-        skip,
-        limit: PAGE_SIZE,
-        ...(workspaceCwd ? { repoPath: workspaceCwd } : {}),
-      });
-      if (gen !== generationRef.current) return; // discard stale
-      setCommits((prev) => [...prev, ...res.commits]);
-      setSkip((prev) => prev + res.commits.length);
-      setHasMore(res.hasMore);
-    } catch (err) {
-      if (gen !== generationRef.current) return;
-      setError(err instanceof Error ? err.message : 'Failed to load git history');
-    } finally {
-      if (gen === generationRef.current) setLoading(false);
-    }
-  }, [workspaceId, workspaceCwd, skip, loading, hasMore]);
-
-  // ── Reset on workspace change ──────────────────────────────────────────
-
-  const loadCommitsRef = useRef(loadCommits);
-  loadCommitsRef.current = loadCommits;
-
-  useEffect(() => {
-    ++generationRef.current;
-    setCommits([]);
-    setSkip(0);
-    setHasMore(true);
-    setError(null);
-    if (workspaceId) {
-      setTimeout(() => loadCommitsRef.current(), 0);
-    }
-  }, [workspaceId, workspaceCwd]);
-
-  // ── Infinite scroll ────────────────────────────────────────────────────
-
-  const { ref: sentinelRef, inView } = useInView({ rootMargin: '200px' });
-
-  useEffect(() => {
-    if (inView && hasMore && !loading) loadCommits();
-  }, [inView, hasMore, loading, loadCommits]);
 
   // ── Computed lane data ─────────────────────────────────────────────────
 
@@ -316,7 +251,7 @@ export function GitHistoryPanel({
         >
           <span style={{ flex: 1 }}>{error}</span>
           <button
-            onClick={() => loadCommitsRef.current()}
+            onClick={reload}
             style={{
               background: 'rgba(255,255,255,0.15)',
               border: 'none',

@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useTabs } from './useTabs';
-import type { ServerTabInfo } from '@ymir/shared';
+import type { TabInfo } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 
 export interface UseTerminalPaneOptions {
@@ -104,7 +104,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
     if (workspaceId && !loadedWorkspacesRef.current.has(workspaceId)) {
       loadedWorkspacesRef.current.add(workspaceId);
-      sendRequest<{ tabs: ServerTabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
+      sendRequest<{ tabs: TabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
         .then((response) => {
           // Filter out dead terminals
           const liveTabs = response.tabs.filter((t) => t.terminalAlive !== false);

@@ -15,6 +15,36 @@ async function gitShow(ref: string, repoDir: string): Promise<string> {
 
 const MAX_DIFF_CONTENT_SIZE = 2 * 1024 * 1024; // 2 MB per side
 
+/**
+ * Parse `git diff --numstat` output into additions/deletions counts.
+ * Falls back to estimating additions from `fallbackContent` when numstat
+ * is empty (e.g. untracked or root-commit files).
+ */
+function parseNumstat(
+  output: string,
+  fallbackContent?: string,
+): { additions: number; deletions: number } {
+  let additions = 0;
+  let deletions = 0;
+
+  const trimmed = output.trim();
+  if (trimmed) {
+    const parts = trimmed.split('\t');
+    if (parts.length >= 2 && parts[0] !== '-' && parts[1] !== '-') {
+      additions = parseInt(parts[0], 10) || 0;
+      deletions = parseInt(parts[1], 10) || 0;
+    }
+    // Binary file ("-\t-\t...") or parse failure: leave at 0
+  } else if (fallbackContent) {
+    additions = fallbackContent.split('\n').length;
+    if (fallbackContent.endsWith('\n')) {
+      additions -= 1;
+    }
+  }
+
+  return { additions, deletions };
+}
+
 export async function getDiffData(
   repoDir: string,
   filePath: string,
@@ -47,28 +77,7 @@ export async function getDiffData(
   }
 
   // --- Parse stats ---
-  let additions = 0;
-  let deletions = 0;
-
-  const trimmed = numstatOutput.trim();
-  if (trimmed) {
-    const parts = trimmed.split('\t');
-    if (parts.length >= 2 && parts[0] !== '-' && parts[1] !== '-') {
-      additions = parseInt(parts[0], 10) || 0;
-      deletions = parseInt(parts[1], 10) || 0;
-    } else if (parts.length >= 2 && parts[0] === '-' && parts[1] === '-') {
-      // Binary file — leave at 0
-    }
-    // Any other parse failure: leave at 0
-  } else {
-    // No output (e.g. untracked file) — estimate from modified content
-    if (modifiedContent) {
-      additions = modifiedContent.split('\n').length;
-      if (modifiedContent.endsWith('\n')) {
-        additions -= 1;
-      }
-    }
-  }
+  const { additions, deletions } = parseNumstat(numstatOutput, modifiedContent as string);
 
   return { originalContent, modifiedContent, additions, deletions };
 }
@@ -113,23 +122,7 @@ export async function getCommitFileDiff(
   }
 
   // --- Parse stats ---
-  let additions = 0;
-  let deletions = 0;
-
-  const trimmed = numstatOutput.trim();
-  if (trimmed) {
-    const parts = trimmed.split('\t');
-    if (parts.length >= 2 && parts[0] !== '-' && parts[1] !== '-') {
-      additions = parseInt(parts[0], 10) || 0;
-      deletions = parseInt(parts[1], 10) || 0;
-    }
-    // Binary file or parse failure: leave at 0
-  } else {
-    // No output (e.g. new file in root commit) — estimate from modified content
-    if (modifiedContent) {
-      additions = modifiedContent.split('\n').length - 1;
-    }
-  }
+  const { additions, deletions } = parseNumstat(numstatOutput, modifiedContent);
 
   return { originalContent, modifiedContent, additions, deletions };
 }

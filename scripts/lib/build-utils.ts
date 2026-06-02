@@ -1,5 +1,8 @@
 import { mkdirSync } from 'node:fs';
 
+// Shared constants
+export const GITHUB_REPO = 'harms-haus/ymir-terminal';
+
 // Mapping from Bun compile targets to Tauri target triples
 export const TARGET_MAP: Record<string, string> = {
   'bun-linux-x64': 'x86_64-unknown-linux-gnu',
@@ -63,4 +66,28 @@ export function runCommand(
 // Ensure a directory exists
 export function ensureDir(dir: string): void {
   mkdirSync(dir, { recursive: true });
+}
+
+// Format byte count as human-readable MB string
+export function formatSize(bytes: number): string {
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+// Common CLI arg parser for build scripts that accept --target and --outdir
+export function parseBuildArgs(
+  args: string[],
+  defaultOutdir = 'dist',
+): { target?: string; outdir: string } {
+  let target: string | undefined;
+  let outdir = defaultOutdir;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--target' && args[i + 1]) {
+      target = args[++i];
+    } else if (args[i] === '--outdir' && args[i + 1]) {
+      outdir = args[++i];
+    }
+  }
+
+  return { target, outdir };
 }

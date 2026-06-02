@@ -1,13 +1,6 @@
-import * as ContextMenu from '@radix-ui/react-context-menu';
-import { COLOR_ERROR } from '../lib/theme';
-import {
-  getContextMenuCss,
-  getMenuContainerStyle,
-  menuItemStyle,
-  separatorStyle,
-} from '../lib/context-menu-styles';
-
 import type { GitFileChangeStatus } from '@ymir/shared';
+import { AppContextMenu } from './AppContextMenu';
+import type { ContextMenuItem } from './AppContextMenu';
 
 interface GitChangeContextMenuProps {
   path: string;
@@ -34,115 +27,64 @@ export function GitChangeContextMenu({
   onOpenEditor,
   children,
 }: GitChangeContextMenuProps) {
-  const testId = 'git-change-context-menu';
-  const css = getContextMenuCss(testId);
+  let items: ContextMenuItem[] = [];
+
+  /* UNSTAGED file */
+  if (!isStaged && !isDirectory) {
+    items = [
+      { label: 'Stage', testId: 'git-ctx-stage', action: () => onStage?.(path) },
+      {
+        label: 'Discard Changes',
+        testId: 'git-ctx-discard',
+        action: () => {
+          if (window.confirm('Discard changes to ' + path + '?')) {
+            onDiscard?.(path);
+          }
+        },
+        destructive: true,
+        separatorAfter: true,
+      },
+      { label: 'View Diff', testId: 'git-ctx-diff', action: () => onOpenDiff?.(path) },
+      { label: 'Open in Editor', testId: 'git-ctx-open-editor', action: () => onOpenEditor?.(path) },
+    ];
+  }
+
+  /* STAGED file */
+  if (isStaged && !isDirectory) {
+    items = [
+      { label: 'Unstage', testId: 'git-ctx-unstage', action: () => onUnstage?.(path), separatorAfter: true },
+      { label: 'View Diff', testId: 'git-ctx-staged-diff', action: () => onOpenDiff?.(path) },
+      { label: 'Open in Editor', testId: 'git-ctx-open-editor-staged', action: () => onOpenEditor?.(path) },
+    ];
+  }
+
+  /* UNSTAGED directory */
+  if (!isStaged && isDirectory) {
+    items = [
+      { label: 'Stage All', testId: 'git-ctx-stage-all', action: () => onStage?.(path) },
+      {
+        label: 'Discard All',
+        testId: 'git-ctx-discard-all',
+        action: () => {
+          if (window.confirm('Discard all changes in ' + path + '?')) {
+            onDiscard?.(path);
+          }
+        },
+        destructive: true,
+      },
+    ];
+  }
+
+  /* STAGED directory */
+  if (isStaged && isDirectory) {
+    items = [
+      { label: 'Unstage All', testId: 'git-ctx-unstage-all', action: () => onUnstage?.(path) },
+    ];
+  }
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content data-testid={testId} style={getMenuContainerStyle('180px')}>
-          <style>{css}</style>
-
-          {/* UNSTAGED file */}
-          {!isStaged && !isDirectory && (
-            <>
-              <ContextMenu.Item
-                data-testid="git-ctx-stage"
-                onSelect={() => onStage?.(path)}
-                style={menuItemStyle}
-              >
-                Stage
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                data-testid="git-ctx-discard"
-                onSelect={() => {
-                  if (window.confirm('Discard changes to ' + path + '?')) {
-                    onDiscard?.(path);
-                  }
-                }}
-                style={{ ...menuItemStyle, color: COLOR_ERROR }}
-              >
-                Discard Changes
-              </ContextMenu.Item>
-              <ContextMenu.Separator style={separatorStyle} />
-              <ContextMenu.Item
-                data-testid="git-ctx-diff"
-                onSelect={() => onOpenDiff?.(path)}
-                style={menuItemStyle}
-              >
-                View Diff
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                data-testid="git-ctx-open-editor"
-                onSelect={() => onOpenEditor?.(path)}
-                style={menuItemStyle}
-              >
-                Open in Editor
-              </ContextMenu.Item>
-            </>
-          )}
-
-          {/* STAGED file */}
-          {isStaged && !isDirectory && (
-            <>
-              <ContextMenu.Item
-                data-testid="git-ctx-unstage"
-                onSelect={() => onUnstage?.(path)}
-                style={menuItemStyle}
-              >
-                Unstage
-              </ContextMenu.Item>
-              <ContextMenu.Separator style={separatorStyle} />
-              <ContextMenu.Item
-                data-testid="git-ctx-staged-diff"
-                onSelect={() => onOpenDiff?.(path)}
-                style={menuItemStyle}
-              >
-                View Diff
-              </ContextMenu.Item>
-              <ContextMenu.Item onSelect={() => onOpenEditor?.(path)} style={menuItemStyle}>
-                Open in Editor
-              </ContextMenu.Item>
-            </>
-          )}
-
-          {/* UNSTAGED directory */}
-          {!isStaged && isDirectory && (
-            <>
-              <ContextMenu.Item
-                data-testid="git-ctx-stage-all"
-                onSelect={() => onStage?.(path)}
-                style={menuItemStyle}
-              >
-                Stage All
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                data-testid="git-ctx-discard-all"
-                onSelect={() => {
-                  if (window.confirm('Discard all changes in ' + path + '?')) {
-                    onDiscard?.(path);
-                  }
-                }}
-                style={{ ...menuItemStyle, color: COLOR_ERROR }}
-              >
-                Discard All
-              </ContextMenu.Item>
-            </>
-          )}
-
-          {/* STAGED directory */}
-          {isStaged && isDirectory && (
-            <ContextMenu.Item
-              data-testid="git-ctx-unstage-all"
-              onSelect={() => onUnstage?.(path)}
-              style={menuItemStyle}
-            >
-              Unstage All
-            </ContextMenu.Item>
-          )}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+    <AppContextMenu items={items} testId="git-change-context-menu" minWidth="180px">
+      {children}
+    </AppContextMenu>
   );
 }

@@ -76,7 +76,6 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     persistentDb: db,
     scanner: fileScanner,
     operations: fileOperations,
-    watcher: {},
   });
 
   // 6e. Git handlers

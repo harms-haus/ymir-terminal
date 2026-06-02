@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import { setupTestDom, setupAllMocks, setReactInputValue } from '../test-helpers/mock-setup';
+import { setupPaneMocks, resetPaneMocks } from '../test-helpers/mock-pane-helpers';
 await setupTestDom();
 setupAllMocks();
 
@@ -7,141 +8,7 @@ import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'b
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
-// ---------------------------------------------------------------------------
-// Mock useTabs
-// ---------------------------------------------------------------------------
-
-type Tab = {
-  id: string;
-  type: 'terminal' | 'editor';
-  title: string;
-  terminalId?: string;
-};
-
-let mockTabs: Tab[] = [];
-let mockActiveTabId: string | null = null;
-let mockCreateTab: (opts: {
-  type: 'terminal' | 'editor';
-  title: string;
-  terminalId?: string;
-}) => string;
-let mockCloseTab: (id: string) => void;
-let mockActivateTab: (id: string) => void;
-let mockUpdateTabTitle: (tabId: string, title: string) => void;
-let mockUpdateTabCwd: (tabId: string, cwd: string) => void;
-let mockCloseTabsRight: (tabId: string) => void;
-let mockCloseOtherTabs: (tabId: string) => void;
-let mockSetDisplayTitle: (tabId: string, customTitle: string) => void;
-let mockSwitchWorkspace: (workspaceId: string | null) => void;
-let mockLoadTabs: (workspaceId: string, tabs: unknown[]) => void;
-
-mock.module('../hooks/useTabs', () => ({
-  useTabs: () => ({
-    tabs: mockTabs,
-    activeTabId: mockActiveTabId,
-    createTab: mockCreateTab,
-    closeTab: mockCloseTab,
-    activateTab: mockActivateTab,
-    updateTabTitle: mockUpdateTabTitle,
-    updateTabCwd: mockUpdateTabCwd,
-    closeTabsRight: mockCloseTabsRight,
-    closeOtherTabs: mockCloseOtherTabs,
-    setDisplayTitle: mockSetDisplayTitle,
-    switchWorkspace: mockSwitchWorkspace,
-    loadTabs: mockLoadTabs,
-  }),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Tab: {} as any,
-}));
-
-// ---------------------------------------------------------------------------
-// Mock useTerminal
-// ---------------------------------------------------------------------------
-
-let mockSendData: (data: string) => void;
-let mockOnOutput: (handler: (data: string) => void) => () => void;
-let mockCreateTerminalFn: (workspaceId: string) => Promise<string>;
-let mockCloseTerminal: () => Promise<void>;
-let mockResizeTerminal: (cols: number, rows: number) => void;
-
-mock.module('../hooks/useTerminal', () => ({
-  useTerminal: () => ({
-    sendData: mockSendData,
-    onOutput: mockOnOutput,
-    createTerminal: mockCreateTerminalFn,
-    closeTerminal: mockCloseTerminal,
-    resizeTerminal: mockResizeTerminal,
-  }),
-}));
-
-// ---------------------------------------------------------------------------
-// Mock sendRequest
-// ---------------------------------------------------------------------------
-
-let mockSendRequest: (channel: string, payload: unknown) => Promise<unknown>;
-
-mock.module('../lib/send-request', () => ({
-  sendRequest: (...args: [string, unknown]) => mockSendRequest(...args),
-}));
-
-// ---------------------------------------------------------------------------
-// Mock TabContextMenu — faithful mock that renders menu items with
-// data-testid attributes.  Prevents leak from TabBar.test.tsx's stub mock
-// (which omits the menu items) when running all tests together.
-// ---------------------------------------------------------------------------
-
-mock.module('./TabContextMenu', () => ({
-  TabContextMenu: ({
-    canCloseRight,
-    canCloseOthers,
-    onClose,
-    onCloseRight,
-    onCloseOthers,
-    onRename,
-    children,
-  }: {
-    canCloseRight: boolean;
-    canCloseOthers: boolean;
-    onClose: () => void;
-    onCloseRight: () => void;
-    onCloseOthers: () => void;
-    onRename: () => void;
-    children: React.ReactNode;
-  }) =>
-    React.createElement(
-      'div',
-      null,
-      children,
-      React.createElement(
-        'div',
-        { 'data-testid': 'tab-menu-close', onClick: () => onClose() },
-        'Close',
-      ),
-      React.createElement(
-        'div',
-        {
-          'data-testid': 'tab-menu-close-others',
-          onClick: canCloseOthers ? () => onCloseOthers() : undefined,
-          'aria-disabled': !canCloseOthers || undefined,
-        },
-        'Close Others',
-      ),
-      React.createElement(
-        'div',
-        {
-          'data-testid': 'tab-menu-close-right',
-          onClick: canCloseRight ? () => onCloseRight() : undefined,
-          'aria-disabled': !canCloseRight || undefined,
-        },
-        'Close to the Right',
-      ),
-      React.createElement(
-        'div',
-        { 'data-testid': 'tab-menu-rename', onClick: () => onRename() },
-        'Rename',
-      ),
-    ),
-}));
+const mocks = setupPaneMocks();
 
 const { BottomPanel } = await import('./BottomPanel');
 import type { TerminalPanelHandle as BottomPanelHandle } from '../hooks/useTerminalPanel';
@@ -164,49 +31,35 @@ function renderBottomPanel(
 
 describe('BottomPanel', () => {
   beforeEach(() => {
-    mockTabs = [];
-    mockActiveTabId = null;
-    mockCreateTab = mock(
+    resetPaneMocks(mocks);
+
+    // Smart state-mutating implementations for tab management
+    mocks.createTab.mockImplementation(
       (opts: { type: 'terminal' | 'editor'; title: string; terminalId?: string }) => {
-        const id = `tab-${mockTabs.length + 1}`;
-        const tab: Tab = { id, ...opts };
-        mockTabs = [...mockTabs, tab];
-        mockActiveTabId = id;
+        const id = `tab-${mocks.tabs.length + 1}`;
+        const tab = { id, ...opts };
+        mocks.tabs = [...mocks.tabs, tab];
+        mocks.activeTabId = id;
         return id;
       },
     );
-    mockCloseTab = mock((tabId: string) => {
-      const idx = mockTabs.findIndex((t) => t.id === tabId);
-      const next = mockTabs.filter((t) => t.id !== tabId);
-      if (mockActiveTabId === tabId) {
-        mockActiveTabId = next[Math.max(0, idx - 1)]?.id || next[0]?.id || null;
+    mocks.closeTab.mockImplementation((tabId: string) => {
+      const idx = mocks.tabs.findIndex((t) => t.id === tabId);
+      const next = mocks.tabs.filter((t) => t.id !== tabId);
+      if (mocks.activeTabId === tabId) {
+        mocks.activeTabId = next[Math.max(0, idx - 1)]?.id || next[0]?.id || null;
       }
-      mockTabs = next;
+      mocks.tabs = next;
     });
-    mockActivateTab = mock((tabId: string) => {
-      mockActiveTabId = tabId;
-    });
-    mockUpdateTabTitle = mock((_tabId: string, _title: string) => {});
-    mockUpdateTabCwd = mock((_tabId: string, _cwd: string) => {});
-    mockCloseTabsRight = mock((_tabId: string) => {
-      const idx = mockTabs.findIndex((t) => t.id === _tabId);
+    mocks.closeTabsRight.mockImplementation((tabId: string) => {
+      const idx = mocks.tabs.findIndex((t) => t.id === tabId);
       if (idx === -1) return;
-      mockTabs = mockTabs.slice(0, idx + 1);
+      mocks.tabs = mocks.tabs.slice(0, idx + 1);
     });
-    mockCloseOtherTabs = mock((_tabId: string) => {
-      mockTabs = mockTabs.filter((t) => t.id === _tabId);
-      mockActiveTabId = _tabId;
+    mocks.closeOtherTabs.mockImplementation((tabId: string) => {
+      mocks.tabs = mocks.tabs.filter((t) => t.id === tabId);
+      mocks.activeTabId = tabId;
     });
-    mockSetDisplayTitle = mock((_tabId: string, _customTitle: string) => {});
-    mockSwitchWorkspace = mock((_workspaceId: string | null) => {});
-    mockLoadTabs = mock((_workspaceId: string, _tabs: unknown[]) => {});
-
-    mockSendData = mock(() => {});
-    mockOnOutput = mock(() => () => {});
-    mockCreateTerminalFn = mock(() => Promise.resolve('term-1'));
-    mockCloseTerminal = mock(() => Promise.resolve());
-    mockResizeTerminal = mock(() => {});
-    mockSendRequest = mock(() => Promise.resolve({ tabs: [] }));
   });
 
   afterEach(() => {
@@ -237,10 +90,10 @@ describe('BottomPanel', () => {
     fireEvent.click(addBtn);
 
     await waitFor(() => {
-      expect(mockCreateTerminalFn).toHaveBeenCalledTimes(1);
-      expect(mockCreateTerminalFn).toHaveBeenCalledWith('ws-1', undefined);
-      expect(mockCreateTab).toHaveBeenCalledTimes(1);
-      expect(mockCreateTab).toHaveBeenCalledWith(
+      expect(mocks.createTerminal).toHaveBeenCalledTimes(1);
+      expect(mocks.createTerminal).toHaveBeenCalledWith('ws-1', undefined);
+      expect(mocks.createTab).toHaveBeenCalledTimes(1);
+      expect(mocks.createTab).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'terminal', title: 'Terminal 1', terminalId: 'term-1' }),
       );
     });
@@ -251,11 +104,11 @@ describe('BottomPanel', () => {
   // -----------------------------------------------------------------------
   test('closing a tab sends PTY close request and switches to previous', () => {
     // Simulate two tabs
-    mockTabs = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 't2' },
     ];
-    mockActiveTabId = 'tab-2';
+    mocks.activeTabId = 'tab-2';
 
     const { getByTestId } = renderBottomPanel();
 
@@ -264,16 +117,16 @@ describe('BottomPanel', () => {
     expect(closeBtn).toBeTruthy();
     fireEvent.click(closeBtn);
 
-    expect(mockCloseTab).toHaveBeenCalledWith('tab-2');
-    expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
+    expect(mocks.closeTab).toHaveBeenCalledWith('tab-2');
+    expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
   });
 
   // -----------------------------------------------------------------------
   // 4. Terminal container is present for active bottom tab
   // -----------------------------------------------------------------------
   test('terminal container is present for active bottom tab', () => {
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { getByTestId } = renderBottomPanel();
 
@@ -286,7 +139,7 @@ describe('BottomPanel', () => {
   // -----------------------------------------------------------------------
   test('rapid duplicate clicks are prevented by the creating guard', async () => {
     let resolveCreate: (id: string) => void;
-    mockCreateTerminalFn = mock(
+    mocks.createTerminal.mockImplementation(
       () =>
         new Promise<string>((resolve) => {
           resolveCreate = resolve;
@@ -302,13 +155,13 @@ describe('BottomPanel', () => {
     fireEvent.click(addBtn);
 
     // Only one call should have been made
-    expect(mockCreateTerminalFn).toHaveBeenCalledTimes(1);
+    expect(mocks.createTerminal).toHaveBeenCalledTimes(1);
 
     // Resolve the pending creation
     resolveCreate!('term-guarded');
 
     await waitFor(() => {
-      expect(mockCreateTab).toHaveBeenCalledTimes(1);
+      expect(mocks.createTab).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -316,7 +169,7 @@ describe('BottomPanel', () => {
   // 6. Failed terminal creation does not create a tab
   // -----------------------------------------------------------------------
   test('failed terminal creation does not create a tab', async () => {
-    mockCreateTerminalFn = mock(() => Promise.reject(new Error('creation failed')));
+    mocks.createTerminal.mockImplementation(() => Promise.reject(new Error('creation failed')));
 
     const { getByTestId } = renderBottomPanel();
 
@@ -324,22 +177,22 @@ describe('BottomPanel', () => {
     fireEvent.click(addBtn);
 
     await waitFor(() => {
-      expect(mockCreateTerminalFn).toHaveBeenCalledTimes(1);
+      expect(mocks.createTerminal).toHaveBeenCalledTimes(1);
     });
 
     // createTab should never have been called
-    expect(mockCreateTab).not.toHaveBeenCalled();
+    expect(mocks.createTab).not.toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
   // 7. Terminal container is present for multiple tabs
   // -----------------------------------------------------------------------
   test('terminal container is present for multiple tabs', () => {
-    mockTabs = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 't2' },
     ];
-    mockActiveTabId = 'tab-1';
+    mocks.activeTabId = 'tab-1';
 
     const { getByTestId } = renderBottomPanel();
 
@@ -354,12 +207,12 @@ describe('BottomPanel', () => {
   // 8. Closing tabs to the right sends PTY close for each
   // -----------------------------------------------------------------------
   test('closeTabsRight sends PTY close for each closed tab', () => {
-    mockTabs = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 't2' },
       { id: 'tab-3', type: 'terminal', title: 'Terminal 3', terminalId: 't3' },
     ];
-    mockActiveTabId = 'tab-1';
+    mocks.activeTabId = 'tab-1';
 
     const confirmSpy = mock(() => true);
     const originalConfirm = window.confirm;
@@ -378,9 +231,9 @@ describe('BottomPanel', () => {
       // Confirmation was shown for 2+ tabs
       expect(confirmSpy).toHaveBeenCalled();
       // Should send terminal.close for t2 and t3
-      expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
-      expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't3' });
-      expect(mockCloseTabsRight).toHaveBeenCalledWith('tab-1');
+      expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
+      expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't3' });
+      expect(mocks.closeTabsRight).toHaveBeenCalledWith('tab-1');
     } finally {
       window.confirm = originalConfirm;
     }
@@ -390,11 +243,11 @@ describe('BottomPanel', () => {
   // 9. Closing other tabs sends PTY close for each
   // -----------------------------------------------------------------------
   test('closeOtherTabs sends PTY close for each closed tab', () => {
-    mockTabs = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 't2' },
     ];
-    mockActiveTabId = 'tab-1';
+    mocks.activeTabId = 'tab-1';
 
     const { container } = renderBottomPanel();
 
@@ -404,16 +257,16 @@ describe('BottomPanel', () => {
     fireEvent.click(closeOthersItems[0]);
 
     // Should send terminal.close for t2 (the other tab)
-    expect(mockSendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
-    expect(mockCloseOtherTabs).toHaveBeenCalledWith('tab-1');
+    expect(mocks.sendRequest).toHaveBeenCalledWith('terminal.close', { terminalId: 't2' });
+    expect(mocks.closeOtherTabs).toHaveBeenCalledWith('tab-1');
   });
 
   // -----------------------------------------------------------------------
   // 10. Rename tab calls setDisplayTitle
   // -----------------------------------------------------------------------
   test('rename tab calls setDisplayTitle', () => {
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { container } = renderBottomPanel();
 
@@ -432,15 +285,15 @@ describe('BottomPanel', () => {
     // Press Enter to commit
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(mockSetDisplayTitle).toHaveBeenCalledWith('tab-1', 'My Terminal');
+    expect(mocks.setDisplayTitle).toHaveBeenCalledWith('tab-1', 'My Terminal');
   });
 
   // -----------------------------------------------------------------------
   // 11. transferTabOut imperative handle removes a terminal tab and returns data
   // -----------------------------------------------------------------------
   test('transferTabOut removes terminal tab and returns data without sending terminal.close', async () => {
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<BottomPanelHandle>();
     renderBottomPanel('ws-1', ref);
@@ -456,9 +309,9 @@ describe('BottomPanel', () => {
       cwd: undefined,
       customTitle: undefined,
     });
-    expect(mockCloseTab).toHaveBeenCalledWith('tab-1');
+    expect(mocks.closeTab).toHaveBeenCalledWith('tab-1');
     // Should NOT send terminal.close — the PTY stays alive during cross-pane transfer
-    expect(mockSendRequest).not.toHaveBeenCalledWith('terminal.close', expect.anything());
+    expect(mocks.sendRequest).not.toHaveBeenCalledWith('terminal.close', expect.anything());
   });
 
   // -----------------------------------------------------------------------
@@ -473,7 +326,7 @@ describe('BottomPanel', () => {
     });
 
     expect(ref.current?.transferTabOut('non-existent')).toBeNull();
-    expect(mockCloseTab).not.toHaveBeenCalled();
+    expect(mocks.closeTab).not.toHaveBeenCalled();
   });
 
   // -----------------------------------------------------------------------
@@ -488,7 +341,7 @@ describe('BottomPanel', () => {
     });
 
     ref.current?.receiveTab('term-moved', 'Moved Terminal', '/home/user');
-    expect(mockCreateTab).toHaveBeenCalledWith({
+    expect(mocks.createTab).toHaveBeenCalledWith({
       type: 'terminal',
       title: 'Moved Terminal',
       terminalId: 'term-moved',
@@ -500,11 +353,11 @@ describe('BottomPanel', () => {
   // 14. getTabs imperative handle returns current tabs
   // -----------------------------------------------------------------------
   test('getTabs returns current tabs', async () => {
-    mockTabs = [
+    mocks.tabs = [
       { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' },
       { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 't2' },
     ];
-    mockActiveTabId = 'tab-1';
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<BottomPanelHandle>();
     renderBottomPanel('ws-1', ref);
@@ -533,7 +386,7 @@ describe('BottomPanel', () => {
     const tabId = ref.current?.receiveTab('term-xfer', 'Transferred', '/home');
     expect(typeof tabId).toBe('string');
     expect(tabId).toBe('tab-1');
-    expect(mockCreateTab).toHaveBeenCalledWith({
+    expect(mocks.createTab).toHaveBeenCalledWith({
       type: 'terminal',
       title: 'Transferred',
       terminalId: 'term-xfer',
@@ -545,8 +398,8 @@ describe('BottomPanel', () => {
   // 16. transferTabOut followed by receiveTab round-trips terminal data
   // -----------------------------------------------------------------------
   test('transferTabOut followed by receiveTab round-trips terminal data', async () => {
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'My Term', terminalId: 't1' }];
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<BottomPanelHandle>();
     renderBottomPanel('ws-1', ref);
@@ -573,7 +426,7 @@ describe('BottomPanel', () => {
     );
     expect(typeof newTabId).toBe('string');
     expect(newTabId).toBeTruthy();
-    expect(mockCreateTab).toHaveBeenCalledWith({
+    expect(mocks.createTab).toHaveBeenCalledWith({
       type: 'terminal',
       title: 'My Term',
       terminalId: 't1',
@@ -607,8 +460,8 @@ describe('BottomPanel', () => {
   // -----------------------------------------------------------------------
   test('onTerminalUnregistered is called when a terminal tab is closed', () => {
     const mockOnTerminalUnregistered = mock(() => {});
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
+    mocks.activeTabId = 'tab-1';
 
     const { getByTestId } = renderBottomPanel('ws-1', undefined, {
       onTerminalUnregistered: mockOnTerminalUnregistered,
@@ -639,8 +492,8 @@ describe('BottomPanel', () => {
     expect(mockOnActiveTabChange).toHaveBeenCalledWith(null);
 
     // Change mock state and rerender
-    mockActiveTabId = 'tab-1';
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
+    mocks.activeTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
 
     rerender(
       React.createElement(BottomPanel, {
@@ -657,8 +510,8 @@ describe('BottomPanel', () => {
   // -----------------------------------------------------------------------
   test('cross-pane transfer: transferTabOut does not call onTerminalUnregistered', async () => {
     const onTerminalUnregistered = mock(() => {});
-    mockTabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
-    mockActiveTabId = 'tab-1';
+    mocks.tabs = [{ id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 't1' }];
+    mocks.activeTabId = 'tab-1';
 
     const ref = React.createRef<BottomPanelHandle>();
     renderBottomPanel('ws-1', ref, { onTerminalUnregistered });

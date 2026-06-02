@@ -2,14 +2,12 @@ import {
   IS_WINDOWS,
   CONFIG_DIR,
   DB_FILE,
-  SERVER_BINARY_NAME,
   YMIR_HOME_DIR_NAME,
-  APP_BINARY_NAME,
 } from './constants';
 
 // Node.js modules — only available in server/CLI context, not in browser
-let _os: typeof import('node:os') | null = null;
-let _path: typeof import('node:path') | null = null;
+let _os: typeof import('node:os') | null = null; // eslint-disable-line @typescript-eslint/consistent-type-imports
+let _path: typeof import('node:path') | null = null; // eslint-disable-line @typescript-eslint/consistent-type-imports
 
 function getOs() {
   if (!_os) {
@@ -74,7 +72,7 @@ export function expandTilde(filePath: string): string {
   return filePath;
 }
 
-export function getConfigDir(): string {
+function getConfigDir(): string {
   const path = getPath();
   if (!path) return '';
   if (IS_WINDOWS) {
@@ -99,20 +97,4 @@ export function getYmirHomeDir(): string {
   return path.join(os.homedir(), YMIR_HOME_DIR_NAME);
 }
 
-export function getClientDistDir(): string {
-  const path = getPath();
-  if (!path) return '';
-  return path.join(getYmirHomeDir(), 'client-dist');
-}
 
-export function getServerBinaryPath(): string {
-  const path = getPath();
-  if (!path) return '';
-  return path.join(getYmirHomeDir(), SERVER_BINARY_NAME);
-}
-
-export function getAppBinaryPath(): string {
-  const path = getPath();
-  if (!path) return '';
-  return path.join(getYmirHomeDir(), APP_BINARY_NAME);
-}

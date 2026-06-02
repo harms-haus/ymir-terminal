@@ -225,7 +225,7 @@ describe('MessageRouter', () => {
       receivedConn = conn;
     });
 
-    const fakeConn = { id: 'conn-1' } as ClientConnection;
+    const fakeConn = { id: 'conn-1' } as unknown as ClientConnection;
     const envelope: MessageEnvelope = {
       v: PROTOCOL_VERSION,
       type: 'request',

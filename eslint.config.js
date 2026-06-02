@@ -31,7 +31,22 @@ module.exports = [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports" },
+      ],
+      "no-console": ["error", { allow: ["warn", "error"] }],
     },
+  },
+
+  // Allow console.log in CLI scripts and server entry points
+  {
+    files: ["apps/cli/src/**/*.ts", "scripts/**/*.ts"],
+    rules: { "no-console": "off" },
+  },
+  {
+    files: ["apps/server/src/index.ts", "apps/server/src/server.ts"],
+    rules: { "no-console": "off" },
   },
 
   // React config for client app

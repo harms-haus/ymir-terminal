@@ -13,13 +13,14 @@ import {
 import type { ClientConnection } from '../../connection';
 import * as fileOps from '../../../files/operations';
 import { type FileDeps, handleFileRequest } from './shared';
+import type { MessageRouter } from '../../router';
 
 // ---------------------------------------------------------------------------
 // Registration — create, write, delete, rename, copy, move handlers
 // ---------------------------------------------------------------------------
 
 export function registerCrudHandlers(
-  router: import('../../router').MessageRouter,
+  router: MessageRouter,
   deps: FileDeps,
 ): void {
   const { operations: ops } = deps;

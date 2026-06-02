@@ -10,6 +10,7 @@ import {
   type FileChangeEvent as FileChangePayload,
 } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
+import type { Database } from 'bun:sqlite';
 import { MessageRouter } from '../router';
 import { registerWorkspaceHandlers } from './workspaces';
 
@@ -81,8 +82,8 @@ describe('registerWorkspaceHandlers', () => {
     broadcastedEvents = [];
 
     registerWorkspaceHandlers(router, {
-      persistentDb: mockPersistentDb as unknown as import('bun:sqlite').Database,
-      sessionDb: mockSessionDb as unknown as import('bun:sqlite').Database,
+      persistentDb: mockPersistentDb as unknown as Database,
+      sessionDb: mockSessionDb as unknown as Database,
       broadcastEvent: (event: EventEnvelope) => {
         broadcastedEvents.push(event);
       },
@@ -100,37 +101,6 @@ describe('registerWorkspaceHandlers', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 1. Handler registers for expected channels
-  // -----------------------------------------------------------------------
-  describe('channel registration', () => {
-    it('registers workspace.list handler', async () => {
-      const req = request('workspace.list', {});
-      const result = await router.route(conn, req);
-      // null means a handler was found (no unmatched-channel error)
-      expect(result).toBeNull();
-    });
-
-    it('registers workspace.create handler', async () => {
-      const req = request('workspace.create', { name: 'test', cwd: '/tmp', color: '#ff0' });
-      await router.route(conn, req);
-      // Should not throw, meaning a handler was registered
-      expect(conn.sent.length).toBe(1);
-    });
-
-    it('registers workspace.update handler', async () => {
-      const req = request('workspace.update', { id: 'ws-1', name: 'updated' });
-      await router.route(conn, req);
-      expect(conn.sent.length).toBe(1);
-    });
-
-    it('registers workspace.delete handler', async () => {
-      const req = request('workspace.delete', { id: 'ws-1' });
-      await router.route(conn, req);
-      expect(conn.sent.length).toBe(1);
-    });
-  });
-
-  // -----------------------------------------------------------------------
   // 2. workspace.list
   // -----------------------------------------------------------------------
   describe('workspace.list', () => {
@@ -143,6 +113,9 @@ describe('registerWorkspaceHandlers', () => {
 
       const req = request('workspace.list', {});
       await router.route(conn, req);
+
+      expect(listWorkspacesFn).toHaveBeenCalledTimes(1);
+      expect(listWorkspacesFn.mock.calls[0][0]).toBe(mockPersistentDb);
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
@@ -163,7 +136,12 @@ describe('registerWorkspaceHandlers', () => {
       const req = request('workspace.list', {});
       await router.route(conn, req);
 
+      expect(listWorkspacesFn).toHaveBeenCalledTimes(1);
+      expect(listWorkspacesFn.mock.calls[0][0]).toBe(mockPersistentDb);
+
       const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
       const payload = resp.payload as WorkspaceListResponse;
       expect(payload.workspaces).toEqual([]);
     });
@@ -182,6 +160,7 @@ describe('registerWorkspaceHandlers', () => {
       await router.route(conn, req);
 
       expect(createWorkspaceFn).toHaveBeenCalledTimes(1);
+      expect(createWorkspaceFn.mock.calls[0][0]).toBe(mockPersistentDb);
       expect(createWorkspaceFn.mock.calls[0][1]).toEqual({
         name: 'My Project',
         cwd: path.resolve('/home/dev'),
@@ -196,9 +175,11 @@ describe('registerWorkspaceHandlers', () => {
 
       const payload = resp.payload as WorkspaceCreateResponse;
       expect(payload.workspace).toBeDefined();
+      expect(payload.workspace.id).toBe('ws-1');
       expect(payload.workspace.name).toBe('My Project');
       expect(payload.workspace.cwd).toBe(path.resolve('/home/dev'));
       expect(payload.workspace.color).toBe('#007acc');
+      expect(payload.workspace.sortOrder).toBe(0);
     });
 
     it('returns error INVALID_MESSAGE when name is missing', async () => {
@@ -250,6 +231,37 @@ describe('registerWorkspaceHandlers', () => {
       const callArgs = createWorkspaceFn.mock.calls[0];
       const expectedCwd = path.resolve(os.homedir(), 'projects/my-app');
       expect(callArgs[1].cwd).toBe(expectedCwd);
+    });
+
+    it('creates workspace successfully when cwd points to a non-existent directory', async () => {
+      const req = request('workspace.create', {
+        name: 'Ghost Project',
+        cwd: '/nonexistent/path/that/does/not/exist',
+        color: '#deadbe',
+      });
+      await router.route(conn, req);
+
+      // The handler normalizes the path but does NOT validate directory existence
+      expect(createWorkspaceFn).toHaveBeenCalledTimes(1);
+      expect(createWorkspaceFn.mock.calls[0][1]).toEqual({
+        name: 'Ghost Project',
+        cwd: path.resolve('/nonexistent/path/that/does/not/exist'),
+        color: '#deadbe',
+      });
+
+      // The watcher is still started (even though the directory doesn't exist)
+      expect(startManagedWatcherFn).toHaveBeenCalledTimes(1);
+      expect(startManagedWatcherFn.mock.calls[0][1]).toBe(
+        path.resolve('/nonexistent/path/that/does/not/exist'),
+      );
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as WorkspaceCreateResponse;
+      expect(payload.workspace.cwd).toBe(path.resolve('/nonexistent/path/that/does/not/exist'));
+      expect(payload.workspace.name).toBe('Ghost Project');
     });
 
     it('starts managed watcher and broadcasts file.change events', async () => {
@@ -315,14 +327,18 @@ describe('registerWorkspaceHandlers', () => {
       await router.route(conn, req);
 
       expect(updateWorkspaceFn).toHaveBeenCalledTimes(1);
-      // The handler should pass only the provided fields
       const callArgs = updateWorkspaceFn.mock.calls[0];
-      expect(callArgs[1]).toBe('ws-1'); // id
-      expect(callArgs[2]).toEqual({ name: 'Renamed' }); // only name, not cwd or color
+      expect(callArgs[0]).toBe(mockPersistentDb);
+      expect(callArgs[1]).toBe('ws-1');
+      expect(callArgs[2]).toEqual({ name: 'Renamed' });
 
       const resp = conn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
+      expect(resp.id).toBe(req.id);
       expect(resp.error).toBeUndefined();
+      const payload = resp.payload as { workspace: Record<string, unknown> };
+      expect(payload.workspace.id).toBe('ws-1');
+      expect(payload.workspace.name).toBe('Renamed');
     });
 
     it('updates multiple fields', async () => {
@@ -334,8 +350,19 @@ describe('registerWorkspaceHandlers', () => {
       });
       await router.route(conn, req);
 
+      expect(updateWorkspaceFn).toHaveBeenCalledTimes(1);
       const callArgs = updateWorkspaceFn.mock.calls[0];
+      expect(callArgs[0]).toBe(mockPersistentDb);
+      expect(callArgs[1]).toBe('ws-1');
       expect(callArgs[2]).toEqual({ name: 'New', cwd: path.resolve('/new'), color: '#aabbcc' });
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+      const payload = resp.payload as { workspace: Record<string, unknown> };
+      expect(payload.workspace.id).toBe('ws-1');
+      expect(payload.workspace.name).toBe('New');
+      expect(payload.workspace.color).toBe('#aabbcc');
     });
 
     it('returns error INVALID_MESSAGE when id is missing', async () => {
@@ -380,6 +407,7 @@ describe('registerWorkspaceHandlers', () => {
       await router.route(conn, req);
 
       expect(deleteWorkspaceFn).toHaveBeenCalledTimes(1);
+      expect(deleteWorkspaceFn.mock.calls[0][0]).toBe(mockPersistentDb);
       expect(deleteWorkspaceFn.mock.calls[0][1]).toBe('ws-1');
 
       const resp = conn.sent[0] as Record<string, unknown>;

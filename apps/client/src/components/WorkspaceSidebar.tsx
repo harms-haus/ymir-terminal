@@ -1,4 +1,4 @@
-import type { GitWorktreeInfo } from '@ymir/shared';
+import type { GitWorktreeInfo, WorkspaceSummary } from '@ymir/shared';
 import { useDroppable } from '@dnd-kit/react';
 import { useWorkspaces } from '../hooks/useWorkspaces';
 import { WorkspaceItem } from './WorkspaceItem';
@@ -129,7 +129,7 @@ function WorkspaceSidebarList({
   onRemoveWorktree,
   onMergeWorktree,
 }: {
-  workspaces: import('@ymir/shared').WorkspaceSummary[] | undefined;
+  workspaces: WorkspaceSummary[] | undefined;
   activeWorkspaceId: string | null;
   worktreesByWorkspace: Record<string, GitWorktreeInfo[]>;
   activeWorktreePath: string | null;
@@ -168,7 +168,7 @@ function WorkspaceSidebarList({
         transition: 'box-shadow 0.15s',
       }}
     >
-      {workspaces?.map((ws: import('@ymir/shared').WorkspaceSummary, index: number) => (
+      {workspaces?.map((ws: WorkspaceSummary, index: number) => (
         <WorkspaceItem
           key={ws.id}
           workspace={ws}

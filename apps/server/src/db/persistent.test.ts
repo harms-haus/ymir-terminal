@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { Database } from 'bun:sqlite';
+import type { Database } from 'bun:sqlite';
 import {
   initDatabase,
   createWorkspace,
@@ -106,7 +106,7 @@ describe('persistent database', () => {
       color: '#111111',
     });
 
-    // Delay to ensure updated_at differs from created_at (datetime('now') has second granularity)
+    // Sleep to ensure datetime('now') returns a different second (SQLite has second-granularity timestamps)
     await new Promise((resolve) => setTimeout(resolve, 1100));
 
     const updated = updateWorkspace(db, created.id, { name: 'updated' });

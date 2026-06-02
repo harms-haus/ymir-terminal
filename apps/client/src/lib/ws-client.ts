@@ -4,11 +4,11 @@ import {
   WS_RECONNECT_BASE_DELAY_MS,
   WS_RECONNECT_MAX_DELAY_MS,
 } from '@ymir/shared';
-import type { MessageEnvelope } from '@ymir/shared';
+import type { MessageEnvelope, ConnectionStatus } from '@ymir/shared';
+
+export type { ConnectionStatus };
 
 const MAX_PENDING_MESSAGES = 100;
-
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 class WSClient {
   private ws: WebSocket | null = null;

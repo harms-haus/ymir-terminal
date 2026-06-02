@@ -169,7 +169,7 @@ describe('GitPanel', () => {
       resolveDiscovery = resolve;
     });
 
-    sendRequestSpy.mockImplementation(() => pendingDiscovery);
+    sendRequestSpy.mockImplementation((() => pendingDiscovery) as any);
 
     const { getByText } = renderGitPanel();
 
@@ -294,12 +294,12 @@ describe('GitPanel', () => {
     // The hook catches it with setError. However the repos array stays empty,
     // so it will show "Not a git repository" unless repos were already loaded.
     // Let's first resolve discovery with repos, then fail on status.
-    sendRequestSpy.mockImplementation((channel: string) => {
+    sendRequestSpy.mockImplementation(((channel: string) => {
       if (channel === 'git.repoDiscovery') {
         return Promise.resolve({ repos: [mockRepoInfo] });
       }
       return Promise.reject(new Error('Network failure'));
-    });
+    }) as any);
 
     const { getByText } = renderGitPanel();
 

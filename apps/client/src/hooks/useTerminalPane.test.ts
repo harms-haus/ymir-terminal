@@ -50,7 +50,7 @@ function simulateResponse(requestId: string, payload: unknown) {
 }
 
 function getAllSentEnvelopes(): MessageEnvelope[] {
-  return mockSend.mock.calls.map((c) => c[0] as MessageEnvelope);
+  return (mockSend.mock.calls as unknown as Array<[unknown, ...unknown[]]>).map((c) => c[0] as MessageEnvelope);
 }
 
 /**
@@ -491,7 +491,7 @@ describe('useTerminalPane', () => {
     if (createReq?.id) simulateResponse(createReq.id, { tabId: tabId! });
 
     // Transfer the tab out
-    let transferResult: {
+    let transferResult!: {
       terminalId: string;
       title: string;
       cwd?: string;
@@ -543,7 +543,7 @@ describe('useTerminalPane', () => {
     const createReq = getAllSentEnvelopes().find((e) => e.channel === 'tab.create');
     if (createReq?.id) simulateResponse(createReq.id, { tabId: tabId! });
 
-    let transferResult: unknown;
+    let transferResult!: unknown;
     act(() => {
       transferResult = result.current.transferTabOut(tabId!);
     });
@@ -572,7 +572,7 @@ describe('useTerminalPane', () => {
       await respondToTabList([]);
     });
 
-    let receivedTabId: string;
+    let receivedTabId!: string;
     act(() => {
       receivedTabId = result.current.receiveTab(
         'term-received',

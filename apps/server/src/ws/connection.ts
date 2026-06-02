@@ -18,22 +18,25 @@ export class ClientConnection {
   isAuthenticated = false;
   lastActive = new Date();
 
-  constructor(private readonly ws: WsLike) {
+  #ws: WsLike;
+
+  constructor(ws: WsLike) {
+    this.#ws = ws;
     this.sessionId = crypto.randomUUID();
   }
 
   /** Serialize an envelope to JSON and send it over the wire. */
   send(envelope: MessageEnvelope<unknown>): void {
-    this.ws.send(JSON.stringify(envelope));
+    this.#ws.send(JSON.stringify(envelope));
   }
 
   /** Send a raw string over the wire without serialization. */
   sendRaw(data: string): void {
-    this.ws.send(data);
+    this.#ws.send(data);
   }
 
   /** Close the underlying WebSocket connection. */
   close(): void {
-    this.ws.close();
+    this.#ws.close();
   }
 }

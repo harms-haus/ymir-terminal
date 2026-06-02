@@ -11,9 +11,9 @@ import {
   statSync,
 } from 'node:fs';
 import { execSync, execFileSync } from 'node:child_process';
+import { GITHUB_REPO } from './lib/build-utils';
 
 const IS_WINDOWS = process.platform === 'win32';
-const GITHUB_REPO = 'harms-haus/ymir-terminal';
 
 function getYmirHome(): string {
   if (IS_WINDOWS) {

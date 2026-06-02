@@ -31,12 +31,6 @@ export const labelStyle: CSSProperties = {
   color: COLOR_TEXT_CARD,
 };
 
-/** Focus ring for inputs – used via `:focus-visible` CSS rules. */
-export const inputFocusStyle: CSSProperties = {
-  outline: '2px solid var(--accent, #007acc)',
-  outlineOffset: '-1px',
-};
-
 /** Text / password input field. */
 export const inputStyle: CSSProperties = {
   width: '100%',

@@ -5,11 +5,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   stageFiles,
-  stageAll,
   unstageFiles,
-  unstageAll,
   discardChanges,
-  discardAll,
   commitChanges,
 } from './operations';
 
@@ -69,24 +66,6 @@ describe('git operations', () => {
     });
   });
 
-  describe('stageAll', () => {
-    it('stages all files', async () => {
-      initRepo(testDir);
-      writeFileSync(join(testDir, 'a.txt'), 'a');
-      writeFileSync(join(testDir, 'b.txt'), 'b');
-
-      await stageAll(testDir);
-
-      const lines = getPorcelain(testDir);
-      expect(lines.length).toBeGreaterThanOrEqual(2);
-      for (const line of lines) {
-        // All entries should have an index (staged) status
-        expect(line[0]).not.toBe(' ');
-        expect(line[0]).not.toBe('?');
-      }
-    });
-  });
-
   describe('unstageFiles', () => {
     it('unstages specified files', async () => {
       initRepo(testDir);
@@ -114,25 +93,6 @@ describe('git operations', () => {
     });
   });
 
-  describe('unstageAll', () => {
-    it('unstages all files', async () => {
-      initRepo(testDir);
-      writeFileSync(join(testDir, 'a.txt'), 'a');
-      writeFileSync(join(testDir, 'b.txt'), 'b');
-      run('git add .', testDir);
-
-      await unstageAll(testDir);
-
-      const lines = getPorcelain(testDir);
-      // After unstaging new files, they show as "??" (untracked)
-      expect(lines.length).toBeGreaterThanOrEqual(2);
-      for (const line of lines) {
-        // Index status should be ' ' or '?' — nothing staged
-        expect(line[0] === ' ' || line[0] === '?').toBe(true);
-      }
-    });
-  });
-
   describe('discardChanges', () => {
     it('restores modified tracked files to HEAD state', async () => {
       initRepo(testDir);
@@ -153,25 +113,6 @@ describe('git operations', () => {
     it('throws when no files specified', async () => {
       initRepo(testDir);
       await expect(discardChanges(testDir, [])).rejects.toThrow('No files specified');
-    });
-  });
-
-  describe('discardAll', () => {
-    it('restores all modified tracked files', async () => {
-      initRepo(testDir);
-      writeFileSync(join(testDir, 'a.txt'), 'a');
-      writeFileSync(join(testDir, 'b.txt'), 'b');
-      run('git add .', testDir);
-      run('git commit -m "add files"', testDir);
-
-      // Modify both
-      writeFileSync(join(testDir, 'a.txt'), 'modified-a');
-      writeFileSync(join(testDir, 'b.txt'), 'modified-b');
-
-      await discardAll(testDir);
-
-      expect(readFileSync(join(testDir, 'a.txt'), 'utf-8')).toBe('a');
-      expect(readFileSync(join(testDir, 'b.txt'), 'utf-8')).toBe('b');
     });
   });
 

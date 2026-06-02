@@ -1,13 +1,6 @@
-import { useRef } from 'react';
-import * as ContextMenu from '@radix-ui/react-context-menu';
-import {
-  getContextMenuCss,
-  getMenuContainerStyle,
-  menuItemStyle,
-  separatorStyle,
-} from '../lib/context-menu-styles';
-
-const CONTEXT_MENU_CSS = getContextMenuCss('tab-context-menu');
+import { useRef, useCallback } from 'react';
+import { AppContextMenu } from './AppContextMenu';
+import type { ContextMenuItem } from './AppContextMenu';
 
 interface TabContextMenuProps {
   canCloseRight: boolean; // false when no tabs to the right
@@ -34,86 +27,65 @@ export function TabContextMenu({
 }: TabContextMenuProps) {
   const renameSelectedRef = useRef(false);
 
-  return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content
-          data-testid="tab-context-menu"
-          style={getMenuContainerStyle()}
-          onCloseAutoFocus={(e) => {
-            if (renameSelectedRef.current) {
-              e.preventDefault();
-              renameSelectedRef.current = false;
-            }
-          }}
-        >
-          <style>{CONTEXT_MENU_CSS}</style>
+  const handleRename = useCallback(() => {
+    renameSelectedRef.current = true;
+    onRename();
+  }, [onRename]);
 
-          <ContextMenu.Item
-            data-testid="tab-menu-close"
-            onSelect={() => onClose()}
-            style={menuItemStyle}
-          >
-            Close
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            data-testid="tab-menu-close-others"
-            disabled={!canCloseOthers}
-            onSelect={() => onCloseOthers()}
-            style={
-              canCloseOthers ? menuItemStyle : { ...menuItemStyle, opacity: 0.5, cursor: 'default' }
-            }
-          >
-            Close Others
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            data-testid="tab-menu-close-right"
-            disabled={!canCloseRight}
-            onSelect={() => onCloseRight()}
-            style={
-              canCloseRight ? menuItemStyle : { ...menuItemStyle, opacity: 0.5, cursor: 'default' }
-            }
-          >
-            Close to the Right
-          </ContextMenu.Item>
-          <ContextMenu.Separator style={separatorStyle} />
-          <ContextMenu.Item
-            data-testid="tab-menu-rename"
-            onSelect={() => {
-              renameSelectedRef.current = true;
-              onRename();
-            }}
-            style={menuItemStyle}
-          >
-            Rename
-          </ContextMenu.Item>
-          {onMoveToBottom && (
-            <>
-              <ContextMenu.Separator style={separatorStyle} />
-              <ContextMenu.Item
-                data-testid="tab-menu-move-to-bottom"
-                onSelect={onMoveToBottom}
-                style={menuItemStyle}
-              >
-                Move to Bottom Pane
-              </ContextMenu.Item>
-            </>
-          )}
-          {onMoveToContent && (
-            <>
-              <ContextMenu.Separator style={separatorStyle} />
-              <ContextMenu.Item
-                data-testid="tab-menu-move-to-content"
-                onSelect={onMoveToContent}
-                style={menuItemStyle}
-              >
-                Move to Content Pane
-              </ContextMenu.Item>
-            </>
-          )}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+  const items: ContextMenuItem[] = [
+    { label: 'Close', testId: 'tab-menu-close', action: () => onClose() },
+    {
+      label: 'Close Others',
+      testId: 'tab-menu-close-others',
+      action: () => onCloseOthers(),
+      disabled: !canCloseOthers,
+      style: canCloseOthers ? undefined : { opacity: 0.5, cursor: 'default' },
+    },
+    {
+      label: 'Close to the Right',
+      testId: 'tab-menu-close-right',
+      action: () => onCloseRight(),
+      disabled: !canCloseRight,
+      style: canCloseRight ? undefined : { opacity: 0.5, cursor: 'default' },
+      separatorAfter: true,
+    },
+    {
+      label: 'Rename',
+      testId: 'tab-menu-rename',
+      action: handleRename,
+      separatorAfter: !!(onMoveToBottom || onMoveToContent),
+    },
+    ...(onMoveToBottom
+      ? [{
+          label: 'Move to Bottom Pane',
+          testId: 'tab-menu-move-to-bottom' as const,
+          action: onMoveToBottom,
+          separatorAfter: !onMoveToContent,
+        }]
+      : []),
+    ...(onMoveToContent
+      ? [{
+          label: 'Move to Content Pane',
+          testId: 'tab-menu-move-to-content' as const,
+          action: onMoveToContent,
+        }]
+      : []),
+  ];
+
+  const handleCloseAutoFocus = useCallback((e: Event) => {
+    if (renameSelectedRef.current) {
+      e.preventDefault();
+      renameSelectedRef.current = false;
+    }
+  }, []);
+
+  return (
+    <AppContextMenu
+      items={items}
+      testId="tab-context-menu"
+      onCloseAutoFocus={handleCloseAutoFocus}
+    >
+      {children}
+    </AppContextMenu>
   );
 }

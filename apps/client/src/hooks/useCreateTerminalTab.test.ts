@@ -63,7 +63,7 @@ describe('useCreateTerminalTab', () => {
     mockCreateTerminal.mockImplementation(async () => 'term-123');
     const createTab = mock(() => 'tab-456');
     const onCreated = mock((_terminalId: string, _tabId: string) => {});
-    const tabs = [{ id: 'existing', type: 'terminal' as const, title: 'Terminal 1' }];
+    const tabs = [{ id: 'existing', type: 'terminal' as const, title: 'Terminal 1', workspaceId: 'ws-1' }];
 
     const { result } = renderHook(() =>
       useCreateTerminalTab('ws-1', tabs, createTab as any, onCreated),
@@ -75,11 +75,11 @@ describe('useCreateTerminalTab', () => {
 
     // createTerminal called with the workspaceId
     expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
-    expect(mockCreateTerminal.mock.calls[0][0]).toBe('ws-1');
+    expect((mockCreateTerminal.mock.calls as any)[0][0]).toBe('ws-1');
 
     // createTab called with correct arguments
     expect(createTab).toHaveBeenCalledTimes(1);
-    expect(createTab.mock.calls[0][0]).toEqual({
+    expect((createTab.mock.calls as any)[0][0]).toEqual({
       type: 'terminal',
       title: 'Terminal 2', // tabs.length + 1 = 2
       terminalId: 'term-123',
@@ -104,7 +104,7 @@ describe('useCreateTerminalTab', () => {
     });
 
     expect(onCreated).toHaveBeenCalledTimes(1);
-    expect(onCreated.mock.calls[0][0]).toBe('term-abc');
+    expect(onCreated.mock.calls[0]?.[0]).toBe('term-abc');
     expect(onCreated.mock.calls[0][1]).toBe('tab-xyz');
   });
 

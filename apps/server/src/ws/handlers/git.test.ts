@@ -8,6 +8,14 @@ import {
   type GitLogItem,
   type GitRepoInfo,
   type GitBranch,
+  type GitWorktreeInfo,
+  type GitWorktreeListResponse,
+  type GitWorktreeCreateResponse,
+  type GitWorktreeMergeResponse,
+  type GitWorktreeCopyFilesResponse,
+  type GitDiffDataResponse,
+  type GitCommitDetailsResponse,
+  type GitCommitDiffResponse,
 } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
@@ -105,17 +113,6 @@ describe('registerGitHandlers', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 1. Handler registers for channel
-  // -----------------------------------------------------------------------
-  describe('channel registration', () => {
-    it('registers git.status handler', async () => {
-      const req = request('git.status', { workspaceId: 'ws-1' });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-  });
-
-  // -----------------------------------------------------------------------
   // 2. Returns GitStatusResponse { branch, changes, staged }
   // -----------------------------------------------------------------------
   describe('git.status', () => {
@@ -193,7 +190,7 @@ describe('registerGitHandlers', () => {
         _mocks: {
           getWorkspace: getWorkspaceFn,
           getGitStatus: getGitStatusFn,
-          getGitStatusEnhanced: getGitStatusEnhancedFn,
+          getGitStatusEnhanced: getGitStatusEnhancedFn as any,
         },
       };
       registerGitHandlers(localRouter, localDeps);
@@ -232,7 +229,7 @@ describe('registerGitHandlers', () => {
         _mocks: {
           getWorkspace: getWorkspaceFn,
           getGitStatus: getGitStatusFn,
-          getGitStatusEnhanced: getGitStatusEnhancedFn,
+          getGitStatusEnhanced: getGitStatusEnhancedFn as any,
         },
       };
       registerGitHandlers(localRouter, localDeps);
@@ -277,9 +274,9 @@ describe('registerGitHandlers', () => {
       const localDeps: GitDeps = {
         persistentDb: {} as any,
         _mocks: {
-          getWorkspace: getWsFn,
+          getWorkspace: getWsFn as any,
           getGitStatus: getGitStatusFn,
-          getGitStatusEnhanced: getGitStatusEnhancedFn,
+          getGitStatusEnhanced: getGitStatusEnhancedFn as any,
         },
       };
       registerGitHandlers(localRouter, localDeps);
@@ -399,6 +396,47 @@ describe('registerGitHandlers', () => {
 
       const resp = conn.sent[0] as Record<string, unknown>;
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    // -----------------------------------------------------------------
+    // Pagination boundary clamping tests
+    // -----------------------------------------------------------------
+    it('clamps limit=0 to 1', async () => {
+      const req = request('git.log', { workspaceId: 'ws-1', skip: 0, limit: 0 });
+      await router.route(conn, req);
+
+      expect(getGitLogFn).toHaveBeenCalledTimes(1);
+      // limit is clamped: Math.min(Math.max(0, 1), 100) = 1
+      expect(getGitLogFn.mock.calls[0][2]).toBe(1);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+    });
+
+    it('clamps limit=1000 to 100', async () => {
+      const req = request('git.log', { workspaceId: 'ws-1', skip: 0, limit: 1000 });
+      await router.route(conn, req);
+
+      expect(getGitLogFn).toHaveBeenCalledTimes(1);
+      // limit is clamped: Math.min(Math.max(1000, 1), 100) = 100
+      expect(getGitLogFn.mock.calls[0][2]).toBe(100);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+    });
+
+    it('clamps skip=-1 to 0', async () => {
+      const req = request('git.log', { workspaceId: 'ws-1', skip: -1, limit: 10 });
+      await router.route(conn, req);
+
+      expect(getGitLogFn).toHaveBeenCalledTimes(1);
+      // skip is clamped: Math.max(-1, 0) = 0
+      expect(getGitLogFn.mock.calls[0][1]).toBe(0);
+      // limit is unaffected: 10
+      expect(getGitLogFn.mock.calls[0][2]).toBe(10);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
     });
   });
 
@@ -903,6 +941,858 @@ describe('registerGitHandlers', () => {
       const req = request('git.fetch', {
         workspaceId: 'nonexistent',
         repoPath: '.',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.worktreeList tests
+  // -----------------------------------------------------------------------
+  describe('git.worktreeList', () => {
+    it('returns worktrees for a valid workspace', async () => {
+      const fakeWorktrees: GitWorktreeInfo[] = [
+        { path: '/home/dev/project', branch: 'main', isMain: true, isDetached: false },
+        { path: '/home/dev/project-ht-feature', branch: 'feature', isMain: false, isDetached: false },
+      ];
+      const listWorktreesFn = mock(async (_dirPath: string) => fakeWorktrees);
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, listWorktrees: listWorktreesFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeList', { workspaceId: 'ws-1' });
+      await localRouter.route(localConn, req);
+
+      expect(listWorktreesFn).toHaveBeenCalledTimes(1);
+      expect(listWorktreesFn.mock.calls[0][0]).toBe('/home/dev/project');
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitWorktreeListResponse;
+      expect(payload.worktrees).toEqual(fakeWorktrees);
+    });
+
+    it('returns empty array when no worktrees exist', async () => {
+      const listWorktreesFn = mock(async (_dirPath: string) => []);
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, listWorktrees: listWorktreesFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeList', { workspaceId: 'ws-1' });
+      await localRouter.route(localConn, req);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitWorktreeListResponse;
+      expect(payload.worktrees).toEqual([]);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.worktreeList', { workspaceId: 'nonexistent' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+      const req = request('git.worktreeList', {});
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.worktreeCreate tests
+  // -----------------------------------------------------------------------
+  describe('git.worktreeCreate', () => {
+    it('creates a worktree with a valid branch name', async () => {
+      const createdWorktree: GitWorktreeInfo = {
+        path: '/home/dev/project-ht-feature',
+        branch: 'feature',
+        isMain: false,
+        isDetached: false,
+      };
+      const createWorktreeFn = mock(
+        async (_dirPath: string, _branchName: string, _startRef?: string) => createdWorktree,
+      );
+      const copyFileFn = mock(async (_src: string, _dest: string) => {});
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          createWorktree: createWorktreeFn,
+          copyFile: copyFileFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeCreate', {
+        workspaceId: 'ws-1',
+        branchName: 'feature',
+      });
+      await localRouter.route(localConn, req);
+
+      expect(createWorktreeFn).toHaveBeenCalledTimes(1);
+      expect(createWorktreeFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(createWorktreeFn.mock.calls[0][1]).toBe('feature');
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitWorktreeCreateResponse;
+      expect(payload.worktree).toEqual(createdWorktree);
+    });
+
+    it('returns INVALID_MESSAGE when branchName is missing', async () => {
+      const req = request('git.worktreeCreate', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns INVALID_MESSAGE when branchName contains invalid characters', async () => {
+      const req = request('git.worktreeCreate', {
+        workspaceId: 'ws-1',
+        branchName: 'bad;branch',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.worktreeCreate', {
+        workspaceId: 'nonexistent',
+        branchName: 'feature',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('copies filesToCopy into the new worktree', async () => {
+      const createdWorktree: GitWorktreeInfo = {
+        path: '/home/dev/project-ht-feat',
+        branch: 'feat',
+        isMain: false,
+        isDetached: false,
+      };
+      const createWorktreeFn = mock(
+        async (_dirPath: string, _branchName: string, _startRef?: string) => createdWorktree,
+      );
+      const copyFileFn = mock(async (_src: string, _dest: string) => {});
+      const writeConfigFn = mock(async (_dir: string, _files: string[]) => {});
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          createWorktree: createWorktreeFn,
+          copyFile: copyFileFn,
+          writeWorktreeCopyConfig: writeConfigFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeCreate', {
+        workspaceId: 'ws-1',
+        branchName: 'feat',
+        filesToCopy: ['.env', 'config.json'],
+      });
+      await localRouter.route(localConn, req);
+
+      // copyFile should have been called at least for the listed files + .worktreecopy
+      expect(copyFileFn.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitWorktreeCreateResponse;
+      expect(payload.worktree).toEqual(createdWorktree);
+    });
+
+    it('returns INTERNAL_ERROR when createWorktree throws', async () => {
+      const createWorktreeFn = mock(
+        async () => {
+          throw new Error('worktree already exists');
+        },
+      );
+      const copyFileFn = mock(async (_src: string, _dest: string) => {});
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          createWorktree: createWorktreeFn,
+          copyFile: copyFileFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeCreate', {
+        workspaceId: 'ws-1',
+        branchName: 'feature',
+      });
+      await localRouter.route(localConn, req);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INTERNAL_ERROR);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.worktreeRemove tests
+  // -----------------------------------------------------------------------
+  describe('git.worktreeRemove', () => {
+    it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+      const req = request('git.worktreeRemove', { worktreePath: '../project-ht-feat' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns INVALID_MESSAGE when worktreePath is missing', async () => {
+      const req = request('git.worktreeRemove', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.worktreeRemove', {
+        workspaceId: 'nonexistent',
+        worktreePath: '../project-ht-feat',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('removes a worktree successfully', async () => {
+      const removeWorktreeFn = mock(
+        async (_dirPath: string, _worktreePath: string, _force?: boolean) => {},
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, removeWorktree: removeWorktreeFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeRemove', {
+        workspaceId: 'ws-1',
+        worktreePath: '.worktrees/feat',
+        force: true,
+      });
+      await localRouter.route(localConn, req);
+
+      expect(removeWorktreeFn).toHaveBeenCalledTimes(1);
+      expect(removeWorktreeFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(removeWorktreeFn.mock.calls[0][1]).toBe('/home/dev/project/.worktrees/feat');
+      expect(removeWorktreeFn.mock.calls[0][2]).toBe(true);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+    });
+
+    it('returns INTERNAL_ERROR when removeWorktree throws', async () => {
+      const removeWorktreeFn = mock(
+        async () => {
+          throw new Error('worktree has uncommitted changes');
+        },
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, removeWorktree: removeWorktreeFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeRemove', {
+        workspaceId: 'ws-1',
+        worktreePath: '.worktrees/feat',
+      });
+      await localRouter.route(localConn, req);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INTERNAL_ERROR);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.worktreeMerge tests
+  // -----------------------------------------------------------------------
+  describe('git.worktreeMerge', () => {
+    it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+      const req = request('git.worktreeMerge', { worktreePath: '../project-ht-feat' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns INVALID_MESSAGE when worktreePath is missing', async () => {
+      const req = request('git.worktreeMerge', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns INVALID_MESSAGE when worktreePath is empty string', async () => {
+      const req = request('git.worktreeMerge', {
+        workspaceId: 'ws-1',
+        worktreePath: '',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.worktreeMerge', {
+        workspaceId: 'nonexistent',
+        worktreePath: '../project-ht-feat',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('merges a worktree successfully', async () => {
+      const mergeWorktreeFn = mock(
+        async (
+          _dirPath: string,
+          _worktreePath: string,
+          _options?: { targetBranch?: string; deleteAfterMerge?: boolean },
+        ) => ({ success: true, message: 'Merged successfully', worktreeRemoved: true }),
+      );
+      const copyFileFn = mock(async (_src: string, _dest: string) => {});
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          mergeWorktree: mergeWorktreeFn,
+          copyFile: copyFileFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeMerge', {
+        workspaceId: 'ws-1',
+        worktreePath: '.worktrees/feat',
+        targetBranch: 'main',
+        deleteAfterMerge: true,
+      });
+      await localRouter.route(localConn, req);
+
+      expect(mergeWorktreeFn).toHaveBeenCalledTimes(1);
+      expect(mergeWorktreeFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(mergeWorktreeFn.mock.calls[0][1]).toBe('/home/dev/project/.worktrees/feat');
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitWorktreeMergeResponse;
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Merged successfully');
+      expect(payload.worktreeRemoved).toBe(true);
+    });
+
+    it('copies filesToCopy before merging', async () => {
+      const mergeWorktreeFn = mock(
+        async () => ({ success: true, message: 'ok', worktreeRemoved: false }),
+      );
+      const copyFileFn = mock(async (_src: string, _dest: string) => {});
+      const writeConfigFn = mock(async (_dir: string, _files: string[]) => {});
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          mergeWorktree: mergeWorktreeFn,
+          copyFile: copyFileFn,
+          writeWorktreeCopyConfig: writeConfigFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeMerge', {
+        workspaceId: 'ws-1',
+        worktreePath: '.worktrees/feat',
+        filesToCopy: ['config.json'],
+      });
+      await localRouter.route(localConn, req);
+
+      // copyFile should have been called for the listed file
+      expect(copyFileFn.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitWorktreeMergeResponse;
+      expect(payload.success).toBe(true);
+    });
+
+    it('returns INTERNAL_ERROR when mergeWorktree throws', async () => {
+      const mergeWorktreeFn = mock(
+        async () => {
+          throw new Error('merge conflict');
+        },
+      );
+      const copyFileFn = mock(async (_src: string, _dest: string) => {});
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          mergeWorktree: mergeWorktreeFn,
+          copyFile: copyFileFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeMerge', {
+        workspaceId: 'ws-1',
+        worktreePath: '.worktrees/feat',
+      });
+      await localRouter.route(localConn, req);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INTERNAL_ERROR);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.worktreeCopyFiles tests
+  // -----------------------------------------------------------------------
+  describe('git.worktreeCopyFiles', () => {
+    it('returns untracked and configured files for a valid workspace', async () => {
+      const listUntrackedFn = mock(async (_dirPath: string) => [
+        'src/new-file.ts',
+        '.env',
+      ]);
+      const readConfigFn = mock(async (_dirPath: string) => ['.env', 'config.json']);
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          listUntrackedFiles: listUntrackedFn,
+          readWorktreeCopyConfig: readConfigFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.worktreeCopyFiles', { workspaceId: 'ws-1' });
+      await localRouter.route(localConn, req);
+
+      expect(listUntrackedFn).toHaveBeenCalledTimes(1);
+      expect(readConfigFn).toHaveBeenCalledTimes(1);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitWorktreeCopyFilesResponse;
+      expect(payload.untrackedFiles).toEqual(['src/new-file.ts', '.env']);
+      expect(payload.configuredFiles).toEqual(['.env', 'config.json']);
+    });
+
+    it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+      const req = request('git.worktreeCopyFiles', {});
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.worktreeCopyFiles', { workspaceId: 'nonexistent' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.diffData tests
+  // -----------------------------------------------------------------------
+  describe('git.diffData', () => {
+    it('returns diff for a staged file', async () => {
+      const getDiffDataFn = mock(
+        async (_repoDir: string, _filePath: string, _staged: boolean) => ({
+          originalContent: 'old line\n',
+          modifiedContent: 'new line\n',
+          additions: 1,
+          deletions: 1,
+        }),
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, getDiffData: getDiffDataFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.diffData', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        filePath: 'src/foo.ts',
+        staged: true,
+      });
+      await localRouter.route(localConn, req);
+
+      expect(getDiffDataFn).toHaveBeenCalledTimes(1);
+      expect(getDiffDataFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
+      expect(getDiffDataFn.mock.calls[0][1]).toBe('src/foo.ts');
+      expect(getDiffDataFn.mock.calls[0][2]).toBe(true);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitDiffDataResponse;
+      expect(payload.originalContent).toBe('old line\n');
+      expect(payload.modifiedContent).toBe('new line\n');
+      expect(payload.additions).toBe(1);
+      expect(payload.deletions).toBe(1);
+      expect(payload.filePath).toBe('src/foo.ts');
+    });
+
+    it('returns INVALID_MESSAGE when required fields are missing', async () => {
+      const req1 = request('git.diffData', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        filePath: 'src/foo.ts',
+        // missing staged
+      });
+      await router.route(conn, req1);
+      const resp1 = conn.sent[0] as Record<string, unknown>;
+      expect((resp1.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+
+      conn.sent.length = 0;
+
+      const req2 = request('git.diffData', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        // missing filePath
+        staged: false,
+      });
+      await router.route(conn, req2);
+      const resp2 = conn.sent[0] as Record<string, unknown>;
+      expect((resp2.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.diffData', {
+        workspaceId: 'nonexistent',
+        repoPath: '.',
+        filePath: 'src/foo.ts',
+        staged: false,
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('returns INVALID_MESSAGE for file path with traversal', async () => {
+      const req = request('git.diffData', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        filePath: '../etc/passwd',
+        staged: false,
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.commitDetails tests
+  // -----------------------------------------------------------------------
+  describe('git.commitDetails', () => {
+    it('returns commit details for a valid SHA', async () => {
+      const getCommitDetailsFn = mock(async (_dirPath: string, _sha: string) => ({
+        body: 'feat: add new feature\n\nDetailed description here.',
+        files: [
+          { filePath: 'src/feature.ts', status: 'A', additions: 10, deletions: 0 },
+          { filePath: 'src/index.ts', status: 'M', additions: 2, deletions: 1 },
+        ],
+      }));
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, getCommitDetails: getCommitDetailsFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.commitDetails', {
+        workspaceId: 'ws-1',
+        commitSha: 'abc123def456',
+      });
+      await localRouter.route(localConn, req);
+
+      expect(getCommitDetailsFn).toHaveBeenCalledTimes(1);
+      expect(getCommitDetailsFn.mock.calls[0][1]).toBe('abc123def456');
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitCommitDetailsResponse;
+      expect(payload.commitSha).toBe('abc123def456');
+      expect(payload.body).toContain('add new feature');
+      expect(payload.files).toHaveLength(2);
+      expect(payload.files[0].filePath).toBe('src/feature.ts');
+    });
+
+    it('returns INVALID_MESSAGE for invalid SHA format', async () => {
+      const req = request('git.commitDetails', {
+        workspaceId: 'ws-1',
+        commitSha: 'not-a-sha!',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.commitDetails', {
+        workspaceId: 'nonexistent',
+        commitSha: 'abc123def456',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('returns INVALID_MESSAGE when commitSha is missing', async () => {
+      const req = request('git.commitDetails', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns error when commit is not found', async () => {
+      const getCommitDetailsFn = mock(async () => null);
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, getCommitDetails: getCommitDetailsFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.commitDetails', {
+        workspaceId: 'ws-1',
+        commitSha: 'deadbeef',
+      });
+      await localRouter.route(localConn, req);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // git.commitDiff tests
+  // -----------------------------------------------------------------------
+  describe('git.commitDiff', () => {
+    it('returns diff for a valid commit and parent SHA', async () => {
+      const getCommitFileDiffFn = mock(
+        async (
+          _repoDir: string,
+          _commitSha: string,
+          _parentSha: string,
+          _filePath: string,
+        ) => ({
+          originalContent: 'old\n',
+          modifiedContent: 'new\n',
+          additions: 1,
+          deletions: 1,
+        }),
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, getCommitFileDiff: getCommitFileDiffFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.commitDiff', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        commitSha: 'abc123def456',
+        parentSha: 'def456aaa111',
+        filePath: 'src/foo.ts',
+      });
+      await localRouter.route(localConn, req);
+
+      expect(getCommitFileDiffFn).toHaveBeenCalledTimes(1);
+      expect(getCommitFileDiffFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
+      expect(getCommitFileDiffFn.mock.calls[0][1]).toBe('abc123def456');
+      expect(getCommitFileDiffFn.mock.calls[0][2]).toBe('def456aaa111');
+      expect(getCommitFileDiffFn.mock.calls[0][3]).toBe('src/foo.ts');
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitCommitDiffResponse;
+      expect(payload.originalContent).toBe('old\n');
+      expect(payload.modifiedContent).toBe('new\n');
+      expect(payload.additions).toBe(1);
+      expect(payload.deletions).toBe(1);
+      expect(payload.filePath).toBe('src/foo.ts');
+    });
+
+    it('returns INVALID_MESSAGE when required fields are missing', async () => {
+      const req = request('git.commitDiff', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        commitSha: 'abc123def456',
+        // missing parentSha and filePath
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns INVALID_MESSAGE for invalid commitSha format', async () => {
+      const req = request('git.commitDiff', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        commitSha: 'bad!sha',
+        parentSha: 'abc123',
+        filePath: 'src/foo.ts',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns INVALID_MESSAGE for invalid parentSha format', async () => {
+      const req = request('git.commitDiff', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        commitSha: 'abc123def456',
+        parentSha: 'bad!parent',
+        filePath: 'src/foo.ts',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('accepts empty string parentSha for root commits', async () => {
+      const getCommitFileDiffFn = mock(
+        async () => ({
+          originalContent: '',
+          modifiedContent: 'first\n',
+          additions: 1,
+          deletions: 0,
+        }),
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: { getWorkspace: getWorkspaceFn, getCommitFileDiff: getCommitFileDiffFn },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.commitDiff', {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        commitSha: 'abc123def456',
+        parentSha: '',
+        filePath: 'README.md',
+      });
+      await localRouter.route(localConn, req);
+
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.error).toBeUndefined();
+
+      const payload = resp.payload as GitCommitDiffResponse;
+      expect(payload.filePath).toBe('README.md');
+    });
+
+    it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
+      const req = request('git.commitDiff', {
+        workspaceId: 'nonexistent',
+        repoPath: '.',
+        commitSha: 'abc123def456',
+        parentSha: 'def456aaa111',
+        filePath: 'src/foo.ts',
       });
       await router.route(conn, req);
 

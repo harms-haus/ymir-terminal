@@ -1,4 +1,4 @@
-import { getPlatformTarget, ensureDir } from './lib/build-utils';
+import { getPlatformTarget, ensureDir, formatSize } from './lib/build-utils';
 import { join } from 'node:path';
 import { copyFileSync, chmodSync, statSync, existsSync, writeFileSync } from 'node:fs';
 
@@ -15,10 +15,6 @@ function parseArgs(args: string[]): { outdir: string; tauriOutdir: string } {
   }
 
   return { outdir, tauriOutdir };
-}
-
-function formatSize(bytes: number): string {
-  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
 }
 
 const { outdir, tauriOutdir } = parseArgs(process.argv.slice(2));

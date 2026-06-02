@@ -4,26 +4,12 @@ import {
   getBinaryName,
   runCommand,
   ensureDir,
+  parseBuildArgs,
 } from './lib/build-utils';
 import { join } from 'node:path';
 import { chmodSync, statSync } from 'node:fs';
 
-function parseArgs(args: string[]): { target?: string; outdir: string } {
-  let target: string | undefined;
-  let outdir = 'src-tauri/binaries';
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--target' && args[i + 1]) {
-      target = args[++i];
-    } else if (args[i] === '--outdir' && args[i + 1]) {
-      outdir = args[++i];
-    }
-  }
-
-  return { target, outdir };
-}
-
-const { target, outdir } = parseArgs(process.argv.slice(2));
+const { target, outdir } = parseBuildArgs(process.argv.slice(2), 'src-tauri/binaries');
 
 // Determine the Bun compile target
 const bunTarget = target ?? getPlatformTarget();

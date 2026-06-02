@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandChild;
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, Clone)]
 pub struct TauriConfig {
     pub port: u16,
     pub password: String,

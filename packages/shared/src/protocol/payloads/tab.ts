@@ -3,7 +3,7 @@ export interface TabListRequest {
   pane?: 'content' | 'bottom';
 }
 
-export interface ServerTabInfo {
+export interface TabInfo {
   id: string;
   tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
   title: string | null;
@@ -19,7 +19,7 @@ export interface ServerTabInfo {
 }
 
 export interface TabListResponse {
-  tabs: ServerTabInfo[];
+  tabs: TabInfo[];
 }
 
 export interface TabCreateRequest {
@@ -29,7 +29,7 @@ export interface TabCreateRequest {
   title: string;
   terminalId?: string;
   filePath?: string;
-  diffRef?: string;
+  diffRef?: 'staged' | 'unstaged' | 'commit' | null;
   diffRepoPath?: string;
   repoPath?: string;
   commitSha?: string;

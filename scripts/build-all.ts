@@ -1,4 +1,4 @@
-import { getPlatformTarget, getTargetTriple, getBinaryName, runCommand } from './lib/build-utils';
+import { getPlatformTarget, getTargetTriple, getBinaryName, runCommand, formatSize } from './lib/build-utils';
 import { join } from 'node:path';
 import { statSync } from 'node:fs';
 
@@ -20,10 +20,6 @@ function parseArgs(args: string[]): { target?: string; skipTauri: boolean } {
   }
 
   return { target, skipTauri };
-}
-
-function formatSize(bytes: number): string {
-  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
 }
 
 function getArtifactSize(path: string): number {

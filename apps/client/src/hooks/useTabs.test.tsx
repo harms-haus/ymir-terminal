@@ -7,6 +7,7 @@ import { renderHook, act } from '@testing-library/react';
 
 // Import the hook under test
 const { useTabs } = await import('./useTabs');
+import type { TabChangeEvent } from './useTabs';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -1148,7 +1149,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<(typeof events)[0], { type: 'create' }>;
+    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;
     expect(event.type).toBe('create');
     expect(event.tabType).toBe('terminal');
     expect(event.title).toBe('My Terminal');
@@ -1182,7 +1183,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<(typeof events)[0], { type: 'close' }>;
+    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;
     expect(event.type).toBe('close');
     expect(event.tabId).toBe(tabId);
   });
@@ -1214,7 +1215,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<(typeof events)[0], { type: 'activate' }>;
+    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;
     expect(event.type).toBe('activate');
     expect(event.tabId).toBe(id1);
     expect(event.workspaceId).toBe('ws-events');
@@ -1249,7 +1250,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as Extract<(typeof events)[0], { type: 'reorder' }>;
+    const event = events[0] as any // eslint-disable-line @typescript-eslint/no-explicit-any;;
     expect(event.type).toBe('reorder');
     expect(event.workspaceId).toBe('ws-events');
     // tabIds contains all three tab IDs (the ref-based read may fire before
@@ -1273,5 +1274,76 @@ describe('useTabs', () => {
     expect(tabId).toBe('');
     expect(result.current.tabs).toEqual([]);
     expect(result.current.activeTabId).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // WS-18. Rapid workspace switching preserves per-workspace state
+  // -----------------------------------------------------------------------
+  test('rapid workspace switching preserves per-workspace tabs and activeTabId', () => {
+    const { result } = renderHook(() => useTabs());
+
+    // Set up 3 workspaces with different tabs
+    let idA1 = '',
+      _idA2 = '',
+      idA3 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
+      _idA2 = result.current.createTab({ type: 'terminal', title: 'A-T2' });
+      idA3 = result.current.createTab({ type: 'terminal', title: 'A-T3' });
+    });
+    // Activate A-T1 so it's not the default (last created)
+    act(() => {
+      result.current.activateTab(idA1!);
+    });
+
+    let idB1 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+      idB1 = result.current.createTab({ type: 'editor', title: 'B-E1', filePath: '/b.ts' });
+    });
+
+    let idC1 = '',
+      idC2 = '';
+    act(() => {
+      result.current.switchWorkspace('ws-c');
+      idC1 = result.current.createTab({ type: 'terminal', title: 'C-T1' });
+      idC2 = result.current.createTab({ type: 'terminal', title: 'C-T2' });
+    });
+
+    // Rapid switching: A → B → C → A → C → B → A in a single act
+    act(() => {
+      result.current.switchWorkspace('ws-a');
+      result.current.switchWorkspace('ws-b');
+      result.current.switchWorkspace('ws-c');
+      result.current.switchWorkspace('ws-a');
+      result.current.switchWorkspace('ws-c');
+      result.current.switchWorkspace('ws-b');
+      result.current.switchWorkspace('ws-a');
+    });
+
+    // Should end up on ws-a with all its original tabs and activeTabId intact
+    expect(result.current.tabs.length).toBe(3);
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['A-T1', 'A-T2', 'A-T3']);
+    // Active tab should still be A-T1 (not reset by rapid switching)
+    expect(result.current.activeTabId).toBe(idA1);
+
+    // Switch to ws-b and verify its state
+    act(() => {
+      result.current.switchWorkspace('ws-b');
+    });
+    expect(result.current.tabs.length).toBe(1);
+    expect(result.current.tabs[0].id).toBe(idB1);
+    expect(result.current.tabs[0].title).toBe('B-E1');
+    expect(result.current.activeTabId).toBe(idB1);
+
+    // Switch to ws-c and verify its state
+    act(() => {
+      result.current.switchWorkspace('ws-c');
+    });
+    expect(result.current.tabs.length).toBe(2);
+    expect(result.current.tabs.map((t) => t.title)).toEqual(['C-T1', 'C-T2']);
+    // C's active tab should still be C-T2 (last created)
+    expect(result.current.activeTabId).toBe(idC2);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'bun:test';
+import { VERSION } from '@ymir/shared';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -15,13 +16,13 @@ function runCli(args: string[]) {
 describe('CLI entry point', () => {
   test('--version prints version', () => {
     const result = runCli(['--version']);
-    expect(result.stdout).toContain('0.1.0');
+    expect(result.stdout).toContain(VERSION);
     expect(result.status).toBe(0);
   });
 
   test('-v prints version', () => {
     const result = runCli(['-v']);
-    expect(result.stdout).toContain('0.1.0');
+    expect(result.stdout).toContain(VERSION);
     expect(result.status).toBe(0);
   });
 

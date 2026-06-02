@@ -1,11 +1,5 @@
-import * as ContextMenu from '@radix-ui/react-context-menu';
-import { COLOR_ERROR } from '../lib/theme';
-import {
-  getContextMenuCss,
-  getMenuContainerStyle,
-  menuItemStyle,
-  separatorStyle,
-} from '../lib/context-menu-styles';
+import { AppContextMenu } from './AppContextMenu';
+import type { ContextMenuItem } from './AppContextMenu';
 
 interface FileTreeContextMenuProps {
   path: string;
@@ -27,22 +21,6 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(na
 const mod = isMac ? '⌘' : 'Ctrl+';
 const shift = isMac ? '⇧' : 'Shift+';
 
-function ShortcutHint({ shortcut }: { shortcut: string }) {
-  return (
-    <span style={{ marginLeft: 'auto', fontSize: '11px', opacity: 0.6, paddingLeft: '16px' }}>
-      {shortcut}
-    </span>
-  );
-}
-
-const FILE_TREE_CONTEXT_MENU_CSS = getContextMenuCss('context-menu');
-
-const flexMenuItemStyle: React.CSSProperties = {
-  ...menuItemStyle,
-  display: 'flex',
-  alignItems: 'center',
-};
-
 export function FileTreeContextMenu({
   path,
   isDirectory,
@@ -58,119 +36,83 @@ export function FileTreeContextMenu({
   workspaceCwd,
   children,
 }: FileTreeContextMenuProps) {
+  const items: ContextMenuItem[] = [];
+
+  /* Directory-specific items */
+  if (isDirectory) {
+    items.push(
+      { label: 'New File', testId: 'menu-new-file', action: () => onNewFile?.(path) },
+      { label: 'New Folder', testId: 'menu-new-folder', action: () => onNewFolder?.(path), separatorAfter: true },
+    );
+  }
+
+  /* File-specific items */
+  if (!isDirectory) {
+    items.push(
+      { label: 'Open in Editor', testId: 'menu-open-editor', action: () => onOpenEditor?.(path), separatorAfter: true },
+    );
+  }
+
+  /* Clipboard items */
+  items.push(
+    { label: 'Cut', testId: 'menu-cut', action: () => onCut?.(path), shortcutHint: `${mod}X` },
+    { label: 'Copy', testId: 'menu-copy', action: () => onCopy?.(path), shortcutHint: `${mod}C` },
+  );
+
+  if (isDirectory) {
+    items.push({
+      label: 'Paste',
+      testId: 'menu-paste',
+      action: () => onPaste?.(path),
+      disabled: !clipboardHasItem,
+      shortcutHint: `${mod}V`,
+      separatorAfter: true,
+    });
+  } else {
+    /* Still add a separator after Copy for files */
+    items[items.length - 1].separatorAfter = true;
+  }
+
+  /* Copy path items */
+  items.push(
+    {
+      label: 'Copy Path',
+      testId: 'menu-copy-path',
+      action: () => {
+        const absolutePath = workspaceCwd ? `${workspaceCwd}/${path}` : path;
+        try { navigator.clipboard.writeText(absolutePath); } catch { console.warn('Failed to copy to clipboard'); }
+      },
+      shortcutHint: `${shift}${mod}C`,
+    },
+    {
+      label: 'Copy Relative Path',
+      testId: 'menu-copy-relative-path',
+      action: () => {
+        try { navigator.clipboard.writeText(path); } catch { console.warn('Failed to copy to clipboard'); }
+      },
+      separatorAfter: true,
+    },
+  );
+
+  /* Rename & Delete */
+  items.push(
+    { label: 'Rename', testId: 'menu-rename', action: () => onRename?.(path), separatorAfter: true },
+    {
+      label: 'Delete',
+      testId: 'menu-delete',
+      action: () => {
+        const name = path.split('/').pop() || path;
+        if (window.confirm(`Delete "${name}"? This cannot be undone.`)) {
+          onDelete?.(path);
+        }
+      },
+      destructive: true,
+    },
+  );
+
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content data-testid="context-menu" style={getMenuContainerStyle()}>
-          <style>{FILE_TREE_CONTEXT_MENU_CSS}</style>
-
-          {isDirectory && (
-            <>
-              <ContextMenu.Item
-                data-testid="menu-new-file"
-                onSelect={() => onNewFile?.(path)}
-                style={menuItemStyle}
-              >
-                New File
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                data-testid="menu-new-folder"
-                onSelect={() => onNewFolder?.(path)}
-                style={menuItemStyle}
-              >
-                New Folder
-              </ContextMenu.Item>
-            </>
-          )}
-          {!isDirectory && (
-            <ContextMenu.Item
-              data-testid="menu-open-editor"
-              onSelect={() => onOpenEditor?.(path)}
-              style={menuItemStyle}
-            >
-              Open in Editor
-            </ContextMenu.Item>
-          )}
-
-          <ContextMenu.Separator style={separatorStyle} />
-
-          <ContextMenu.Item
-            data-testid="menu-cut"
-            onSelect={() => onCut?.(path)}
-            style={flexMenuItemStyle}
-          >
-            Cut
-            <ShortcutHint shortcut={`${mod}X`} />
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            data-testid="menu-copy"
-            onSelect={() => onCopy?.(path)}
-            style={flexMenuItemStyle}
-          >
-            Copy
-            <ShortcutHint shortcut={`${mod}C`} />
-          </ContextMenu.Item>
-
-          {isDirectory && (
-            <ContextMenu.Item
-              data-testid="menu-paste"
-              disabled={!clipboardHasItem}
-              onSelect={() => onPaste?.(path)}
-              style={clipboardHasItem ? flexMenuItemStyle : { ...flexMenuItemStyle, opacity: 0.4 }}
-            >
-              Paste
-              <ShortcutHint shortcut={`${mod}V`} />
-            </ContextMenu.Item>
-          )}
-
-          <ContextMenu.Separator style={separatorStyle} />
-
-          <ContextMenu.Item
-            data-testid="menu-copy-path"
-            onSelect={() => {
-              const absolutePath = workspaceCwd ? `${workspaceCwd}/${path}` : path;
-              navigator.clipboard.writeText(absolutePath);
-            }}
-            style={flexMenuItemStyle}
-          >
-            Copy Path
-            <ShortcutHint shortcut={`${shift}${mod}C`} />
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            data-testid="menu-copy-relative-path"
-            onSelect={() => {
-              navigator.clipboard.writeText(path);
-            }}
-            style={flexMenuItemStyle}
-          >
-            Copy Relative Path
-          </ContextMenu.Item>
-
-          <ContextMenu.Separator style={separatorStyle} />
-
-          <ContextMenu.Item
-            data-testid="menu-rename"
-            onSelect={() => onRename?.(path)}
-            style={menuItemStyle}
-          >
-            Rename
-          </ContextMenu.Item>
-          <ContextMenu.Separator style={separatorStyle} />
-          <ContextMenu.Item
-            data-testid="menu-delete"
-            onSelect={() => {
-              const name = path.split('/').pop() || path;
-              if (window.confirm(`Delete "${name}"? This cannot be undone.`)) {
-                onDelete?.(path);
-              }
-            }}
-            style={{ ...menuItemStyle, color: COLOR_ERROR }}
-          >
-            Delete
-          </ContextMenu.Item>
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
+    <AppContextMenu items={items} testId="context-menu">
+      {children}
+    </AppContextMenu>
   );
 }

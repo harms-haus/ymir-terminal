@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-import { useInView } from 'react-intersection-observer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { sendRequest } from '../lib/send-request';
+import { formatRelativeTime } from '../lib/git-utils';
+import { usePaginatedGitLog } from '../hooks/usePaginatedGitLog';
 import type {
   GitLogItem,
-  GitLogResponse,
   GitCommitDetailsResponse,
   GitCommitFileChange,
 } from '@ymir/shared';
@@ -30,19 +30,7 @@ import type { LaneInfo, ActiveLane } from '../lib/git-graph';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 50;
 const ROW_HEIGHT = 24;
-
-// ── formatRelativeTime ──────────────────────────────────────────────────────
-
-function formatRelativeTime(unixSeconds: number): string {
-  const diff = Math.floor(Date.now() / 1000) - unixSeconds;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-  return `${Math.floor(diff / 2592000)}mo ago`;
-}
 
 // ── CommitRow ───────────────────────────────────────────────────────────────
 
@@ -229,11 +217,15 @@ export function GitTreeTab({
   highlightCommitSha,
   onOpenCommitDiff,
 }: GitTreeTabProps) {
-  const [commits, setCommits] = useState<GitLogItem[]>([]);
-  const [skip, setSkip] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // ── Paginated git log ────────────────────────────────────────────────
+
+  const { commits, loading, error, sentinelRef, reload } = usePaginatedGitLog({
+    workspaceId,
+    repoPath,
+  });
+
+  // ── Commit-details state ────────────────────────────────────────────
+
   const [expandedSha, setExpandedSha] = useState<string | null>(null);
   const [detailsCache, setDetailsCache] = useState<
     Map<string, { body: string; files: GitCommitFileChange[] }>
@@ -242,36 +234,7 @@ export function GitTreeTab({
   const [detailsErrors, setDetailsErrors] = useState<Map<string, string>>(new Map());
 
   const parentRef = useRef<HTMLDivElement>(null);
-  const generationRef = useRef(0);
   const highlightPendingRef = useRef(false);
-
-  // ── loadCommits ───────────────────────────────────────────────────────
-
-  const loadCommits = useCallback(async () => {
-    if (loading || !hasMore) return;
-    const gen = generationRef.current;
-    setLoading(true);
-    try {
-      const res = await sendRequest<GitLogResponse>('git.log', {
-        workspaceId,
-        repoPath: repoPath || undefined,
-        skip,
-        limit: PAGE_SIZE,
-      });
-      if (gen !== generationRef.current) return;
-      setCommits((prev) => [...prev, ...res.commits]);
-      setSkip((prev) => prev + res.commits.length);
-      setHasMore(res.hasMore);
-    } catch (err) {
-      if (gen !== generationRef.current) return;
-      setError(err instanceof Error ? err.message : 'Failed to load git history');
-    } finally {
-      if (gen === generationRef.current) setLoading(false);
-    }
-  }, [workspaceId, repoPath, skip, loading, hasMore]);
-
-  const loadCommitsRef = useRef(loadCommits);
-  loadCommitsRef.current = loadCommits;
 
   // ── loadCommitDetails ─────────────────────────────────────────────────
 
@@ -320,28 +283,14 @@ export function GitTreeTab({
   const loadCommitDetailsRef = useRef(loadCommitDetails);
   loadCommitDetailsRef.current = loadCommitDetails;
 
-  // ── Reset on workspaceId / repoPath change ───────────────────────────
+  // ── Reset details on workspaceId / repoPath change ─────────────────
 
   useEffect(() => {
-    ++generationRef.current;
-    setCommits([]);
-    setSkip(0);
-    setHasMore(true);
-    setError(null);
     setExpandedSha(null);
     setDetailsCache(new Map());
     setDetailsLoading(new Set());
     setDetailsErrors(new Map());
-    setTimeout(() => loadCommitsRef.current(), 0);
   }, [workspaceId, repoPath]);
-
-  // ── Infinite scroll ──────────────────────────────────────────────────
-
-  const { ref: sentinelRef, inView } = useInView({ rootMargin: '200px' });
-
-  useEffect(() => {
-    if (inView && hasMore && !loading) loadCommits();
-  }, [inView, hasMore, loading, loadCommits]);
 
   // ── Expand triggers details fetch ────────────────────────────────────
 
@@ -440,7 +389,7 @@ export function GitTreeTab({
         >
           <span style={{ flex: 1 }}>{error}</span>
           <button
-            onClick={() => loadCommitsRef.current()}
+            onClick={reload}
             style={{
               background: 'rgba(255,255,255,0.15)',
               border: 'none',

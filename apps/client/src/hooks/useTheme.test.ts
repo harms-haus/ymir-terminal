@@ -65,7 +65,7 @@ describe('useTheme', () => {
     expect(result.current.themeVars).toEqual({
       '--accent': '#007acc',
       '--accent-hover': '#007acccc',
-    });
+    } as Record<string, string>);
 
     // After setting a new color
     act(() => {
@@ -75,7 +75,7 @@ describe('useTheme', () => {
     expect(result.current.themeVars).toEqual({
       '--accent': '#ff0000',
       '--accent-hover': '#ff0000cc',
-    });
+    } as Record<string, string>);
   });
 
   // -----------------------------------------------------------------------

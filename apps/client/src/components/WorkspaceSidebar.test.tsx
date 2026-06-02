@@ -101,17 +101,17 @@ function renderSidebar(
   const onRemoveWorkspace = mock(() => {});
   const onChangeColorWorkspace = mock(() => {});
 
-  const onToggleExpand = mock(() => {});
+  const _onToggleExpand = mock(() => {});
   const onWorktreeSelect = mock(() => {});
   const onCreateWorktree = mock(() => {});
   const onCopyWorktreePath = mock(() => {});
   const onRemoveWorktree = mock(() => {});
+  const onMergeWorktree = mock(() => {});
 
   const result = render(
     React.createElement(WorkspaceSidebar, {
       activeWorkspaceId,
       worktreesByWorkspace: {},
-      expandedWorkspaces: new Set(),
       activeWorktreePath: null,
       onWorkspaceSelect,
       onAddWorkspace,
@@ -119,11 +119,11 @@ function renderSidebar(
       onSetCwdWorkspace,
       onRemoveWorkspace,
       onChangeColorWorkspace,
-      onToggleExpand,
       onWorktreeSelect,
       onCreateWorktree,
       onCopyWorktreePath,
       onRemoveWorktree,
+      onMergeWorktree,
     }),
   );
 

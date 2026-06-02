@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type FormEvent } from 'react';
 import { useCreateWorktree, useWorktreeCopyFiles } from '../hooks/useWorkspaces';
-import { cardStyle, inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
+import { inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
 import {
   COLOR_BORDER_CARD,
-  COLOR_TEXT_CARD,
   COLOR_TEXT_CARD_MUTED,
   COLOR_BTN_PRIMARY,
   COLOR_BG_ERROR_CARD,
@@ -14,6 +13,7 @@ import {
   COLOR_TEXT_MUTED,
   COLOR_BORDER,
 } from '../lib/theme';
+import { Dialog } from './Dialog';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,22 +38,6 @@ const BRANCH_NAME_RE = /^[a-zA-Z0-9\/. _-]+$/;
 // ---------------------------------------------------------------------------
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  card: { ...cardStyle, maxWidth: '520px' },
-  title: {
-    fontSize: '20px',
-    fontWeight: 600,
-    margin: '0 0 24px 0',
-    color: COLOR_TEXT_CARD,
-  },
   inputGroup: inputGroupStyle,
   label: labelStyle,
   input: inputStyle,
@@ -361,7 +345,7 @@ function CreateWorktreeForm({
 }
 
 // ---------------------------------------------------------------------------
-// Outer dialog — controls visibility, Escape key, backdrop click
+// Dialog wrapper
 // ---------------------------------------------------------------------------
 
 export function CreateWorktreeDialog({
@@ -371,92 +355,20 @@ export function CreateWorktreeDialog({
   workspaceId,
   workspaceCwd,
 }: CreateWorktreeDialogProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
-      const card = cardRef.current;
-      if (!card) return;
-
-      const focusable = card.querySelectorAll<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  if (!open) return null;
-
   return (
-    <>
-      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="create-worktree-dialog"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="create-worktree-dialog"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; } [data-testid="create-worktree-dialog"] button:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: 2px; }`}</style>
-      <div
-        data-testid="create-worktree-dialog"
-        style={styles.backdrop}
-        onClick={handleBackdropClick}
-      >
-        <div
-          ref={cardRef}
-          style={styles.card}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Create worktree"
-        >
-          <h2 style={styles.title}>Create Worktree</h2>
-          <CreateWorktreeForm
-            onClose={onClose}
-            onCreated={onCreated}
-            workspaceId={workspaceId}
-            workspaceCwd={workspaceCwd}
-          />
-        </div>
-      </div>
-    </>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Create Worktree"
+      testId="create-worktree-dialog"
+      wide
+    >
+      <CreateWorktreeForm
+        onClose={onClose}
+        onCreated={onCreated}
+        workspaceId={workspaceId}
+        workspaceCwd={workspaceCwd}
+      />
+    </Dialog>
   );
 }

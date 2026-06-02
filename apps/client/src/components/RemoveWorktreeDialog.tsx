@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { cardStyle } from '../lib/dialog-styles';
+import { useState, useCallback } from 'react';
 import {
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD,
@@ -7,6 +6,7 @@ import {
   COLOR_DANGER,
   COLOR_SPINNER_TRACK,
 } from '../lib/theme';
+import { Dialog } from './Dialog';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,22 +25,6 @@ interface RemoveWorktreeDialogProps {
 // ---------------------------------------------------------------------------
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  card: cardStyle,
-  title: {
-    fontSize: '20px',
-    fontWeight: 600,
-    margin: '0 0 16px 0',
-    color: COLOR_TEXT_CARD,
-  },
   message: {
     fontSize: '14px',
     color: COLOR_TEXT_CARD,
@@ -127,12 +111,6 @@ function RemoveWorktreeForm({
   isLoading: boolean;
 }) {
   const [force, setForce] = useState(false);
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  // Auto-focus cancel button on mount
-  useEffect(() => {
-    cancelRef.current?.focus();
-  }, []);
 
   const handleConfirm = useCallback(() => {
     if (isLoading) return;
@@ -161,7 +139,6 @@ function RemoveWorktreeForm({
 
       <div style={styles.buttonRow}>
         <button
-          ref={cancelRef}
           type="button"
           onClick={onClose}
           disabled={isLoading}
@@ -189,7 +166,7 @@ function RemoveWorktreeForm({
 }
 
 // ---------------------------------------------------------------------------
-// Outer dialog — controls visibility, Escape key, backdrop click
+// Dialog wrapper
 // ---------------------------------------------------------------------------
 
 export function RemoveWorktreeDialog({
@@ -199,92 +176,14 @@ export function RemoveWorktreeDialog({
   branchName,
   isLoading,
 }: RemoveWorktreeDialogProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
-      const card = cardRef.current;
-      if (!card) return;
-
-      const focusable = card.querySelectorAll<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  if (!open) return null;
-
   return (
-    <>
-      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="remove-worktree-dialog"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="remove-worktree-dialog"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; }`}</style>
-      <div
-        data-testid="remove-worktree-dialog"
-        style={styles.backdrop}
-        onClick={handleBackdropClick}
-      >
-        <div
-          ref={cardRef}
-          style={styles.card}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Remove worktree"
-        >
-          <h2 style={styles.title}>Remove Worktree</h2>
-          <RemoveWorktreeForm
-            onClose={onClose}
-            onConfirm={onConfirm}
-            branchName={branchName}
-            isLoading={isLoading}
-          />
-        </div>
-      </div>
-    </>
+    <Dialog open={open} onClose={onClose} title="Remove Worktree" testId="remove-worktree-dialog">
+      <RemoveWorktreeForm
+        onClose={onClose}
+        onConfirm={onConfirm}
+        branchName={branchName}
+        isLoading={isLoading}
+      />
+    </Dialog>
   );
 }

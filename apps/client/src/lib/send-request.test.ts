@@ -56,7 +56,7 @@ afterAll(() => {
 });
 
 describe('sendRequest', () => {
-  let sendRequest: typeof import('./send-request').sendRequest;
+  let sendRequest: typeof import('./send-request').sendRequest; // eslint-disable-line @typescript-eslint/consistent-type-imports
 
   beforeEach(async () => {
     resetMock();

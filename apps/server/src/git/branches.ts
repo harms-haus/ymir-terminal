@@ -31,5 +31,8 @@ export async function createBranch(dirPath: string, name: string): Promise<void>
 }
 
 export async function checkoutBranch(dirPath: string, name: string): Promise<void> {
-  await spawnGit(['switch', name], dirPath);
+  if (!/^[a-zA-Z0-9\/._-]+$/.test(name)) {
+    throw new Error('Invalid branch name');
+  }
+  await spawnGit(['switch', '--', name], dirPath);
 }

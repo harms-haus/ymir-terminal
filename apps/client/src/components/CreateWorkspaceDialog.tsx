@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useCallback, useRef, type FormEvent } from 'react';
 import { useCreateWorkspace } from '../hooks/useWorkspaces';
-import { cardStyle, inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
+import { inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
 import {
   COLOR_BG_LOGIN,
   COLOR_BORDER_CARD,
@@ -12,6 +12,7 @@ import {
   COLOR_TEXT_ERROR_CARD,
   COLOR_SPINNER_TRACK,
 } from '../lib/theme';
+import { Dialog } from './Dialog';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,22 +29,6 @@ interface CreateWorkspaceDialogProps {
 // ---------------------------------------------------------------------------
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  card: cardStyle,
-  title: {
-    fontSize: '20px',
-    fontWeight: 600,
-    margin: '0 0 24px 0',
-    color: COLOR_TEXT_CARD,
-  },
   inputGroup: inputGroupStyle,
   label: labelStyle,
   input: inputStyle,
@@ -135,11 +120,6 @@ function CreateWorkspaceForm({
   const nameRef = useRef<HTMLInputElement>(null);
 
   const mutation = useCreateWorkspace();
-
-  // Auto-focus name input on mount
-  useEffect(() => {
-    nameRef.current?.focus();
-  }, []);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -246,91 +226,13 @@ function CreateWorkspaceForm({
 }
 
 // ---------------------------------------------------------------------------
-// Outer dialog — controls visibility, Escape key, backdrop click
+// Dialog wrapper
 // ---------------------------------------------------------------------------
 
 export function CreateWorkspaceDialog({ open, onClose, onCreated }: CreateWorkspaceDialogProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
-      const card = cardRef.current;
-      if (!card) return;
-
-      const focusable = card.querySelectorAll<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  if (!open) return null;
-
   return (
-    <>
-      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="create-workspace-dialog"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="create-workspace-dialog"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; }`}</style>
-      <div
-        data-testid="create-workspace-dialog"
-        style={styles.backdrop}
-        onClick={handleBackdropClick}
-      >
-        <div
-          ref={cardRef}
-          style={styles.card}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Create workspace"
-        >
-          <h2 style={styles.title}>Create Workspace</h2>
-          <CreateWorkspaceForm onClose={onClose} onCreated={onCreated} />
-        </div>
-      </div>
-    </>
+    <Dialog open={open} onClose={onClose} title="Create Workspace" testId="create-workspace-dialog">
+      <CreateWorkspaceForm onClose={onClose} onCreated={onCreated} />
+    </Dialog>
   );
 }

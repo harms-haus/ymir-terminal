@@ -63,67 +63,16 @@ describe('registerFileHandlers', () => {
         renameFile: renameFileFn,
         createFile: createFileFn,
         createDirectory: createDirectoryFn,
+        copyFile: mock(() => {}) as any,
+        copyDirectory: mock(() => {}) as any,
+        findAvailableName: mock((_dir: string, base: string) => base) as any,
       },
-      watcher: {},
       _mocks: {
         getWorkspace: getWorkspaceFn,
       },
     };
 
     registerFileHandlers(router, deps);
-  });
-
-  // -----------------------------------------------------------------------
-  // 1. Handler registers for expected channels
-  // -----------------------------------------------------------------------
-  describe('channel registration', () => {
-    it('registers file.tree handler', async () => {
-      const req = request('file.tree', { workspaceId: 'ws-1' });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers file.read handler', async () => {
-      const req = request('file.read', { workspaceId: 'ws-1', path: '/home/dev/project/index.ts' });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers file.write handler', async () => {
-      const req = request('file.write', {
-        workspaceId: 'ws-1',
-        path: '/home/dev/project/foo.ts',
-        content: 'hello',
-      });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers file.delete handler', async () => {
-      const req = request('file.delete', { workspaceId: 'ws-1', path: '/home/dev/project/old.ts' });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers file.rename handler', async () => {
-      const req = request('file.rename', {
-        workspaceId: 'ws-1',
-        oldPath: '/a.ts',
-        newPath: '/b.ts',
-      });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
-
-    it('registers file.create handler', async () => {
-      const req = request('file.create', {
-        workspaceId: 'ws-1',
-        path: '/new.ts',
-        isDirectory: false,
-      });
-      const result = await router.route(conn, req);
-      expect(result).toBeNull();
-    });
   });
 
   // -----------------------------------------------------------------------
@@ -544,7 +493,7 @@ describe('file.copy (integration)', () => {
 
     const deps: FileDeps = {
       persistentDb: {} as any,
-      scanner: { scanDirectory: mock(() => []) },
+      scanner: { scanDirectory: mock(() => []) as any },
       operations: {
         readFile: fileOps.readFile,
         writeFile: fileOps.writeFile,
@@ -552,8 +501,10 @@ describe('file.copy (integration)', () => {
         renameFile: fileOps.renameFile,
         createFile: fileOps.createFile,
         createDirectory: fileOps.createDirectory,
+        copyFile: fileOps.copyFile,
+        copyDirectory: fileOps.copyDirectory,
+        findAvailableName: fileOps.findAvailableName,
       },
-      watcher: {},
       _mocks: {
         getWorkspace: mock((_db: unknown, id: string) => {
           if (id === 'ws-1') {
@@ -566,7 +517,7 @@ describe('file.copy (integration)', () => {
             };
           }
           return null;
-        }),
+        }) as any,
       },
     };
 
@@ -736,7 +687,7 @@ describe('file.move (integration)', () => {
 
     const deps: FileDeps = {
       persistentDb: {} as any,
-      scanner: { scanDirectory: mock(() => []) },
+      scanner: { scanDirectory: mock(() => []) as any },
       operations: {
         readFile: fileOps.readFile,
         writeFile: fileOps.writeFile,
@@ -744,8 +695,10 @@ describe('file.move (integration)', () => {
         renameFile: fileOps.renameFile,
         createFile: fileOps.createFile,
         createDirectory: fileOps.createDirectory,
+        copyFile: fileOps.copyFile,
+        copyDirectory: fileOps.copyDirectory,
+        findAvailableName: fileOps.findAvailableName,
       },
-      watcher: {},
       _mocks: {
         getWorkspace: mock((_db: unknown, id: string) => {
           if (id === 'ws-1') {
@@ -758,7 +711,7 @@ describe('file.move (integration)', () => {
             };
           }
           return null;
-        }),
+        }) as any,
       },
     };
 

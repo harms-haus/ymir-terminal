@@ -679,9 +679,9 @@ _Split pane layout, workspace accent colors, and toast notifications._
 
 ### 8.4 Implement pane context menu and split controls
 
-- **Files:** `apps/client/src/components/PaneContextMenu.tsx`, `apps/client/src/components/PaneContextMenu.test.tsx`
+- **Files:** `apps/client/src/components/SplitPaneContextMenu.tsx`, `apps/client/src/components/SplitPaneContextMenu.test.tsx`
 - **Prompt:** Write tests FIRST. Tests verify: (1) right-click shows Split Right, Split Down, Close Pane, (2) Split Right calls splitPane(horizontal), (3) Split Down calls splitPane(vertical), (4) Close Pane disabled if only one pane, (5) Close Pane calls closePane. Then implement using `@radix-ui/react-context-menu`. Menu items with icons. Props: paneId, onSplit, onClose, canClose.
-- **Verify:** `bun test apps/client/src/components/PaneContextMenu.test.tsx` passes.
+- **Verify:** `bun test apps/client/src/components/SplitPaneContextMenu.test.tsx` passes.
 - **Profile:** task-worker
 - **Dependencies:** 8.1
 

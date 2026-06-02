@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import type { Database } from 'bun:sqlite';
 import { randomUUID } from 'crypto';
 
 export function createTab(
@@ -11,7 +11,7 @@ export function createTab(
     filePath?: string;
     pane?: string;
     order: number;
-    diffRef?: string;
+    diffRef?: 'staged' | 'unstaged' | 'commit' | null;
     repoPath?: string;
     commitSha?: string;
     parentSha?: string;

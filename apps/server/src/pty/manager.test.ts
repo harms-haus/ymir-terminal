@@ -1,24 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-function-type */
-import { describe, expect, it, beforeEach, afterEach, afterAll, mock } from 'bun:test';
+import { describe, expect, it, beforeEach, afterEach, mock } from 'bun:test';
 import { PTYManager } from './manager';
 import { toBase64 } from '@ymir/shared';
 
-// We mock the PTYManager module dependency on existsSync by intercepting
-// at the module level. To avoid contaminating other test files' node:fs usage,
-// we create a dedicated mock module that only affects this file's import.
-// NOTE: mock.module is process-scoped in Bun 1.3.14, so this WILL affect
-// other files that import from 'node:fs'. We mitigate by restoring in afterAll.
+// Mock existsSync is injected via PTYManager's deps parameter to avoid
+// process-scoped mock.module('node:fs') contamination across test files.
 const mockExistsSync = mock((_path: string) => true);
-
-mock.module('node:fs', () => ({
-  existsSync: mockExistsSync,
-}));
-
-// Cleanup: restore all mocked modules so other test files see the originals.
-// This runs after ALL tests in this file complete.
-afterAll(() => {
-  mock.restore();
-});
 
 describe('PTYManager', () => {
   let manager: PTYManager;
@@ -28,7 +15,7 @@ describe('PTYManager', () => {
   let originalSpawn: any;
 
   beforeEach(() => {
-    manager = new PTYManager('linux');
+    manager = new PTYManager('linux', { existsSync: mockExistsSync });
     mockTerminalInstances = [];
     mockSpawnedProcesses = [];
 
@@ -428,6 +415,66 @@ describe('PTYManager', () => {
     expect(mockSpawnedProcesses[0].killed).toBe(true);
     expect(mockSpawnedProcesses[1].killed).toBe(true);
   });
+
+  // -----------------------------------------------------------------------
+  // Process exit edge-case tests
+  // -----------------------------------------------------------------------
+
+  it('kill() properly cleans up: terminal is removed, closed, and process killed', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('cleanup-test', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    // Verify terminal exists before kill
+    expect(manager.has('cleanup-test')).toBe(true);
+    expect(manager.terminals.has('cleanup-test')).toBe(true);
+
+    manager.kill('cleanup-test');
+
+    // Terminal should be fully removed from the map
+    expect(manager.has('cleanup-test')).toBe(false);
+    expect(manager.terminals.has('cleanup-test')).toBe(false);
+
+    // Terminal should be closed and process killed
+    expect(mockTerminalInstances[0].closed).toBe(true);
+    expect(mockSpawnedProcesses[0].killed).toBe(true);
+  });
+
+  it('write() after kill() throws terminal not found', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('write-after-kill', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.kill('write-after-kill');
+
+    expect(() => manager.write('write-after-kill', toBase64('data'))).toThrow(
+      'Terminal write-after-kill not found',
+    );
+  });
+
+  it('resize() after kill() throws terminal not found', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('resize-after-kill', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.kill('resize-after-kill');
+
+    expect(() => manager.resize('resize-after-kill', 120, 40)).toThrow(
+      'Terminal resize-after-kill not found',
+    );
+  });
 });
 
 describe('PTYManager (win32)', () => {
@@ -438,7 +485,7 @@ describe('PTYManager (win32)', () => {
   let originalSpawn: any;
 
   beforeEach(() => {
-    manager = new PTYManager('win32');
+    manager = new PTYManager('win32', { existsSync: mockExistsSync });
     mockTerminalInstances = [];
     mockSpawnedProcesses = [];
 
@@ -566,7 +613,7 @@ describe('PTYManager (win32)', () => {
   it('resize() does not send SIGWINCH on Windows', () => {
     const originalProcessKill = process.kill;
     const mockProcessKill = mock((_pid: number, _signal: string) => {});
-    process.kill = mockProcessKill as typeof process.kill;
+    process.kill = mockProcessKill as unknown as typeof process.kill;
     try {
       const onData = mock((_data: string) => {});
       manager.create('win-resize', {

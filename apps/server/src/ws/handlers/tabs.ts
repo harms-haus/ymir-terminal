@@ -10,7 +10,7 @@ import {
   type TabUpdateRequest,
   type TabDeleteRequest,
   type TabReorderRequest,
-  type ServerTabInfo,
+  type TabInfo,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
@@ -85,7 +85,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       for (const r of aliveRows) aliveSet.add(r.id);
     }
 
-    const tabs: ServerTabInfo[] = rows.map((row) => {
+    const tabs: TabInfo[] = rows.map((row) => {
       const terminalId = (row.terminal_id as string | null) ?? null;
       const terminalAlive = terminalId ? aliveSet.has(terminalId) : undefined;
 

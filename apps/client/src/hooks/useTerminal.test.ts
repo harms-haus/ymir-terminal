@@ -71,7 +71,7 @@ function simulateResponse(requestId: string, payload: unknown, error?: unknown) 
  * Get the request envelope that was sent via the last wsClient.send call.
  */
 function getLastSentEnvelope(): MessageEnvelope {
-  const calls = mockSend.mock.calls;
+  const calls = mockSend.mock.calls as unknown as Array<[unknown, ...unknown[]]>;
   expect(calls.length).toBeGreaterThanOrEqual(1);
   return calls[calls.length - 1][0] as MessageEnvelope;
 }

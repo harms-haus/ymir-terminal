@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { cardStyle } from '../lib/dialog-styles';
 import {
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD,
@@ -9,6 +8,7 @@ import {
   COLOR_BG_CARD,
 } from '../lib/theme';
 import { useWorktreeCopyFiles } from '../hooks/useWorkspaces';
+import { Dialog } from './Dialog';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,22 +30,6 @@ interface MergeWorktreeDialogProps {
 // ---------------------------------------------------------------------------
 
 const styles: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed',
-    inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  card: { ...cardStyle, maxWidth: '520px' },
-  title: {
-    fontSize: '20px',
-    fontWeight: 600,
-    margin: '0 0 16px 0',
-    color: COLOR_TEXT_CARD,
-  },
   message: {
     fontSize: '14px',
     color: COLOR_TEXT_CARD,
@@ -175,16 +159,10 @@ function MergeWorktreeForm({
   const [deleteAfterMerge, setDeleteAfterMerge] = useState(false);
   // null = not yet initialized from server data; Set = user selection ready
   const [selectedFiles, setSelectedFiles] = useState<Set<string> | null>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
 
   const { data: copyFiles } = useWorktreeCopyFiles(workspaceId, worktreePath);
   const configuredFiles = useMemo(() => copyFiles?.configuredFiles ?? [], [copyFiles]);
   const untrackedFiles = useMemo(() => copyFiles?.untrackedFiles ?? [], [copyFiles]);
-
-  // Auto-focus cancel button on mount
-  useEffect(() => {
-    cancelRef.current?.focus();
-  }, []);
 
   // Initialize file selection once copyFiles data arrives
   if (selectedFiles === null && copyFiles) {
@@ -272,7 +250,6 @@ function MergeWorktreeForm({
 
       <div style={styles.buttonRow}>
         <button
-          ref={cancelRef}
           type="button"
           onClick={onClose}
           disabled={isLoading}
@@ -300,7 +277,7 @@ function MergeWorktreeForm({
 }
 
 // ---------------------------------------------------------------------------
-// Outer dialog — controls visibility, Escape key, backdrop click
+// Dialog wrapper
 // ---------------------------------------------------------------------------
 
 export function MergeWorktreeDialog({
@@ -313,95 +290,23 @@ export function MergeWorktreeDialog({
   worktreePath,
   workspaceId,
 }: MergeWorktreeDialogProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
-      const card = cardRef.current;
-      if (!card) return;
-
-      const focusable = card.querySelectorAll<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
-
-  if (!open) return null;
-
   return (
-    <>
-      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="merge-worktree-dialog"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="merge-worktree-dialog"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; } [data-testid="merge-worktree-dialog"] button:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: 2px; }`}</style>
-      <div
-        data-testid="merge-worktree-dialog"
-        style={styles.backdrop}
-        onClick={handleBackdropClick}
-      >
-        <div
-          ref={cardRef}
-          style={styles.card}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Merge worktree"
-        >
-          <h2 style={styles.title}>Merge Worktree</h2>
-          <MergeWorktreeForm
-            onClose={onClose}
-            onConfirm={onConfirm}
-            branchName={branchName}
-            targetBranch={targetBranch}
-            isLoading={isLoading}
-            worktreePath={worktreePath}
-            workspaceId={workspaceId}
-          />
-        </div>
-      </div>
-    </>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Merge Worktree"
+      testId="merge-worktree-dialog"
+      wide
+    >
+      <MergeWorktreeForm
+        onClose={onClose}
+        onConfirm={onConfirm}
+        branchName={branchName}
+        targetBranch={targetBranch}
+        isLoading={isLoading}
+        worktreePath={worktreePath}
+        workspaceId={workspaceId}
+      />
+    </Dialog>
   );
 }

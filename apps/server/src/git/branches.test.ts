@@ -47,7 +47,7 @@ describe('git branches', () => {
 
       const currentBranch = branches.find((b) => b.isCurrent);
       expect(currentBranch).toBeDefined();
-      expect(currentBranch!.name).toBe(current);
+      expect(currentBranch!.name).toBe(current!);
       expect(branches.filter((b) => b.isCurrent).length).toBe(1);
     });
 

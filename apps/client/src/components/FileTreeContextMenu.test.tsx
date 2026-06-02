@@ -97,7 +97,7 @@ describe('FileTreeContextMenu', () => {
     const { container } = renderContextMenu({ isDirectory: true });
 
     const menu = container.querySelector('[data-testid="context-menu"]');
-    expect(menu).toBeTruthy();
+    expect(menu).not.toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -107,7 +107,7 @@ describe('FileTreeContextMenu', () => {
     const { container } = renderContextMenu({ isDirectory: false, path: '/src/index.ts' });
 
     const menu = container.querySelector('[data-testid="context-menu"]');
-    expect(menu).toBeTruthy();
+    expect(menu).not.toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -116,10 +116,10 @@ describe('FileTreeContextMenu', () => {
   test('directory menu contains New File, New Folder, Rename, Delete', () => {
     const { container } = renderContextMenu({ isDirectory: true });
 
-    expect(container.querySelector('[data-testid="menu-new-file"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-new-folder"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-rename"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-delete"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-new-file"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-new-folder"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-rename"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-delete"]')).not.toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -128,9 +128,9 @@ describe('FileTreeContextMenu', () => {
   test('file menu contains Open in Editor, Rename, Delete', () => {
     const { container } = renderContextMenu({ isDirectory: false, path: '/src/index.ts' });
 
-    expect(container.querySelector('[data-testid="menu-open-editor"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-rename"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-delete"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-open-editor"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-rename"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-delete"]')).not.toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -240,11 +240,11 @@ describe('FileTreeContextMenu', () => {
       clipboardHasItem: true,
     });
 
-    expect(container.querySelector('[data-testid="menu-cut"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-copy"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-paste"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-copy-path"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-copy-relative-path"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-cut"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-copy"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-paste"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-copy-path"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-copy-relative-path"]')).not.toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -256,10 +256,10 @@ describe('FileTreeContextMenu', () => {
       path: '/src/index.ts',
     });
 
-    expect(container.querySelector('[data-testid="menu-cut"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-copy"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-copy-path"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="menu-copy-relative-path"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="menu-cut"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-copy"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-copy-path"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="menu-copy-relative-path"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="menu-paste"]')).toBeNull();
   });
 
@@ -380,7 +380,7 @@ describe('FileTreeContextMenu', () => {
     });
 
     const item = container.querySelector('[data-testid="menu-paste"]') as HTMLElement;
-    expect(item).toBeTruthy();
+    expect(item).not.toBeNull();
     // Should have opacity 0.4 when disabled
     const style = (item as HTMLElement).style;
     expect(style.opacity).toBe('0.4');

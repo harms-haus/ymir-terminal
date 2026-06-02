@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { AppLayout } from './AppLayout';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { RightSidebar } from './RightSidebar';
@@ -7,48 +7,22 @@ import type { TerminalPanelHandle as ContentPaneHandle } from '../hooks/useTermi
 import { BottomPanel } from './BottomPanel';
 import type { TerminalPanelHandle as BottomPanelHandle } from '../hooks/useTerminalPanel';
 import { TerminalManager } from './TerminalManager';
-import type { TerminalEntry, PaneBounds } from './TerminalManager';
 import { TopBar } from './TopBar';
 import { CommandBar } from './CommandBar';
 import { ToastProvider } from './ToastProvider';
 import { PaneVisibilityProvider, usePaneVisibility } from '../hooks/usePaneVisibility';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
-import type { WorkspaceSummary, GitWorktreeInfo, GitWorktreeListResponse } from '@ymir/shared';
 import { useTheme } from '../hooks/useTheme';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
-import { useQueries } from '@tanstack/react-query';
-import {
-  useWorkspaces,
-  useUpdateWorkspace,
-  useDeleteWorkspace,
-  useReorderWorkspaces,
-  useRemoveWorktree,
-  useMergeWorktree,
-} from '../hooks/useWorkspaces';
-import { sendRequest } from '../lib/send-request';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider, type DragEndEvent, type DragOverEvent } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
 import { FileClipboardProvider } from '../contexts/FileClipboardContext';
-
-interface TerminalRegistryEntry {
-  terminalId: string;
-  tabId: string;
-  owningPane: 'content' | 'bottom';
-  workspaceId: string;
-}
-
-function boundsEqual(
-  a: { top: number; left: number; width: number; height: number } | null,
-  b: { top: number; left: number; width: number; height: number } | null,
-): boolean {
-  if (a === null && b === null) return true;
-  if (a === null || b === null) return false;
-  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
-}
+import { usePaneBounds } from '../hooks/usePaneBounds';
+import { useTerminalRegistry } from '../hooks/useTerminalRegistry';
+import { useWorkspaceSelection } from '../hooks/useWorkspaceSelection';
 
 function WorkspaceViewInner() {
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [fileToOpen, setFileToOpen] = useState<string | null>(null);
   const [fileToDiff, setFileToDiff] = useState<{
@@ -61,23 +35,36 @@ function WorkspaceViewInner() {
     repoPath: string;
   } | null>(null);
 
-  // Worktree state
-  const [activeWorktreePath, setActiveWorktreePath] = useState<string | null>(null);
-  const [isCreateWorktreeDialogOpen, setIsCreateWorktreeDialogOpen] = useState(false);
-  const [createWorktreeForWsId, setCreateWorktreeForWsId] = useState<string | null>(null);
-  const { data: workspaces } = useWorkspaces();
   const { setAccentColor } = useTheme();
-  const updateWorkspace = useUpdateWorkspace();
-  const deleteWorkspace = useDeleteWorkspace();
-  const reorderWorkspacesMutation = useReorderWorkspaces();
-  const removeWorktreeMutation = useRemoveWorktree();
-  const mergeWorktreeMutation = useMergeWorktree();
 
-  // Ref for workspaces to avoid stale closures in drag handlers
-  const workspacesRef = useRef(workspaces);
-  useEffect(() => {
-    workspacesRef.current = workspaces;
-  }, [workspaces]);
+  const {
+    selectedWorkspaceId,
+    activeWorkspaceId,
+    activeWorkspace,
+    effectiveCwd,
+    activeWorktreePath,
+    workspaces,
+    workspacesRef,
+    worktreesByWorkspace,
+    isCreateWorktreeDialogOpen,
+    createWorktreeForWsId,
+    reorderWorkspacesMutation,
+    handleWorkspaceSelect,
+    handleRenameWorkspace,
+    handleSetCwdWorkspace,
+    handleChangeColorWorkspace,
+    handleRemoveWorkspace,
+    handleWorktreeSelect,
+    handleCreateWorktree,
+    handleWorktreeCreated,
+    handleCopyWorktreePath,
+    handleRemoveWorktree,
+    handleMergeWorktree,
+    setIsCreateWorktreeDialogOpen,
+    setCreateWorktreeForWsId,
+    setSelectedWorkspaceId,
+  } = useWorkspaceSelection({ setAccentColor });
+
   const {
     left: leftVisible,
     right: rightVisible,
@@ -89,127 +76,26 @@ function WorkspaceViewInner() {
   const contentPaneRef = useRef<ContentPaneHandle>(null);
   const bottomPanelRef = useRef<BottomPanelHandle>(null);
 
-  // Terminal registry — tracks all live terminals across both panes
-  const [terminalRegistry, setTerminalRegistry] = useState<TerminalRegistryEntry[]>([]);
-  const terminalRefsMap = useRef<Map<string, { focus(): void }>>(new Map());
+  const { wrapperRef, contentTerminalRef, bottomTerminalRef, containerBounds } = usePaneBounds({
+    loading,
+  });
 
-  // Refs for terminal container divs (used by ResizeObserver for bounds tracking)
-  const contentTerminalRef = useRef<HTMLDivElement>(null);
-  const bottomTerminalRef = useRef<HTMLDivElement>(null);
-
-  // Wrapper div for overlay positioning context
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Bounds state for overlay positioning
-  const [containerBounds, setContainerBounds] = useState<{
-    content: PaneBounds | null;
-    bottom: PaneBounds | null;
-  }>({ content: null, bottom: null });
-
-  // Track bounds via ResizeObserver
-  useEffect(() => {
-    const updateBounds = () => {
-      const wrapperRect = wrapperRef.current?.getBoundingClientRect();
-      const contentRect = contentTerminalRef.current?.getBoundingClientRect();
-      const bottomRect = bottomTerminalRef.current?.getBoundingClientRect();
-
-      const newContent =
-        wrapperRect && contentRect
-          ? {
-              top: contentRect.top - wrapperRect.top,
-              left: contentRect.left - wrapperRect.left,
-              width: contentRect.width,
-              height: contentRect.height,
-            }
-          : null;
-      const newBottom =
-        wrapperRect && bottomRect
-          ? {
-              top: bottomRect.top - wrapperRect.top,
-              left: bottomRect.left - wrapperRect.left,
-              width: bottomRect.width,
-              height: bottomRect.height,
-            }
-          : null;
-
-      setContainerBounds((prev) => {
-        if (boundsEqual(prev.content, newContent) && boundsEqual(prev.bottom, newBottom)) {
-          return prev;
-        }
-        return { content: newContent, bottom: newBottom };
-      });
-    };
-
-    const observer = new ResizeObserver(updateBounds);
-    if (contentTerminalRef.current) observer.observe(contentTerminalRef.current);
-    if (bottomTerminalRef.current) observer.observe(bottomTerminalRef.current);
-    updateBounds();
-
-    return () => observer.disconnect();
-  }, [loading]);
-
-  // Track active tab IDs from both panes (synced via callbacks)
-  const [contentActiveTabId, setContentActiveTabId] = useState<string | null>(null);
-  const [bottomActiveTabId, setBottomActiveTabId] = useState<string | null>(null);
-
-  // Terminal lifecycle callbacks
-  const handleTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, pane: 'content' | 'bottom', workspaceId: string) => {
-      setTerminalRegistry((prev) => [
-        ...prev,
-        { terminalId, tabId, owningPane: pane, workspaceId },
-      ]);
-    },
-    [],
-  );
-
-  const handleTerminalUnregistered = useCallback((terminalId: string) => {
-    setTerminalRegistry((prev) => prev.filter((t) => t.terminalId !== terminalId));
-  }, []);
-
-  // Content pane callbacks
-  const handleContentTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, workspaceId: string) => {
-      handleTerminalRegistered(terminalId, tabId, 'content', workspaceId);
-    },
-    [handleTerminalRegistered],
-  );
-
-  // Bottom panel callbacks
-  const handleBottomTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, workspaceId: string) => {
-      handleTerminalRegistered(terminalId, tabId, 'bottom', workspaceId);
-    },
-    [handleTerminalRegistered],
-  );
-
-  // Focus content pane's active terminal
-  useEffect(() => {
-    if (!contentActiveTabId) return;
-    const entry = terminalRegistry.find(
-      (t) => t.owningPane === 'content' && t.tabId === contentActiveTabId,
-    );
-    if (entry) {
-      const handle = requestAnimationFrame(() => {
-        terminalRefsMap.current.get(entry.tabId)?.focus();
-      });
-      return () => cancelAnimationFrame(handle);
-    }
-  }, [contentActiveTabId, terminalRegistry]);
-
-  // Focus bottom panel's active terminal
-  useEffect(() => {
-    if (!bottomActiveTabId) return;
-    const entry = terminalRegistry.find(
-      (t) => t.owningPane === 'bottom' && t.tabId === bottomActiveTabId,
-    );
-    if (entry) {
-      const handle = requestAnimationFrame(() => {
-        terminalRefsMap.current.get(entry.tabId)?.focus();
-      });
-      return () => cancelAnimationFrame(handle);
-    }
-  }, [bottomActiveTabId, terminalRegistry]);
+  const {
+    terminalRegistry,
+    setTerminalRegistry,
+    terminalRefsMap,
+    callbackCacheRef,
+    terminalEntries,
+    setContentActiveTabId,
+    setBottomActiveTabId,
+    handleTerminalUnregistered,
+    handleContentTerminalRegistered,
+    handleBottomTerminalRegistered,
+  } = useTerminalRegistry({
+    contentPaneRef,
+    bottomPanelRef,
+    activeWorkspaceId,
+  });
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const source = event.operation.source;
@@ -263,46 +149,6 @@ function WorkspaceViewInner() {
     }
   }, []);
 
-  const activeWorkspaceId = useMemo(() => {
-    if (selectedWorkspaceId) return selectedWorkspaceId;
-    if (workspaces && workspaces.length > 0) return workspaces[0].id;
-    return null;
-  }, [selectedWorkspaceId, workspaces]);
-
-  const activeWorkspace = workspaces?.find((ws: WorkspaceSummary) => ws.id === activeWorkspaceId);
-
-  // Derive the effective cwd for terminal creation: use active worktree path if set,
-  // otherwise fall back to the workspace's default cwd (or undefined for server default)
-  const effectiveCwd = activeWorktreePath ?? undefined;
-
-  // Fetch worktrees for ALL workspaces eagerly (avoids chicken-and-egg deadlock
-  // where expandedWorkspaces starts empty so data never loads)
-  const allWorkspaceIds = useMemo(
-    () => workspaces?.map((ws: WorkspaceSummary) => ws.id) ?? [],
-    [workspaces],
-  );
-
-  const worktreeResults = useQueries({
-    queries: allWorkspaceIds.map((id) => ({
-      queryKey: ['worktrees', id],
-      queryFn: async () => {
-        const response = await sendRequest<GitWorktreeListResponse>('git.worktreeList', {
-          workspaceId: id,
-        });
-        return response.worktrees;
-      },
-    })),
-  });
-
-  const worktreesByWorkspace = useMemo<Record<string, GitWorktreeInfo[]>>(() => {
-    const result: Record<string, GitWorktreeInfo[]> = {};
-    for (let i = 0; i < allWorkspaceIds.length; i++) {
-      const data = worktreeResults[i]?.data;
-      if (data) result[allWorkspaceIds[i]] = data;
-    }
-    return result;
-  }, [allWorkspaceIds, worktreeResults]);
-
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       if (event.canceled) return;
@@ -320,7 +166,7 @@ function WorkspaceViewInner() {
       if (source.type === 'workspace') {
         const ws = workspacesRef.current;
         if (!ws) return;
-        const workspaceIds = ws.map((w: WorkspaceSummary) => w.id);
+        const workspaceIds = ws.map((w: { id: string }) => w.id);
         const reordered = move(workspaceIds, event);
         if (Array.isArray(reordered)) {
           reorderWorkspacesMutation.mutate({ workspaceIds: reordered });
@@ -368,16 +214,6 @@ function WorkspaceViewInner() {
     [activeWorkspaceId, terminalRegistry, reorderWorkspacesMutation],
   );
 
-  const handleWorkspaceSelect = useCallback(
-    (id: string) => {
-      setSelectedWorkspaceId(id);
-      setActiveWorktreePath(null);
-      const ws = workspaces?.find((w: WorkspaceSummary) => w.id === id);
-      if (ws?.color) setAccentColor(ws.color);
-    },
-    [workspaces, setAccentColor],
-  );
-
   const handleAddWorkspace = useCallback(() => {
     setIsDialogOpen(true);
   }, []);
@@ -388,7 +224,7 @@ function WorkspaceViewInner() {
       setAccentColor(color);
       setIsDialogOpen(false);
     },
-    [setAccentColor],
+    [setAccentColor, setSelectedWorkspaceId],
   );
 
   const handleFileSelect = useCallback((path: string) => {
@@ -448,121 +284,6 @@ function WorkspaceViewInner() {
   const handleCommandBarFileSelect = useCallback((path: string) => {
     setFileToOpen(path);
   }, []);
-
-  const handleRenameWorkspace = useCallback(
-    (id: string, name: string) => {
-      updateWorkspace.mutate({ id, name });
-    },
-    [updateWorkspace],
-  );
-
-  const handleSetCwdWorkspace = useCallback(
-    (id: string, cwd: string) => {
-      updateWorkspace.mutate({ id, cwd });
-    },
-    [updateWorkspace],
-  );
-
-  const handleChangeColorWorkspace = useCallback(
-    (id: string, color: string) => {
-      updateWorkspace.mutate({ id, color });
-      if (id === activeWorkspaceId) setAccentColor(color);
-    },
-    [updateWorkspace, activeWorkspaceId, setAccentColor],
-  );
-
-  const handleRemoveWorkspace = useCallback(
-    (id: string) => {
-      deleteWorkspace.mutate({ id });
-      if (id === selectedWorkspaceId) setSelectedWorkspaceId(null);
-    },
-    [deleteWorkspace, selectedWorkspaceId],
-  );
-
-  // Worktree handlers
-  const handleWorktreeSelect = useCallback((path: string) => {
-    setActiveWorktreePath(path);
-  }, []);
-
-  const handleCreateWorktree = useCallback((workspaceId: string) => {
-    setCreateWorktreeForWsId(workspaceId);
-    setIsCreateWorktreeDialogOpen(true);
-  }, []);
-
-  const handleWorktreeCreated = useCallback(() => {
-    setIsCreateWorktreeDialogOpen(false);
-    setCreateWorktreeForWsId(null);
-  }, []);
-
-  const handleCopyWorktreePath = useCallback((path: string) => {
-    navigator.clipboard.writeText(path);
-  }, []);
-
-  const handleRemoveWorktree = useCallback(
-    (workspaceId: string, worktreePath: string, force: boolean) => {
-      removeWorktreeMutation.mutate({ workspaceId, worktreePath, force });
-    },
-    [removeWorktreeMutation],
-  );
-
-  const handleMergeWorktree = useCallback(
-    (
-      workspaceId: string,
-      worktreePath: string,
-      _branch: string,
-      deleteAfterMerge?: boolean,
-      filesToCopy?: string[],
-    ) => {
-      mergeWorktreeMutation.mutate({
-        workspaceId,
-        worktreePath,
-        targetBranch: 'main',
-        deleteAfterMerge,
-        filesToCopy,
-      });
-    },
-    [mergeWorktreeMutation],
-  );
-
-  // Stable callback cache: tabId -> {onTitleChange, onCwdChange}
-  // useState with lazy init gives a stable mutable Map; closures read pane refs
-  // only when invoked (in event handlers), satisfying the react-hooks/refs rule.
-  const callbackCacheRef = useRef<
-    Map<string, { onTitleChange: (title: string) => void; onCwdChange: (cwd: string) => void }>
-  >(new Map());
-
-  // Build terminal entries for TerminalManager
-  /* eslint-disable react-hooks/refs -- stable mutable cache, not a reactive ref */
-  const terminalEntries: TerminalEntry[] = useMemo(() => {
-    const cache = callbackCacheRef.current;
-    return terminalRegistry.map((entry) => {
-      let cached = cache.get(entry.tabId);
-      if (!cached) {
-        const paneRef = entry.owningPane === 'content' ? contentPaneRef : bottomPanelRef;
-        cached = {
-          onTitleChange: (title: string) => {
-            paneRef.current?.updateTabTitle(entry.tabId, title);
-          },
-          onCwdChange: (cwd: string) => {
-            paneRef.current?.updateTabCwd(entry.tabId, cwd);
-          },
-        };
-        cache.set(entry.tabId, cached);
-      }
-      return {
-        terminalId: entry.terminalId,
-        tabId: entry.tabId,
-        owningPane: entry.owningPane,
-        isActive:
-          entry.workspaceId === activeWorkspaceId &&
-          ((entry.owningPane === 'content' && entry.tabId === contentActiveTabId) ||
-            (entry.owningPane === 'bottom' && entry.tabId === bottomActiveTabId)),
-        onTitleChange: cached.onTitleChange,
-        onCwdChange: cached.onCwdChange,
-      };
-    });
-  }, [terminalRegistry, contentActiveTabId, bottomActiveTabId, activeWorkspaceId]);
-  /* eslint-enable react-hooks/refs */
 
   // While pane visibility is loading from the server, render a placeholder to avoid layout flash
   if (loading) {

@@ -1,11 +1,16 @@
 use regex::Regex;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 const STARTUP_TIMEOUT_SECS: u64 = 15;
+
+static LISTENING_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"Ymir server listening on 127\.0\.0\.1:(\d+)").unwrap()
+});
 
 pub struct SidecarManager;
 
@@ -214,8 +219,8 @@ impl SidecarManager {
                 .map_err(|e| format!("failed to spawn sidecar: {}", e))?
         };
 
-        // Parse the port from stdout
-        let port_re = Regex::new(r"Ymir server listening on 127\.0\.0\.1:(\d+)").unwrap();
+        // Parse the port from stdout (regex compiled once via LazyLock)
+        let port_re = &*LISTENING_RE;
         let timeout = tokio::time::timeout(
             Duration::from_secs(STARTUP_TIMEOUT_SECS),
             async {
