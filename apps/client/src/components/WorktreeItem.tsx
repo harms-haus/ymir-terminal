@@ -11,7 +11,7 @@ interface WorktreeItemProps {
   onClick: () => void;
   onCopyPath: () => void;
   onRemove: (force: boolean) => void;
-  onMergeWorktree?: (path: string, branch: string) => void;
+  onMergeWorktree?: (path: string, branch: string, deleteAfterMerge?: boolean, filesToCopy?: string[]) => void;
 }
 
 export function WorktreeItem({
@@ -36,12 +36,12 @@ export function WorktreeItem({
     <WorktreeItemContextMenu
       worktree={worktree}
       onCopyPath={onCopyPath}
-      onMerge={() => onMergeWorktree?.(worktree.path, worktree.branch ?? '')}
-      onMergeConfirm={(_deleteAfterMerge) =>
-        onMergeWorktree?.(worktree.path, worktree.branch ?? '')
+      onMergeConfirm={(deleteAfterMerge, filesToCopy) =>
+        onMergeWorktree?.(worktree.path, worktree.branch ?? '', deleteAfterMerge, filesToCopy)
       }
       targetBranch="main"
       onRemove={onRemove}
+      workspaceId={workspaceId}
     >
       <div
         ref={sortableRef}

@@ -56,6 +56,7 @@ import type {
   GitWorktreeCreateRequest,
   GitWorktreeRemoveRequest,
   GitWorktreeMergeRequest,
+  GitWorktreeCopyFilesRequest,
 } from './git';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
@@ -106,6 +107,7 @@ export const REQUEST_TYPES = [
   'git.worktreeCreate',
   'git.worktreeRemove',
   'git.worktreeMerge',
+  'git.worktreeCopyFiles',
   'config.get',
   'config.set',
   'tab.list',
@@ -165,6 +167,7 @@ export type RequestPayload =
   | GitWorktreeCreateRequest
   | GitWorktreeRemoveRequest
   | GitWorktreeMergeRequest
+  | GitWorktreeCopyFilesRequest
   | ConfigGetRequest
   | ConfigSetRequest
   | TabListRequest

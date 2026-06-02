@@ -14,12 +14,12 @@ import { RemoveWorktreeDialog } from './RemoveWorktreeDialog';
 interface WorktreeItemContextMenuProps {
   worktree: GitWorktreeInfo;
   onCopyPath: () => void;
-  onMerge: () => void;
-  onMergeConfirm: (deleteAfterMerge: boolean) => void;
+  onMergeConfirm: (deleteAfterMerge: boolean, filesToCopy: string[]) => void;
   targetBranch: string;
   onRemove: (force: boolean) => void;
   isLoading?: boolean;
   isMergeLoading?: boolean;
+  workspaceId: string;
   children: React.ReactNode;
 }
 
@@ -28,13 +28,12 @@ const WT_CONTEXT_MENU_CSS = getContextMenuCss('wt-context-menu');
 export function WorktreeItemContextMenu({
   worktree,
   onCopyPath,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onMerge,
   onMergeConfirm,
   targetBranch,
   onRemove,
   isLoading,
   isMergeLoading,
+  workspaceId,
   children,
 }: WorktreeItemContextMenuProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -88,12 +87,14 @@ export function WorktreeItemContextMenu({
         open={isMergeDialogOpen}
         onClose={() => setIsMergeDialogOpen(false)}
         onConfirm={(opts) => {
-          onMergeConfirm(opts.deleteAfterMerge);
+          onMergeConfirm(opts.deleteAfterMerge, opts.filesToCopy);
           setIsMergeDialogOpen(false);
         }}
         branchName={branchName}
         targetBranch={targetBranch}
         isLoading={isMergeLoading ?? false}
+        worktreePath={worktree.path}
+        workspaceId={workspaceId}
       />
 
       <RemoveWorktreeDialog

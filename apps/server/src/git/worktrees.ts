@@ -1,3 +1,4 @@
+import { readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import type { GitWorktreeInfo } from '@ymir/shared';
 import { spawnGit } from './status';
@@ -265,4 +266,48 @@ export async function mergeWorktree(
     message: 'Merged successfully',
     worktreeRemoved: false,
   };
+}
+
+/**
+ * List untracked files in the given directory (respecting .gitignore).
+ * Excludes `.worktreecopy` from the result.
+ */
+export async function listUntrackedFiles(dirPath: string): Promise<string[]> {
+  const proc = Bun.spawn(['git', 'ls-files', '--others', '--exclude-standard'], {
+    cwd: dirPath,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  });
+  await proc.exited;
+  if (proc.exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text();
+    throw new Error(
+      `git ls-files --others --exclude-standard failed (exit ${proc.exitCode}): ${stderr.trim()}`,
+    );
+  }
+  const stdout = await new Response(proc.stdout).text();
+  return stdout
+    .split('\n')
+    .filter((line) => line.length > 0 && line !== '.worktreecopy');
+}
+
+/**
+ * Read the `.worktreecopy` config file from the given directory.
+ * Returns an empty array if the file does not exist.
+ */
+export async function readWorktreeCopyConfig(dirPath: string): Promise<string[]> {
+  try {
+    const content = await readFile(join(dirPath, '.worktreecopy'), 'utf-8');
+    return content.split('\n').filter((line) => line.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Write the `.worktreecopy` config file to the given directory.
+ */
+export async function writeWorktreeCopyConfig(dirPath: string, files: string[]): Promise<void> {
+  await writeFile(join(dirPath, '.worktreecopy'), files.join('\n'));
 }

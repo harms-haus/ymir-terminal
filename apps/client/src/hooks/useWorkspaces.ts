@@ -14,6 +14,7 @@ import type {
   GitWorktreeCreateResponse,
   GitWorktreeRemoveRequest,
   GitWorktreeMergeResponse,
+  GitWorktreeCopyFilesResponse,
 } from '@ymir/shared';
 
 export function useWorkspaces() {
@@ -116,7 +117,12 @@ export function useCreateWorktree() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: { workspaceId: string; branchName: string; startRef?: string }) => {
+    mutationFn: async (payload: {
+      workspaceId: string;
+      branchName: string;
+      startRef?: string;
+      filesToCopy?: string[];
+    }) => {
       return sendRequest<GitWorktreeCreateResponse>('git.worktreeCreate', payload);
     },
     onSuccess: (_data, variables) => {
@@ -157,6 +163,7 @@ export function useMergeWorktree() {
       worktreePath: string;
       targetBranch?: string;
       deleteAfterMerge?: boolean;
+      filesToCopy?: string[];
     }) => {
       return sendRequest<GitWorktreeMergeResponse>('git.worktreeMerge', params);
     },
@@ -165,6 +172,24 @@ export function useMergeWorktree() {
       queryClient.invalidateQueries({
         queryKey: ['worktrees', variables.workspaceId],
       });
+    },
+  });
+}
+
+export function useWorktreeCopyFiles(
+  workspaceId: string | null,
+  dirPath?: string,
+) {
+  const { isConnected } = useConnectionStatus();
+  return useQuery({
+    queryKey: ['worktreeCopyFiles', workspaceId, dirPath],
+    enabled: !!workspaceId && isConnected,
+    queryFn: async () => {
+      const response = await sendRequest<GitWorktreeCopyFilesResponse>('git.worktreeCopyFiles', {
+        workspaceId: workspaceId!,
+        dirPath,
+      });
+      return response;
     },
   });
 }

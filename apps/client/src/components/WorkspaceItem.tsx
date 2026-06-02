@@ -20,7 +20,7 @@ interface WorkspaceItemProps {
   onWorktreeSelect: (path: string) => void;
   onCopyWorktreePath: (path: string) => void;
   onRemoveWorktree: (path: string, force: boolean) => void;
-  onMergeWorktree: (path: string, branch: string, deleteAfterMerge?: boolean) => void;
+  onMergeWorktree: (path: string, branch: string, deleteAfterMerge?: boolean, filesToCopy?: string[]) => void;
   onCreateWorktree?: () => void;
 }
 
@@ -149,12 +149,12 @@ export function WorkspaceItem({
               key={wt.path}
               worktree={wt}
               onCopyPath={() => onCopyWorktreePath(wt.path)}
-              onMerge={() => onMergeWorktree(wt.path, wt.branch ?? '')}
-              onMergeConfirm={(deleteAfterMerge) =>
-                onMergeWorktree(wt.path, wt.branch ?? '', deleteAfterMerge)
+              onMergeConfirm={(deleteAfterMerge, filesToCopy) =>
+                onMergeWorktree(wt.path, wt.branch ?? '', deleteAfterMerge, filesToCopy)
               }
               targetBranch="main"
               onRemove={(force) => onRemoveWorktree(wt.path, force)}
+              workspaceId={workspace.id}
             >
               <WorktreeItem
                 worktree={wt}

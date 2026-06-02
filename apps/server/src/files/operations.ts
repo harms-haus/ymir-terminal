@@ -1,6 +1,7 @@
 import {
   readFile as fsReadFile,
   writeFile as fsWriteFile,
+  copyFile as fsCopyFile,
   mkdir,
   unlink,
   rename,
@@ -64,5 +65,14 @@ export async function createDirectory(path: string): Promise<void> {
     await mkdir(path, { recursive: true });
   } catch (err) {
     throw new Error(`Failed to create directory: ${path}`, { cause: err });
+  }
+}
+
+export async function copyFile(srcPath: string, destPath: string): Promise<void> {
+  try {
+    await mkdir(dirname(destPath), { recursive: true });
+    await fsCopyFile(srcPath, destPath);
+  } catch (err) {
+    throw new Error(`Failed to copy file: ${srcPath} -> ${destPath}`, { cause: err });
   }
 }

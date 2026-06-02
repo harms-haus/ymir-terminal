@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { cardStyle } from '../lib/dialog-styles';
 import {
   COLOR_BORDER_CARD,
@@ -6,7 +6,9 @@ import {
   COLOR_TEXT_CARD_MUTED,
   COLOR_BTN_PRIMARY,
   COLOR_SPINNER_TRACK,
+  COLOR_BG_CARD,
 } from '../lib/theme';
+import { useWorktreeCopyFiles } from '../hooks/useWorkspaces';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,10 +17,12 @@ import {
 interface MergeWorktreeDialogProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (opts: { deleteAfterMerge: boolean }) => void;
+  onConfirm: (opts: { deleteAfterMerge: boolean; filesToCopy: string[] }) => void;
   branchName: string;
   targetBranch: string;
   isLoading: boolean;
+  worktreePath: string;
+  workspaceId: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,7 +39,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     zIndex: 1000,
   },
-  card: cardStyle,
+  card: { ...cardStyle, maxWidth: '520px' },
   title: {
     fontSize: '20px',
     fontWeight: 600,
@@ -68,6 +72,41 @@ const styles: Record<string, React.CSSProperties> = {
     color: COLOR_TEXT_CARD_MUTED,
     cursor: 'pointer',
     userSelect: 'none',
+  },
+  fileListContainer: {
+    maxHeight: '150px',
+    overflowY: 'auto' as const,
+    border: `1px solid ${COLOR_BORDER_CARD}`,
+    borderRadius: '6px',
+    padding: '8px',
+    marginBottom: '24px',
+    backgroundColor: COLOR_BG_CARD,
+  },
+  fileCheckboxRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 0',
+    minHeight: '28px',
+  },
+  fileCheckboxLabel: {
+    fontSize: '13px',
+    color: COLOR_TEXT_CARD,
+    cursor: 'pointer',
+    userSelect: 'none',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  },
+  noFilesText: {
+    fontSize: '13px',
+    color: COLOR_TEXT_CARD_MUTED,
+    padding: '4px 0',
+  },
+  sectionLabel: {
+    fontSize: '13px',
+    color: COLOR_TEXT_CARD_MUTED,
+    marginBottom: '8px',
   },
   buttonRow: {
     display: 'flex',
@@ -122,25 +161,63 @@ function MergeWorktreeForm({
   branchName,
   targetBranch,
   isLoading,
+  worktreePath,
+  workspaceId,
 }: {
   onClose: () => void;
-  onConfirm: (opts: { deleteAfterMerge: boolean }) => void;
+  onConfirm: (opts: { deleteAfterMerge: boolean; filesToCopy: string[] }) => void;
   branchName: string;
   targetBranch: string;
   isLoading: boolean;
+  worktreePath: string;
+  workspaceId: string;
 }) {
   const [deleteAfterMerge, setDeleteAfterMerge] = useState(false);
+  // null = not yet initialized from server data; Set = user selection ready
+  const [selectedFiles, setSelectedFiles] = useState<Set<string> | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+
+  const { data: copyFiles } = useWorktreeCopyFiles(workspaceId, worktreePath);
+  const configuredFiles = useMemo(() => copyFiles?.configuredFiles ?? [], [copyFiles]);
+  const untrackedFiles = useMemo(() => copyFiles?.untrackedFiles ?? [], [copyFiles]);
 
   // Auto-focus cancel button on mount
   useEffect(() => {
     cancelRef.current?.focus();
   }, []);
 
+  // Initialize file selection once copyFiles data arrives
+  if (selectedFiles === null && copyFiles) {
+    if (configuredFiles.length > 0) {
+      setSelectedFiles(new Set(configuredFiles));
+    } else if (untrackedFiles.length > 0) {
+      setSelectedFiles(new Set(untrackedFiles));
+    } else {
+      setSelectedFiles(new Set());
+    }
+  }
+
+  // Use empty set as fallback while loading
+  const effectiveSelectedFiles = useMemo(() => selectedFiles ?? new Set<string>(), [selectedFiles]);
+
+  const toggleFile = useCallback((file: string) => {
+    setSelectedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(file)) {
+        next.delete(file);
+      } else {
+        next.add(file);
+      }
+      return next;
+    });
+  }, []);
+
+  const allFiles = [...new Set([...configuredFiles, ...untrackedFiles])];
+
   const handleConfirm = useCallback(() => {
     if (isLoading) return;
-    onConfirm({ deleteAfterMerge });
-  }, [deleteAfterMerge, isLoading, onConfirm]);
+    onConfirm({ deleteAfterMerge, filesToCopy: Array.from(effectiveSelectedFiles) });
+  }, [deleteAfterMerge, isLoading, onConfirm, effectiveSelectedFiles]);
 
   return (
     <div>
@@ -162,6 +239,36 @@ function MergeWorktreeForm({
           Delete worktree after merge
         </label>
       </div>
+
+      {allFiles.length > 0 && (
+        <>
+          <div style={styles.sectionLabel}>Files to copy to target</div>
+          <div style={styles.fileListContainer}>
+            {allFiles.map((file) => (
+              <div key={file} style={styles.fileCheckboxRow}>
+                <input
+                  id={`worktree-copy-file-${file}`}
+                  type="checkbox"
+                  checked={effectiveSelectedFiles.has(file)}
+                  onChange={() => toggleFile(file)}
+                  disabled={isLoading}
+                  style={styles.checkbox}
+                />
+                <label
+                  htmlFor={`worktree-copy-file-${file}`}
+                  title={file}
+                  style={styles.fileCheckboxLabel}
+                >
+                  {file}
+                </label>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {allFiles.length === 0 && copyFiles && (
+        <div style={styles.noFilesText}>No untracked files</div>
+      )}
 
       <div style={styles.buttonRow}>
         <button
@@ -203,6 +310,8 @@ export function MergeWorktreeDialog({
   branchName,
   targetBranch,
   isLoading,
+  worktreePath,
+  workspaceId,
 }: MergeWorktreeDialogProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -268,7 +377,7 @@ export function MergeWorktreeDialog({
 
   return (
     <>
-      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="merge-worktree-dialog"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="merge-worktree-dialog"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; }`}</style>
+      <style>{`@media (prefers-reduced-motion: reduce) { [data-testid="merge-worktree-dialog"] span[style*="animation: spin"] { animation: none !important; } } [data-testid="merge-worktree-dialog"] input:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: -1px; } [data-testid="merge-worktree-dialog"] button:focus-visible { outline: 2px solid var(--accent, #007acc); outline-offset: 2px; }`}</style>
       <div
         data-testid="merge-worktree-dialog"
         style={styles.backdrop}
@@ -288,6 +397,8 @@ export function MergeWorktreeDialog({
             branchName={branchName}
             targetBranch={targetBranch}
             isLoading={isLoading}
+            worktreePath={worktreePath}
+            workspaceId={workspaceId}
           />
         </div>
       </div>

@@ -23,6 +23,7 @@ interface WorkspaceSidebarProps {
     path: string,
     branch: string,
     deleteAfterMerge?: boolean,
+    filesToCopy?: string[],
   ) => void;
 }
 
@@ -146,6 +147,7 @@ function WorkspaceSidebarList({
     path: string,
     branch: string,
     deleteAfterMerge?: boolean,
+    filesToCopy?: string[],
   ) => void;
 }) {
   const { ref: droppableRef, isDropTarget } = useDroppable({
@@ -182,8 +184,8 @@ function WorkspaceSidebarList({
           onWorktreeSelect={onWorktreeSelect}
           onCopyWorktreePath={onCopyWorktreePath}
           onRemoveWorktree={(path, force) => onRemoveWorktree(ws.id, path, force)}
-          onMergeWorktree={(path, branch, deleteAfterMerge) =>
-            onMergeWorktree(ws.id, path, branch, deleteAfterMerge)
+          onMergeWorktree={(path, branch, deleteAfterMerge, filesToCopy) =>
+            onMergeWorktree(ws.id, path, branch, deleteAfterMerge, filesToCopy)
           }
           onCreateWorktree={() => onCreateWorktree(ws.id)}
         />

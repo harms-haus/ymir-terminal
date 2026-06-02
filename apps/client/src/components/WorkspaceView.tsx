@@ -491,12 +491,13 @@ function WorkspaceViewInner() {
   );
 
   const handleMergeWorktree = useCallback(
-    (workspaceId: string, worktreePath: string, _branch: string, deleteAfterMerge?: boolean) => {
+    (workspaceId: string, worktreePath: string, _branch: string, deleteAfterMerge?: boolean, filesToCopy?: string[]) => {
       mergeWorktreeMutation.mutate({
         workspaceId,
         worktreePath,
         targetBranch: 'main',
         deleteAfterMerge,
+        filesToCopy,
       });
     },
     [mergeWorktreeMutation],
@@ -652,6 +653,7 @@ function WorkspaceViewInner() {
             }}
             onCreated={handleWorktreeCreated}
             workspaceId={createWorktreeForWsId}
+            workspaceCwd={createWorktreeForWsId ? workspaces?.find(ws => ws.id === createWorktreeForWsId)?.cwd : undefined}
           />
         </AppLayout>
       </DragDropProvider>

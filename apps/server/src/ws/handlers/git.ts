@@ -33,6 +33,8 @@ import {
   type GitWorktreeInfo,
   type GitWorktreeMergeRequest,
   type GitWorktreeMergeResponse,
+  type GitWorktreeCopyFilesRequest,
+  type GitWorktreeCopyFilesResponse,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
@@ -62,10 +64,15 @@ import {
   createWorktree as nativeCreateWorktree,
   removeWorktree as nativeRemoveWorktree,
   mergeWorktree as nativeMergeWorktree,
+  listUntrackedFiles as nativeListUntrackedFiles,
+  readWorktreeCopyConfig as nativeReadWorktreeCopyConfig,
+  writeWorktreeCopyConfig as nativeWriteWorktreeCopyConfig,
 } from '../../git/worktrees';
+import { join } from 'node:path';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../db/persistent';
 import { getWorkspace as dbGetWorkspace } from '../../db/persistent';
+import { copyFile as nativeCopyFile } from '../../files/operations';
 import { safePath } from '../../lib/handler-validation';
 
 // ---------------------------------------------------------------------------
@@ -179,6 +186,10 @@ export interface GitDeps {
       worktreePath: string,
       options?: { targetBranch?: string; deleteAfterMerge?: boolean },
     ) => Promise<{ success: boolean; message: string; worktreeRemoved: boolean }>;
+    listUntrackedFiles?: (dirPath: string) => Promise<string[]>;
+    readWorktreeCopyConfig?: (dirPath: string) => Promise<string[]>;
+    writeWorktreeCopyConfig?: (dirPath: string, files: string[]) => Promise<void>;
+    copyFile?: (src: string, dest: string) => Promise<void>;
   };
 }
 
@@ -208,6 +219,10 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
   const doCreateWorktree = deps._mocks?.createWorktree ?? nativeCreateWorktree;
   const doRemoveWorktree = deps._mocks?.removeWorktree ?? nativeRemoveWorktree;
   const doMergeWorktree = deps._mocks?.mergeWorktree ?? nativeMergeWorktree;
+  const doListUntrackedFiles = deps._mocks?.listUntrackedFiles ?? nativeListUntrackedFiles;
+  const doReadWorktreeCopyConfig = deps._mocks?.readWorktreeCopyConfig ?? nativeReadWorktreeCopyConfig;
+  const doWriteWorktreeCopyConfig = deps._mocks?.writeWorktreeCopyConfig ?? nativeWriteWorktreeCopyConfig;
+  const doCopyFile = deps._mocks?.copyFile ?? nativeCopyFile;
 
   // --- git.status ---------------------------------------------------------
   router.handle('git.status', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -933,6 +948,72 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     conn.send(resp);
   });
 
+  // --- git.worktreeCopyFiles ---------------------------------------------
+  router.handle(
+    'git.worktreeCopyFiles',
+    async (conn: ClientConnection, envelope: MessageEnvelope) => {
+      const req = envelope as RequestEnvelope<GitWorktreeCopyFilesRequest>;
+      const payload = req.payload;
+
+      if (
+        !payload ||
+        typeof payload !== 'object' ||
+        typeof payload.workspaceId !== 'string'
+      ) {
+        conn.send(
+          createError(
+            { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
+            ErrorCodes.INVALID_MESSAGE,
+            'Missing required field: workspaceId',
+          ),
+        );
+        return;
+      }
+
+      const workspace = doGetWorkspace(deps.persistentDb, payload.workspaceId);
+      if (!workspace) {
+        conn.send(
+          createError(
+            { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
+            ErrorCodes.WORKSPACE_NOT_FOUND,
+            `Workspace not found: ${payload.workspaceId}`,
+          ),
+        );
+        return;
+      }
+
+      let resolvedDir: string;
+      if (payload.dirPath) {
+        try {
+          resolvedDir = safePath(workspace.cwd, payload.dirPath);
+        } catch {
+          conn.send(
+            createError(
+              { id: req.id, channel: req.channel ?? 'git.worktreeCopyFiles' },
+              ErrorCodes.PERMISSION_DENIED,
+              'Path traversal detected',
+            ),
+          );
+          return;
+        }
+      } else {
+        resolvedDir = workspace.cwd;
+      }
+
+      const [untrackedFiles, configuredFiles] = await Promise.all([
+        doListUntrackedFiles(resolvedDir),
+        doReadWorktreeCopyConfig(resolvedDir),
+      ]);
+
+      conn.send(
+        createResponse(
+          req,
+          { untrackedFiles, configuredFiles } satisfies GitWorktreeCopyFilesResponse,
+        ),
+      );
+    },
+  );
+
   // --- git.worktreeCreate -------------------------------------------------
   router.handle('git.worktreeCreate', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<GitWorktreeCreateRequest>;
@@ -969,6 +1050,35 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
 
     try {
       const worktree = await doCreateWorktree(workspace.cwd, payload.branchName, payload.startRef);
+
+      const filesToCopy: string[] = payload.filesToCopy ?? [];
+      if (filesToCopy.length > 0) {
+        const mainDir = workspace.cwd;
+        const worktreeDir = worktree.path;
+
+        // Copy each selected file from main to worktree
+        for (const relPath of filesToCopy) {
+          if (relPath === '.worktreecopy') continue;
+          try {
+            const srcAbs = safePath(mainDir, relPath);
+            const dstAbs = safePath(worktreeDir, relPath);
+            await doCopyFile(srcAbs, dstAbs);
+          } catch {
+            // Path traversal or copy failure — skip
+          }
+        }
+
+        // Write confirmed list to .worktreecopy in main dir
+        await doWriteWorktreeCopyConfig(mainDir, filesToCopy);
+      }
+
+      // ALWAYS copy .worktreecopy to the worktree if it exists
+      try {
+        await doCopyFile(join(workspace.cwd, '.worktreecopy'), join(worktree.path, '.worktreecopy'));
+      } catch {
+        // .worktreecopy may not exist yet, that's OK
+      }
+
       const resp = createResponse(req, { worktree } satisfies GitWorktreeCreateResponse);
       conn.send(resp);
     } catch (err) {
@@ -1017,19 +1127,28 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     }
 
     try {
-      safePath(workspace.cwd, payload.worktreePath);
-    } catch {
-      conn.send(
-        createError(
-          { id: req.id, channel: req.channel ?? 'git.worktreeMerge' },
-          ErrorCodes.PERMISSION_DENIED,
-          'Worktree path must be within the workspace',
-        ),
-      );
-      return;
-    }
+      const resolved = safePath(workspace.cwd, payload.worktreePath);
 
-    try {
+      const filesToCopy: string[] = payload.filesToCopy ?? [];
+      if (filesToCopy.length > 0) {
+        const mainDir = workspace.cwd;
+        const worktreeDir = resolved;
+
+        for (const relPath of filesToCopy) {
+          if (relPath === '.worktreecopy') continue;
+          try {
+            const srcAbs = safePath(worktreeDir, relPath);
+            const dstAbs = safePath(mainDir, relPath);
+            await doCopyFile(srcAbs, dstAbs);
+          } catch {
+            // Path traversal or copy failure — skip
+          }
+        }
+
+        // Write confirmed list to .worktreecopy in main dir
+        await doWriteWorktreeCopyConfig(mainDir, filesToCopy);
+      }
+
       const result = await doMergeWorktree(workspace.cwd, payload.worktreePath, {
         targetBranch: payload.targetBranch,
         deleteAfterMerge: payload.deleteAfterMerge,

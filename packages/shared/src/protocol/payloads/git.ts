@@ -189,6 +189,7 @@ export interface GitWorktreeCreateRequest {
   workspaceId: string;
   branchName: string;
   startRef?: string;
+  filesToCopy?: string[];
 }
 
 export interface GitWorktreeCreateResponse {
@@ -206,10 +207,21 @@ export interface GitWorktreeMergeRequest {
   worktreePath: string;
   targetBranch?: string; // defaults to main/master
   deleteAfterMerge?: boolean;
+  filesToCopy?: string[];
 }
 
 export interface GitWorktreeMergeResponse {
   success: boolean;
   message: string;
   worktreeRemoved?: boolean;
+}
+
+export interface GitWorktreeCopyFilesRequest {
+  workspaceId: string;
+  dirPath?: string; // absolute path to scan; if omitted, uses workspace cwd
+}
+
+export interface GitWorktreeCopyFilesResponse {
+  untrackedFiles: string[];  // relative paths of untracked files (excludes .worktreecopy)
+  configuredFiles: string[]; // paths listed in .worktreecopy (empty if file doesn't exist)
 }

@@ -55,6 +55,7 @@ import {
   type GitWorktreeCreateRequest,
   type GitWorktreeRemoveRequest,
   type GitWorktreeMergeRequest,
+  type GitWorktreeCopyFilesRequest,
   // Config
   type ConfigGetRequest,
   type ConfigGetResponse,
@@ -114,6 +115,7 @@ describe('REQUEST_TYPES', () => {
     'git.worktreeCreate',
     'git.worktreeRemove',
     'git.worktreeMerge',
+    'git.worktreeCopyFiles',
     'config.get',
     'config.set',
     'tab.list',
@@ -127,8 +129,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 41 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(41);
+  it('has exactly 42 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(42);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -616,6 +618,7 @@ describe('RequestPayload union', () => {
       { workspaceId: 'ws-1', branchName: 'feature-x' } satisfies GitWorktreeCreateRequest,
       { workspaceId: 'ws-1', worktreePath: '/path/to/wt' } satisfies GitWorktreeRemoveRequest,
       { workspaceId: 'ws-1', worktreePath: '/path/to/wt' } satisfies GitWorktreeMergeRequest,
+      { workspaceId: 'ws-1' } satisfies GitWorktreeCopyFilesRequest,
       { workspaceIds: ['ws-1', 'ws-2'] } satisfies WorkspaceReorderRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
@@ -637,8 +640,8 @@ describe('RequestPayload union', () => {
       expect(parsed).toEqual(p);
     }
     // 40 payload types: workspace.list has no body (WorkspaceListRequest = Record<string,never>)
-    // so REQUEST_TYPES (41) minus workspace.list = 40.
-    // All 41 have payload types, but workspace.list's type is
+    // so REQUEST_TYPES (42) minus workspace.list = 41.
+    // All 42 have payload types, but workspace.list's type is
     // Record<string,never> which has no distinguishing fields to satisfy.
     // Count: 41 REQUEST_TYPES - 1 no-body type (workspace.list = Record<string,never>)
     // = 40 typed payloads.
