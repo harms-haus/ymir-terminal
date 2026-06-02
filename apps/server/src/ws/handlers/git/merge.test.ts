@@ -120,9 +120,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('resolves repoPath relative to workspace cwd', async () => {
@@ -138,9 +136,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       });
       await router.route(conn, req);
 
-      expect(mergeBranchFn.mock.calls[0][0]).toBe(
-        resolve('/home/dev/project/packages/app'),
-      );
+      expect(mergeBranchFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/packages/app'));
     });
   });
 
@@ -149,8 +145,8 @@ describe('git merge / rebase / pull / sync handlers', () => {
   // -----------------------------------------------------------------------
   describe('git.rebase', () => {
     it('calls doRebaseBranch and returns result on success', async () => {
-      const rebaseBranchFn = mock(async (_dirPath: string, _branch: string) =>
-        'Successfully rebased',
+      const rebaseBranchFn = mock(
+        async (_dirPath: string, _branch: string) => 'Successfully rebased',
       );
 
       const router = new MessageRouter();
@@ -198,9 +194,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
   });
 
@@ -250,9 +244,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
   });
 
@@ -324,9 +316,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
   });
 
@@ -396,9 +386,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('rejects path traversal in repoPath', async () => {
@@ -416,9 +404,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(pullRemoteFn).toHaveBeenCalledTimes(0);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.PERMISSION_DENIED,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
     });
   });
 
@@ -498,9 +484,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
   });
 });
@@ -522,8 +506,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
   describe('git.commitAmend', () => {
     it('calls doCommitAmend with message and returns commitHash', async () => {
       const commitAmendFn = mock(
-        async (_dirPath: string, _options?: { message?: string; noEdit?: boolean }) =>
-          'amended123',
+        async (_dirPath: string, _options?: { message?: string; noEdit?: boolean }) => 'amended123',
       );
 
       const router = new MessageRouter();
@@ -609,9 +592,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('rejects path traversal in repoPath', async () => {
@@ -629,9 +610,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       expect(commitAmendFn).toHaveBeenCalledTimes(0);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.PERMISSION_DENIED,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
     });
   });
 
@@ -747,9 +726,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('resolves repoPath relative to workspace cwd', async () => {
@@ -765,9 +742,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       });
       await router.route(conn, req);
 
-      expect(commitAllFn.mock.calls[0][0]).toBe(
-        resolve('/home/dev/project/packages/lib'),
-      );
+      expect(commitAllFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/packages/lib'));
     });
   });
 
@@ -807,9 +782,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       });
       await router.route(conn, req);
 
-      expect(stageAllFilesFn.mock.calls[0][0]).toBe(
-        resolve('/home/dev/project/packages/app'),
-      );
+      expect(stageAllFilesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/packages/app'));
     });
 
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
@@ -845,9 +818,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('rejects path traversal in repoPath', async () => {
@@ -865,9 +836,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       expect(stageAllFilesFn).toHaveBeenCalledTimes(0);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.PERMISSION_DENIED,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
     });
   });
 });

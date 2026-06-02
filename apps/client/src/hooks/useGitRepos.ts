@@ -28,7 +28,10 @@ export interface UseGitReposReturn {
   pushLoading: Map<string, boolean>;
   fetchLoading: Map<string, boolean>;
   // Stash
-  stashPush: (repoPath: string, options?: { includeUntracked?: boolean; message?: string }) => Promise<void>;
+  stashPush: (
+    repoPath: string,
+    options?: { includeUntracked?: boolean; message?: string },
+  ) => Promise<void>;
   stashList: (repoPath: string) => Promise<GitStashEntry[]>;
   stashApply: (repoPath: string, stashRef?: string) => Promise<void>;
   stashPop: (repoPath: string, stashRef?: string) => Promise<void>;
@@ -43,8 +46,15 @@ export interface UseGitReposReturn {
   rebaseAbort: (repoPath: string) => Promise<void>;
   isRebaseInProgress: (repoPath: string) => Promise<boolean>;
   // Enhanced commit
-  commitAmend: (repoPath: string, options?: { message?: string; noEdit?: boolean }) => Promise<string>;
-  commitAll: (repoPath: string, message: string, options?: { includeUntracked?: boolean; amend?: boolean }) => Promise<string>;
+  commitAmend: (
+    repoPath: string,
+    options?: { message?: string; noEdit?: boolean },
+  ) => Promise<string>;
+  commitAll: (
+    repoPath: string,
+    message: string,
+    options?: { includeUntracked?: boolean; amend?: boolean },
+  ) => Promise<string>;
   resetSoft: (repoPath: string, ref?: string) => Promise<void>;
   // Bulk changes
   stageAll: (repoPath: string) => Promise<void>;
@@ -311,7 +321,10 @@ export function useGitRepos(
   const stashListFn = useCallback(
     async (repoPath: string): Promise<GitStashEntry[]> => {
       if (!workspaceId) return [];
-      const result = await sendRequest<{ stashes: GitStashEntry[] }>('git.stashList', { workspaceId, repoPath });
+      const result = await sendRequest<{ stashes: GitStashEntry[] }>('git.stashList', {
+        workspaceId,
+        repoPath,
+      });
       return result.stashes;
     },
     [workspaceId],
@@ -539,7 +552,11 @@ export function useGitRepos(
   const branchPublishFn = useCallback(
     async (repoPath: string, remote?: string) => {
       if (!workspaceId) return;
-      await sendRequest('git.branchPublish', { workspaceId, repoPath, remote }, { timeout: 60_000 });
+      await sendRequest(
+        'git.branchPublish',
+        { workspaceId, repoPath, remote },
+        { timeout: 60_000 },
+      );
       await refreshRepo(repoPath);
     },
     [workspaceId, refreshRepo],

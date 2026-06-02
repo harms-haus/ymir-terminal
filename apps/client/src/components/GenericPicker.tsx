@@ -139,9 +139,7 @@ export function GenericPicker({
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < filtered.length - 1 ? prev + 1 : prev,
-        );
+        setHighlightedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : prev));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev));
@@ -181,9 +179,7 @@ export function GenericPicker({
               onMouseEnter={() => setHighlightedIndex(index)}
             >
               <span style={labelStyle}>{item.label}</span>
-              {item.description && (
-                <span style={descriptionStyle}>{item.description}</span>
-              )}
+              {item.description && <span style={descriptionStyle}>{item.description}</span>}
             </div>
           ))
         )}

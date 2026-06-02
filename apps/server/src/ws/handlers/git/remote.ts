@@ -18,7 +18,15 @@ import { resolveSafeRepoPath } from './shared';
 // ---------------------------------------------------------------------------
 
 export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
-  const { doPushBranch, doFetchRemote, doAddRemote, doRemoveRemote, doListRemotes, doGetWorkspace, persistentDb } = deps;
+  const {
+    doPushBranch,
+    doFetchRemote,
+    doAddRemote,
+    doRemoveRemote,
+    doListRemotes,
+    doGetWorkspace,
+    persistentDb,
+  } = deps;
 
   // --- git.push -----------------------------------------------------------
   router.handle('git.push', async (conn: ClientConnection, envelope) => {
@@ -134,7 +142,13 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.remoteAdd');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.remoteAdd',
+    );
     if (absPath === null) return;
     await doAddRemote(absPath, payload.name, payload.url);
     conn.send(createResponse(req, {}));
@@ -174,7 +188,13 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.remoteRemove');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.remoteRemove',
+    );
     if (absPath === null) return;
     await doRemoveRemote(absPath, payload.name);
     conn.send(createResponse(req, {}));
@@ -213,7 +233,13 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.remoteList');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.remoteList',
+    );
     if (absPath === null) return;
     const remotes = await doListRemotes(absPath);
     const resp = createResponse(req, { remotes } satisfies GitRemoteListResponse);

@@ -50,10 +50,7 @@ import {
   rebaseAbort as nativeRebaseAbort,
   isRebaseInProgress as nativeIsRebaseInProgress,
 } from '../../../git/merge';
-import {
-  pullRemote as nativePullRemote,
-  syncRemote as nativeSyncRemote,
-} from '../../../git/pull';
+import { pullRemote as nativePullRemote, syncRemote as nativeSyncRemote } from '../../../git/pull';
 import { getCurrentBranch as nativeGetCurrentBranch } from '../../../git/status';
 import {
   getDiffData as nativeGetDiffData,
@@ -115,8 +112,15 @@ export interface GitDeps {
     stageAllFiles?: (dirPath: string) => Promise<void>;
     unstageAllFiles?: (dirPath: string) => Promise<void>;
     discardAllChanges?: (dirPath: string) => Promise<void>;
-    commitAmend?: (dirPath: string, options?: { message?: string; noEdit?: boolean }) => Promise<string>;
-    commitAll?: (dirPath: string, message: string, options?: { includeUntracked?: boolean; amend?: boolean }) => Promise<string>;
+    commitAmend?: (
+      dirPath: string,
+      options?: { message?: string; noEdit?: boolean },
+    ) => Promise<string>;
+    commitAll?: (
+      dirPath: string,
+      message: string,
+      options?: { includeUntracked?: boolean; amend?: boolean },
+    ) => Promise<string>;
     resetSoft?: (dirPath: string, ref?: string) => Promise<void>;
     listBranches?: (dirPath: string) => Promise<{ branches: GitBranch[]; current: string | null }>;
     createBranch?: (dirPath: string, name: string) => Promise<void>;
@@ -125,13 +129,17 @@ export interface GitDeps {
     deleteBranch?: (dirPath: string, name: string, force?: boolean) => Promise<void>;
     deleteRemoteBranch?: (dirPath: string, remote: string, branch: string) => Promise<void>;
     publishBranch?: (dirPath: string, remote?: string) => Promise<void>;
-    listRemoteBranches?: (dirPath: string) => Promise<{ branches: GitBranch[]; current: string | null }>;
+    listRemoteBranches?: (
+      dirPath: string,
+    ) => Promise<{ branches: GitBranch[]; current: string | null }>;
     createBranchFrom?: (dirPath: string, name: string, startPoint: string) => Promise<void>;
     pushBranch?: (dirPath: string, branch: string) => Promise<void>;
     fetchRemote?: (dirPath: string) => Promise<void>;
     addRemote?: (dirPath: string, name: string, url: string) => Promise<void>;
     removeRemote?: (dirPath: string, name: string) => Promise<void>;
-    listRemotes?: (dirPath: string) => Promise<{ name: string; fetchUrl: string; pushUrl: string }[]>;
+    listRemotes?: (
+      dirPath: string,
+    ) => Promise<{ name: string; fetchUrl: string; pushUrl: string }[]>;
     getDiffData?: (
       repoDir: string,
       filePath: string,
@@ -209,8 +217,15 @@ export interface ResolvedGitDeps {
   doStageAllFiles: (dirPath: string) => Promise<void>;
   doUnstageAllFiles: (dirPath: string) => Promise<void>;
   doDiscardAllChanges: (dirPath: string) => Promise<void>;
-  doCommitAmend: (dirPath: string, options?: { message?: string; noEdit?: boolean }) => Promise<string>;
-  doCommitAll: (dirPath: string, message: string, options?: { includeUntracked?: boolean; amend?: boolean }) => Promise<string>;
+  doCommitAmend: (
+    dirPath: string,
+    options?: { message?: string; noEdit?: boolean },
+  ) => Promise<string>;
+  doCommitAll: (
+    dirPath: string,
+    message: string,
+    options?: { includeUntracked?: boolean; amend?: boolean },
+  ) => Promise<string>;
   doResetSoft: (dirPath: string, ref?: string) => Promise<void>;
   doListBranches: (dirPath: string) => Promise<{ branches: GitBranch[]; current: string | null }>;
   doCreateBranch: (dirPath: string, name: string) => Promise<void>;
@@ -219,13 +234,17 @@ export interface ResolvedGitDeps {
   doDeleteBranch: (dirPath: string, name: string, force?: boolean) => Promise<void>;
   doDeleteRemoteBranch: (dirPath: string, remote: string, branch: string) => Promise<void>;
   doPublishBranch: (dirPath: string, remote?: string) => Promise<void>;
-  doListRemoteBranches: (dirPath: string) => Promise<{ branches: GitBranch[]; current: string | null }>;
+  doListRemoteBranches: (
+    dirPath: string,
+  ) => Promise<{ branches: GitBranch[]; current: string | null }>;
   doCreateBranchFrom: (dirPath: string, name: string, startPoint: string) => Promise<void>;
   doPushBranch: (dirPath: string, branch: string) => Promise<void>;
   doFetchRemote: (dirPath: string) => Promise<void>;
   doAddRemote: (dirPath: string, name: string, url: string) => Promise<void>;
   doRemoveRemote: (dirPath: string, name: string) => Promise<void>;
-  doListRemotes: (dirPath: string) => Promise<{ name: string; fetchUrl: string; pushUrl: string }[]>;
+  doListRemotes: (
+    dirPath: string,
+  ) => Promise<{ name: string; fetchUrl: string; pushUrl: string }[]>;
   doGetDiffData: (
     repoDir: string,
     filePath: string,

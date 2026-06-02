@@ -204,16 +204,16 @@ describe('git remote', () => {
 
     it('throws for invalid remote name', async () => {
       initRepo(testDir);
-      await expect(
-        addRemote(testDir, 'bad name!', 'https://example.com/repo.git'),
-      ).rejects.toThrow('Invalid remote name');
+      await expect(addRemote(testDir, 'bad name!', 'https://example.com/repo.git')).rejects.toThrow(
+        'Invalid remote name',
+      );
     });
 
     it('throws for remote name with special characters', async () => {
       initRepo(testDir);
-      await expect(
-        addRemote(testDir, 'bad$name', 'https://example.com/repo.git'),
-      ).rejects.toThrow('Invalid remote name');
+      await expect(addRemote(testDir, 'bad$name', 'https://example.com/repo.git')).rejects.toThrow(
+        'Invalid remote name',
+      );
     });
   });
 
@@ -226,14 +226,12 @@ describe('git remote', () => {
 
       await removeRemote(testDir, 'origin');
 
-      expect((await listRemotes(testDir))).toEqual([]);
+      expect(await listRemotes(testDir)).toEqual([]);
     });
 
     it('throws for invalid remote name', async () => {
       initRepo(testDir);
-      await expect(removeRemote(testDir, 'bad!')).rejects.toThrow(
-        'Invalid remote name',
-      );
+      await expect(removeRemote(testDir, 'bad!')).rejects.toThrow('Invalid remote name');
     });
   });
 });

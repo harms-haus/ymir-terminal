@@ -1,14 +1,10 @@
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 
-const spawnGitCheckedMock = mock<(...args: unknown[]) => Promise<string>>(
-  () => Promise.resolve(''),
+const spawnGitCheckedMock = mock<(...args: unknown[]) => Promise<string>>(() =>
+  Promise.resolve(''),
 );
-const fetchRemoteMock = mock<(...args: unknown[]) => Promise<void>>(
-  () => Promise.resolve(),
-);
-const pushBranchMock = mock<(...args: unknown[]) => Promise<void>>(
-  () => Promise.resolve(),
-);
+const fetchRemoteMock = mock<(...args: unknown[]) => Promise<void>>(() => Promise.resolve());
+const pushBranchMock = mock<(...args: unknown[]) => Promise<void>>(() => Promise.resolve());
 
 mock.module('./status', () => ({
   spawnGitChecked: spawnGitCheckedMock,
@@ -42,10 +38,7 @@ describe('git pull', () => {
 
       await pullRemote('/repo', true);
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['pull', '--rebase'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['pull', '--rebase'], '/repo');
     });
 
     it('calls git pull without --rebase when rebase is false', async () => {
@@ -83,10 +76,7 @@ describe('git pull', () => {
       await syncRemote('/repo', 'main');
 
       expect(fetchRemoteMock).toHaveBeenCalledWith('/repo');
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['pull', '--rebase'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['pull', '--rebase'], '/repo');
       expect(pushBranchMock).toHaveBeenCalledWith('/repo', 'main');
       expect(callOrder).toEqual(['fetch', 'pull', 'push']);
     });

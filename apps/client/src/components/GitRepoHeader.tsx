@@ -50,7 +50,6 @@ export function GitRepoHeader({
   pushLoading = false,
   fetchLoading = false,
 }: GitRepoHeaderProps) {
-
   return (
     <div
       data-testid="git-repo-header"
@@ -179,7 +178,9 @@ export function GitRepoHeader({
           onCreateBranchFrom={(name, start) => gitOps.createBranchFrom(repoInfo.path, name, start)}
           onRenameBranch={(old, newName) => gitOps.branchRename(repoInfo.path, old, newName)}
           onDeleteBranch={(name) => gitOps.branchDelete(repoInfo.path, name)}
-          onDeleteRemoteBranch={(remote, branch) => gitOps.branchDeleteRemote(repoInfo.path, remote, branch)}
+          onDeleteRemoteBranch={(remote, branch) =>
+            gitOps.branchDeleteRemote(repoInfo.path, remote, branch)
+          }
           onPublishBranch={() => gitOps.branchPublish(repoInfo.path)}
           onRemoteAdd={(name, url) => gitOps.remoteAdd(repoInfo.path, name, url)}
           onRemoteRemove={(name) => gitOps.remoteRemove(repoInfo.path, name)}

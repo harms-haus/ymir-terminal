@@ -17,7 +17,8 @@ export async function discardChanges(dirPath: string, files: string[]): Promise<
 
 export async function commitChanges(dirPath: string, message: string): Promise<string> {
   if (!message.trim()) throw new Error('Commit message cannot be empty');
-  if (message.length > 10000) throw new Error('Commit message exceeds maximum length of 10000 characters');
+  if (message.length > 10000)
+    throw new Error('Commit message exceeds maximum length of 10000 characters');
   await spawnGitChecked(['commit', '-m', message], dirPath);
   const hash = await spawnGit(['rev-parse', 'HEAD'], dirPath);
   return hash.trim();
@@ -57,7 +58,8 @@ export async function commitAll(
   message: string,
   options?: { includeUntracked?: boolean; amend?: boolean },
 ): Promise<string> {
-  if (message.length > 10000) throw new Error('Commit message exceeds maximum length of 10000 characters');
+  if (message.length > 10000)
+    throw new Error('Commit message exceeds maximum length of 10000 characters');
   if (options?.includeUntracked) {
     await spawnGitChecked(['add', '-A'], dirPath);
   } else {

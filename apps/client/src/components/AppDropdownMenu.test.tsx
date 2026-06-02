@@ -62,9 +62,7 @@ describe('AppDropdownMenu', () => {
   // -----------------------------------------------------------------------
   test('clicking a menu item calls its action callback', () => {
     const action = mock(() => {});
-    const items: DropdownMenuEntry[] = [
-      { label: 'Click Me', testId: 'click-me', action },
-    ];
+    const items: DropdownMenuEntry[] = [{ label: 'Click Me', testId: 'click-me', action }];
 
     const { getByText } = renderMenu(items);
 

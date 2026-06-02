@@ -8,7 +8,7 @@ import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
  */
 export interface SendRequestOptions {
   signal?: AbortSignal;
-  timeout?: number;  // custom timeout in milliseconds, defaults to 10_000
+  timeout?: number; // custom timeout in milliseconds, defaults to 10_000
 }
 
 export function sendRequest<T>(

@@ -1,10 +1,8 @@
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 
-const spawnGitMock = mock<(...args: unknown[]) => Promise<string>>(
-  () => Promise.resolve(''),
-);
-const spawnGitCheckedMock = mock<(...args: unknown[]) => Promise<string>>(
-  () => Promise.resolve(''),
+const spawnGitMock = mock<(...args: unknown[]) => Promise<string>>(() => Promise.resolve(''));
+const spawnGitCheckedMock = mock<(...args: unknown[]) => Promise<string>>(() =>
+  Promise.resolve(''),
 );
 
 mock.module('./status', () => ({
@@ -12,14 +10,7 @@ mock.module('./status', () => ({
   spawnGitChecked: spawnGitCheckedMock,
 }));
 
-import {
-  stashPush,
-  stashList,
-  stashApply,
-  stashPop,
-  stashDrop,
-  stashClear,
-} from './stash';
+import { stashPush, stashList, stashApply, stashPop, stashDrop, stashClear } from './stash';
 
 describe('git stash', () => {
   beforeEach(() => {
@@ -43,10 +34,7 @@ describe('git stash', () => {
 
       await stashPush('/repo', { includeUntracked: true });
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'push', '-u'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'push', '-u'], '/repo');
     });
 
     it('includes -m flag when message is provided', async () => {
@@ -79,10 +67,7 @@ describe('git stash', () => {
 
       await stashPush('/repo', {});
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'push'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'push'], '/repo');
     });
   });
 
@@ -149,9 +134,7 @@ describe('git stash', () => {
     });
 
     it('filters out blank lines', async () => {
-      spawnGitMock.mockResolvedValue(
-        'stash@{0}: WIP on main: abc1234 msg\n\n  \n',
-      );
+      spawnGitMock.mockResolvedValue('stash@{0}: WIP on main: abc1234 msg\n\n  \n');
 
       const entries = await stashList('/repo');
 
@@ -165,10 +148,7 @@ describe('git stash', () => {
 
       await stashApply('/repo');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'apply'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'apply'], '/repo');
     });
 
     it('applies a specific stash ref', async () => {
@@ -176,10 +156,7 @@ describe('git stash', () => {
 
       await stashApply('/repo', 'stash@{1}');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'apply', 'stash@{1}'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'apply', 'stash@{1}'], '/repo');
     });
   });
 
@@ -189,10 +166,7 @@ describe('git stash', () => {
 
       await stashPop('/repo');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'pop'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'pop'], '/repo');
     });
 
     it('pops a specific stash ref', async () => {
@@ -200,10 +174,7 @@ describe('git stash', () => {
 
       await stashPop('/repo', 'stash@{0}');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'pop', 'stash@{0}'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'pop', 'stash@{0}'], '/repo');
     });
   });
 
@@ -213,10 +184,7 @@ describe('git stash', () => {
 
       await stashDrop('/repo', 'stash@{0}');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'drop', 'stash@{0}'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'drop', 'stash@{0}'], '/repo');
     });
   });
 
@@ -226,10 +194,7 @@ describe('git stash', () => {
 
       await stashClear('/repo');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['stash', 'clear'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['stash', 'clear'], '/repo');
     });
   });
 });

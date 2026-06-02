@@ -64,7 +64,13 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.stashPush');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.stashPush',
+    );
     if (absPath === null) return;
 
     try {
@@ -117,7 +123,13 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.stashList');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.stashList',
+    );
     if (absPath === null) return;
 
     try {
@@ -167,7 +179,13 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.stashApply');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.stashApply',
+    );
     if (absPath === null) return;
 
     try {
@@ -268,7 +286,13 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.stashDrop');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.stashDrop',
+    );
     if (absPath === null) return;
 
     try {
@@ -318,7 +342,13 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.stashClear');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.stashClear',
+    );
     if (absPath === null) return;
 
     try {

@@ -119,36 +119,24 @@ export function GitRepoMenu({
     resolve: null,
   });
 
-  const pickItem = useCallback(
-    (title: string, items: PickerItem[]): Promise<string | null> => {
-      return new Promise((resolve) =>
-        setPickerState({ open: true, title, items, resolve }),
-      );
-    },
-    [],
-  );
+  const pickItem = useCallback((title: string, items: PickerItem[]): Promise<string | null> => {
+    return new Promise((resolve) => setPickerState({ open: true, title, items, resolve }));
+  }, []);
 
-  const doAction = useCallback(
-    async (label: string, fn: () => Promise<unknown>) => {
-      try {
-        await fn();
-        toast.success(label);
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : `${label} failed`;
-        toast.error(message);
-      }
-    },
-    [],
-  );
+  const doAction = useCallback(async (label: string, fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+      toast.success(label);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : `${label} failed`;
+      toast.error(message);
+    }
+  }, []);
 
   const hasRemote = repoInfo.hasRemote;
   const branch = repoInfo.branch;
 
-  const nonCurrentBranches = useMemo(
-    () => branches.filter((b) => !b.isCurrent),
-    [branches],
-  );
+  const nonCurrentBranches = useMemo(() => branches.filter((b) => !b.isCurrent), [branches]);
 
   const branchPickerItems = useMemo(
     () =>
@@ -180,9 +168,7 @@ export function GitRepoMenu({
                 message: 'Enter commit message',
               });
               if (msg == null) return;
-              await doAction('Commit Staged', () =>
-                onCommitAll(msg, { includeUntracked: false }),
-              );
+              await doAction('Commit Staged', () => onCommitAll(msg, { includeUntracked: false }));
             },
           },
           {
@@ -194,9 +180,7 @@ export function GitRepoMenu({
                 message: 'Enter commit message',
               });
               if (msg == null) return;
-              await doAction('Commit All', () =>
-                onCommitAll(msg, { includeUntracked: true }),
-              );
+              await doAction('Commit All', () => onCommitAll(msg, { includeUntracked: true }));
             },
             separatorAfter: true,
           },
@@ -229,9 +213,7 @@ export function GitRepoMenu({
                 message: 'Amend the previous commit without editing the message?',
               });
               if (!ok) return;
-              await doAction('Commit (Amend)', () =>
-                onCommitAmend({ noEdit: true }),
-              );
+              await doAction('Commit (Amend)', () => onCommitAmend({ noEdit: true }));
             },
           },
           {
@@ -278,7 +260,7 @@ export function GitRepoMenu({
           {
             label: 'Unstage All',
             testId: 'git-repo-menu-unstage-all',
-            disabled: !(status?.staged?.length),
+            disabled: !status?.staged?.length,
             action: () => doAction('Unstage All', onUnstageAll),
             separatorAfter: true,
           },
@@ -356,14 +338,9 @@ export function GitRepoMenu({
             label: 'Rebase...',
             testId: 'git-repo-menu-rebase',
             action: async () => {
-              const selected = await pickItem(
-                'Rebase onto branch',
-                branchPickerItems,
-              );
+              const selected = await pickItem('Rebase onto branch', branchPickerItems);
               if (!selected) return;
-              await doAction(`Rebase onto ${selected}`, () =>
-                onRebase(selected),
-              );
+              await doAction(`Rebase onto ${selected}`, () => onRebase(selected));
             },
           },
           {
@@ -375,9 +352,7 @@ export function GitRepoMenu({
                 message: 'Enter branch name',
               });
               if (!name) return;
-              await doAction(`Create branch ${name}`, () =>
-                onCreateBranch(name),
-              );
+              await doAction(`Create branch ${name}`, () => onCreateBranch(name));
             },
             separatorAfter: true,
           },
@@ -390,10 +365,7 @@ export function GitRepoMenu({
                 message: 'Enter new branch name',
               });
               if (!name) return;
-              const base = await pickItem(
-                'Select base branch',
-                branchPickerItems,
-              );
+              const base = await pickItem('Select base branch', branchPickerItems);
               if (!base) return;
               await doAction(`Create branch ${name} from ${base}`, () =>
                 onCreateBranchFrom(name, base),
@@ -423,10 +395,7 @@ export function GitRepoMenu({
             label: 'Delete...',
             testId: 'git-repo-menu-branch-delete',
             action: async () => {
-              const selected = await pickItem(
-                'Delete branch',
-                branchPickerItems,
-              );
+              const selected = await pickItem('Delete branch', branchPickerItems);
               if (!selected) return;
               const ok = await confirm({
                 title: 'Delete Branch',
@@ -434,9 +403,7 @@ export function GitRepoMenu({
                 danger: true,
               });
               if (!ok) return;
-              await doAction(`Delete branch ${selected}`, () =>
-                onDeleteBranch(selected),
-              );
+              await doAction(`Delete branch ${selected}`, () => onDeleteBranch(selected));
             },
           },
           {
@@ -493,9 +460,7 @@ export function GitRepoMenu({
                 message: 'Remote URL',
               });
               if (!url) return;
-              await doAction(`Add remote ${name}`, () =>
-                onRemoteAdd(name, url),
-              );
+              await doAction(`Add remote ${name}`, () => onRemoteAdd(name, url));
             },
           },
           {
@@ -516,9 +481,7 @@ export function GitRepoMenu({
                 danger: true,
               });
               if (!ok) return;
-              await doAction(`Remove remote ${selected}`, () =>
-                onRemoteRemove(selected),
-              );
+              await doAction(`Remove remote ${selected}`, () => onRemoteRemove(selected));
             },
           },
         ],
@@ -537,10 +500,7 @@ export function GitRepoMenu({
           {
             label: 'Stash All',
             testId: 'git-repo-menu-stash-push-all',
-            action: () =>
-              doAction('Stash All', () =>
-                onStashPush({ includeUntracked: true }),
-              ),
+            action: () => doAction('Stash All', () => onStashPush({ includeUntracked: true })),
             separatorAfter: true,
           },
           {
@@ -560,9 +520,7 @@ export function GitRepoMenu({
               }));
               const selected = await pickItem('Apply stash', items);
               if (!selected) return;
-              await doAction(`Apply stash ${selected}`, () =>
-                onStashApply(selected),
-              );
+              await doAction(`Apply stash ${selected}`, () => onStashApply(selected));
             },
           },
           {
@@ -582,9 +540,7 @@ export function GitRepoMenu({
               }));
               const selected = await pickItem('Pop stash', items);
               if (!selected) return;
-              await doAction(`Pop stash ${selected}`, () =>
-                onStashPop(selected),
-              );
+              await doAction(`Pop stash ${selected}`, () => onStashPop(selected));
             },
             separatorAfter: true,
           },
@@ -606,9 +562,7 @@ export function GitRepoMenu({
                 danger: true,
               });
               if (!ok) return;
-              await doAction(`Drop stash ${selected}`, () =>
-                onStashDrop(selected),
-              );
+              await doAction(`Drop stash ${selected}`, () => onStashDrop(selected));
             },
             separatorAfter: true,
           },

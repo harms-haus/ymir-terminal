@@ -1,10 +1,8 @@
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 
-const spawnGitMock = mock<(...args: unknown[]) => Promise<string>>(
-  () => Promise.resolve(''),
-);
-const spawnGitCheckedMock = mock<(...args: unknown[]) => Promise<string>>(
-  () => Promise.resolve(''),
+const spawnGitMock = mock<(...args: unknown[]) => Promise<string>>(() => Promise.resolve(''));
+const spawnGitCheckedMock = mock<(...args: unknown[]) => Promise<string>>(() =>
+  Promise.resolve(''),
 );
 
 mock.module('./status', () => ({
@@ -12,12 +10,7 @@ mock.module('./status', () => ({
   spawnGitChecked: spawnGitCheckedMock,
 }));
 
-import {
-  mergeBranch,
-  rebaseBranch,
-  rebaseAbort,
-  isRebaseInProgress,
-} from './merge';
+import { mergeBranch, rebaseBranch, rebaseAbort, isRebaseInProgress } from './merge';
 
 describe('git merge', () => {
   beforeEach(() => {
@@ -32,10 +25,7 @@ describe('git merge', () => {
       const result = await mergeBranch('/repo', 'feature');
 
       expect(result).toBe('Already up to date.');
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['merge', 'feature'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['merge', 'feature'], '/repo');
     });
 
     it('accepts branch names with slashes, dots, underscores, hyphens', async () => {
@@ -43,29 +33,20 @@ describe('git merge', () => {
 
       await mergeBranch('/repo', 'feature/my-branch.v2');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['merge', 'feature/my-branch.v2'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['merge', 'feature/my-branch.v2'], '/repo');
     });
 
     it('throws on invalid branch name with special characters', async () => {
-      await expect(mergeBranch('/repo', 'bad;name')).rejects.toThrow(
-        'Invalid branch name',
-      );
+      await expect(mergeBranch('/repo', 'bad;name')).rejects.toThrow('Invalid branch name');
       expect(spawnGitCheckedMock).not.toHaveBeenCalled();
     });
 
     it('throws on branch name with parentheses', async () => {
-      await expect(mergeBranch('/repo', 'bad(name)')).rejects.toThrow(
-        'Invalid branch name',
-      );
+      await expect(mergeBranch('/repo', 'bad(name)')).rejects.toThrow('Invalid branch name');
     });
 
     it('throws on empty branch name', async () => {
-      await expect(mergeBranch('/repo', '')).rejects.toThrow(
-        'Invalid branch name',
-      );
+      await expect(mergeBranch('/repo', '')).rejects.toThrow('Invalid branch name');
     });
   });
 
@@ -76,16 +57,11 @@ describe('git merge', () => {
       const result = await rebaseBranch('/repo', 'main');
 
       expect(result).toBe('');
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['rebase', 'main'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['rebase', 'main'], '/repo');
     });
 
     it('throws on invalid branch name', async () => {
-      await expect(rebaseBranch('/repo', 'evil$branch')).rejects.toThrow(
-        'Invalid branch name',
-      );
+      await expect(rebaseBranch('/repo', 'evil$branch')).rejects.toThrow('Invalid branch name');
       expect(spawnGitCheckedMock).not.toHaveBeenCalled();
     });
   });
@@ -96,10 +72,7 @@ describe('git merge', () => {
 
       await rebaseAbort('/repo');
 
-      expect(spawnGitCheckedMock).toHaveBeenCalledWith(
-        ['rebase', '--abort'],
-        '/repo',
-      );
+      expect(spawnGitCheckedMock).toHaveBeenCalledWith(['rebase', '--abort'], '/repo');
     });
   });
 
@@ -110,10 +83,7 @@ describe('git merge', () => {
       const result = await isRebaseInProgress('/repo');
 
       expect(result).toBe(true);
-      expect(spawnGitMock).toHaveBeenCalledWith(
-        ['rev-parse', '--verify', 'REBASE_HEAD'],
-        '/repo',
-      );
+      expect(spawnGitMock).toHaveBeenCalledWith(['rev-parse', '--verify', 'REBASE_HEAD'], '/repo');
     });
 
     it('returns false when REBASE_HEAD does not exist (empty output)', async () => {

@@ -295,13 +295,7 @@ export function setupAllMocks(): void {
     const DdmRoot = ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children);
 
-    const DdmTrigger = ({
-      children,
-      asChild,
-    }: {
-      children: React.ReactNode;
-      asChild?: boolean;
-    }) =>
+    const DdmTrigger = ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) =>
       asChild
         ? children
         : React.createElement('div', { 'data-testid': 'dropdown-trigger' }, children);

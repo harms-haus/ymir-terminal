@@ -110,9 +110,7 @@ export function AppDropdownMenu({
                     </span>
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.Portal>
-                    <DropdownMenu.SubContent
-                      style={getMenuContainerStyle(minWidth)}
-                    >
+                    <DropdownMenu.SubContent style={getMenuContainerStyle(minWidth)}>
                       <style>{css}</style>
                       {entry.items.map((item, subIndex) => {
                         const itemStyle: React.CSSProperties = {
@@ -160,9 +158,7 @@ export function AppDropdownMenu({
                       })}
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Portal>
-                  {entry.separatorAfter && (
-                    <DropdownMenu.Separator style={separatorStyle} />
-                  )}
+                  {entry.separatorAfter && <DropdownMenu.Separator style={separatorStyle} />}
                 </DropdownMenu.Sub>
               );
             }
@@ -172,9 +168,7 @@ export function AppDropdownMenu({
               ...menuItemStyle,
               ...(item.destructive ? { color: COLOR_ERROR } : {}),
               ...(item.disabled ? { opacity: 0.4, cursor: 'not-allowed' } : {}),
-              ...(item.shortcutHint || item.icon
-                ? { display: 'flex', alignItems: 'center' }
-                : {}),
+              ...(item.shortcutHint || item.icon ? { display: 'flex', alignItems: 'center' } : {}),
               ...item.style,
             };
 
@@ -205,9 +199,7 @@ export function AppDropdownMenu({
                     </>
                   )}
                 </DropdownMenu.Item>
-                {item.separatorAfter && (
-                  <DropdownMenu.Separator style={separatorStyle} />
-                )}
+                {item.separatorAfter && <DropdownMenu.Separator style={separatorStyle} />}
               </React.Fragment>
             );
           })}

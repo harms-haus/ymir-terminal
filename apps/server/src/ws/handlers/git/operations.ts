@@ -313,7 +313,13 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.unstageAll');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.unstageAll',
+    );
     if (absPath === null) return;
     await doUnstageAllFiles(absPath);
     conn.send(createResponse(req, {}));
@@ -352,7 +358,13 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.discardAll');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.discardAll',
+    );
     if (absPath === null) return;
     await doDiscardAllChanges(absPath);
     conn.send(createResponse(req, {}));
@@ -391,9 +403,18 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commitAmend');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.commitAmend',
+    );
     if (absPath === null) return;
-    const commitHash = await doCommitAmend(absPath, { message: payload.message, noEdit: payload.noEdit });
+    const commitHash = await doCommitAmend(absPath, {
+      message: payload.message,
+      noEdit: payload.noEdit,
+    });
     const resp = createResponse(req, { commitHash } satisfies GitCommitAmendResponse);
     conn.send(resp);
   });
@@ -433,9 +454,18 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commitAll');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.commitAll',
+    );
     if (absPath === null) return;
-    const commitHash = await doCommitAll(absPath, payload.message, { includeUntracked: payload.includeUntracked, amend: payload.amend });
+    const commitHash = await doCommitAll(absPath, payload.message, {
+      includeUntracked: payload.includeUntracked,
+      amend: payload.amend,
+    });
     const resp = createResponse(req, { commitHash } satisfies GitCommitAllResponse);
     conn.send(resp);
   });
@@ -473,7 +503,13 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.resetSoft');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.resetSoft',
+    );
     if (absPath === null) return;
     await doResetSoft(absPath, payload.ref);
     conn.send(createResponse(req, {}));

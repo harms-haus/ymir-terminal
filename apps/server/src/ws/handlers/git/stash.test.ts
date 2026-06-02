@@ -137,9 +137,7 @@ describe('git stash handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('returns INTERNAL_ERROR when doStashPush throws', async () => {
@@ -173,9 +171,7 @@ describe('git stash handlers', () => {
       });
       await router.route(conn, req);
 
-      expect(stashPushFn.mock.calls[0][0]).toBe(
-        resolve('/home/dev/project/packages/app'),
-      );
+      expect(stashPushFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/packages/app'));
     });
 
     it('rejects path traversal in repoPath', async () => {
@@ -193,9 +189,7 @@ describe('git stash handlers', () => {
       expect(stashPushFn).toHaveBeenCalledTimes(0);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.PERMISSION_DENIED,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.PERMISSION_DENIED);
     });
   });
 
@@ -262,9 +256,7 @@ describe('git stash handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('returns INTERNAL_ERROR when doStashList throws', async () => {
@@ -348,9 +340,7 @@ describe('git stash handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('returns INTERNAL_ERROR when doStashApply throws', async () => {
@@ -433,9 +423,7 @@ describe('git stash handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('returns INTERNAL_ERROR when doStashPop throws', async () => {
@@ -532,9 +520,7 @@ describe('git stash handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('returns INTERNAL_ERROR when doStashDrop throws', async () => {
@@ -614,9 +600,7 @@ describe('git stash handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect((resp.error as Record<string, unknown>).code).toBe(
-        ErrorCodes.WORKSPACE_NOT_FOUND,
-      );
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
     });
 
     it('returns INTERNAL_ERROR when doStashClear throws', async () => {

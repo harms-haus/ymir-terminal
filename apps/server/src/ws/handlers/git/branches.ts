@@ -22,7 +22,19 @@ import { resolveSafeRepoPath } from './shared';
 // ---------------------------------------------------------------------------
 
 export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
-  const { doListBranches, doCreateBranch, doCheckoutBranch, doRenameBranch, doDeleteBranch, doDeleteRemoteBranch, doPublishBranch, doListRemoteBranches, doCreateBranchFrom, doGetWorkspace, persistentDb } = deps;
+  const {
+    doListBranches,
+    doCreateBranch,
+    doCheckoutBranch,
+    doRenameBranch,
+    doDeleteBranch,
+    doDeleteRemoteBranch,
+    doPublishBranch,
+    doListRemoteBranches,
+    doCreateBranchFrom,
+    doGetWorkspace,
+    persistentDb,
+  } = deps;
 
   // --- git.branches -------------------------------------------------------
   router.handle('git.branches', async (conn: ClientConnection, envelope) => {
@@ -143,7 +155,13 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.branchRename');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.branchRename',
+    );
     if (absPath === null) return;
     await doRenameBranch(absPath, payload.oldName, payload.newName);
     conn.send(createResponse(req, {}));
@@ -183,7 +201,13 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.branchDelete');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.branchDelete',
+    );
     if (absPath === null) return;
     await doDeleteBranch(absPath, payload.name, payload.force);
     conn.send(createResponse(req, {}));
@@ -224,7 +248,13 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.branchDeleteRemote');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.branchDeleteRemote',
+    );
     if (absPath === null) return;
     await doDeleteRemoteBranch(absPath, payload.remote, payload.branch);
     conn.send(createResponse(req, {}));
@@ -263,7 +293,13 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.branchPublish');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.branchPublish',
+    );
     if (absPath === null) return;
     await doPublishBranch(absPath, payload.remote);
     conn.send(createResponse(req, {}));
@@ -302,10 +338,18 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.branchesRemote');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.branchesRemote',
+    );
     if (absPath === null) return;
     const result = await doListRemoteBranches(absPath);
-    const resp = createResponse(req, { branches: result.branches } satisfies GitBranchesRemoteResponse);
+    const resp = createResponse(req, {
+      branches: result.branches,
+    } satisfies GitBranchesRemoteResponse);
     conn.send(resp);
   });
 
@@ -344,7 +388,13 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
-    const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.branchCreateFrom');
+    const absPath = resolveSafeRepoPath(
+      workspace.cwd,
+      payload.repoPath,
+      conn,
+      req,
+      'git.branchCreateFrom',
+    );
     if (absPath === null) return;
     await doCreateBranchFrom(absPath, payload.name, payload.startPoint);
     conn.send(createResponse(req, {}));

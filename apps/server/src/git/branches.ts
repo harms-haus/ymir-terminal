@@ -51,11 +51,7 @@ export async function renameBranch(
   await spawnGitChecked(['branch', '-m', oldName, newName], dirPath);
 }
 
-export async function deleteBranch(
-  dirPath: string,
-  name: string,
-  force?: boolean,
-): Promise<void> {
+export async function deleteBranch(dirPath: string, name: string, force?: boolean): Promise<void> {
   if (!/^[a-zA-Z0-9\/. _-]+$/.test(name)) {
     throw new Error(`Invalid branch name: ${name}`);
   }
@@ -76,10 +72,7 @@ export async function deleteRemoteBranch(
   await spawnGitChecked(['push', remote, '--delete', branch], dirPath);
 }
 
-export async function publishBranch(
-  dirPath: string,
-  remote?: string,
-): Promise<void> {
+export async function publishBranch(dirPath: string, remote?: string): Promise<void> {
   if (remote !== undefined && !/^[a-zA-Z0-9._-]+$/.test(remote)) {
     throw new Error(`Invalid remote name: ${remote}`);
   }

@@ -133,9 +133,7 @@ describe('git branches', () => {
 
     it('throws for invalid new branch name', async () => {
       initRepo(testDir);
-      await expect(renameBranch(testDir, 'main', 'bad!')).rejects.toThrow(
-        'Invalid branch name',
-      );
+      await expect(renameBranch(testDir, 'main', 'bad!')).rejects.toThrow('Invalid branch name');
     });
   });
 
@@ -171,18 +169,14 @@ describe('git branches', () => {
 
     it('throws for invalid branch name', async () => {
       initRepo(testDir);
-      await expect(deleteBranch(testDir, 'bad!')).rejects.toThrow(
-        'Invalid branch name',
-      );
+      await expect(deleteBranch(testDir, 'bad!')).rejects.toThrow('Invalid branch name');
     });
   });
 
   describe('deleteRemoteBranch', () => {
     it('throws for invalid remote name', async () => {
       initRepo(testDir);
-      await expect(deleteRemoteBranch(testDir, 'bad!', 'main')).rejects.toThrow(
-        'Invalid name',
-      );
+      await expect(deleteRemoteBranch(testDir, 'bad!', 'main')).rejects.toThrow('Invalid name');
     });
 
     it('throws for invalid branch name', async () => {
@@ -398,9 +392,9 @@ describe('git branches', () => {
 
     it('throws for invalid start point', async () => {
       initRepo(testDir);
-      await expect(
-        createBranchFrom(testDir, 'my-branch', 'bad;point'),
-      ).rejects.toThrow('Invalid start point');
+      await expect(createBranchFrom(testDir, 'my-branch', 'bad;point')).rejects.toThrow(
+        'Invalid start point',
+      );
     });
   });
 });
