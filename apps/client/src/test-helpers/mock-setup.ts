@@ -367,15 +367,20 @@ export function setupAllMocks(): void {
       extensions?: unknown[];
       theme?: unknown;
       height?: string;
+      style?: React.CSSProperties;
+      'data-testid'?: string;
+      onKeyDown?: (e: React.KeyboardEvent) => void;
       [key: string]: unknown;
     }) =>
       React.createElement(
         'div',
         {
-          'data-testid': 'mock-codemirror',
+          'data-testid': props['data-testid'] ?? 'mock-codemirror',
           'data-extensions-count': props.extensions?.length ?? 0,
           'data-theme': props.theme ? 'set' : 'unset',
           'data-height': props.height ?? '',
+          style: props.style,
+          onKeyDown: props.onKeyDown,
         },
         React.createElement('div', { 'data-testid': 'cm-content' }, value),
       );

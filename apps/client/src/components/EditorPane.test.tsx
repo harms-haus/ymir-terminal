@@ -132,8 +132,8 @@ describe('EditorPane', () => {
 
     // Verify the CodeEditor and CodeMirror mock rendered — the actual
     // onChange → onDirtyChange wiring is exercised in the next test.
+    // The mock passes through data-testid from CodeEditor, so it renders as "code-editor".
     expect(getByTestId('code-editor')).toBeTruthy();
-    expect(getByTestId('mock-codemirror')).toBeTruthy();
     expect(onDirtyChange).not.toHaveBeenCalled();
   });
 
@@ -148,15 +148,17 @@ describe('EditorPane', () => {
       const CapturingMock = ({
         value,
         onChange,
+        ...rest
       }: {
         value: string;
         onChange?: (value: string) => void;
+        'data-testid'?: string;
         [key: string]: unknown;
       }) => {
         capturedOnChange = onChange;
         return React.createElement(
           'div',
-          { 'data-testid': 'mock-codemirror' },
+          { 'data-testid': rest['data-testid'] ?? 'mock-codemirror' },
           React.createElement('div', { 'data-testid': 'cm-content' }, value),
         );
       };
