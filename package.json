@@ -37,5 +37,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.0",
     "@tauri-apps/cli": "^2"
+  },
+  "patchedDependencies": {
+    "ghostty-web@0.4.0": "patches/ghostty-web@0.4.0.patch"
   }
 }
