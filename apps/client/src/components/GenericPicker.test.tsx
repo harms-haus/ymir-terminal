@@ -4,7 +4,7 @@ await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, afterEach, mock } from 'bun:test';
-import { render, cleanup, fireEvent, screen } from '@testing-library/react';
+import { render, cleanup, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { GenericPicker } from './GenericPicker';
 import type { PickerItem } from './GenericPicker';
@@ -38,6 +38,36 @@ function renderPicker(overrides: Partial<Parameters<typeof GenericPicker>[0]> = 
   );
 }
 
+/**
+ * The Dialog component uses `createPortal(..., document.body)`, so rendered
+ * content lives in document.body, NOT inside the `render()` container.
+ * We must query `document.body` directly instead of using the container-
+ * bound queries returned by `render()`. (screen is unusable because ES
+ * module imports are hoisted before `await setupTestDom()`, so `screen`
+ * sees no `document.body` at import time.)
+ */
+const body = () => document.body;
+
+/**
+ * Invoke React's `onKeyDown` handler directly on a DOM element.
+ *
+ * The Dialog component uses `createPortal(..., document.body)`. In happy-dom,
+ * React's synthetic event system cannot dispatch events on portal-rendered
+ * elements (it loses the internal fiber reference). Calling the handler
+ * directly from React's internal props bypasses this limitation.
+ */
+function fireReactKeyDown(element: HTMLElement, key: string): void {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const reactPropsKey = Object.keys(element).find((k) => k.startsWith('__reactProps'));
+  if (!reactPropsKey) throw new Error('Could not find React internal props on element');
+  const props = (element as any)[reactPropsKey];
+  if (typeof props?.onKeyDown !== 'function') throw new Error('onKeyDown not found on React props');
+  act(() => {
+    props.onKeyDown({ key, preventDefault: () => {} });
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -49,11 +79,11 @@ describe('GenericPicker', () => {
   test('renders with title and items', () => {
     renderPicker();
 
-    expect(screen.getByText('Pick an item')).toBeTruthy();
-    expect(screen.getByTestId('test-picker')).toBeTruthy();
-    expect(screen.getByText('Apple')).toBeTruthy();
-    expect(screen.getByText('Banana')).toBeTruthy();
-    expect(screen.getByText('Cherry')).toBeTruthy();
+    expect(body().querySelector('[data-testid="test-picker"]')).toBeTruthy();
+    expect(body().textContent).toContain('Pick an item');
+    expect(body().textContent).toContain('Apple');
+    expect(body().textContent).toContain('Banana');
+    expect(body().textContent).toContain('Cherry');
   });
 
   // -----------------------------------------------------------------------
@@ -62,13 +92,13 @@ describe('GenericPicker', () => {
   test('filters items based on input text', () => {
     renderPicker();
 
-    // Dialog portals to document.body; use screen to find the input
-    const input = screen.getByPlaceholderText('Filter...');
+    const input = body().querySelector('input[placeholder="Filter..."]') as HTMLInputElement;
+    expect(input).toBeTruthy();
     setReactInputValue(input, 'ban');
 
-    expect(screen.getByText('Banana')).toBeTruthy();
-    expect(screen.queryByText('Apple')).toBeNull();
-    expect(screen.queryByText('Cherry')).toBeNull();
+    expect(body().textContent).toContain('Banana');
+    expect(body().textContent).not.toContain('Apple');
+    expect(body().textContent).not.toContain('Cherry');
   });
 
   // -----------------------------------------------------------------------
@@ -77,26 +107,26 @@ describe('GenericPicker', () => {
   test('ArrowDown and ArrowUp navigate highlighted item', () => {
     renderPicker();
 
-    const input = screen.getByPlaceholderText('Filter...');
+    const input = body().querySelector('input[placeholder="Filter..."]') as HTMLInputElement;
 
-    // ArrowDown should highlight the second item (index 1)
-    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    // ArrowDown should highlight the second item (index 1 = Banana)
+    fireReactKeyDown(input, 'ArrowDown');
 
-    const highlighted1 = document.querySelector('[data-highlighted="true"]');
-    expect(highlighted1).toBeTruthy();
+    const highlighted1 = body().querySelector('[data-highlighted="true"]');
+    expect(highlighted1?.textContent).toContain('Banana');
     expect(highlighted1?.getAttribute('aria-selected')).toBe('true');
 
-    // ArrowDown again highlights the third item (index 2)
-    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    // ArrowDown again highlights the third item (index 2 = Cherry)
+    fireReactKeyDown(input, 'ArrowDown');
 
-    const highlighted2 = document.querySelector('[data-highlighted="true"]');
-    expect(highlighted2).toBeTruthy();
+    const highlighted2 = body().querySelector('[data-highlighted="true"]');
+    expect(highlighted2?.textContent).toContain('Cherry');
 
-    // ArrowUp goes back to second item (index 1)
-    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    // ArrowUp goes back to second item (index 1 = Banana)
+    fireReactKeyDown(input, 'ArrowUp');
 
-    const highlighted3 = document.querySelector('[data-highlighted="true"]');
-    expect(highlighted3).toBeTruthy();
+    const highlighted3 = body().querySelector('[data-highlighted="true"]');
+    expect(highlighted3?.textContent).toContain('Banana');
   });
 
   // -----------------------------------------------------------------------
@@ -106,10 +136,10 @@ describe('GenericPicker', () => {
     const onSelect = mock(() => {});
     renderPicker({ onSelect });
 
-    const input = screen.getByPlaceholderText('Filter...');
+    const input = body().querySelector('input[placeholder="Filter..."]') as HTMLInputElement;
 
     // First item is highlighted by default (index 0 = Apple)
-    fireEvent.keyDown(input, { key: 'Enter' });
+    fireReactKeyDown(input, 'Enter');
 
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(defaultItems[0]);
@@ -134,9 +164,9 @@ describe('GenericPicker', () => {
   test('shows empty message when no match', () => {
     renderPicker();
 
-    const input = screen.getByPlaceholderText('Filter...');
+    const input = body().querySelector('input[placeholder="Filter..."]') as HTMLInputElement;
     setReactInputValue(input, 'zzzzzzz');
 
-    expect(screen.getByText('No items found.')).toBeTruthy();
+    expect(body().textContent).toContain('No items found.');
   });
 });
