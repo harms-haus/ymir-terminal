@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import { realpathSync } from 'node:fs';
 import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/shared';
 import type { ClientConnection } from '../ws/connection';
@@ -121,12 +121,12 @@ export function safePath(workspaceCwd: string, userInput: string): string {
   try {
     const realResolved = realpathSync(resolved);
     const realCwd = realpathSync(normalizedCwd);
-    if (!realResolved.startsWith(realCwd + '/') && realResolved !== realCwd) {
+    if (!realResolved.startsWith(realCwd + sep) && realResolved !== realCwd) {
       throw new Error('Path traversal detected');
     }
   } catch (e) {
     if (e instanceof Error && e.message === 'Path traversal detected') throw e;
-    if (!resolved.startsWith(normalizedCwd + '/') && resolved !== normalizedCwd) {
+    if (!resolved.startsWith(normalizedCwd + sep) && resolved !== normalizedCwd) {
       throw new Error('Path traversal detected');
     }
   }

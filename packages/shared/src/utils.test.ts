@@ -1,3 +1,4 @@
+import { isAbsolute, sep } from 'node:path';
 import { describe, expect, it } from 'bun:test';
 import { expandTilde, fromBase64, generateId, getDbPath, toBase64 } from './utils';
 
@@ -29,8 +30,8 @@ describe('toBase64 / fromBase64', () => {
 describe('expandTilde', () => {
   it('replaces ~/ with home directory', () => {
     const result = expandTilde('~/foo');
-    expect(result.startsWith('/')).toBe(true);
-    expect(result.endsWith('/foo')).toBe(true);
+    expect(isAbsolute(result)).toBe(true);
+    expect(result.endsWith(sep + 'foo')).toBe(true);
     expect(result).not.toContain('~');
   });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { discoverRepos } from './discovery';
 
@@ -56,7 +56,7 @@ describe('discoverRepos', () => {
     expect(repos).toHaveLength(2);
 
     const paths = repos.map((r) => r.path).sort();
-    expect(paths).toEqual(['projects/proj-a', 'projects/proj-b']);
+    expect(paths).toEqual([`projects${sep}proj-a`, `projects${sep}proj-b`]);
   });
 
   it('skips ignored directories like node_modules', async () => {
@@ -93,7 +93,7 @@ describe('discoverRepos', () => {
     // maxDepth=2 should reach level2
     const found = await discoverRepos(testDir, 2);
     expect(found).toHaveLength(1);
-    expect(found[0].path).toBe('level1/level2');
+    expect(found[0].path).toBe(`level1${sep}level2`);
   });
 
   it('returns empty array for empty directory', async () => {

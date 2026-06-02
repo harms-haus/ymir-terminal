@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { resolve } from 'node:path';
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import {
   ErrorCodes,
@@ -201,7 +202,9 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(getGitStatusEnhancedFn).toHaveBeenCalledTimes(1);
-      expect(getGitStatusEnhancedFn.mock.calls[0][0]).toBe('/home/dev/project/subdir/repo');
+      expect(getGitStatusEnhancedFn.mock.calls[0][0]).toBe(
+        resolve('/home/dev/project/subdir/repo'),
+      );
 
       const resp = localConn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
@@ -289,7 +292,9 @@ describe('registerGitHandlers', () => {
 
       // safePath allows /home/dev/project/subdir/repo because it's within /home/dev/project
       expect(getGitStatusEnhancedFn).toHaveBeenCalledTimes(1);
-      expect(getGitStatusEnhancedFn.mock.calls[0][0]).toBe('/home/dev/project/subdir/repo');
+      expect(getGitStatusEnhancedFn.mock.calls[0][0]).toBe(
+        resolve('/home/dev/project/subdir/repo'),
+      );
 
       const resp = localConn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
@@ -476,7 +481,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(stageFilesFn).toHaveBeenCalledTimes(1);
-      expect(stageFilesFn.mock.calls[0][0]).toBe('/home/dev/project/packages/app');
+      expect(stageFilesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/packages/app'));
       expect(stageFilesFn.mock.calls[0][1]).toEqual(['src/a.ts', 'src/b.ts']);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
@@ -538,7 +543,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(unstageFilesFn).toHaveBeenCalledTimes(1);
-      expect(unstageFilesFn.mock.calls[0][0]).toBe('/home/dev/project/packages/app');
+      expect(unstageFilesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/packages/app'));
       expect(unstageFilesFn.mock.calls[0][1]).toEqual(['src/a.ts']);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
@@ -596,7 +601,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(discardChangesFn).toHaveBeenCalledTimes(1);
-      expect(discardChangesFn.mock.calls[0][0]).toBe('/home/dev/project/packages/app');
+      expect(discardChangesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/packages/app'));
       expect(discardChangesFn.mock.calls[0][1]).toEqual(['src/a.ts']);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
@@ -654,7 +659,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(commitChangesFn).toHaveBeenCalledTimes(1);
-      expect(commitChangesFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(commitChangesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
       expect(commitChangesFn.mock.calls[0][1]).toBe('fix: correct typo');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
@@ -717,7 +722,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(listBranchesFn).toHaveBeenCalledTimes(1);
-      expect(listBranchesFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(listBranchesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = localConn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
@@ -765,7 +770,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(checkoutBranchFn).toHaveBeenCalledTimes(1);
-      expect(checkoutBranchFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(checkoutBranchFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
       expect(checkoutBranchFn.mock.calls[0][1]).toBe('dev');
       expect(createBranchFn).toHaveBeenCalledTimes(0);
 
@@ -799,7 +804,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(createBranchFn).toHaveBeenCalledTimes(1);
-      expect(createBranchFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(createBranchFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
       expect(createBranchFn.mock.calls[0][1]).toBe('feature-x');
       expect(checkoutBranchFn).toHaveBeenCalledTimes(0);
 
@@ -844,7 +849,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(pushBranchFn).toHaveBeenCalledTimes(1);
-      expect(pushBranchFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(pushBranchFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
       expect(pushBranchFn.mock.calls[0][1]).toBe('main');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
@@ -887,7 +892,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       expect(fetchRemoteFn).toHaveBeenCalledTimes(1);
-      expect(fetchRemoteFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(fetchRemoteFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = localConn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');

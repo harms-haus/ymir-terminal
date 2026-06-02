@@ -28,7 +28,7 @@ describe('PTYManager', () => {
   let originalSpawn: any;
 
   beforeEach(() => {
-    manager = new PTYManager();
+    manager = new PTYManager('linux');
     mockTerminalInstances = [];
     mockSpawnedProcesses = [];
 
@@ -422,5 +422,162 @@ describe('PTYManager', () => {
     expect(mockTerminalInstances[1].closed).toBe(true);
     expect(mockSpawnedProcesses[0].killed).toBe(true);
     expect(mockSpawnedProcesses[1].killed).toBe(true);
+  });
+});
+
+describe('PTYManager (win32)', () => {
+  let manager: PTYManager;
+  let mockTerminalInstances: any[];
+  let mockSpawnedProcesses: any[];
+  let originalTerminal: any;
+  let originalSpawn: any;
+
+  beforeEach(() => {
+    manager = new PTYManager('win32');
+    mockTerminalInstances = [];
+    mockSpawnedProcesses = [];
+
+    // Store originals
+    originalTerminal = (Bun as any).Terminal;
+    originalSpawn = (Bun as any).spawn;
+
+    // Mock Bun.Terminal
+    (Bun as any).Terminal = class MockTerminal {
+      cols: number;
+      rows: number;
+      dataCallback: Function;
+      written: Buffer[] = [];
+      resizeOpts: { cols: number; rows: number } | null = null;
+      resizeCalls: { cols: number; rows: number }[] = [];
+      closed = false;
+
+      constructor(opts: any) {
+        this.cols = opts.cols;
+        this.rows = opts.rows;
+        this.dataCallback = opts.data;
+        mockTerminalInstances.push(this);
+      }
+
+      write(data: Buffer) {
+        this.written.push(data);
+      }
+
+      resize(cols: number, rows: number) {
+        this.resizeOpts = { cols, rows };
+        this.resizeCalls.push({ cols, rows });
+        this.cols = cols;
+        this.rows = rows;
+      }
+
+      close() {
+        this.closed = true;
+      }
+    };
+
+    // Reset existsSync mock to default (all shells exist)
+    mockExistsSync.mockImplementation((_path: string) => true);
+
+    // Mock Bun.spawn
+    (Bun as any).spawn = mock((_cmd: string[], opts: any) => {
+      let _resolve: (code: number) => void;
+      const exited = new Promise<number>((resolve) => {
+        _resolve = resolve;
+      });
+      const proc = {
+        killed: false,
+        exited,
+        _resolve: () => _resolve(0),
+        kill() {
+          this.killed = true;
+        },
+      };
+      mockSpawnedProcesses.push(proc);
+      return proc;
+    });
+  });
+
+  afterEach(() => {
+    (Bun as any).Terminal = originalTerminal;
+    (Bun as any).spawn = originalSpawn;
+  });
+
+  it('create() defaults to cmd.exe when no shell and no COMSPEC', () => {
+    const originalComspec = process.env.COMSPEC;
+    delete process.env.COMSPEC;
+    try {
+      const onData = mock((_data: string) => {});
+      manager.create('win-default', {
+        cwd: 'C:\\Users\\user',
+        cols: 80,
+        rows: 24,
+        onData,
+      });
+
+      expect((Bun as any).spawn).toHaveBeenCalledWith(
+        ['cmd.exe'],
+        expect.objectContaining({ cwd: 'C:\\Users\\user' }),
+      );
+    } finally {
+      process.env.COMSPEC = originalComspec;
+    }
+  });
+
+  it('create() uses COMSPEC env when set', () => {
+    const originalComspec = process.env.COMSPEC;
+    // Use forward slashes so basename() works correctly on Linux CI
+    process.env.COMSPEC = 'C:/Windows/System32/cmd.exe';
+    try {
+      const onData = mock((_data: string) => {});
+      manager.create('win-comspec', {
+        cwd: 'C:\\Users\\user',
+        cols: 80,
+        rows: 24,
+        onData,
+      });
+
+      // Source applies basename() to COMSPEC, so the shell arg is just the basename
+      expect((Bun as any).spawn).toHaveBeenCalledWith(
+        ['cmd.exe'],
+        expect.objectContaining({ cwd: 'C:\\Users\\user' }),
+      );
+    } finally {
+      process.env.COMSPEC = originalComspec;
+    }
+  });
+
+  it('create() rejects Unix shells on Windows', () => {
+    const onData = mock((_data: string) => {});
+    expect(() =>
+      manager.create('win-unix-shell', {
+        shell: '/bin/bash',
+        cwd: 'C:\\Users\\user',
+        cols: 80,
+        rows: 24,
+        onData,
+      }),
+    ).toThrow('Shell not allowed: /bin/bash');
+  });
+
+  it('resize() does not send SIGWINCH on Windows', () => {
+    const originalProcessKill = process.kill;
+    const mockProcessKill = mock((_pid: number, _signal: string) => {});
+    process.kill = mockProcessKill as typeof process.kill;
+    try {
+      const onData = mock((_data: string) => {});
+      manager.create('win-resize', {
+        cwd: 'C:\\Users\\user',
+        cols: 80,
+        rows: 24,
+        onData,
+      });
+
+      manager.resize('win-resize', 120, 40);
+
+      const terminal = mockTerminalInstances[0];
+      expect(terminal.resizeOpts).toEqual({ cols: 120, rows: 40 });
+      expect(mockProcessKill).not.toHaveBeenCalled();
+    } finally {
+      process.kill = originalProcessKill;
+    }
   });
 });

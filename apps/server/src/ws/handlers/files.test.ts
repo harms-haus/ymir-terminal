@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { resolve } from 'node:path';
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import { ErrorCodes, type FileTreeResponse, type FileReadResponse } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
@@ -129,13 +130,21 @@ describe('registerFileHandlers', () => {
       const fakeTree = [
         {
           name: 'src',
-          path: '/home/dev/project/src',
+          path: resolve('/home/dev/project/src'),
           isDirectory: true,
           children: [
-            { name: 'index.ts', path: '/home/dev/project/src/index.ts', isDirectory: false },
+            {
+              name: 'index.ts',
+              path: resolve('/home/dev/project/src/index.ts'),
+              isDirectory: false,
+            },
           ],
         },
-        { name: 'package.json', path: '/home/dev/project/package.json', isDirectory: false },
+        {
+          name: 'package.json',
+          path: resolve('/home/dev/project/package.json'),
+          isDirectory: false,
+        },
       ];
       scanDirectoryFn.mockImplementation(() => fakeTree);
 
@@ -143,7 +152,7 @@ describe('registerFileHandlers', () => {
       await router.route(conn, req);
 
       expect(scanDirectoryFn).toHaveBeenCalledTimes(1);
-      expect(scanDirectoryFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(scanDirectoryFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
@@ -184,7 +193,7 @@ describe('registerFileHandlers', () => {
       await router.route(conn, req);
 
       expect(readFileFn).toHaveBeenCalledTimes(1);
-      expect(readFileFn.mock.calls[0][0]).toBe('/home/dev/project/index.ts');
+      expect(readFileFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/index.ts'));
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
@@ -265,7 +274,7 @@ describe('registerFileHandlers', () => {
       await router.route(conn, req);
 
       expect(writeFileFn).toHaveBeenCalledTimes(1);
-      expect(writeFileFn.mock.calls[0][0]).toBe('/home/dev/project/foo.ts');
+      expect(writeFileFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/foo.ts'));
       expect(writeFileFn.mock.calls[0][1]).toBe('export const x = 1;');
 
       const resp = conn.sent[0] as Record<string, unknown>;
@@ -305,7 +314,7 @@ describe('registerFileHandlers', () => {
       await router.route(conn, req);
 
       expect(deleteFileFn).toHaveBeenCalledTimes(1);
-      expect(deleteFileFn.mock.calls[0][0]).toBe('/home/dev/project/old.ts');
+      expect(deleteFileFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/old.ts'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
@@ -336,8 +345,8 @@ describe('registerFileHandlers', () => {
       await router.route(conn, req);
 
       expect(renameFileFn).toHaveBeenCalledTimes(1);
-      expect(renameFileFn.mock.calls[0][0]).toBe('/home/dev/project/a.ts');
-      expect(renameFileFn.mock.calls[0][1]).toBe('/home/dev/project/b.ts');
+      expect(renameFileFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/a.ts'));
+      expect(renameFileFn.mock.calls[0][1]).toBe(resolve('/home/dev/project/b.ts'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
@@ -378,7 +387,7 @@ describe('registerFileHandlers', () => {
 
       expect(createFileFn).toHaveBeenCalledTimes(1);
       expect(createDirectoryFn).toHaveBeenCalledTimes(0);
-      expect(createFileFn.mock.calls[0][0]).toBe('/home/dev/project/new-file.ts');
+      expect(createFileFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/new-file.ts'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');
@@ -396,7 +405,7 @@ describe('registerFileHandlers', () => {
 
       expect(createDirectoryFn).toHaveBeenCalledTimes(1);
       expect(createFileFn).toHaveBeenCalledTimes(0);
-      expect(createDirectoryFn.mock.calls[0][0]).toBe('/home/dev/project/new-dir');
+      expect(createDirectoryFn.mock.calls[0][0]).toBe(resolve('/home/dev/project/new-dir'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
       expect(resp.type).toBe('response');

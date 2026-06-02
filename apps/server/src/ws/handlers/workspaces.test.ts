@@ -184,7 +184,7 @@ describe('registerWorkspaceHandlers', () => {
       expect(createWorkspaceFn).toHaveBeenCalledTimes(1);
       expect(createWorkspaceFn.mock.calls[0][1]).toEqual({
         name: 'My Project',
-        cwd: '/home/dev',
+        cwd: path.resolve('/home/dev'),
         color: '#007acc',
       });
 
@@ -275,7 +275,7 @@ describe('registerWorkspaceHandlers', () => {
       // Handler should have called startManagedWatcher
       expect(startManagedWatcherFn).toHaveBeenCalledTimes(1);
       expect(startManagedWatcherFn.mock.calls[0][0]).toBe('ws-1');
-      expect(startManagedWatcherFn.mock.calls[0][1]).toBe('/tmp/watched');
+      expect(startManagedWatcherFn.mock.calls[0][1]).toBe(path.resolve('/tmp/watched'));
       expect(capturedBroadcast).toBeDefined();
 
       // Simulate a file change event from the watcher by calling the broadcast
@@ -335,7 +335,7 @@ describe('registerWorkspaceHandlers', () => {
       await router.route(conn, req);
 
       const callArgs = updateWorkspaceFn.mock.calls[0];
-      expect(callArgs[2]).toEqual({ name: 'New', cwd: '/new', color: '#aabbcc' });
+      expect(callArgs[2]).toEqual({ name: 'New', cwd: path.resolve('/new'), color: '#aabbcc' });
     });
 
     it('returns error INVALID_MESSAGE when id is missing', async () => {
