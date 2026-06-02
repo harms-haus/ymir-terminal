@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { AppLayout } from './AppLayout';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { RightSidebar } from './RightSidebar';
@@ -38,7 +38,6 @@ function WorkspaceViewInner() {
   const { setAccentColor } = useTheme();
 
   const {
-    selectedWorkspaceId,
     activeWorkspaceId,
     activeWorkspace,
     effectiveCwd,

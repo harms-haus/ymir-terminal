@@ -1149,7 +1149,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;
+    const event = events[0] as TabChangeEvent;
     expect(event.type).toBe('create');
     expect(event.tabType).toBe('terminal');
     expect(event.title).toBe('My Terminal');
@@ -1183,7 +1183,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;
+    const event = events[0] as TabChangeEvent;
     expect(event.type).toBe('close');
     expect(event.tabId).toBe(tabId);
   });
@@ -1215,7 +1215,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;
+    const event = events[0] as TabChangeEvent;
     expect(event.type).toBe('activate');
     expect(event.tabId).toBe(id1);
     expect(event.workspaceId).toBe('ws-events');
@@ -1250,7 +1250,7 @@ describe('useTabs', () => {
     });
 
     expect(events.length).toBe(1);
-    const event = events[0] as any; // eslint-disable-line @typescript-eslint/no-explicit-any;;
+    const event = events[0] as TabChangeEvent;
     expect(event.type).toBe('reorder');
     expect(event.workspaceId).toBe('ws-events');
     // tabIds contains all three tab IDs (the ref-based read may fire before
@@ -1285,12 +1285,12 @@ describe('useTabs', () => {
     // Set up 3 workspaces with different tabs
     let idA1 = '',
       _idA2 = '',
-      idA3 = '';
+      _idA3 = '';
     act(() => {
       result.current.switchWorkspace('ws-a');
       idA1 = result.current.createTab({ type: 'terminal', title: 'A-T1' });
       _idA2 = result.current.createTab({ type: 'terminal', title: 'A-T2' });
-      idA3 = result.current.createTab({ type: 'terminal', title: 'A-T3' });
+      _idA3 = result.current.createTab({ type: 'terminal', title: 'A-T3' });
     });
     // Activate A-T1 so it's not the default (last created)
     act(() => {
@@ -1303,11 +1303,11 @@ describe('useTabs', () => {
       idB1 = result.current.createTab({ type: 'editor', title: 'B-E1', filePath: '/b.ts' });
     });
 
-    let idC1 = '',
+    let _idC1 = '',
       idC2 = '';
     act(() => {
       result.current.switchWorkspace('ws-c');
-      idC1 = result.current.createTab({ type: 'terminal', title: 'C-T1' });
+      _idC1 = result.current.createTab({ type: 'terminal', title: 'C-T1' });
       idC2 = result.current.createTab({ type: 'terminal', title: 'C-T2' });
     });
 

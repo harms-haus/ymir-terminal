@@ -1,6 +1,6 @@
 import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/shared';
 import type { ClientConnection } from '../../connection';
-import { createError, createResponse } from '../../router';
+import { createError } from '../../router';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../../db/persistent';
 import { safePath } from '../../../lib/handler-validation';
@@ -77,7 +77,7 @@ export async function handleGitRequest(
   deps: { persistentDb: Database; getWorkspace: (db: Database, id: string) => Workspace | null },
   requiredFields: string[],
   channel: string,
-  operation: (workspace: Workspace, payload: any) => Promise<void>,
+  operation: (workspace: Workspace, payload: Record<string, unknown>) => Promise<void>,
 ): Promise<void> {
   const payload = req.payload as Record<string, unknown> | null;
 

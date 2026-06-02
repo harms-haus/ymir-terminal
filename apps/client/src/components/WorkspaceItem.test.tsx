@@ -269,7 +269,7 @@ describe('WorkspaceItem', () => {
     fireEvent.click(getByTestId('ws-color-ws-1'));
 
     expect(onSelect).toHaveBeenCalled();
-    expect((onSelect.mock.calls as any)[0][0]).toBe('ws-1');
+    expect((onSelect.mock.calls as Array<Array<string>>)[0][0]).toBe('ws-1');
   });
 
   // -----------------------------------------------------------------------

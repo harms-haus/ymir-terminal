@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   COLOR_BORDER_CARD,
   COLOR_TEXT_CARD,

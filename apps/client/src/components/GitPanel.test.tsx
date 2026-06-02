@@ -163,13 +163,12 @@ describe('GitPanel', () => {
   // -----------------------------------------------------------------------
   test('shows loading state while discovering', async () => {
     // Return a promise that never resolves so loading stays true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let resolveDiscovery: (v: any) => void;
+    let resolveDiscovery: (v: unknown) => void;
     const pendingDiscovery = new Promise((resolve) => {
       resolveDiscovery = resolve;
     });
 
-    sendRequestSpy.mockImplementation((() => pendingDiscovery) as any);
+    sendRequestSpy.mockImplementation((() => pendingDiscovery) as () => Promise<unknown>);
 
     const { getByText } = renderGitPanel();
 
@@ -299,7 +298,7 @@ describe('GitPanel', () => {
         return Promise.resolve({ repos: [mockRepoInfo] });
       }
       return Promise.reject(new Error('Network failure'));
-    }) as any);
+    }) as (channel: string) => Promise<unknown>);
 
     const { getByText } = renderGitPanel();
 

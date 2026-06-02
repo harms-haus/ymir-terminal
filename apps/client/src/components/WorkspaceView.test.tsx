@@ -177,7 +177,7 @@ mockSendRequest.mockImplementation(((method: string) => {
   if (method === 'tab.list') return Promise.resolve({ tabs: [] });
   if (method === 'file.read') return Promise.resolve({ content: '', language: '' });
   return Promise.resolve({ tree: [] });
-}) as any);
+}) as (method: string) => Promise<unknown>);
 
 mock.module('../lib/ws-client', () => ({
   wsClient: {

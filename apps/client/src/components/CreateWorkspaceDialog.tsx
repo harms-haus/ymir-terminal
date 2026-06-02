@@ -4,7 +4,6 @@ import { inputGroupStyle, inputStyle, labelStyle } from '../lib/dialog-styles';
 import {
   COLOR_BG_LOGIN,
   COLOR_BORDER_CARD,
-  COLOR_TEXT_CARD,
   COLOR_TEXT_CARD_MUTED,
   COLOR_BTN_PRIMARY,
   COLOR_BG_ERROR_CARD,

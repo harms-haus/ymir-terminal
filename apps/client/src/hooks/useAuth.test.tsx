@@ -176,7 +176,9 @@ describe('useAuth', () => {
       const loginPromise = result.current.login('mypassword');
       // Yield to allow login's internal await (wait-for-connected) to resolve
       await new Promise((r) => setTimeout(r, 0));
-      const envelope = (mockSend.mock.calls as any)[0][0] as MessageEnvelope;
+      const envelope = (
+        mockSend.mock.calls as Array<Array<MessageEnvelope>>
+      )[0][0] as MessageEnvelope;
       messageHandler!({
         v: PROTOCOL_VERSION,
         type: 'response',
@@ -216,7 +218,9 @@ describe('useAuth', () => {
       const loginPromise = result.current.login('wrong-password');
       // Yield to allow login's internal await (wait-for-connected) to resolve
       await new Promise((r) => setTimeout(r, 0));
-      const envelope = (mockSend.mock.calls as any)[0][0] as MessageEnvelope;
+      const envelope = (
+        mockSend.mock.calls as Array<Array<MessageEnvelope>>
+      )[0][0] as MessageEnvelope;
       messageHandler!({
         v: PROTOCOL_VERSION,
         type: 'response',
