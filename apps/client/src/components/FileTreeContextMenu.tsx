@@ -117,11 +117,7 @@ export function FileTreeContextMenu({
               data-testid="menu-paste"
               disabled={!clipboardHasItem}
               onSelect={() => onPaste?.(path)}
-              style={
-                clipboardHasItem
-                  ? flexMenuItemStyle
-                  : { ...flexMenuItemStyle, opacity: 0.4 }
-              }
+              style={clipboardHasItem ? flexMenuItemStyle : { ...flexMenuItemStyle, opacity: 0.4 }}
             >
               Paste
               <ShortcutHint shortcut={`${mod}V`} />
