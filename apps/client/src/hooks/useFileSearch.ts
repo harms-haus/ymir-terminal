@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import fuzzysort from 'fuzzysort';
 import { sendRequest } from '../lib/send-request';
+import { splitPath, pathBasename } from '../lib/path-utils';
 import type { FileNode } from '@ymir/shared';
 
 export interface FileSearchResult {
@@ -21,9 +22,9 @@ function flattenTree(nodes: FileNode[]): FlattenedFile[] {
   const result: FlattenedFile[] = [];
   function walk(node: FileNode) {
     if (!node.isDirectory) {
-      const lastSlash = node.path.lastIndexOf('/');
-      const directory = lastSlash >= 0 ? node.path.substring(0, lastSlash) : '';
-      result.push({ path: node.path, filename: node.name, directory });
+      const segments = splitPath(node.path);
+      const directory = segments.length > 1 ? segments.slice(0, -1).join('/') : '';
+      result.push({ path: node.path, filename: node.name || pathBasename(node.path), directory });
     }
     if (node.children) {
       for (const child of node.children) {

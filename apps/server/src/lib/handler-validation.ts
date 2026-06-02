@@ -1,5 +1,5 @@
 /** Path validation utilities for ensuring file/git operations stay within workspace boundaries. */
-import { resolve, sep } from 'node:path';
+import { resolve, relative, isAbsolute } from 'node:path';
 import { realpathSync } from 'node:fs';
 import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/shared';
 import type { ClientConnection } from '../ws/connection';
@@ -122,12 +122,14 @@ export function safePath(workspaceCwd: string, userInput: string): string {
   try {
     const realResolved = realpathSync(resolved);
     const realCwd = realpathSync(normalizedCwd);
-    if (!realResolved.startsWith(realCwd + sep) && realResolved !== realCwd) {
+    const rel = relative(realCwd, realResolved);
+    if (rel.startsWith('..') || isAbsolute(rel)) {
       throw new Error('Path traversal detected');
     }
   } catch (e) {
     if (e instanceof Error && e.message === 'Path traversal detected') throw e;
-    if (!resolved.startsWith(normalizedCwd + sep) && resolved !== normalizedCwd) {
+    const rel = relative(normalizedCwd, resolved);
+    if (rel.startsWith('..') || isAbsolute(rel)) {
       throw new Error('Path traversal detected');
     }
   }

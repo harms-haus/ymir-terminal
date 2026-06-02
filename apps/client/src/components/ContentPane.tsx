@@ -8,6 +8,7 @@ import { TabBar } from './TabBar';
 import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
 import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
+import { pathBasename } from '../lib/path-utils';
 
 export interface ContentPaneProps {
   workspaceId: string | null;
@@ -111,7 +112,7 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
         activateTab(existing.id);
         return;
       }
-      createTab({ type: 'editor', title: filePath.split('/').pop() || filePath, filePath });
+      createTab({ type: 'editor', title: pathBasename(filePath), filePath });
     },
     [tabs, activateTab, createTab],
   );
@@ -126,7 +127,7 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
         activateTab(existing.id);
         return;
       }
-      const fileName = filePath.split('/').pop() || filePath;
+      const fileName = pathBasename(filePath);
       createTab({
         type: 'diff',
         title: fileName,
@@ -151,7 +152,7 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
         activateTab(existing.id);
         return;
       }
-      const fileName = filePath.split('/').pop() || filePath;
+      const fileName = pathBasename(filePath);
       createTab({
         type: 'diff',
         title: fileName,

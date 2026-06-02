@@ -1,4 +1,4 @@
-import { basename, join } from 'node:path';
+import { basename, join, relative, isAbsolute } from 'node:path';
 import { stat } from 'node:fs/promises';
 import {
   type MessageEnvelope,
@@ -110,7 +110,8 @@ export function registerCrudHandlers(router: MessageRouter, deps: FileDeps): voi
       ['srcPath', 'destDir'],
       async ({ srcPath, destDir: resolvedDestDir }) => {
         // Guard against copying into self or a descendant
-        if (resolvedDestDir.startsWith(srcPath + '/')) {
+        const rel = relative(srcPath, resolvedDestDir);
+        if (!rel.startsWith('..') && !isAbsolute(rel)) {
           throw new Error('Cannot copy into a subdirectory of the source');
         }
         const baseName = basename(srcPath);
@@ -138,7 +139,8 @@ export function registerCrudHandlers(router: MessageRouter, deps: FileDeps): voi
       ['srcPath', 'destDir'],
       async ({ srcPath, destDir: resolvedDestDir }) => {
         // Guard against moving into self or a descendant
-        if (resolvedDestDir.startsWith(srcPath + '/')) {
+        const rel = relative(srcPath, resolvedDestDir);
+        if (!rel.startsWith('..') && !isAbsolute(rel)) {
           throw new Error('Cannot move into a subdirectory of the source');
         }
         const baseName = basename(srcPath);

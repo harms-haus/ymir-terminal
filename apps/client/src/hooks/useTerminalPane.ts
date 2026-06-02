@@ -3,6 +3,7 @@ import { useTabs } from './useTabs';
 import type { TabInfo } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 import { useConfirm } from './useDialog';
+import { pathBasename } from '../lib/path-utils';
 
 export interface UseTerminalPaneOptions {
   workspaceId?: string | null;
@@ -130,7 +131,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     async (tabId: string) => {
       const tab = tabs.find((t) => t.id === tabId);
       if (dirtyFiles && tab?.filePath && dirtyFiles.has(tab.filePath)) {
-        const fileName = tab.filePath.split('/').pop() || tab.filePath;
+        const fileName = pathBasename(tab.filePath);
         const ok = await confirm({
           title: 'Close Tab',
           message: `"${fileName}" has unsaved changes. Close without saving?`,
@@ -158,7 +159,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
           (t) => t.filePath && dirtyFiles.has(t.filePath),
         );
         if (dirtyEditorsToClose.length > 0) {
-          const names = dirtyEditorsToClose.map((t) => t.filePath!.split('/').pop()).join(', ');
+          const names = dirtyEditorsToClose.map((t) => pathBasename(t.filePath!)).join(', ');
           const ok = await confirm({
             title: 'Close Tabs',
             message: `"${names}" has unsaved changes. Close without saving?`,
@@ -192,7 +193,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
           (t) => t.filePath && dirtyFiles.has(t.filePath),
         );
         if (dirtyEditorsToClose.length > 0) {
-          const names = dirtyEditorsToClose.map((t) => t.filePath!.split('/').pop()).join(', ');
+          const names = dirtyEditorsToClose.map((t) => pathBasename(t.filePath!)).join(', ');
           const ok = await confirm({
             title: 'Close Tabs',
             message: `"${names}" has unsaved changes. Close without saving?`,

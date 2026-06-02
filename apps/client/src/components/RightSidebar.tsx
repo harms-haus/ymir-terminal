@@ -11,6 +11,7 @@ import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
 import { mergeDeletedFiles } from '../lib/git-utils';
+import { joinPath, pathBasename, pathDirname } from '../lib/path-utils';
 import { useFileClipboard } from '../contexts/FileClipboardContext';
 import {
   COLOR_BORDER,
@@ -184,7 +185,7 @@ export function RightSidebar({
         placeholder: 'file.txt',
       });
       if (!name || !workspaceId) return;
-      sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: false })
+      sendRequest('file.create', { workspaceId, path: joinPath(parentDir, name), isDirectory: false })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
@@ -199,7 +200,7 @@ export function RightSidebar({
         placeholder: 'folder',
       });
       if (!name || !workspaceId) return;
-      sendRequest('file.create', { workspaceId, path: parentDir + '/' + name, isDirectory: true })
+      sendRequest('file.create', { workspaceId, path: joinPath(parentDir, name), isDirectory: true })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
@@ -208,15 +209,15 @@ export function RightSidebar({
 
   const handleRename = useCallback(
     async (path: string) => {
-      const oldName = path.split('/').pop() || '';
+      const oldName = pathBasename(path) || '';
       const newName = await prompt({
         title: 'Rename',
         message: 'Enter new name:',
         defaultValue: oldName,
       });
       if (!newName || !workspaceId) return;
-      const parentDir = path.split('/').slice(0, -1).join('/') || '/';
-      sendRequest('file.rename', { workspaceId, oldPath: path, newPath: parentDir + '/' + newName })
+      const parentDir = pathDirname(path);
+      sendRequest('file.rename', { workspaceId, oldPath: path, newPath: joinPath(parentDir, newName) })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
