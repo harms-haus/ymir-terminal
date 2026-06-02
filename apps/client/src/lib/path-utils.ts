@@ -26,7 +26,7 @@ export function pathDirname(path: string): string {
   const segments = splitPath(trimmed);
   if (segments.length <= 1) return '.';
   segments.pop();
-  return segments.join('/');  // Always use forward slash for IPC
+  return segments.join('/'); // Always use forward slash for IPC
 }
 
 /**
@@ -34,5 +34,8 @@ export function pathDirname(path: string): string {
  * The server's safePath normalizes via resolve() so forward slashes work fine.
  */
 export function joinPath(...segments: string[]): string {
-  return segments.flatMap((s) => splitPath(s)).filter(Boolean).join('/');
+  return segments
+    .flatMap((s) => splitPath(s))
+    .filter(Boolean)
+    .join('/');
 }

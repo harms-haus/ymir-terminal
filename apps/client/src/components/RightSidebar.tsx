@@ -185,7 +185,11 @@ export function RightSidebar({
         placeholder: 'file.txt',
       });
       if (!name || !workspaceId) return;
-      sendRequest('file.create', { workspaceId, path: joinPath(parentDir, name), isDirectory: false })
+      sendRequest('file.create', {
+        workspaceId,
+        path: joinPath(parentDir, name),
+        isDirectory: false,
+      })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
@@ -200,7 +204,11 @@ export function RightSidebar({
         placeholder: 'folder',
       });
       if (!name || !workspaceId) return;
-      sendRequest('file.create', { workspaceId, path: joinPath(parentDir, name), isDirectory: true })
+      sendRequest('file.create', {
+        workspaceId,
+        path: joinPath(parentDir, name),
+        isDirectory: true,
+      })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },
@@ -217,7 +225,11 @@ export function RightSidebar({
       });
       if (!newName || !workspaceId) return;
       const parentDir = pathDirname(path);
-      sendRequest('file.rename', { workspaceId, oldPath: path, newPath: joinPath(parentDir, newName) })
+      sendRequest('file.rename', {
+        workspaceId,
+        oldPath: path,
+        newPath: joinPath(parentDir, newName),
+      })
         .then(refreshFileTree)
         .catch(handleAsyncError);
     },

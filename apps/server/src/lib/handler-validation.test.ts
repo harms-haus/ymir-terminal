@@ -73,7 +73,9 @@ describe('safePath edge cases', () => {
   });
 
   it('throws when traversal is embedded mid-path', () => {
-    expect(() => safePath('/workspace', 'src/../../../etc/passwd')).toThrow('Path traversal detected');
+    expect(() => safePath('/workspace', 'src/../../../etc/passwd')).toThrow(
+      'Path traversal detected',
+    );
   });
 });
 
