@@ -25,6 +25,9 @@ export interface FileDeps {
     renameFile: (oldPath: string, newPath: string) => Promise<void>;
     createFile: (path: string) => Promise<void>;
     createDirectory: (path: string) => Promise<void>;
+    copyFile: (srcPath: string, destPath: string) => Promise<void>;
+    copyDirectory: (srcPath: string, destPath: string) => Promise<void>;
+    findAvailableName: (dirPath: string, baseName: string) => Promise<string>;
   };
   watcher: Record<string, unknown>;
   /** Internal: allows tests to inject mock functions. */
