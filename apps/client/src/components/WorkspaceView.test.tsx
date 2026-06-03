@@ -432,13 +432,10 @@ describe('WorkspaceView', () => {
   // -----------------------------------------------------------------------
   // 9. ContentPane receives correct workspaceId when workspace changes
   // -----------------------------------------------------------------------
-  test('ContentPane receives updated workspaceId when workspace selection changes', async () => {
+  test('workspace selection propagates correct workspaceId to terminal creation', async () => {
     const { getAllByTestId, getByTestId } = renderWorkspaceView();
 
-    // Initially ws-1 is auto-selected — ContentPane renders with workspaceId ws-1
-    const contentPane = getByTestId('content-pane');
-    expect(contentPane).toBeDefined();
-
+    // Initially ws-1 is auto-selected — SplitLeafPane renders with workspaceId ws-1
     // The tab-add button should be present (canAddTerminal is true when workspaceId is set)
     expect(getAllByTestId('tab-add').length).toBeGreaterThanOrEqual(1);
 
@@ -446,8 +443,8 @@ describe('WorkspaceView', () => {
     fireEvent.click(getByTestId('workspace-item-ws-2'));
     await new Promise((r) => setTimeout(r, 0));
 
-    // ContentPane should still be rendered (workspaceId changed to ws-2)
-    expect(getByTestId('content-pane')).toBeDefined();
+    // SplitLeafPane should still be rendered (workspaceId changed to ws-2)
+    expect(getAllByTestId('tab-add').length).toBeGreaterThanOrEqual(1);
 
     // Create a terminal now — should use ws-2
     const addButtons = getAllByTestId('tab-add');

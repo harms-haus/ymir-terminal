@@ -237,7 +237,10 @@ export const SortableTab = React.memo(function SortableTab({
             }}
           />
         ) : (
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span
+            data-testid={`tab-title-${tab.id}`}
+            style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
             {tab.customTitle ?? tab.title}
           </span>
         )}

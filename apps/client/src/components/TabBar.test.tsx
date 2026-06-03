@@ -615,14 +615,12 @@ describe('TabBar', () => {
     const { container } = renderTabBar({ tabs: tabsWithCustomTitle, activeTabId: 'tab-1' });
 
     // Tab with customTitle should display the custom title
-    const tab1 = container.querySelector('[data-testid="tab-tab-1"]') as HTMLElement;
-    const span1 = tab1.querySelector('span') as HTMLElement;
-    expect(span1.textContent).toBe('My Custom Tab');
+    const tab1Title = container.querySelector('[data-testid="tab-title-tab-1"]') as HTMLElement;
+    expect(tab1Title.textContent).toBe('My Custom Tab');
 
     // Tab without customTitle should fall back to title
-    const tab2 = container.querySelector('[data-testid="tab-tab-2"]') as HTMLElement;
-    const span2 = tab2.querySelector('span') as HTMLElement;
-    expect(span2.textContent).toBe('Terminal 2');
+    const tab2Title = container.querySelector('[data-testid="tab-title-tab-2"]') as HTMLElement;
+    expect(tab2Title.textContent).toBe('Terminal 2');
   });
 
   // -----------------------------------------------------------------------
