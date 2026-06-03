@@ -115,38 +115,46 @@ export function useTerminalRegistry({
   /* eslint-disable react-hooks/refs, react-hooks/exhaustive-deps -- stable mutable cache and stable refs */
   const terminalEntries: TerminalEntry[] = useMemo(() => {
     const cache = callbackCacheRef.current;
-    return terminalRegistry.map((entry) => {
-      let cached = cache.get(entry.tabId);
-      if (!cached) {
-        cached = {
-          onTitleChange: (title: string) => {
-            const paneHandle =
-              entry.owningPane === 'bottom'
-                ? bottomPanelRef.current
-                : paneHandleRefs.current.get(entry.owningPane);
-            paneHandle?.updateTabTitle(entry.tabId, title);
-          },
-          onCwdChange: (cwd: string) => {
-            const paneHandle =
-              entry.owningPane === 'bottom'
-                ? bottomPanelRef.current
-                : paneHandleRefs.current.get(entry.owningPane);
-            paneHandle?.updateTabCwd(entry.tabId, cwd);
-          },
+    // Deduplicate by terminalId — a terminal should only appear once
+    const seen = new Set<string>();
+    return terminalRegistry
+      .filter((entry) => {
+        if (seen.has(entry.terminalId)) return false;
+        seen.add(entry.terminalId);
+        return true;
+      })
+      .map((entry) => {
+        let cached = cache.get(entry.tabId);
+        if (!cached) {
+          cached = {
+            onTitleChange: (title: string) => {
+              const paneHandle =
+                entry.owningPane === 'bottom'
+                  ? bottomPanelRef.current
+                  : paneHandleRefs.current.get(entry.owningPane);
+              paneHandle?.updateTabTitle(entry.tabId, title);
+            },
+            onCwdChange: (cwd: string) => {
+              const paneHandle =
+                entry.owningPane === 'bottom'
+                  ? bottomPanelRef.current
+                  : paneHandleRefs.current.get(entry.owningPane);
+              paneHandle?.updateTabCwd(entry.tabId, cwd);
+            },
+          };
+          cache.set(entry.tabId, cached);
+        }
+        return {
+          terminalId: entry.terminalId,
+          tabId: entry.tabId,
+          owningPane: entry.owningPane,
+          isActive:
+            entry.workspaceId === activeWorkspaceId &&
+            entry.tabId === activeTabByPane.get(entry.owningPane),
+          onTitleChange: cached.onTitleChange,
+          onCwdChange: cached.onCwdChange,
         };
-        cache.set(entry.tabId, cached);
-      }
-      return {
-        terminalId: entry.terminalId,
-        tabId: entry.tabId,
-        owningPane: entry.owningPane,
-        isActive:
-          entry.workspaceId === activeWorkspaceId &&
-          entry.tabId === activeTabByPane.get(entry.owningPane),
-        onTitleChange: cached.onTitleChange,
-        onCwdChange: cached.onCwdChange,
-      };
-    });
+      });
   }, [terminalRegistry, activeTabByPane, activeWorkspaceId]);
   /* eslint-enable react-hooks/refs, react-hooks/exhaustive-deps */
 

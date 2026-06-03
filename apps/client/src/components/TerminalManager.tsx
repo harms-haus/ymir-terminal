@@ -73,7 +73,7 @@ export const TerminalManager = React.memo(function TerminalManager({
 
         return (
           <div
-            key={t.terminalId}
+            key={t.tabId}
             style={{
               position: 'absolute',
               top: bounds.top,
