@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { sendRequest } from '../lib/send-request';
 import {
   createDefaultLayout,
@@ -42,7 +42,7 @@ export function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult
     workspaceIdRef.current = workspaceId;
   }, [workspaceId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     layoutRef.current = layout;
   }, [layout]);
 

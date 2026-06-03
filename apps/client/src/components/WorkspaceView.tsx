@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { AppLayout } from './AppLayout';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { RightSidebar } from './RightSidebar';
@@ -86,7 +86,7 @@ function WorkspaceViewInner() {
 
   // Ref to read the latest layout in requestAnimationFrame callbacks without stale closures
   const layoutRef = useRef(layout);
-  useEffect(() => {
+  useLayoutEffect(() => {
     layoutRef.current = layout;
   }, [layout]);
 
