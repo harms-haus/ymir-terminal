@@ -118,6 +118,10 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
       sendRequest<{ tabs: TabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
         .then((response) => {
+          // Ref-based guards — always read current values, no stale closures
+          if (restoredWorkspacesRef.current.has(workspaceId)) return;
+          if (tabsRef.current.length > 0) return;
+
           // Filter out dead terminals
           const liveTabs = response.tabs.filter((t) => t.terminalAlive !== false);
           loadTabs(workspaceId, liveTabs);

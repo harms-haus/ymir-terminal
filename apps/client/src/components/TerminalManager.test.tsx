@@ -172,9 +172,9 @@ describe('TerminalManager', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 3. Handles null bounds gracefully — terminal is not rendered
+  // 3. Handles null bounds gracefully — terminal is rendered in hidden zero-size div
   // -----------------------------------------------------------------------
-  test('does not render a terminal when its owning pane bounds are null', () => {
+  test('renders terminal in hidden zero-size div when pane bounds are null', () => {
     const entry = makeTerminalEntry({
       terminalId: 'term-null-bounds',
       tabId: 'tab-null',
@@ -182,7 +182,7 @@ describe('TerminalManager', () => {
       isActive: true,
     });
 
-    // content pane bounds are null — the content terminal should not be rendered
+    // content pane bounds are null — the terminal is rendered but hidden in a zero-size div
     const { queryByTestId } = renderManager({
       terminals: [entry],
       paneBounds: {
@@ -191,13 +191,20 @@ describe('TerminalManager', () => {
       },
     });
 
-    expect(queryByTestId('mock-terminal-term-null-bounds')).toBeNull();
+    const terminal = queryByTestId('mock-terminal-term-null-bounds');
+    expect(terminal).not.toBeNull();
+
+    const wrapper = terminal!.parentElement!;
+    expect(wrapper.style.width).toBe('0px');
+    expect(wrapper.style.height).toBe('0px');
+    expect(wrapper.style.overflow).toBe('hidden');
+    expect(wrapper.style.pointerEvents).toBe('none');
   });
 
   // -----------------------------------------------------------------------
-  // 4. Handles both bounds null
+  // 4. Handles both bounds null — both terminals rendered in hidden zero-size divs
   // -----------------------------------------------------------------------
-  test('does not render any terminals when both contentBounds and bottomBounds are null', () => {
+  test('renders both terminals in hidden zero-size divs when both contentBounds and bottomBounds are null', () => {
     const entry1 = makeTerminalEntry({ owningPane: 'content' });
     const entry2 = makeTerminalEntry({ owningPane: 'bottom' });
 
@@ -210,9 +217,16 @@ describe('TerminalManager', () => {
     const overlay = getByTestId('terminal-overlay');
     expect(overlay).toBeTruthy();
 
-    // No terminals rendered
-    expect(queryByTestId(`mock-terminal-${entry1.terminalId}`)).toBeNull();
-    expect(queryByTestId(`mock-terminal-${entry2.terminalId}`)).toBeNull();
+    // Both terminals are rendered but hidden in zero-size divs
+    const term1 = queryByTestId(`mock-terminal-${entry1.terminalId}`);
+    expect(term1).not.toBeNull();
+    expect(term1!.parentElement!.style.width).toBe('0px');
+    expect(term1!.parentElement!.style.height).toBe('0px');
+
+    const term2 = queryByTestId(`mock-terminal-${entry2.terminalId}`);
+    expect(term2).not.toBeNull();
+    expect(term2!.parentElement!.style.width).toBe('0px');
+    expect(term2!.parentElement!.style.height).toBe('0px');
   });
 
   // -----------------------------------------------------------------------

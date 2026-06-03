@@ -578,6 +578,7 @@ function WorkspaceViewInner() {
         getPaneBounds={getPaneBounds}
         terminalRefs={terminalRefsMap}
         boundsVersion={allBounds}
+        onFocusPane={setFocusedPaneId}
       />
     </div>
   );

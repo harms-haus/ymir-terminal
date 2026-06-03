@@ -23,6 +23,8 @@ interface TerminalManagerProps {
   terminalRefs: React.MutableRefObject<Map<string, { focus(): void }>>;
   /** Bounds version — when this changes, triggers a re-render to re-read getPaneBounds */
   boundsVersion?: unknown;
+  /** Called when the user clicks on a terminal area — notifies which pane was clicked */
+  onFocusPane?: (paneId: string) => void;
 }
 
 export const TerminalManager = React.memo(function TerminalManager({
@@ -31,6 +33,7 @@ export const TerminalManager = React.memo(function TerminalManager({
   terminalRefs,
   // boundsVersion is not used directly — it forces re-renders when bounds update
   boundsVersion: _boundsVersion,
+  onFocusPane,
 }: TerminalManagerProps) {
   // Stable ref callbacks: tabId -> ref callback. Created once per tabId to
   // avoid React tearing down and rebuilding the ref on every render.
@@ -63,9 +66,9 @@ export const TerminalManager = React.memo(function TerminalManager({
     >
       {terminals.map((t) => {
         const bounds = getPaneBounds(t.owningPane);
-        if (!bounds) return null;
 
-        // Get or create a stable ref callback for this tabId
+        // Get or create a stable ref callback for this tabId — must be
+        // initialized before any early-return branch that uses it.
         let refCb = refCallbackCache.get(t.tabId);
         if (!refCb) {
           refCb = (el: { focus(): void } | null) => {
@@ -73,6 +76,29 @@ export const TerminalManager = React.memo(function TerminalManager({
             else terminalRefs.current.delete(t.tabId);
           };
           refCallbackCache.set(t.tabId, refCb);
+        }
+
+        if (!bounds) {
+          return (
+            <div
+              key={t.tabId}
+              style={{
+                position: 'absolute',
+                width: 0,
+                height: 0,
+                overflow: 'hidden',
+                pointerEvents: 'none',
+              }}
+              onMouseDown={() => onFocusPane?.(t.owningPane)}
+            >
+              <Terminal
+                terminalId={t.terminalId}
+                ref={refCb}
+                onTitleChange={t.onTitleChange}
+                onCwdChange={t.onCwdChange}
+              />
+            </div>
+          );
         }
 
         return (
@@ -87,6 +113,7 @@ export const TerminalManager = React.memo(function TerminalManager({
               display: t.isActive ? 'block' : 'none',
               pointerEvents: t.isActive ? 'auto' : 'none',
             }}
+            onMouseDown={() => onFocusPane?.(t.owningPane)}
           >
             <Terminal
               terminalId={t.terminalId}
