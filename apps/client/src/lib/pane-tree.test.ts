@@ -443,7 +443,7 @@ describe('integration: split then remove then split again', () => {
     const s1 = layout as SplitNode;
 
     // Get IDs of the two panes
-    const leftId = (s1.children[0] as PaneNode).id;
+    const _leftId = (s1.children[0] as PaneNode).id;
     const rightId = (s1.children[1] as PaneNode).id;
 
     // Split the right pane vertically
