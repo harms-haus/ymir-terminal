@@ -21,7 +21,9 @@
     "extract:tauri": "bun scripts/extract-tauri-binary.ts",
     "publish:npm": "bun scripts/publish-npm.ts",
     "version:check": "bun scripts/sync-version.ts",
-    "version:set": "bun scripts/sync-version.ts --set"
+    "version:set": "bun scripts/sync-version.ts --set",
+    "pre-commit-check": "bun run format:check && bun run lint && bun run typecheck",
+    "prepare": "simple-git-hooks"
   },
   "workspaces": [
     "apps/*",
@@ -35,7 +37,11 @@
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.0",
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "simple-git-hooks": "^2"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bun run pre-commit-check"
   },
   "patchedDependencies": {
     "ghostty-web@0.4.0": "patches/ghostty-web@0.4.0.patch"

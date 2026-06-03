@@ -86,6 +86,7 @@ import type {
   GitRemoteAddRequest,
   GitRemoteRemoveRequest,
   GitRemoteListRequest,
+  GitStatusChangeEvent,
 } from './git';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
@@ -184,6 +185,7 @@ export const EVENT_TYPES = [
   'terminal.exit',
   'file.change',
   'connection.status',
+  'git.statusChange',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -270,4 +272,5 @@ export type EventPayload =
   | TerminalOutputEvent
   | TerminalExitEvent
   | FileChangeEvent
-  | ConnectionStatusEvent;
+  | ConnectionStatusEvent
+  | GitStatusChangeEvent;

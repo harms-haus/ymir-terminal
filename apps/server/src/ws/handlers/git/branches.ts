@@ -32,6 +32,7 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
     doPublishBranch,
     doListRemoteBranches,
     doCreateBranchFrom,
+    doInvalidateAndRefresh,
     doGetWorkspace,
     persistentDb,
   } = deps;
@@ -117,6 +118,7 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
     } else {
       await doCheckoutBranch(absPath, payload.branch);
     }
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -164,6 +166,7 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
     );
     if (absPath === null) return;
     await doRenameBranch(absPath, payload.oldName, payload.newName);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -210,6 +213,7 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
     );
     if (absPath === null) return;
     await doDeleteBranch(absPath, payload.name, payload.force);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -257,6 +261,7 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
     );
     if (absPath === null) return;
     await doDeleteRemoteBranch(absPath, payload.remote, payload.branch);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -302,6 +307,7 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
     );
     if (absPath === null) return;
     await doPublishBranch(absPath, payload.remote);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -397,6 +403,7 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
     );
     if (absPath === null) return;
     await doCreateBranchFrom(absPath, payload.name, payload.startPoint);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 }

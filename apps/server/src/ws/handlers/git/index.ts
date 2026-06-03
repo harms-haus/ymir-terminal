@@ -9,6 +9,8 @@ import {
   type GitWorktreeInfo,
 } from '@ymir/shared';
 import type { CommitDetails } from '../../../git/commit-details';
+import { GitStatusCache } from '../../../git/status-cache';
+import type { GitStatusWatcher } from '../../../git/status-watcher';
 
 // Native git implementations (used as fallbacks when _mocks are absent)
 import { getGitStatus as nativeGetGitStatus } from '../../../git/status';
@@ -88,6 +90,7 @@ import { registerDiffHandlers } from './diff';
 import { registerWorktreeHandlers } from './worktrees';
 import { registerMergeHandlers } from './merge';
 import { registerStashHandlers } from './stash';
+import { createInvalidator } from './shared';
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -95,6 +98,12 @@ import { registerStashHandlers } from './stash';
 
 export interface GitDeps {
   persistentDb: Database;
+  /** GitStatusCache instance (optional — defaults to fresh cache when absent). */
+  gitStatusCache?: GitStatusCache;
+  /** GitStatusWatcher instance (optional — cache-only mode when absent). */
+  gitStatusWatcher?: GitStatusWatcher;
+  /** Map tracking git dir → workspace metadata (shared with workspace handlers). */
+  watchedGitDirs?: Map<string, { workspaceId: string; repoPath: string }>;
   /** Internal: allows tests to inject mock functions. */
   _mocks?: {
     getGitStatus?: (dirPath: string) => Promise<GitStatusResponse | null>;
@@ -204,6 +213,9 @@ export interface GitDeps {
 
 export interface ResolvedGitDeps {
   persistentDb: Database;
+  gitStatusCache: GitStatusCache;
+  gitStatusWatcher?: GitStatusWatcher;
+  watchedGitDirs: Map<string, { workspaceId: string; repoPath: string }>;
   doGetGitStatus: (dirPath: string) => Promise<GitStatusResponse | null>;
   doGetGitStatusEnhanced: (
     dirPath: string,
@@ -300,6 +312,7 @@ export interface ResolvedGitDeps {
   doStashPop: (dirPath: string, stashRef?: string) => Promise<void>;
   doStashDrop: (dirPath: string, stashRef: string) => Promise<void>;
   doStashClear: (dirPath: string) => Promise<void>;
+  doInvalidateAndRefresh: (gitDir: string) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -307,9 +320,18 @@ export interface ResolvedGitDeps {
 // ---------------------------------------------------------------------------
 
 export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void {
+  // Create a default cache if none provided (tests can omit it)
+  const gitStatusCache: GitStatusCache = deps.gitStatusCache ?? new GitStatusCache();
+  const gitStatusWatcher = deps.gitStatusWatcher;
+  const watchedGitDirs: Map<string, { workspaceId: string; repoPath: string }> =
+    deps.watchedGitDirs ?? new Map();
+
   // Resolve all function references (mocks take priority over native)
   const resolved: ResolvedGitDeps = {
     persistentDb: deps.persistentDb,
+    gitStatusCache,
+    gitStatusWatcher,
+    watchedGitDirs,
     doGetGitStatus: deps._mocks?.getGitStatus ?? nativeGetGitStatus,
     doGetGitStatusEnhanced: deps._mocks?.getGitStatusEnhanced ?? nativeGetGitStatusEnhanced,
     doGetGitLog: deps._mocks?.getGitLog ?? nativeGetGitLog,
@@ -364,6 +386,7 @@ export function registerGitHandlers(router: MessageRouter, deps: GitDeps): void 
     doStashPop: deps._mocks?.stashPop ?? nativeStashPop,
     doStashDrop: deps._mocks?.stashDrop ?? nativeStashDrop,
     doStashClear: deps._mocks?.stashClear ?? nativeStashClear,
+    doInvalidateAndRefresh: createInvalidator(gitStatusCache, gitStatusWatcher),
   };
 
   // Delegate to domain-specific registration functions

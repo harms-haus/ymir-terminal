@@ -14,7 +14,8 @@ import {
   type WorkspaceSummary,
   type WorkspaceUpdateRequest,
 } from '@ymir/shared';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { existsSync } from 'node:fs';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
 import {
@@ -29,7 +30,10 @@ import {
   type UpdateWorkspaceInput,
 } from '../../db/persistent';
 import { startManagedWatcher, stopManagedWatcher } from '../../files/workspace-watcher';
+import { discoverRepos as nativeDiscoverRepos } from '../../git/discovery';
+import type { GitRepoInfo } from '@ymir/shared';
 import type { Database } from 'bun:sqlite';
+import type { GitStatusWatcher } from '../../git/status-watcher';
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -40,6 +44,10 @@ export interface WorkspaceDeps {
   sessionDb: Database;
   /** Broadcast an event envelope to all authenticated connected clients. */
   broadcastEvent: (envelope: EventEnvelope) => void;
+  /** GitStatusWatcher instance (optional — used when available). */
+  gitStatusWatcher?: GitStatusWatcher;
+  /** Map tracking git dir → workspace metadata (shared with git handlers). */
+  watchedGitDirs?: Map<string, { workspaceId: string; repoPath: string }>;
   /** Internal: allows tests to inject mock CRUD functions. */
   _mocks?: {
     listWorkspaces?: (db: Database) => Workspace[];
@@ -54,6 +62,7 @@ export interface WorkspaceDeps {
     ) => void;
     stopManagedWatcher?: (workspaceId: string) => void;
     reorderWorkspaces?: (db: Database, ids: string[]) => void;
+    discoverRepos?: (workspaceCwd: string, maxDepth?: number) => Promise<GitRepoInfo[]>;
   };
 }
 
@@ -87,6 +96,62 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
   const doStartWatcher = _mocks?.startManagedWatcher ?? startManagedWatcher;
   const doStopWatcher = _mocks?.stopManagedWatcher ?? stopManagedWatcher;
   const doReorder = _mocks?.reorderWorkspaces ?? dbReorderWorkspaces;
+  const doDiscoverRepos = _mocks?.discoverRepos ?? nativeDiscoverRepos;
+
+  const { gitStatusWatcher, watchedGitDirs } = deps;
+
+  // Tracks in-flight discovery promises that should be cancelled (e.g. if a
+  // workspace is deleted while its repos are still being discovered).
+  const cancelledDiscovery = new Map<string, boolean>();
+
+  /**
+   * Discover git repos in a directory and start watching each one.
+   * Fire-and-forget — errors are isolated and logged.
+   */
+  function startGitWatchersForWorkspace(workspaceId: string, cwd: string): void {
+    if (!gitStatusWatcher || !watchedGitDirs) return;
+    cancelledDiscovery.delete(workspaceId);
+    doDiscoverRepos(cwd)
+      .then((repos) => {
+        if (cancelledDiscovery.get(workspaceId)) {
+          cancelledDiscovery.delete(workspaceId);
+          return;
+        }
+        for (const repo of repos) {
+          const repoRoot = join(cwd, repo.path);
+          const gitDirPath = join(repoRoot, '.git');
+          if (existsSync(gitDirPath)) {
+            gitStatusWatcher.watchRepo(gitDirPath, repoRoot);
+            watchedGitDirs.set(gitDirPath, { workspaceId, repoPath: repo.path });
+          }
+        }
+      })
+      .catch((err: unknown) => {
+        cancelledDiscovery.delete(workspaceId);
+        console.error('Failed to discover git repos for workspace', workspaceId, err);
+      });
+  }
+
+  /**
+   * Stop watching all git repos belonging to a workspace and remove their
+   * entries from the reverse mapping.  Also cancels any in-flight discovery
+   * so that watchers are not started for a deleted workspace.
+   */
+  function stopGitWatchersForWorkspace(workspaceId: string): void {
+    cancelledDiscovery.set(workspaceId, true);
+    if (!gitStatusWatcher || !watchedGitDirs) return;
+    // Collect keys first, then iterate to avoid mutation-while-iterating issues
+    const toRemove: string[] = [];
+    for (const [gitDir, info] of watchedGitDirs) {
+      if (info.workspaceId === workspaceId) {
+        toRemove.push(gitDir);
+      }
+    }
+    for (const gitDir of toRemove) {
+      gitStatusWatcher.unwatchRepo(gitDir);
+      watchedGitDirs.delete(gitDir);
+    }
+  }
 
   // --- workspace.list -----------------------------------------------------
   router.handle('workspace.list', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -133,6 +198,9 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
 
     doStartWatcher(workspace.id, workspace.cwd, deps.broadcastEvent);
 
+    // Fire-and-forget git repo discovery and watcher setup
+    startGitWatchersForWorkspace(workspace.id, workspace.cwd);
+
     const resp: ResponseEnvelope<WorkspaceCreateResponse> = createResponse(req, {
       workspace: toSummary(workspace),
     });
@@ -176,11 +244,15 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       return;
     }
 
-    // If cwd changed, restart the file watcher on the new directory
+    // If cwd changed, restart the file watcher and git watchers on the new directory
     const cwdChanged = existing != null && input.cwd !== undefined && input.cwd !== existing.cwd;
     if (cwdChanged) {
       doStopWatcher(payload.id);
       doStartWatcher(payload.id, workspace.cwd, deps.broadcastEvent);
+
+      // Restart git watchers for the new cwd
+      stopGitWatchersForWorkspace(payload.id);
+      startGitWatchersForWorkspace(payload.id, workspace.cwd);
     }
 
     const resp: ResponseEnvelope = createResponse(req, {
@@ -205,10 +277,11 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       return;
     }
 
-    // Stop watcher before deleting the workspace record
+    // Stop watchers before deleting the workspace record
     const existing = doGet(persistentDb, payload.id);
     if (existing) {
       doStopWatcher(payload.id);
+      stopGitWatchersForWorkspace(payload.id);
     }
 
     const deleted = doDelete(persistentDb, payload.id);

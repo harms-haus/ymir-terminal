@@ -18,7 +18,7 @@
 | `WorktreeItem`             | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`                                                                                                                                                                                                                                                                                                                            |
 | `WorktreeItemContextMenu`  | Context menu for worktree items (Copy Path, Remove Worktree)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `CreateWorktreeDialog`     | Modal dialog for creating git worktrees (branch name + optional base ref)                                                                                                                                                                                                                                                                                                                                                                                  |
-| `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split                                                                                                                                                                                                                                                                                                              |
+| `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split; subscribes to push-based `git.statusChange` events via `useGitStatusSubscription` for real-time git status updates                                                                                                                                                                                          |
 | `GitPanel`                 | Multi-repo git changes panel — discovers repos, displays per-repo headers with branch selectors and push/fetch buttons, commit message input (Ctrl+Enter), and collapsible staged/unstaged tree views with context menus for stage/unstage/discard/diff. Props: `workspaceId`, `workspaceCwd`, `onOpenEditor`                                                                                                                                              |
 | `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading                                                                                                                                                                                                                                                       |
 | `GitRepoHeader`            | Per-repo header with collapse toggle, branch selector (`GitBranchSelector`), push/fetch action buttons, git graph button, and `GitRepoMenu` (⋯) for full repository operations                                                                                                                                                                                                                                                                             |
@@ -74,7 +74,7 @@ The right sidebar (`RightSidebar`) is a vertically resizable panel layout with a
 
 Panel sizes are persisted under config key `ui_project_sidebar_sizes` as `{ topPane: number, historyPane: number }`.
 
-Both `file.tree` and `git.status` are fetched when a workspace is selected. The `useFileChange` hook subscribes to `file.change` events and refreshes **both** the tree and git status on any filesystem change.
+Both `file.tree` and `git.status` are fetched when a workspace is selected. Git status updates are **push-based**: the server emits `git.statusChange` events via WebSocket, and `useGitStatusSubscription` updates status in real time without polling. The `useFileChange` hook subscribes to `file.change` events and refreshes only the file tree on filesystem changes.
 
 `workspaceCwd` flows from `WorkspaceView` → `RightSidebar` → `FileTree` and is used to compute relative paths for git status lookups.
 
@@ -144,6 +144,22 @@ The `useGitRepos` hook manages all git state for the `GitPanel`. It accepts `wor
 | `refreshRepo`    | Refresh status (and optionally branches) for a single repo                        |
 | `pushLoading`    | Map of repo path → boolean push-in-progress state                                 |
 | `fetchLoading`   | Map of repo path → boolean fetch-in-progress state                                |
+
+### `useGitStatusSubscription` Hook
+
+Low-level hook that subscribes to push-based `git.statusChange` WebSocket events for a given workspace.
+
+```tsx
+useGitStatusSubscription(
+  workspaceId: string | null,
+  callback: (repoPath: string, status: GitStatusResponse) => void,
+)
+```
+
+- **Parameters** — `workspaceId` filters events to a single workspace; `callback` is invoked with the repo path and full `GitStatusResponse` for each update
+- **Stable callback** — uses a ref internally so the callback can change between renders without re-subscribing
+- **Cleanup** — unsubscribes when `workspaceId` changes or the component unmounts
+- **Used by** — `useGitRepos` (updates `repoStatuses` map) and `RightSidebar` (updates its local `gitStatus` state)
 
 ## Split-Pane Architecture
 

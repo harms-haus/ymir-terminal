@@ -36,6 +36,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
     doCommitAmend,
     doCommitAll,
     doResetSoft,
+    doInvalidateAndRefresh,
     doGetWorkspace,
     persistentDb,
   } = deps;
@@ -90,6 +91,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       }
     }
     await doStageFiles(absPath, payload.files);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -143,6 +145,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       }
     }
     await doUnstageFiles(absPath, payload.files);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -196,6 +199,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       }
     }
     await doDiscardChanges(absPath, payload.files);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -237,6 +241,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
     const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.commit');
     if (absPath === null) return;
     const commitHash = await doCommitChanges(absPath, payload.message);
+    void doInvalidateAndRefresh(absPath);
     const resp = createResponse(req, { commitHash } satisfies GitCommitResponse);
     conn.send(resp);
   });
@@ -277,6 +282,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
     const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.stageAll');
     if (absPath === null) return;
     await doStageAllFiles(absPath);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -322,6 +328,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
     );
     if (absPath === null) return;
     await doUnstageAllFiles(absPath);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -367,6 +374,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
     );
     if (absPath === null) return;
     await doDiscardAllChanges(absPath);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -415,6 +423,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       message: payload.message,
       noEdit: payload.noEdit,
     });
+    void doInvalidateAndRefresh(absPath);
     const resp = createResponse(req, { commitHash } satisfies GitCommitAmendResponse);
     conn.send(resp);
   });
@@ -466,6 +475,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
       includeUntracked: payload.includeUntracked,
       amend: payload.amend,
     });
+    void doInvalidateAndRefresh(absPath);
     const resp = createResponse(req, { commitHash } satisfies GitCommitAllResponse);
     conn.send(resp);
   });
@@ -512,6 +522,7 @@ export function registerOperationsHandlers(router: MessageRouter, deps: Resolved
     );
     if (absPath === null) return;
     await doResetSoft(absPath, payload.ref);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 }

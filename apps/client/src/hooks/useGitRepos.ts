@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { sendRequest } from '../lib/send-request';
+import { useGitStatusSubscription } from './useGitStatusSubscription';
 import type {
   GitRepoInfo,
   GitStatusResponse,
@@ -86,6 +87,17 @@ export function useGitRepos(
   const [fetchLoading, setFetchLoading] = useState<Map<string, boolean>>(new Map());
   const generationRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Subscribe to push-based git status updates
+  const handleStatusChange = useCallback((repoPath: string, status: GitStatusResponse) => {
+    setRepoStatuses((prev) => {
+      const m = new Map(prev);
+      m.set(repoPath, status);
+      return m;
+    });
+  }, []);
+
+  useGitStatusSubscription(workspaceId, handleStatusChange);
 
   const loadData = useCallback(async () => {
     if (!workspaceId) {
@@ -210,27 +222,24 @@ export function useGitRepos(
     async (repoPath: string, files: string[]) => {
       if (!workspaceId) return;
       await sendRequest('git.stage', { workspaceId, repoPath, files });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const unstageFilesFn = useCallback(
     async (repoPath: string, files: string[]) => {
       if (!workspaceId) return;
       await sendRequest('git.unstage', { workspaceId, repoPath, files });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const discardChangesFn = useCallback(
     async (repoPath: string, files: string[]) => {
       if (!workspaceId) return;
       await sendRequest('git.discard', { workspaceId, repoPath, files });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const commitFn = useCallback(
@@ -241,10 +250,9 @@ export function useGitRepos(
         repoPath,
         message,
       });
-      await refreshRepo(repoPath);
       return res.commitHash;
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const checkoutFn = useCallback(
@@ -271,7 +279,6 @@ export function useGitRepos(
       });
       try {
         await sendRequest('git.push', { workspaceId, repoPath, branch });
-        await refreshRepo(repoPath);
       } finally {
         setPushLoading((prev) => {
           const m = new Map(prev);
@@ -280,7 +287,7 @@ export function useGitRepos(
         });
       }
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const fetchFn = useCallback(
@@ -293,7 +300,6 @@ export function useGitRepos(
       });
       try {
         await sendRequest('git.fetch', { workspaceId, repoPath });
-        await refreshRepo(repoPath);
       } finally {
         setFetchLoading((prev) => {
           const m = new Map(prev);
@@ -302,7 +308,7 @@ export function useGitRepos(
         });
       }
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   // -----------------------------------------------------------------
@@ -313,9 +319,8 @@ export function useGitRepos(
     async (repoPath: string, options?: { includeUntracked?: boolean; message?: string }) => {
       if (!workspaceId) return;
       await sendRequest('git.stashPush', { workspaceId, repoPath, ...options });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const stashListFn = useCallback(
@@ -334,36 +339,32 @@ export function useGitRepos(
     async (repoPath: string, stashRef?: string) => {
       if (!workspaceId) return;
       await sendRequest('git.stashApply', { workspaceId, repoPath, stashRef });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const stashPopFn = useCallback(
     async (repoPath: string, stashRef?: string) => {
       if (!workspaceId) return;
       await sendRequest('git.stashPop', { workspaceId, repoPath, stashRef });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const stashDropFn = useCallback(
     async (repoPath: string, stashRef: string) => {
       if (!workspaceId) return;
       await sendRequest('git.stashDrop', { workspaceId, repoPath, stashRef });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const stashClearFn = useCallback(
     async (repoPath: string) => {
       if (!workspaceId) return;
       await sendRequest('git.stashClear', { workspaceId, repoPath });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   // -----------------------------------------------------------------
@@ -374,18 +375,16 @@ export function useGitRepos(
     async (repoPath: string, options?: { rebase?: boolean }) => {
       if (!workspaceId) return;
       await sendRequest('git.pull', { workspaceId, repoPath, ...options }, { timeout: 60_000 });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const syncFn = useCallback(
     async (repoPath: string) => {
       if (!workspaceId) return;
       await sendRequest('git.sync', { workspaceId, repoPath }, { timeout: 60_000 });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   // -----------------------------------------------------------------
@@ -400,10 +399,9 @@ export function useGitRepos(
         { workspaceId, repoPath, branch },
         { timeout: 60_000 },
       );
-      await refreshRepo(repoPath);
       return result.result;
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const rebaseFn = useCallback(
@@ -414,19 +412,17 @@ export function useGitRepos(
         { workspaceId, repoPath, branch },
         { timeout: 60_000 },
       );
-      await refreshRepo(repoPath);
       return result.result;
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const rebaseAbortFn = useCallback(
     async (repoPath: string) => {
       if (!workspaceId) return;
       await sendRequest('git.rebaseAbort', { workspaceId, repoPath });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const isRebaseInProgressFn = useCallback(
@@ -453,10 +449,9 @@ export function useGitRepos(
         repoPath,
         ...options,
       });
-      await refreshRepo(repoPath);
       return result.commitHash;
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const commitAllFn = useCallback(
@@ -472,19 +467,17 @@ export function useGitRepos(
         message,
         ...options,
       });
-      await refreshRepo(repoPath);
       return result.commitHash;
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const resetSoftFn = useCallback(
     async (repoPath: string, ref?: string) => {
       if (!workspaceId) return;
       await sendRequest('git.resetSoft', { workspaceId, repoPath, ref });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   // -----------------------------------------------------------------
@@ -495,27 +488,24 @@ export function useGitRepos(
     async (repoPath: string) => {
       if (!workspaceId) return;
       await sendRequest('git.stageAll', { workspaceId, repoPath });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const unstageAllFn = useCallback(
     async (repoPath: string) => {
       if (!workspaceId) return;
       await sendRequest('git.unstageAll', { workspaceId, repoPath });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const discardAllFn = useCallback(
     async (repoPath: string) => {
       if (!workspaceId) return;
       await sendRequest('git.discardAll', { workspaceId, repoPath });
-      await refreshRepo(repoPath, { statusOnly: true });
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   // -----------------------------------------------------------------
@@ -526,27 +516,24 @@ export function useGitRepos(
     async (repoPath: string, oldName: string, newName: string) => {
       if (!workspaceId) return;
       await sendRequest('git.branchRename', { workspaceId, repoPath, oldName, newName });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const branchDeleteFn = useCallback(
     async (repoPath: string, name: string, force?: boolean) => {
       if (!workspaceId) return;
       await sendRequest('git.branchDelete', { workspaceId, repoPath, name, force });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const branchDeleteRemoteFn = useCallback(
     async (repoPath: string, remote: string, branch: string) => {
       if (!workspaceId) return;
       await sendRequest('git.branchDeleteRemote', { workspaceId, repoPath, remote, branch });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const branchPublishFn = useCallback(
@@ -557,9 +544,8 @@ export function useGitRepos(
         { workspaceId, repoPath, remote },
         { timeout: 60_000 },
       );
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const listRemoteBranchesFn = useCallback(
@@ -603,18 +589,16 @@ export function useGitRepos(
     async (repoPath: string, name: string, url: string) => {
       if (!workspaceId) return;
       await sendRequest('git.remoteAdd', { workspaceId, repoPath, name, url });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   const remoteRemoveFn = useCallback(
     async (repoPath: string, name: string) => {
       if (!workspaceId) return;
       await sendRequest('git.remoteRemove', { workspaceId, repoPath, name });
-      await refreshRepo(repoPath);
     },
-    [workspaceId, refreshRepo],
+    [workspaceId],
   );
 
   return {

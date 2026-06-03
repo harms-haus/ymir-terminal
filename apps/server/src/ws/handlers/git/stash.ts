@@ -27,6 +27,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
     doStashPop,
     doStashDrop,
     doStashClear,
+    doInvalidateAndRefresh,
     doGetWorkspace,
     persistentDb,
   } = deps;
@@ -78,6 +79,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
         includeUntracked: payload.includeUntracked,
         message: payload.message,
       });
+      void doInvalidateAndRefresh(absPath);
       conn.send(createResponse(req, { stashRef } satisfies GitStashPushResponse));
     } catch (err) {
       conn.send(
@@ -190,6 +192,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
 
     try {
       await doStashApply(absPath, payload.stashRef);
+      void doInvalidateAndRefresh(absPath);
       conn.send(createResponse(req, {}));
     } catch (err) {
       conn.send(
@@ -240,6 +243,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
 
     try {
       await doStashPop(absPath, payload.stashRef);
+      void doInvalidateAndRefresh(absPath);
       conn.send(createResponse(req, {}));
     } catch (err) {
       conn.send(
@@ -297,6 +301,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
 
     try {
       await doStashDrop(absPath, payload.stashRef);
+      void doInvalidateAndRefresh(absPath);
       conn.send(createResponse(req, {}));
     } catch (err) {
       conn.send(
@@ -353,6 +358,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
 
     try {
       await doStashClear(absPath);
+      void doInvalidateAndRefresh(absPath);
       conn.send(createResponse(req, {}));
     } catch (err) {
       conn.send(

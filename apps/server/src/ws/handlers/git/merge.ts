@@ -28,6 +28,7 @@ export function registerMergeHandlers(router: MessageRouter, deps: ResolvedGitDe
     doPullRemote,
     doSyncRemote,
     doGetCurrentBranch,
+    doInvalidateAndRefresh,
     doGetWorkspace,
     persistentDb,
   } = deps;
@@ -69,6 +70,7 @@ export function registerMergeHandlers(router: MessageRouter, deps: ResolvedGitDe
     const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.merge');
     if (absPath === null) return;
     const result = await doMergeBranch(absPath, payload.branch);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, { result } satisfies GitMergeResponse));
   });
 
@@ -109,6 +111,7 @@ export function registerMergeHandlers(router: MessageRouter, deps: ResolvedGitDe
     const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.rebase');
     if (absPath === null) return;
     const result = await doRebaseBranch(absPath, payload.branch);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, { result }));
   });
 
@@ -154,6 +157,7 @@ export function registerMergeHandlers(router: MessageRouter, deps: ResolvedGitDe
     );
     if (absPath === null) return;
     await doRebaseAbort(absPath);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -238,6 +242,7 @@ export function registerMergeHandlers(router: MessageRouter, deps: ResolvedGitDe
     const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.pull');
     if (absPath === null) return;
     await doPullRemote(absPath, payload.rebase);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -278,6 +283,7 @@ export function registerMergeHandlers(router: MessageRouter, deps: ResolvedGitDe
     if (absPath === null) return;
     const currentBranch = await doGetCurrentBranch(absPath);
     await doSyncRemote(absPath, currentBranch ?? '');
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 }

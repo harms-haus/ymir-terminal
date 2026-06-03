@@ -26,6 +26,8 @@ export function registerStatusHandlers(router: MessageRouter, deps: ResolvedGitD
     doGetWorkspace,
     doDiscoverRepos,
     persistentDb,
+    gitStatusCache,
+    gitStatusWatcher,
   } = deps;
 
   // --- git.status ---------------------------------------------------------
@@ -57,35 +59,77 @@ export function registerStatusHandlers(router: MessageRouter, deps: ResolvedGitD
     const gitDir = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.status');
     if (gitDir === null) return;
 
-    if (payload.repoPath) {
-      const result = await doGetGitStatusEnhanced(gitDir);
+    // ------------------------------------------------------------------
+    // Cache-aware status lookup
+    // ------------------------------------------------------------------
 
-      const resp: ResponseEnvelope<GitStatusResponse> = createResponse(req, {
-        branch: result?.branch ?? null,
-        changes: result?.changes ?? [],
-        staged: result?.staged ?? [],
-        repoPath: payload.repoPath,
-        hasRemote: result?.hasRemote ?? false,
-        ahead: result?.ahead ?? 0,
-        behind: result?.behind ?? 0,
-      } satisfies GitStatusResponse);
-
-      conn.send(resp);
-    } else {
-      const result = await doGetGitStatus(gitDir);
-
-      const resp: ResponseEnvelope<GitStatusResponse> = createResponse(req, {
-        branch: result?.branch ?? null,
-        changes: result?.changes ?? [],
-        staged: result?.staged ?? [],
-        repoPath: payload.repoPath,
-        hasRemote: result?.hasRemote ?? false,
-        ahead: result?.ahead ?? 0,
-        behind: result?.behind ?? 0,
-      } satisfies GitStatusResponse);
-
-      conn.send(resp);
+    // 1. Fresh cache hit — serve immediately, no git process spawned
+    if (gitStatusCache.isFresh(gitDir)) {
+      const cached = gitStatusCache.get(gitDir);
+      if (cached) {
+        conn.send(
+          createResponse(req, {
+            ...cached,
+            repoPath: payload.repoPath,
+          } satisfies GitStatusResponse),
+        );
+        return;
+      }
     }
+
+    // 2. Stale cache hit — serve cached data, refresh in background
+    if (gitStatusCache.has(gitDir)) {
+      const cached = gitStatusCache.get(gitDir)!;
+      conn.send(
+        createResponse(req, {
+          ...cached,
+          repoPath: payload.repoPath,
+        } satisfies GitStatusResponse),
+      );
+      if (gitStatusWatcher) {
+        // Don't await — fire-and-forget background refresh
+        gitStatusWatcher.refreshNow(gitDir).catch((err: unknown) => {
+          console.error('Background git status refresh failed:', err);
+        });
+      }
+      return;
+    }
+
+    // 3. Cache miss with watcher — use watcher to fetch and cache
+    if (gitStatusWatcher) {
+      await gitStatusWatcher.refreshNow(gitDir);
+      const fresh = gitStatusCache.get(gitDir);
+      if (fresh) {
+        conn.send(
+          createResponse(req, {
+            ...fresh,
+            repoPath: payload.repoPath,
+          } satisfies GitStatusResponse),
+        );
+        return;
+      }
+    }
+
+    // 4. Fallback — direct fetch (no cache or watcher unavailable)
+    const result = payload.repoPath
+      ? await doGetGitStatusEnhanced(gitDir)
+      : await doGetGitStatus(gitDir);
+
+    if (result) {
+      gitStatusCache.set(gitDir, result);
+    }
+
+    conn.send(
+      createResponse(req, {
+        branch: result?.branch ?? null,
+        changes: result?.changes ?? [],
+        staged: result?.staged ?? [],
+        repoPath: payload.repoPath,
+        hasRemote: result?.hasRemote ?? false,
+        ahead: result?.ahead ?? 0,
+        behind: result?.behind ?? 0,
+      } satisfies GitStatusResponse),
+    );
   });
 
   // --- git.log -----------------------------------------------------------

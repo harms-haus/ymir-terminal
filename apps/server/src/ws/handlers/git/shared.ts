@@ -4,6 +4,8 @@ import { createError } from '../../router';
 import type { Database } from 'bun:sqlite';
 import type { Workspace } from '../../../db/persistent';
 import { safePath } from '../../../lib/handler-validation';
+import type { GitStatusCache } from '../../../git/status-cache';
+import type { GitStatusWatcher } from '../../../git/status-watcher';
 
 // ---------------------------------------------------------------------------
 // Re-exports consumed by domain sub-modules
@@ -21,6 +23,30 @@ export { safePath } from '../../../lib/handler-validation';
 // ---------------------------------------------------------------------------
 
 export const SHA_REGEX = /^[0-9a-f]{4,64}$/i;
+
+// ---------------------------------------------------------------------------
+// Cache invalidation helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a function that invalidates the cache for a git dir and triggers
+ * an immediate refresh if a watcher is available.
+ *
+ * Mutation handlers (commit, stage, discard, etc.) can call the returned
+ * function after performing the mutation to ensure subsequent status reads
+ * are up to date.
+ */
+export function createInvalidator(
+  cache: GitStatusCache,
+  watcher?: GitStatusWatcher,
+): (gitDir: string) => Promise<void> {
+  return async (gitDir: string) => {
+    cache.invalidate(gitDir);
+    if (watcher) {
+      await watcher.refreshNow(gitDir);
+    }
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Path helpers

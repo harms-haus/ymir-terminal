@@ -19,7 +19,7 @@ export async function spawnGit(args: string[], cwd: string): Promise<string> {
     cwd,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' },
   });
   await proc.exited;
   if (proc.exitCode !== 0) return '';
@@ -37,7 +37,7 @@ export async function spawnGitChecked(args: string[], cwd: string): Promise<stri
     cwd,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' },
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),

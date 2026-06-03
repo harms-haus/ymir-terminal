@@ -66,6 +66,7 @@ export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGi
     doReadWorktreeCopyConfig,
     doWriteWorktreeCopyConfig,
     doCopyFile,
+    doInvalidateAndRefresh,
     doGetWorkspace,
     persistentDb,
   } = deps;
@@ -223,6 +224,7 @@ export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGi
         // .worktreecopy may not exist yet, that's OK
       }
 
+      void doInvalidateAndRefresh(workspace.cwd);
       const resp = createResponse(req, { worktree } satisfies GitWorktreeCreateResponse);
       conn.send(resp);
     } catch (err) {
@@ -291,6 +293,7 @@ export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGi
         targetBranch: payload.targetBranch,
         deleteAfterMerge: payload.deleteAfterMerge,
       });
+      void doInvalidateAndRefresh(workspace.cwd);
       const resp = createResponse(req, {
         success: result.success,
         message: result.message,
@@ -357,6 +360,7 @@ export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGi
 
     try {
       await doRemoveWorktree(workspace.cwd, resolvedPath, payload.force);
+      void doInvalidateAndRefresh(workspace.cwd);
       conn.send(createResponse(req, null));
     } catch (err) {
       conn.send(

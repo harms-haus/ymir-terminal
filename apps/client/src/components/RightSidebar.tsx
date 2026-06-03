@@ -6,6 +6,7 @@ import { GitPanel } from './GitPanel';
 import { GitHistoryPanel } from './GitHistoryPanel';
 import { sendRequest } from '../lib/send-request';
 import { useFileChange } from '../hooks/useFileChange';
+import { useGitStatusSubscription } from '../hooks/useGitStatusSubscription';
 import { usePrompt } from '../hooks/useDialog';
 import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
@@ -50,6 +51,13 @@ export function RightSidebar({
   const { clipboard, cut, copy, paste } = useFileClipboard();
 
   const prompt = usePrompt();
+
+  // Subscribe to push-based git status updates
+  const handleGitStatusPush = useCallback((repoPath: string, status: GitStatusResponse) => {
+    setGitStatus(status);
+  }, []);
+
+  useGitStatusSubscription(workspaceId, handleGitStatusPush);
 
   // Load persisted project sidebar panel sizes on mount
   useEffect(() => {
@@ -144,23 +152,9 @@ export function RightSidebar({
       .catch(handleAsyncError);
   }, [workspaceId, workspaceCwd]);
 
-  const refreshGitStatus = useCallback(async () => {
-    if (!workspaceId) return;
-    try {
-      const response = await sendRequest<GitStatusResponse>('git.status', {
-        workspaceId,
-        ...(workspaceCwd ? { repoPath: workspaceCwd } : {}),
-      });
-      setGitStatus(response);
-    } catch {
-      // Silently ignore
-    }
-  }, [workspaceId, workspaceCwd]);
-
   const handleFileChange = useCallback(() => {
     refreshFileTree();
-    refreshGitStatus();
-  }, [refreshFileTree, refreshGitStatus]);
+  }, [refreshFileTree]);
 
   useFileChange(workspaceId, handleFileChange);
 

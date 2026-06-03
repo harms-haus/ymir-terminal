@@ -17,7 +17,11 @@ import { PTYManager } from './pty/manager';
 import { stopAllWatchers } from './files/watcher';
 import * as fileScanner from './files/scanner';
 import * as fileOperations from './files/operations';
-import { getDbPath, type EventEnvelope } from '@ymir/shared';
+import { GitStatusCache } from './git/status-cache';
+import { GitStatusWatcher } from './git/status-watcher';
+import { getGitStatusEnhanced } from './git/status';
+import { createEvent } from './ws/router';
+import { getDbPath, type EventEnvelope, type GitStatusChangeEvent } from '@ymir/shared';
 
 export interface StartServerOptions {
   password: string;
@@ -48,6 +52,44 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   // 5. Create PTY manager
   const ptyManager = new PTYManager();
 
+  // 5a. Create GitStatusCache and GitStatusWatcher (must be before handler registration)
+  const gitStatusCache = new GitStatusCache();
+  const gitStatusWatcher = new GitStatusWatcher({
+    cache: gitStatusCache,
+    getStatus: async (dir: string) =>
+      (await getGitStatusEnhanced(dir)) ?? {
+        branch: null,
+        changes: [],
+        staged: [],
+        hasRemote: false,
+        ahead: 0,
+        behind: 0,
+      },
+  });
+
+  // Track git dirs to workspace metadata for the status change handler
+  const watchedGitDirs = new Map<string, { workspaceId: string; repoPath: string }>();
+
+  // When git status changes, broadcast to all authenticated clients.
+  // TODO: Only broadcast to connections that have access to this workspace
+  // (same issue exists for file.change broadcasts in workspace handlers).
+  gitStatusWatcher.setStatusChangeHandler((absoluteGitDir, status) => {
+    const info = watchedGitDirs.get(absoluteGitDir);
+    if (info) {
+      const event = createEvent('git.statusChange', {
+        workspaceId: info.workspaceId,
+        repoPath: info.repoPath,
+        status,
+      } satisfies GitStatusChangeEvent);
+      const msg = JSON.stringify(event);
+      for (const conn of connections.values()) {
+        if (conn.isAuthenticated) {
+          conn.sendRaw(msg);
+        }
+      }
+    }
+  });
+
   // 6. Create message router and register all handlers in order
   const router = new MessageRouter();
 
@@ -57,18 +99,23 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   // 6b. Terminal handlers
   registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb: db });
 
+  // Shared broadcast function
+  const broadcastEvent = (event: EventEnvelope) => {
+    const msg = JSON.stringify(event);
+    for (const conn of connections.values()) {
+      if (conn.isAuthenticated) {
+        conn.sendRaw(msg);
+      }
+    }
+  };
+
   // 6c. Workspace handlers
   registerWorkspaceHandlers(router, {
     persistentDb: db,
     sessionDb,
-    broadcastEvent: (event: EventEnvelope) => {
-      const msg = JSON.stringify(event);
-      for (const conn of connections.values()) {
-        if (conn.isAuthenticated) {
-          conn.sendRaw(msg);
-        }
-      }
-    },
+    broadcastEvent,
+    gitStatusWatcher,
+    watchedGitDirs,
   });
 
   // 6d. File handlers
@@ -79,7 +126,12 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   });
 
   // 6e. Git handlers
-  registerGitHandlers(router, { persistentDb: db });
+  registerGitHandlers(router, {
+    persistentDb: db,
+    gitStatusCache,
+    gitStatusWatcher,
+    watchedGitDirs,
+  });
 
   // 6f. Config handlers
   registerConfigHandlers(router, { persistentDb: db });
@@ -128,6 +180,9 @@ export async function startServer(options: StartServerOptions): Promise<void> {
 
     // Stop all file watchers
     stopAllWatchers();
+
+    // Stop all git status watchers
+    gitStatusWatcher.unwatchAll();
 
     // Close all WebSocket connections
     for (const conn of connections.values()) {

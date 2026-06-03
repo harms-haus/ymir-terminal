@@ -56,6 +56,16 @@ Bun Server
   ↕ SQLite (persistent: workspaces, session: tabs)
 ```
 
+**Git status push flow:**
+
+```
+Filesystem changes (.git/HEAD, .git/refs/, working tree)
+  → GitStatusWatcher (fs.watch, debounced 500 ms)
+  → GitStatusCache (TTL 5 s, request coalescing)
+  → WebSocket broadcast (git.statusChange event)
+  → Client useGitStatusSubscription hook
+```
+
 ## Tech Stack
 
 | Layer           | Technology                                                                              |
@@ -107,28 +117,34 @@ Bun Server
 
 **Git module detail:**
 
-| File                | Responsibility                                                                                                                                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `git/status.ts`     | Reads `git status --porcelain=v1` output, returns branch name + staged/unstaged file changes; exports `isGitRepo`, `spawnGit`, `getCurrentBranch`, `getGitStatus`, `hasRemote`, `getAheadBehind`, `getGitStatusEnhanced`        |
-| `git/log.ts`        | Async `getGitLog(dirPath, skip, limit)` — executes `git log --pretty=format` with NUL-delimited fields (`%H%x00%P%x00%an%x00%at%x00%s`), returns `GitLogItem[]`. Uses `execFile` (promisified) to avoid blocking the event loop |
-| `git/discovery.ts`  | Recursive repo discovery within workspace directories                                                                                                                                                                           |
-| `git/operations.ts` | Stage, unstage, discard, and commit operations; exports `stageFiles`, `stageAll`, `unstageFiles`, `unstageAll`, `discardChanges`, `discardAll`, `commitChanges`                                                                 |
-| `git/branches.ts`   | Branch listing, creation, and checkout                                                                                                                                                                                          |
-| `git/remote.ts`     | Push and fetch operations                                                                                                                                                                                                       |
-| `git/worktrees.ts`  | Git worktree management — list, create, and remove linked worktrees; exports `parseWorktreeList`, `listWorktrees`, `createWorktree`, `removeWorktree`                                                                           |
+| File                    | Responsibility                                                                                                                                                                                                                                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git/status.ts`         | Reads `git status --porcelain=v1` output (with `GIT_OPTIONAL_LOCKS=0`), returns branch name + staged/unstaged file changes; exports `isGitRepo`, `spawnGit`, `getCurrentBranch`, `getGitStatus`, `hasRemote`, `getAheadBehind`, `getGitStatusEnhanced`                                                    |
+| `git/log.ts`            | Async `getGitLog(dirPath, skip, limit)` — executes `git log --pretty=format` with NUL-delimited fields (`%H%x00%P%x00%an%x00%at%x00%s`), returns `GitLogItem[]`. Uses `execFile` (promisified) to avoid blocking the event loop                                                                           |
+| `git/discovery.ts`      | Recursive repo discovery within workspace directories                                                                                                                                                                                                                                                     |
+| `git/operations.ts`     | Stage, unstage, discard, and commit operations; exports `stageFiles`, `stageAll`, `unstageFiles`, `unstageAll`, `discardChanges`, `discardAll`, `commitChanges`                                                                                                                                           |
+| `git/branches.ts`       | Branch listing, creation, and checkout                                                                                                                                                                                                                                                                    |
+| `git/remote.ts`         | Push and fetch operations                                                                                                                                                                                                                                                                                 |
+| `git/worktrees.ts`      | Git worktree management — list, create, and remove linked worktrees; exports `parseWorktreeList`, `listWorktrees`, `createWorktree`, `removeWorktree`                                                                                                                                                     |
+| `git/status-cache.ts`   | In-memory `GitStatusCache` — per-repo status cache with 5 s TTL (`CACHE_TTL_MS`), freshness checks (`isFresh`), and request coalescing (`getOrCreate`) to deduplicate concurrent in-flight git status reads                                                                                               |
+| `git/status-watcher.ts` | `GitStatusWatcher` — watches `.git/HEAD`, `.git/refs/`, and the working tree via `fs.watch`; debounces events (500 ms, `DEBOUNCE_MS`); triggers cache-coalesced refreshes; broadcasts status changes via handler; safety-polls every 45 s (`SAFETY_POLL_MS`) in staggered batches of 3; caps at 200 repos |
+
+**Server lifecycle (GitStatusCache + GitStatusWatcher):**
+
+In `server.ts`, a `GitStatusCache` and `GitStatusWatcher` are created before handler registration (step 5a). The watcher's `statusChangeHandler` broadcasts `git.statusChange` events to all authenticated WebSocket connections, using a `watchedGitDirs` map to resolve `workspaceId` and `repoPath` from the absolute `.git` directory. Both are passed via dependency injection to `registerGitHandlers` and `registerWorkspaceHandlers`. On graceful shutdown, `gitStatusWatcher.unwatchAll()` closes all `fs.watch` watchers and stops the safety-poll timer.
 
 **Git handler structure:** The git handlers are split into focused modules under `ws/handlers/git/`:
 
-| Module          | Registration function        | Responsibility                                                        |
-| --------------- | ---------------------------- | --------------------------------------------------------------------- |
-| `status.ts`     | `registerStatusHandlers`     | `git.status`, `git.repoDiscovery`                                     |
-| `operations.ts` | `registerOperationsHandlers` | `git.stage`, `git.unstage`, `git.discard`, `git.commit`               |
-| `branches.ts`   | `registerBranchesHandlers`   | `git.branches`, `git.checkout`                                        |
-| `remote.ts`     | `registerRemoteHandlers`     | `git.push`, `git.fetch`                                               |
-| `diff.ts`       | `registerDiffHandlers`       | `git.diffData`, `git.commitDetails`, `git.commitDiff`                 |
-| `worktrees.ts`  | `registerWorktreeHandlers`   | `git.worktreeList`, `git.worktreeCreate`, `git.worktreeRemove`, merge |
-| `shared.ts`     | —                            | Re-exports for sub-modules (`safePath`, `resolveWorkspace`, types)    |
-| `index.ts`      | `registerGitHandlers`        | Resolves deps (native + mock), delegates to domain registrations      |
+| Module          | Registration function        | Responsibility                                                                                                                                          |
+| --------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status.ts`     | `registerStatusHandlers`     | `git.status` (cache-aware: serves fresh/stale cache hits, background refreshes via watcher), `git.repoDiscovery`                                        |
+| `operations.ts` | `registerOperationsHandlers` | `git.stage`, `git.unstage`, `git.discard`, `git.commit`                                                                                                 |
+| `branches.ts`   | `registerBranchesHandlers`   | `git.branches`, `git.checkout`                                                                                                                          |
+| `remote.ts`     | `registerRemoteHandlers`     | `git.push`, `git.fetch`                                                                                                                                 |
+| `diff.ts`       | `registerDiffHandlers`       | `git.diffData`, `git.commitDetails`, `git.commitDiff`                                                                                                   |
+| `worktrees.ts`  | `registerWorktreeHandlers`   | `git.worktreeList`, `git.worktreeCreate`, `git.worktreeRemove`, merge                                                                                   |
+| `shared.ts`     | —                            | Re-exports for sub-modules (`safePath`, `resolveWorkspace`, types), `createInvalidator` (cache + watcher invalidation helper used by mutation handlers) |
+| `index.ts`      | `registerGitHandlers`        | Resolves deps (native + mock), creates `doInvalidateAndRefresh` via `createInvalidator`, delegates to domain registrations                              |
 
 **Handler registration pattern:**
 
@@ -155,10 +171,10 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 ### `apps/client` — `@ymir/client`
 
 | Directory       | Purpose                                        |
-| --------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `components/`   | React UI components (see below)                |
-|                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useSplitLayout` for pane tree layout, `useTerminalPane` for per-pane tab management, `useTerminalPanel` for imperative handle wiring, `useFileSearch`, `useGitRepos` for multi-repo git state management — repo discovery, status, branches, and operations) |
-|                 | `lib/`                                         | WebSocket client, request helper, git-utils, git-change-tree, git-graph, OSC 7 CWD parser, pane-tree (binary tree model for split layouts), theme constants, context styles                                                                                                                                                                                                                                |
+|                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useSplitLayout` for pane tree layout, `useTerminalPane` for per-pane tab management, `useTerminalPanel` for imperative handle wiring, `useFileSearch`, `useGitRepos` for multi-repo git state management, `useGitStatusSubscription` for push-based git status updates) |
+|                 | `lib/`                                         | WebSocket client, request helper, git-utils, git-change-tree, git-graph, OSC 7 CWD parser, pane-tree (binary tree model for split layouts), theme constants, context styles                                                                                                                                                                                                                                           |
 | `routes/`       | TanStack Router route definitions              |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`) |
 
@@ -213,15 +229,17 @@ The `--staticDir` option overrides the default static file directory. In develop
 
 The client extracts complex stateful logic into dedicated hooks, each with a single responsibility:
 
-| Hook                    | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useTerminalRegistry`   | Tracks all live terminals across all panes (content, bottom, and dynamic split panes). Maintains a `terminalRegistry` array of `{ terminalId, tabId, owningPane, workspaceId }` entries, a `terminalRefsMap` for focus management, a stable `callbackCacheRef` for `onTitleChange`/`onCwdChange` per tab, and computed `terminalEntries` for `TerminalManager`. Auto-focuses the active terminal only in panes whose active tab actually changed. |
-| `useWorkspaceSelection` | Manages workspace and worktree selection state. Derives `activeWorkspaceId` from `selectedWorkspaceId` (falls back to first workspace), fetches worktrees for all workspaces eagerly via `useQueries`, and exposes handlers for workspace CRUD, worktree CRUD, color/accents, and dialog state.                                                                                                                                                   |
-| `usePaneBounds`         | Tracks container bounds for dynamic pane containers using `ResizeObserver`. Maintains a `registerContainer` callback ref for each pane ID and a `getPaneBounds` synchronous accessor. Computes `{ top, left, width, height }` relative to a wrapper div for overlay positioning. Skips observation while pane visibility is loading to avoid stale refs.                                                                                          |
-| `usePaginatedGitLog`    | Reusable pagination + infinite scroll for git commit history. Uses `useReducer` with a generation counter to discard stale responses after workspace/repo changes. Provides a `sentinelRef` (via `react-intersection-observer`) that auto-fetches the next page when scrolled into view. Page size defaults to 50.                                                                                                                                |
-| `useSplitLayout`        | Manages the pane layout binary tree (`LayoutNode`) with debounced (300 ms) persistence to `config.set` via key `pane_layout_{workspaceId}`. Provides `splitPane`, `removePane`, `loadLayout`, and focused-pane tracking. Uses immutable tree mutations from `pane-tree.ts`.                                                                                                                                                                       |
-| `useTerminalPane`       | Per-pane tab management. Wraps `useTabs` with server sync (mirrors create/close/reorder/activate to WebSocket requests), dirty-file close confirmation, and an imperative interface for cross-pane tab transfer (`transferTabOut`/`receiveTab`). Also provides `loadRestoredTabs` for restoring persisted tabs on workspace switch.                                                                                                               |
-| `useTerminalPanel`      | Defines the `TerminalPanelHandle` interface and wires it via `useImperativeHandle`. The handle exposes `transferTabOut`, `receiveTab`, `loadRestoredTabs`, `reorderTabs`, `getTabs`, `getActiveTabId`, `updateTabTitle`, and `updateTabCwd` — shared by ContentPane and BottomPanel.                                                                                                                                                              |
+| Hook                       | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTerminalRegistry`      | Tracks all live terminals across all panes (content, bottom, and dynamic split panes). Maintains a `terminalRegistry` array of `{ terminalId, tabId, owningPane, workspaceId }` entries, a `terminalRefsMap` for focus management, a stable `callbackCacheRef` for `onTitleChange`/`onCwdChange` per tab, and computed `terminalEntries` for `TerminalManager`. Auto-focuses the active terminal only in panes whose active tab actually changed. |
+| `useWorkspaceSelection`    | Manages workspace and worktree selection state. Derives `activeWorkspaceId` from `selectedWorkspaceId` (falls back to first workspace), fetches worktrees for all workspaces eagerly via `useQueries`, and exposes handlers for workspace CRUD, worktree CRUD, color/accents, and dialog state.                                                                                                                                                   |
+| `usePaneBounds`            | Tracks container bounds for dynamic pane containers using `ResizeObserver`. Maintains a `registerContainer` callback ref for each pane ID and a `getPaneBounds` synchronous accessor. Computes `{ top, left, width, height }` relative to a wrapper div for overlay positioning. Skips observation while pane visibility is loading to avoid stale refs.                                                                                          |
+| `usePaginatedGitLog`       | Reusable pagination + infinite scroll for git commit history. Uses `useReducer` with a generation counter to discard stale responses after workspace/repo changes. Provides a `sentinelRef` (via `react-intersection-observer`) that auto-fetches the next page when scrolled into view. Page size defaults to 50.                                                                                                                                |
+| `useSplitLayout`           | Manages the pane layout binary tree (`LayoutNode`) with debounced (300 ms) persistence to `config.set` via key `pane_layout_{workspaceId}`. Provides `splitPane`, `removePane`, `loadLayout`, and focused-pane tracking. Uses immutable tree mutations from `pane-tree.ts`.                                                                                                                                                                       |
+| `useTerminalPane`          | Per-pane tab management. Wraps `useTabs` with server sync (mirrors create/close/reorder/activate to WebSocket requests), dirty-file close confirmation, and an imperative interface for cross-pane tab transfer (`transferTabOut`/`receiveTab`). Also provides `loadRestoredTabs` for restoring persisted tabs on workspace switch.                                                                                                               |
+| `useTerminalPanel`         | Defines the `TerminalPanelHandle` interface and wires it via `useImperativeHandle`. The handle exposes `transferTabOut`, `receiveTab`, `loadRestoredTabs`, `reorderTabs`, `getTabs`, `getActiveTabId`, `updateTabTitle`, and `updateTabCwd` — shared by ContentPane and BottomPanel.                                                                                                                                                              |
+| `useGitStatusSubscription` | Subscribes to push-based `git.statusChange` WebSocket events for a given workspace. Uses `wsClient.onMessage` with a stable callback ref to update repo status in real-time without polling. Called by `useGitRepos` and `RightSidebar` to keep status state in sync with server-side filesystem watchers.                                                                                                                                        |
+| `useGitRepos`              | Multi-repo git state management — repo discovery, status, branches, and operations. Subscribes to push-based `git.statusChange` events via `useGitStatusSubscription` so repo statuses update in real-time as the filesystem changes, without client-side polling.                                                                                                                                                                                |
 
 ## Testing
 
@@ -235,8 +253,8 @@ bun test --watch          # watch mode
 Tests exist in every package:
 
 - `packages/shared/src/**/*.test.ts` — protocol types, utilities
-- `apps/server/src/**/*.test.ts` — auth, DB, routing, handlers, PTY, files, git
-- `apps/client/src/**/*.test.{ts,tsx}` — components, hooks, lib
+- `apps/server/src/**/*.test.ts` — auth, DB, routing, handlers, PTY, files, git (incl. `status-cache.test.ts`, `status-watcher.test.ts`)
+- `apps/client/src/**/*.test.{ts,tsx}` — components, hooks, lib (incl. `useGitStatusSubscription.test.tsx`)
 - `apps/cli/src/**/*.test.ts` — CLI commands, argument parsing
 
 ## Configuration

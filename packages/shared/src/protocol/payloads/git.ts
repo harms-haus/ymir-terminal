@@ -463,3 +463,13 @@ export interface GitRemoteListRequest {
 export interface GitRemoteListResponse {
   remotes: GitRemoteEntry[];
 }
+
+// ---------------------------------------------------------------------------
+// Event channels
+// ---------------------------------------------------------------------------
+
+export interface GitStatusChangeEvent {
+  workspaceId: string;
+  repoPath: string;
+  status: GitStatusResponse;
+}

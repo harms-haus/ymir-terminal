@@ -263,9 +263,9 @@ describe('RightSidebar', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 8. File change triggers both file.tree and git.status refreshes
+  // 8. File change triggers file.tree refresh (git status updated via push subscription)
   // -----------------------------------------------------------------------
-  test('file change event triggers both file.tree and git.status refreshes', async () => {
+  test('file change event triggers file.tree refresh', async () => {
     // Mock config.get (project sidebar panel sizes) — consumed on mount
     sendRequestSpy.mockResolvedValueOnce({ key: 'ui_project_sidebar_sizes', value: null });
     // Mock initial file tree response
@@ -289,17 +289,12 @@ describe('RightSidebar', () => {
     // Clear the spy's call history after initial loads
     sendRequestSpy.mockClear();
 
-    // Mock refresh responses for file.tree and git.status
+    // Mock refresh response for file.tree
     sendRequestSpy.mockResolvedValueOnce({
       tree: [
         { name: 'src', path: '/src', isDirectory: true, children: [] },
         { name: 'new-file.ts', path: '/new-file.ts', isDirectory: false },
       ],
-    });
-    sendRequestSpy.mockResolvedValueOnce({
-      branch: 'main',
-      changes: [{ path: 'new-file.ts', status: 'A' }],
-      staged: [],
     });
 
     // Simulate a file.change message being received by invoking the
@@ -315,12 +310,12 @@ describe('RightSidebar', () => {
       handler(fileChangeEnvelope);
     }
 
-    // After a file change, both file.tree and git.status should be refreshed
+    // After a file change, file.tree should be refreshed (git status
+    // is updated via push subscription)
     await waitFor(() => {
       const calls = sendRequestSpy.mock.calls;
       const channels = calls.map((call: [string, ...unknown[]]) => call[0]);
       expect(channels).toContain('file.tree');
-      expect(channels).toContain('git.status');
     });
   });
 

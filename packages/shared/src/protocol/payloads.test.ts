@@ -75,6 +75,7 @@ import {
   type GitRemoteAddRequest,
   type GitRemoteRemoveRequest,
   type GitRemoteListRequest,
+  type GitStatusChangeEvent,
   // Config
   type ConfigGetRequest,
   type ConfigSetRequest,
@@ -197,14 +198,15 @@ describe('EVENT_TYPES', () => {
     'terminal.exit',
     'file.change',
     'connection.status',
+    'git.statusChange',
   ];
 
   it('contains all expected event types', () => {
     expect(EVENT_TYPES).toEqual(expected);
   });
 
-  it('has exactly 4 entries', () => {
-    expect(EVENT_TYPES).toHaveLength(4);
+  it('has exactly 5 entries', () => {
+    expect(EVENT_TYPES).toHaveLength(5);
   });
 });
 
@@ -375,6 +377,18 @@ describe('EventPayload union', () => {
       { terminalId: 't-1', exitCode: 0 } satisfies TerminalExitEvent,
       { workspaceId: 'ws-1', path: '/a', kind: 'create' } satisfies FileChangeEvent,
       { status: 'disconnected' } satisfies ConnectionStatusEvent,
+      {
+        workspaceId: 'ws-1',
+        repoPath: '.',
+        status: {
+          branch: 'main',
+          changes: [],
+          staged: [],
+          hasRemote: true,
+          ahead: 0,
+          behind: 0,
+        },
+      } satisfies GitStatusChangeEvent,
     ];
 
     for (const p of payloads) {

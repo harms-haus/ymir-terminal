@@ -24,6 +24,7 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
     doAddRemote,
     doRemoveRemote,
     doListRemotes,
+    doInvalidateAndRefresh,
     doGetWorkspace,
     persistentDb,
   } = deps;
@@ -65,6 +66,7 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
     const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.push');
     if (absPath === null) return;
     await doPushBranch(absPath, payload.branch);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -104,6 +106,7 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
     const absPath = resolveSafeRepoPath(workspace.cwd, payload.repoPath, conn, req, 'git.fetch');
     if (absPath === null) return;
     await doFetchRemote(absPath);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -151,6 +154,7 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
     );
     if (absPath === null) return;
     await doAddRemote(absPath, payload.name, payload.url);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
@@ -197,6 +201,7 @@ export function registerRemoteHandlers(router: MessageRouter, deps: ResolvedGitD
     );
     if (absPath === null) return;
     await doRemoveRemote(absPath, payload.name);
+    void doInvalidateAndRefresh(absPath);
     conn.send(createResponse(req, {}));
   });
 
