@@ -9,7 +9,6 @@ import {
 import { SortableTab } from './SortableTab';
 import { COLOR_DANGER } from '../lib/theme';
 import { useDroppable } from '@dnd-kit/react';
-import * as ContextMenu from '@radix-ui/react-context-menu';
 
 interface TabBarProps {
   tabs: Tab[];
@@ -57,6 +56,9 @@ export function TabBar({
     tabsRef.current = tabs;
   }, [tabs]);
 
+  // Empty-area context menu state (manual, no Radix)
+  const [emptyMenuPos, setEmptyMenuPos] = useState<{ x: number; y: number } | null>(null);
+
   const startRename = useCallback((tabId: string) => {
     const tab = tabsRef.current.find((t) => t.id === tabId);
     if (!tab) return;
@@ -102,36 +104,43 @@ export function TabBar({
     data: { group },
   });
 
+  // Build menu items for empty-area right-click
   const hasSplitActions = onSplitRight || onSplitDown || onClosePane;
 
-  const contextMenuItems = hasSplitActions
-    ? [
-        ...(onSplitRight
-          ? [{ label: 'Split Right', testId: 'tab-bar-split-right', action: () => onSplitRight() }]
-          : []),
-        ...(onSplitDown
-          ? [{ label: 'Split Down', testId: 'tab-bar-split-down', action: () => onSplitDown() }]
-          : []),
-        ...(onClosePane
-          ? [
-              {
-                label: 'Close Pane',
-                testId: 'tab-bar-close-pane',
-                action: () => onClosePane(),
-                disabled: !canClosePane,
-                style: { color: COLOR_DANGER },
-              },
-            ]
-          : []),
-      ]
-    : [];
+  const handleBarContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      // Only show the empty-area menu if NOT clicking on a tab or the + button
+      const target = e.target as HTMLElement;
+      if (target.closest('[role="tab"]') || target.closest('[data-testid="tab-add"]')) {
+        return;
+      }
+      if (!hasSplitActions) return;
+      e.preventDefault();
+      setEmptyMenuPos({ x: e.clientX, y: e.clientY });
+    },
+    [hasSplitActions],
+  );
 
-  // Import context menu styles lazily to avoid importing unused CSS
-  const cmCss = `.tab-bar-empty-context [data-radix-context-menu-content] { min-width: 160px; }`;
+  // Close empty-area menu on any outside click or Escape
+  useEffect(() => {
+    if (!emptyMenuPos) return;
+    const close = () => setEmptyMenuPos(null);
+    document.addEventListener('click', close, true);
+    document.addEventListener('contextmenu', close, true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') close();
+    });
+    return () => {
+      document.removeEventListener('click', close, true);
+      document.removeEventListener('contextmenu', close, true);
+      document.removeEventListener('keydown', close);
+    };
+  }, [emptyMenuPos]);
 
   return (
     <div
       data-testid="tab-bar"
+      onContextMenu={handleBarContextMenu}
       style={{
         height: `${TITLE_BAR_HEIGHT}px`,
         background: isDropTarget ? 'rgba(255, 255, 255, 0.04)' : COLOR_BG_SECONDARY,
@@ -141,6 +150,7 @@ export function TabBar({
         alignItems: 'flex-end',
         borderBottom: `1px solid ${COLOR_BORDER}`,
         flexShrink: 0,
+        position: 'relative',
       }}
     >
       <style>{`
@@ -221,64 +231,71 @@ export function TabBar({
       >
         +
       </button>
-      {/* Invisible context-menu trigger covering the entire tab bar.
-          Only renders when split/pane actions are available.
-          Tabs have their own TabContextMenu; this only fires on the empty area
-          or areas not covered by a tab. We use onContextMenu to detect whether
-          the click landed on a tab (which has its own menu) and only show
-          this menu for the bare tab bar. */}
-      {hasSplitActions && (
-        <ContextMenu.Root>
-          <ContextMenu.Trigger asChild>
+      {/* Manual context menu for empty-area right-click (no Radix, avoids nesting) */}
+      {emptyMenuPos && (
+        <div
+          data-testid="tab-bar-context-menu"
+          style={{
+            position: 'fixed',
+            left: emptyMenuPos.x,
+            top: emptyMenuPos.y,
+            minWidth: 160,
+            background: '#1e1e1e',
+            border: '1px solid #333',
+            borderRadius: 6,
+            padding: 4,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            zIndex: 9999,
+          }}
+        >
+          {onSplitRight && (
             <div
-              style={{ position: 'absolute', inset: 0, zIndex: 0 }}
-              onContextMenu={(e) => {
-                // If the right-click is on a tab (which has its own context menu),
-                // don't interfere — let the tab's menu handle it.
-                const target = e.target as HTMLElement;
-                if (target.closest('[role="tab"]') || target.closest('[data-radix-context-menu-content]')) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  return;
-                }
-              }}
-            />
-          </ContextMenu.Trigger>
-          <ContextMenu.Portal>
-            <ContextMenu.Content
-              data-testid="tab-bar-context-menu"
-              style={{
-                minWidth: '160px',
-                background: 'var(--background, #1e1e1e)',
-                border: '1px solid #333',
-                borderRadius: 6,
-                padding: 4,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                zIndex: 9999,
+              data-testid="tab-bar-split-right"
+              role="menuitem"
+              style={{ padding: '6px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 3 }}
+              onClick={() => {
+                setEmptyMenuPos(null);
+                onSplitRight();
               }}
             >
-              <style>{cmCss}</style>
-              {contextMenuItems.map((item, index) => (
-                <ContextMenu.Item
-                  key={`${item.testId}-${index}`}
-                  data-testid={item.testId}
-                  disabled={item.disabled}
-                  onSelect={() => item.action()}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: 13,
-                    cursor: item.disabled ? 'not-allowed' : 'pointer',
-                    borderRadius: 3,
-                    opacity: item.disabled ? 0.4 : 1,
-                    ...item.style,
-                  }}
-                >
-                  {item.label}
-                </ContextMenu.Item>
-              ))}
-            </ContextMenu.Content>
-          </ContextMenu.Portal>
-        </ContextMenu.Root>
+              Split Right
+            </div>
+          )}
+          {onSplitDown && (
+            <div
+              data-testid="tab-bar-split-down"
+              role="menuitem"
+              style={{ padding: '6px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 3 }}
+              onClick={() => {
+                setEmptyMenuPos(null);
+                onSplitDown();
+              }}
+            >
+              Split Down
+            </div>
+          )}
+          {onClosePane && (
+            <div
+              data-testid="tab-bar-close-pane"
+              role="menuitem"
+              style={{
+                padding: '6px 12px',
+                fontSize: 13,
+                cursor: canClosePane ? 'pointer' : 'not-allowed',
+                borderRadius: 3,
+                opacity: canClosePane ? 1 : 0.4,
+                color: COLOR_DANGER,
+              }}
+              onClick={() => {
+                if (!canClosePane) return;
+                setEmptyMenuPos(null);
+                onClosePane();
+              }}
+            >
+              Close Pane
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
