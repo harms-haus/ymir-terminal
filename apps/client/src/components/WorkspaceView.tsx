@@ -79,7 +79,7 @@ function WorkspaceViewInner() {
   const bottomPanelRef = useRef<TerminalPanelHandle>(null);
   const paneHandleRefs = useRef<Map<string, TerminalPanelHandle>>(new Map());
   const paneContainerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const registeredPanesRef = useRef(new Set<string>());
+  const registeredElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const { layout, paneIds, splitPane, removePane, focusedPaneId, setFocusedPaneId, loadLayout } =
     useSplitLayout(activeWorkspaceId);
@@ -90,7 +90,7 @@ function WorkspaceViewInner() {
     layoutRef.current = layout;
   }, [layout]);
 
-  const { wrapperRef, registerContainer, getPaneBounds, allBounds, bottomTerminalRef } =
+  const { wrapperRef, registerContainer, getPaneBounds, allBounds, bottomTerminalRef, updateBounds } =
     usePaneBounds({
       loading,
     });
@@ -98,17 +98,18 @@ function WorkspaceViewInner() {
   // Sync split pane container elements with usePaneBounds so TerminalManager can position terminals
   useEffect(() => {
     const currentIds = new Set(paneIds);
-    // Register only new panes
+    // Register or re-register panes whose DOM element changed (e.g. after remount)
     for (const [paneId, element] of paneContainerRefs.current) {
-      if (!registeredPanesRef.current.has(paneId) && currentIds.has(paneId)) {
+      if (registeredElementsRef.current.get(paneId) !== element && currentIds.has(paneId)) {
         registerContainer(paneId, element);
-        registeredPanesRef.current.add(paneId);
+        registeredElementsRef.current.set(paneId, element);
       }
     }
-    // Clean up removed panes
-    for (const paneId of registeredPanesRef.current) {
+    // Clean up removed panes — unregister from usePaneBounds
+    for (const paneId of [...registeredElementsRef.current.keys()]) {
       if (!currentIds.has(paneId)) {
-        registeredPanesRef.current.delete(paneId);
+        registerContainer(paneId, null);
+        registeredElementsRef.current.delete(paneId);
       }
     }
   }, [paneIds, registerContainer]);
@@ -549,6 +550,7 @@ function WorkspaceViewInner() {
             onClosePane={handleClosePane}
             paneHandleRefs={paneHandleRefs}
             paneContainerRefs={paneContainerRefs}
+            onLayoutChanged={updateBounds}
           />
           <CreateWorkspaceDialog
             open={isDialogOpen}

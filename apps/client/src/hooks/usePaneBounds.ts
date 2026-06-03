@@ -149,5 +149,6 @@ export function usePaneBounds({ loading }: UsePaneBoundsParams) {
     allBounds,
     bottomTerminalRef,
     bottomBounds,
+    updateBounds,
   };
 }
