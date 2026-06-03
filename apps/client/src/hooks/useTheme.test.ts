@@ -15,6 +15,7 @@ describe('useTheme', () => {
     // Reset any custom properties on document root between tests
     if (typeof document !== 'undefined') {
       document.documentElement.style.removeProperty('--accent');
+      document.documentElement.style.removeProperty('--accent-dim');
       document.documentElement.style.removeProperty('--accent-hover');
     }
   });
@@ -64,6 +65,7 @@ describe('useTheme', () => {
     // Default themeVars
     expect(result.current.themeVars).toEqual({
       '--accent': '#007acc',
+      '--accent-dim': expect.any(String),
       '--accent-hover': '#007acccc',
     } as Record<string, string>);
 
@@ -74,6 +76,7 @@ describe('useTheme', () => {
 
     expect(result.current.themeVars).toEqual({
       '--accent': '#ff0000',
+      '--accent-dim': expect.any(String),
       '--accent-hover': '#ff0000cc',
     } as Record<string, string>);
   });
@@ -86,6 +89,7 @@ describe('useTheme', () => {
 
     // Initial mount should set CSS custom properties
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#007acc');
+    expect(document.documentElement.style.getPropertyValue('--accent-dim')).toBeTruthy();
     expect(document.documentElement.style.getPropertyValue('--accent-hover')).toBe('#007acccc');
 
     act(() => {
@@ -93,6 +97,7 @@ describe('useTheme', () => {
     });
 
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#ff0000');
+    expect(document.documentElement.style.getPropertyValue('--accent-dim')).toBeTruthy();
     expect(document.documentElement.style.getPropertyValue('--accent-hover')).toBe('#ff0000cc');
   });
 });

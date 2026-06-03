@@ -323,8 +323,8 @@ describe('TabBar', () => {
     expect(activeTab).toBeTruthy();
     expect(inactiveTab).toBeTruthy();
 
-    // Active border-top uses var(--accent) — expanded to longhands
-    expect(styleHasBorderLonghands(activeTab, 'border-top', 'var(--accent)')).toBe(true);
+    // Active border-top uses var(--accent-dim) — expanded to longhands
+    expect(styleHasBorderLonghands(activeTab, 'border-top', 'var(--accent-dim)')).toBe(true);
     // Inactive border-top is transparent — expanded to longhands
     expect(styleHasBorderParts(inactiveTab, 'border-top', '2px', 'solid', 'transparent')).toBe(
       true,

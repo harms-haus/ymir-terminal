@@ -189,9 +189,7 @@ export const SortableTab = React.memo(function SortableTab({
           color: tabColor,
           borderRight: `1px solid ${COLOR_BORDER}`,
           borderBottom: tabBorderBottom,
-          borderTop: isActive
-            ? '2px solid var(--accent-dim, var(--accent))'
-            : '2px solid transparent',
+          borderTop: isActive ? '2px solid var(--accent-dim)' : '2px solid transparent',
           userSelect: 'none',
           position: 'relative',
           maxWidth: '200px',
