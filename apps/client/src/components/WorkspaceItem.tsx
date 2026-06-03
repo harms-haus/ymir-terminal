@@ -2,6 +2,7 @@ import type { GitWorktreeInfo } from '@ymir/shared';
 import { useDroppable } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { COLOR_ACCENT, COLOR_WORKSPACE_ACTIVE, COLOR_WORKSPACE_CWD } from '../lib/theme';
+import { StatusDot } from './StatusDot';
 import { WorktreeItem } from './WorktreeItem';
 import { WorktreeItemContextMenu } from './WorktreeItemContextMenu';
 import { WorkspaceItemContextMenu } from './WorkspaceItemContextMenu';
@@ -12,6 +13,8 @@ interface WorkspaceItemProps {
   isActive: boolean;
   worktrees: GitWorktreeInfo[];
   activeWorktreePath: string | null;
+  agentStatus?: 'working' | 'halted' | 'done' | null;
+  getAgentStatusForPath?: (path: string) => 'working' | 'halted' | 'done' | null;
   onSelect: (id: string) => void;
   onRename: (id: string, newName: string) => void;
   onSetCwd: (id: string, newCwd: string) => void;
@@ -35,6 +38,8 @@ export function WorkspaceItem({
   isActive,
   worktrees,
   activeWorktreePath,
+  agentStatus,
+  getAgentStatusForPath,
   onSelect,
   onRename,
   onSetCwd,
@@ -138,6 +143,7 @@ export function WorkspaceItem({
               {workspace.cwd}
             </div>
           </div>
+          <StatusDot status={agentStatus ?? null} />
         </div>
       </WorkspaceItemContextMenu>
       {isExpanded && hasLinkedWorktrees && (
@@ -166,6 +172,7 @@ export function WorkspaceItem({
                 workspaceId={workspace.id}
                 wtIndex={index}
                 isActive={activeWorktreePath === wt.path}
+                agentStatus={getAgentStatusForPath?.(wt.path)}
                 onClick={() => onWorktreeSelect(wt.path)}
                 onCopyPath={() => onCopyWorktreePath(wt.path)}
                 onRemove={(force) => onRemoveWorktree(wt.path, force)}

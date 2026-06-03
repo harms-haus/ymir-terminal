@@ -2,11 +2,12 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { TerminalEntry } from '../components/TerminalManager';
 import type { TerminalPanelHandle } from './useTerminalPanel';
 
-interface TerminalRegistryEntry {
+export interface TerminalRegistryEntry {
   terminalId: string;
   tabId: string;
   owningPane: string;
   workspaceId: string;
+  cwd?: string;
 }
 
 interface UseTerminalRegistryParams {
@@ -38,10 +39,10 @@ export function useTerminalRegistry({
 
   // Terminal lifecycle callbacks
   const handleTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, pane: string, workspaceId: string) => {
+    (terminalId: string, tabId: string, pane: string, workspaceId: string, cwd?: string) => {
       setTerminalRegistry((prev) => [
         ...prev,
-        { terminalId, tabId, owningPane: pane, workspaceId },
+        { terminalId, tabId, owningPane: pane, workspaceId, cwd },
       ]);
     },
     [],
@@ -57,16 +58,16 @@ export function useTerminalRegistry({
 
   // Content pane callback (uses 'content' as pane ID for backward compatibility)
   const handleContentTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, workspaceId: string) => {
-      handleTerminalRegistered(terminalId, tabId, 'content', workspaceId);
+    (terminalId: string, tabId: string, workspaceId: string, cwd?: string) => {
+      handleTerminalRegistered(terminalId, tabId, 'content', workspaceId, cwd);
     },
     [handleTerminalRegistered],
   );
 
   // Bottom panel callback
   const handleBottomTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, workspaceId: string) => {
-      handleTerminalRegistered(terminalId, tabId, 'bottom', workspaceId);
+    (terminalId: string, tabId: string, workspaceId: string, cwd?: string) => {
+      handleTerminalRegistered(terminalId, tabId, 'bottom', workspaceId, cwd);
     },
     [handleTerminalRegistered],
   );
@@ -140,6 +141,10 @@ export function useTerminalRegistry({
                   ? bottomPanelRef.current
                   : paneHandleRefs.current.get(entry.owningPane);
               paneHandle?.updateTabCwd(entry.tabId, cwd);
+              // Update registry entry's cwd for sidebar path-based lookups
+              setTerminalRegistry((prev) =>
+                prev.map((e) => (e.terminalId === entry.terminalId ? { ...e, cwd } : e)),
+              );
             },
           };
           cache.set(entry.tabId, cached);

@@ -1,4 +1,4 @@
-import type { GitWorktreeInfo, WorkspaceSummary } from '@ymir/shared';
+import type { AgentStatus, GitWorktreeInfo, WorkspaceSummary } from '@ymir/shared';
 import { useDroppable } from '@dnd-kit/react';
 import { useWorkspaces } from '../hooks/useWorkspaces';
 import { WorkspaceItem } from './WorkspaceItem';
@@ -8,6 +8,7 @@ interface WorkspaceSidebarProps {
   activeWorkspaceId: string | null;
   worktreesByWorkspace: Record<string, GitWorktreeInfo[]>;
   activeWorktreePath: string | null;
+  getAgentStatusForPath?: (path: string) => AgentStatus | null;
   onWorkspaceSelect: (id: string) => void;
   onAddWorkspace: () => void;
   onRenameWorkspace: (id: string, newName: string) => void;
@@ -31,6 +32,7 @@ export function WorkspaceSidebar({
   activeWorkspaceId,
   worktreesByWorkspace,
   activeWorktreePath,
+  getAgentStatusForPath,
   onWorkspaceSelect,
   onAddWorkspace,
   onRenameWorkspace,
@@ -97,6 +99,7 @@ export function WorkspaceSidebar({
           activeWorkspaceId={activeWorkspaceId}
           worktreesByWorkspace={worktreesByWorkspace}
           activeWorktreePath={activeWorktreePath}
+          getAgentStatusForPath={getAgentStatusForPath}
           onWorkspaceSelect={onWorkspaceSelect}
           onRenameWorkspace={onRenameWorkspace}
           onSetCwdWorkspace={onSetCwdWorkspace}
@@ -118,6 +121,7 @@ function WorkspaceSidebarList({
   activeWorkspaceId,
   worktreesByWorkspace,
   activeWorktreePath,
+  getAgentStatusForPath,
   onWorkspaceSelect,
   onRenameWorkspace,
   onSetCwdWorkspace,
@@ -133,6 +137,7 @@ function WorkspaceSidebarList({
   activeWorkspaceId: string | null;
   worktreesByWorkspace: Record<string, GitWorktreeInfo[]>;
   activeWorktreePath: string | null;
+  getAgentStatusForPath?: (path: string) => AgentStatus | null;
   onWorkspaceSelect: (id: string) => void;
   onRenameWorkspace: (id: string, newName: string) => void;
   onSetCwdWorkspace: (id: string, newCwd: string) => void;
@@ -176,6 +181,8 @@ function WorkspaceSidebarList({
           isActive={activeWorkspaceId === ws.id}
           worktrees={worktreesByWorkspace[ws.id] || []}
           activeWorktreePath={activeWorktreePath}
+          agentStatus={getAgentStatusForPath?.(ws.cwd)}
+          getAgentStatusForPath={getAgentStatusForPath}
           onSelect={onWorkspaceSelect}
           onRename={onRenameWorkspace}
           onSetCwd={onSetCwdWorkspace}

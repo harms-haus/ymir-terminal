@@ -66,6 +66,29 @@ Filesystem changes (.git/HEAD, .git/refs/, working tree)
   → Client useGitStatusSubscription hook
 ```
 
+**Agent status data flow:**
+
+```
+Path 1 — OSC 777 (authoritative):
+  Terminal PTY output (base64)
+    → hasOSC777Prefix quick-check
+    → OSC777StreamParser (strips sequences, emits OSC777AgentEvent[])
+    → AgentStatusTracker.updateFromOSC777()
+    → onStatusChange listener → WebSocket agent.status event
+    → Client
+
+Path 2 — Process monitor (fallback):
+  ProcessMonitor polls ps every 2 s
+    → BFS from shell PID → match AGENT_PATTERNS (claude, opencode, pi, aider, codex)
+    → /proc/[pid]/stat CPU-time deltas → active vs idle
+    → AgentStatusTracker.updateFromProcessMonitor()
+    → onStatusChange listener → WebSocket agent.status event
+    → Client
+
+Merging: OSC 777 updates take precedence for 30 s (OSC777_FRESHNESS_MS).
+Process-monitor heartbeats are ignored while an OSC 777 status is still fresh.
+```
+
 ## Tech Stack
 
 | Layer           | Technology                                                                              |
@@ -102,10 +125,11 @@ Filesystem changes (.git/HEAD, .git/refs/, working tree)
 
 | Directory             | Purpose                                                                                   |
 | --------------------- | ----------------------------------------------------------------------------------------- |
+| `agent/`              | AI agent status detection — OSC 777 parser, status tracker, process monitor               |
 | `auth/`               | Password hashing (Argon2id), JWT sign/verify                                              |
 | `db/`                 | Persistent DB (workspaces), session DB (tabs)                                             |
 | `lib/`                | Shared handler validation (`handler-validation.ts`)                                       |
-| `pty/`                | PTY manager — spawn, resize, write, kill                                                  |
+| `pty/`                | PTY manager — spawn, resize, write, kill; exposes `getTerminalPids()` for process monitor |
 | `files/`              | File scanner, CRUD operations, filesystem watcher                                         |
 | `git/`                | Git status, log, repo discovery, staging, branching, and remote operations                |
 | `ws/`                 | WebSocket server, message router, connection state                                        |
@@ -128,6 +152,18 @@ Filesystem changes (.git/HEAD, .git/refs/, working tree)
 | `git/worktrees.ts`      | Git worktree management — list, create, and remove linked worktrees; exports `parseWorktreeList`, `listWorktrees`, `createWorktree`, `removeWorktree`                                                                                                                                                     |
 | `git/status-cache.ts`   | In-memory `GitStatusCache` — per-repo status cache with 5 s TTL (`CACHE_TTL_MS`), freshness checks (`isFresh`), and request coalescing (`getOrCreate`) to deduplicate concurrent in-flight git status reads                                                                                               |
 | `git/status-watcher.ts` | `GitStatusWatcher` — watches `.git/HEAD`, `.git/refs/`, and the working tree via `fs.watch`; debounces events (500 ms, `DEBOUNCE_MS`); triggers cache-coalesced refreshes; broadcasts status changes via handler; safety-polls every 45 s (`SAFETY_POLL_MS`) in staggered batches of 3; caps at 200 repos |
+
+**Agent module detail:** Two data sources detect AI agents running inside terminals and expose a unified `AgentStatus` (`'working'` | `'halted'` | `'done'`):
+
+| File                       | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent/osc777-parser.ts`   | Parses OSC 777 escape sequences (`\x1b]777;notify;warp://cli-agent;<JSON>\x07`) from terminal output to detect AI agent lifecycle events. Compatible with the [Warp cli-agent protocol](https://github.com/nickolay/agent-proxy/blob/main/protocol.md). Provides stateless `parseOSC777()`, stateful `OSC777StreamParser` (handles sequences split across chunks with 64 KiB buffer limit), `osc777EventToStatus()` mapping, and `hasOSC777Prefix()` fast pre-filter on base64 data |
+| `agent/status-tracker.ts`  | Central `AgentStatusTracker` — merges OSC 777 (primary) and process-monitor (fallback) status signals per terminal. OSC 777 updates are considered authoritative for 30 s (`OSC777_FRESHNESS_MS`); process-monitor heartbeats are suppressed during that window. Notifies listeners only on actual status changes. Exposes `getStatus()`, `getAllStatuses()`, `clearTerminal()`, `onStatusChange()`                                                                                 |
+| `agent/process-monitor.ts` | `ProcessMonitor` — polls `ps -eo pid=,ppid=,comm=,args=` every 2 s. For each tracked terminal, BFS from shell PID to find descendant processes matching `AGENT_PATTERNS` (claude, opencode, pi, aider, codex). Reads `/proc/[pid]/stat` CPU-time deltas to distinguish active from idle agents; falls back to assuming active when `/proc` is unavailable (macOS, containers). Exports `getProcessSnapshot()`, `getDescendants()`, `isAgent()`                                      |
+
+**Server lifecycle (AgentStatusTracker + ProcessMonitor):**
+
+In `server.ts` (step 5a), an `AgentStatusTracker` and `ProcessMonitor` are created before handler registration. The process monitor's callback delegates to `statusTracker.updateFromProcessMonitor()`. A `statusTracker.onStatusChange` listener looks up the terminal's owning session via the `terminal_instances` table and sends an `agent.status` event to that connection. Both are passed via dependency injection to `registerTerminalHandlers` as `statusTracker` and `processMonitor`. On terminal creation, the shell PID (from `ptyManager.getTerminalPids()`) is registered with the process monitor and an `OSC777StreamParser` is created per terminal; on exit/close, tracking is removed, the parser is discarded, and status is cleared. On graceful shutdown, `processMonitor.stop()` clears the polling interval and tracked state, and `unsubscribeStatus()` removes the broadcast listener.
 
 **Server lifecycle (GitStatusCache + GitStatusWatcher):**
 
@@ -240,6 +276,7 @@ The client extracts complex stateful logic into dedicated hooks, each with a sin
 | `useTerminalPanel`         | Defines the `TerminalPanelHandle` interface and wires it via `useImperativeHandle`. The handle exposes `transferTabOut`, `receiveTab`, `loadRestoredTabs`, `reorderTabs`, `getTabs`, `getActiveTabId`, `updateTabTitle`, and `updateTabCwd` — shared by ContentPane and BottomPanel.                                                                                                                                                              |
 | `useGitStatusSubscription` | Subscribes to push-based `git.statusChange` WebSocket events for a given workspace. Uses `wsClient.onMessage` with a stable callback ref to update repo status in real-time without polling. Called by `useGitRepos` and `RightSidebar` to keep status state in sync with server-side filesystem watchers.                                                                                                                                        |
 | `useGitRepos`              | Multi-repo git state management — repo discovery, status, branches, and operations. Subscribes to push-based `git.statusChange` events via `useGitStatusSubscription` so repo statuses update in real-time as the filesystem changes, without client-side polling.                                                                                                                                                                                |
+| `useAgentStatus`           | Subscribes to push-based `agent.status` WebSocket events. Maintains per-terminal agent status state (`working`, `halted`, `done`) and agent name, used by `StatusDot` indicators in tabs and sidebar. Initial state is received via server-pushed `agent.status` events on authentication; subsequent updates arrive in real-time via the subscription.                                                                                           |
 
 ## Testing
 

@@ -24,6 +24,7 @@ type MockPty = {
   kill: Mock<(id: string) => void>;
   has: Mock<(id: string) => boolean>;
   killAll: Mock<() => void>;
+  getTerminalPids: Mock<() => Map<string, number>>;
 };
 
 // ---------------------------------------------------------------------------
@@ -42,7 +43,35 @@ function mockPtyManager(): MockPty & PTYManager {
     kill: mock(() => {}) as Mock<(id: string) => void>,
     has: mock(() => true) as Mock<(id: string) => boolean>,
     killAll: mock(() => {}) as Mock<() => void>,
+    getTerminalPids: mock(() => new Map<string, number>()) as Mock<() => Map<string, number>>,
   } as MockPty & PTYManager;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers – mock deps
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a simple mock that satisfies the AgentStatusTracker interface
+ * methods used by the terminal handler.
+ */
+function mockStatusTracker() {
+  return {
+    updateFromOSC777: mock(() => null) as Mock<(...args: unknown[]) => string | null>,
+    clearTerminal: mock(() => {}) as Mock<(terminalId: string) => void>,
+    getAllStatuses: mock(() => new Map()) as Mock<() => Map<string, unknown>>,
+  };
+}
+
+/**
+ * Build a simple mock that satisfies the ProcessMonitor interface
+ * methods used by the terminal handler.
+ */
+function mockProcessMonitor() {
+  return {
+    trackTerminal: mock(() => {}) as Mock<(terminalId: string, pid: number) => void>,
+    untrackTerminal: mock(() => {}) as Mock<(terminalId: string) => void>,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +84,8 @@ describe('registerTerminalHandlers', () => {
   let ptyManager: ReturnType<typeof mockPtyManager>;
   let sessionDb: Database;
   let persistentDb: Database;
+  let statusTracker: ReturnType<typeof mockStatusTracker>;
+  let processMonitor: ReturnType<typeof mockProcessMonitor>;
 
   let sessionId: string;
 
@@ -64,6 +95,8 @@ describe('registerTerminalHandlers', () => {
     ptyManager = mockPtyManager();
     sessionDb = initSessionDb();
     persistentDb = initPersistentDb(':memory:');
+    statusTracker = mockStatusTracker();
+    processMonitor = mockProcessMonitor();
     // Create a client session so foreign keys are satisfied
     sessionId = createSession(sessionDb);
     conn.sessionId = sessionId;
@@ -75,7 +108,13 @@ describe('registerTerminalHandlers', () => {
 
   describe('terminal.create', () => {
     it('creates a PTY and session DB entry, responds with TerminalCreateResponse', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       const req = request<TerminalCreateRequest>('terminal.create', {
         workspaceId: 'ws-1',
@@ -106,7 +145,13 @@ describe('registerTerminalHandlers', () => {
     });
 
     it('uses default cols/rows when not provided', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       const req = request<TerminalCreateRequest>('terminal.create', {
         workspaceId: 'ws-1',
@@ -127,7 +172,13 @@ describe('registerTerminalHandlers', () => {
 
   describe('terminal.input', () => {
     it('decodes base64 data and writes to PTY', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       // First create a terminal so there's something to write to
       const createReq = request<TerminalCreateRequest>('terminal.create', {
@@ -167,7 +218,13 @@ describe('registerTerminalHandlers', () => {
 
   describe('terminal.resize', () => {
     it('resizes PTY and updates DB', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       // First create a terminal
       const createReq = request<TerminalCreateRequest>('terminal.create', {
@@ -214,7 +271,13 @@ describe('registerTerminalHandlers', () => {
 
   describe('terminal.close', () => {
     it('kills PTY and removes from DB', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       // First create a terminal
       const createReq = request<TerminalCreateRequest>('terminal.create', {
@@ -263,7 +326,13 @@ describe('registerTerminalHandlers', () => {
 
   describe('missing terminalId error handling', () => {
     it('terminal.input with missing terminalId returns TERMINAL_NOT_FOUND', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       const inputReq = request<TerminalInputRequest>('terminal.input', {
         terminalId: 'nonexistent-id',
@@ -281,7 +350,13 @@ describe('registerTerminalHandlers', () => {
     });
 
     it('terminal.resize with missing terminalId returns TERMINAL_NOT_FOUND', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       const resizeReq = request<TerminalResizeRequest>('terminal.resize', {
         terminalId: 'nonexistent-id',
@@ -297,7 +372,13 @@ describe('registerTerminalHandlers', () => {
     });
 
     it('terminal.close with missing terminalId returns TERMINAL_NOT_FOUND', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       const closeReq = request<TerminalCloseRequest>('terminal.close', {
         terminalId: 'nonexistent-id',
@@ -317,7 +398,13 @@ describe('registerTerminalHandlers', () => {
 
   describe('cross-session access denied', () => {
     it('terminal.input rejects access from a different session', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       // Create a terminal under the current session
       const createReq = request<TerminalCreateRequest>('terminal.create', {
@@ -348,7 +435,13 @@ describe('registerTerminalHandlers', () => {
     });
 
     it('terminal.resize rejects access from a different session', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       // Create a terminal under the current session
       const createReq = request<TerminalCreateRequest>('terminal.create', {
@@ -380,7 +473,13 @@ describe('registerTerminalHandlers', () => {
     });
 
     it('terminal.close rejects access from a different session', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       // Create a terminal under the current session
       const createReq = request<TerminalCreateRequest>('terminal.create', {
@@ -416,7 +515,13 @@ describe('registerTerminalHandlers', () => {
 
   describe('terminal.output events', () => {
     it('when PTY emits data, sends terminal.output event via connection.send()', async () => {
-      registerTerminalHandlers(router, { ptyManager, sessionDb, persistentDb });
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+        statusTracker,
+        processMonitor,
+      });
 
       // Capture the onData callback passed to ptyManager.create
       let capturedOnData: ((data: string) => void) | undefined;

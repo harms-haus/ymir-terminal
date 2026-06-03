@@ -10,12 +10,12 @@
 | `EditorPane`               | Extracted editor pane (file loading, save, retry)                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `ContentPane`              | **(Legacy)** `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation; superseded by `SplitLeafPane` in the split-pane architecture                                                                                                                                                                                                                                                      |
 | `SplitPaneContextMenu`     | Context menu for pane operations (renamed from `PaneContextMenu`)                                                                                                                                                                                                                                                                                                                                                                                          |
-| `WorkspaceSidebar`         | Sidebar listing workspaces with expandable worktree sub-items, DnD sortable via `useDroppable`                                                                                                                                                                                                                                                                                                                                                             |
-| `WorkspaceItem`            | Individual workspace item with expand/collapse chevron, worktree sub-items, context menu, and sortable via `useSortable`                                                                                                                                                                                                                                                                                                                                   |
+| `WorkspaceSidebar`         | Sidebar listing workspaces with expandable worktree sub-items, DnD sortable via `useDroppable`; accepts `getAgentStatusForPath` for per-path agent status dots                                                                                                                                                                                                                                                                                             |
+| `WorkspaceItem`            | Individual workspace item with expand/collapse chevron, worktree sub-items, context menu, sortable via `useSortable`, and `StatusDot` for agent status; accepts `agentStatus` and `getAgentStatusForPath` props                                                                                                                                                                                                                                            |
 | `CreateWorkspaceDialog`    | Dialog for creating new workspaces                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `FileTree`                 | Directory tree with context menu and inline git status                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `WorktreeItem`             | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`                                                                                                                                                                                                                                                                                                                            |
+| `WorktreeItem`             | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`; accepts `agentStatus` prop for `StatusDot` rendering                                                                                                                                                                                                                                                                      |
 | `WorktreeItemContextMenu`  | Context menu for worktree items (Copy Path, Remove Worktree)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `CreateWorktreeDialog`     | Modal dialog for creating git worktrees (branch name + optional base ref)                                                                                                                                                                                                                                                                                                                                                                                  |
 | `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split; subscribes to push-based `git.statusChange` events via `useGitStatusSubscription` for real-time git status updates                                                                                                                                                                                          |
@@ -28,9 +28,9 @@
 | `GitChangeTree`            | Recursive tree view for file changes grouped by directory with context menus                                                                                                                                                                                                                                                                                                                                                                               |
 | `GitChangeContextMenu`     | Context menu for git file change items (stage, unstage, discard, diff)                                                                                                                                                                                                                                                                                                                                                                                     |
 | `LoginPage`                | Password authentication form                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable`; accepts `onSplitRight`, `onSplitDown`, `onClosePane`, `canClosePane` for pane-splitting operations, and `group` for cross-pane DnD identification                                                                                                                                                                                        |
+| `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable`; accepts `onSplitRight`, `onSplitDown`, `onClosePane`, `canClosePane` for pane-splitting operations, `group` for cross-pane DnD identification, and `getAgentStatus` for per-tab agent status dots                                                                                                                                        |
 | `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename)                                                                                                                                                                                                                                                                                                                                                                                 |
-| `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation                                                                                                                                                                                                                                                                                                                                      |
+| `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation; accepts `getAgentStatus` for tab status dots                                                                                                                                                                                                                                                                                        |
 | `WorkspaceView`            | Top-level workspace view wrapped in `DialogProvider` as the outermost shell, then `ToastProvider`, `PaneVisibilityProvider`, and `FileClipboardProvider`; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; composes `TopBar` with `CommandBar`; `DragDropProvider` for cross-pane terminal tab DnD; orchestrates split-pane layout via `useSplitLayout`, cross-pane tab transfer, and terminal lifecycle management |
 | `TopBar`                   | Top bar with connection indicator (left), command bar slot (center), pane toggle buttons (right)                                                                                                                                                                                                                                                                                                                                                           |
 | `WindowControls`           | Extracted Tauri window control buttons (minimize, maximize, close) with hover states; lazily loads `@tauri-apps/api/window`; no-ops when not running in Tauri                                                                                                                                                                                                                                                                                              |
@@ -44,9 +44,10 @@
 | `AppContextMenu`           | Generic context menu wrapper built on `@radix-ui/react-context-menu`. Accepts an `items` array of `{ label, action, testId, icon?, destructive?, separatorAfter?, shortcutHint?, content? }` and renders them with consistent styling. Used by all 6 context menus (tab, workspace item, worktree item, git change, file tree, split pane)                                                                                                                 |
 | `CommandBar`               | File search and command palette (activated by click or Ctrl+K, `/` prefix for commands)                                                                                                                                                                                                                                                                                                                                                                    |
 | `AnimatedPane`             | Slide animation wrapper for collapsible panels                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `SplitPaneLayout`          | Recursive renderer for pane tree layout using `react-resizable-panels`; renders `PaneNode` leaves as `SplitLeafPane` and `SplitNode` internals as `Group`/`Panel`/`Separator` with configurable direction and resize handles                                                                                                                                                                                                                               |
-| `SplitLeafPane`            | Leaf pane component with `TabBar`, terminal/editor/diff/git-tree content areas, and split/close operations; uses `useTerminalPane` for per-pane tab management; exposes `TerminalPanelHandle` via `forwardRef` for imperative cross-pane tab transfer                                                                                                                                                                                                      |
+| `SplitPaneLayout`          | Recursive renderer for pane tree layout using `react-resizable-panels`; renders `PaneNode` leaves as `SplitLeafPane` and `SplitNode` internals as `Group`/`Panel`/`Separator` with configurable direction and resize handles; accepts `getAgentStatus` for per-tab status dots                                                                                                                                                                             |
+| `SplitLeafPane`            | Leaf pane component with `TabBar`, terminal/editor/diff/git-tree content areas, and split/close operations; uses `useTerminalPane` for per-pane tab management; exposes `TerminalPanelHandle` via `forwardRef` for imperative cross-pane tab transfer; accepts `getAgentStatus` for per-tab status dots                                                                                                                                                    |
 | `ToastProvider`            | Toast notification system                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `StatusDot`                | Colored animated dot indicating agent status — pulsing blue (working), pulsing orange (halted), or static green (done); `null` renders an invisible placeholder to prevent layout shift                                                                                                                                                                                                                                                                    |
 
 ## Project Sidebar
 
@@ -231,10 +232,101 @@ Unified imperative handle exposed by `SplitLeafPane` (and `BottomPanel`) via `fo
 | `serializeLayout`     | Serializes the tree to JSON                                                            |
 | `deserializeLayout`   | Deserializes JSON to a `LayoutNode` with validation; returns `null` on invalid input   |
 
+## Agent Status UI
+
+The agent status system provides real-time visual feedback about AI agent activity across the UI — in tab bars, the workspace sidebar, and worktree items.
+
+### `StatusDot`
+
+Renders a colored dot indicating agent status. Used inline inside tab labels and sidebar items.
+
+**Props:**
+
+| Prop     | Type                                      | Default | Description                                            |
+| -------- | ----------------------------------------- | ------- | ------------------------------------------------------ |
+| `status` | `'working' \| 'halted' \| 'done' \| null` | —       | Agent status. `null` renders an invisible placeholder. |
+| `size`   | `number`                                  | `8`     | Dot diameter in pixels.                                |
+
+**Visual states:**
+
+| Status    | Color              | Animation             |
+| --------- | ------------------ | --------------------- |
+| `working` | Blue (`#3b82f6`)   | Pulsing glow (2s)     |
+| `halted`  | Orange (`#fb923c`) | Pulsing glow (2s)     |
+| `done`    | Green (`#4ade80`)  | Static                |
+| `null`    | —                  | Invisible placeholder |
+
+- **CSS injection** — `useInsertionEffect` injects `@keyframes` into `<head>` per status type, guarded by a module-level `Set` to prevent duplicates
+- **Reduced motion** — respects `prefers-reduced-motion`; pulsing dots become static with `opacity: 0.6`
+- **Accessibility** — `role="img"`, `aria-label` (e.g. "Agent status: working"), and `title` tooltip
+
+### `useAgentStatus` Hook
+
+Subscribes to `agent.status` WebSocket events and provides lookup functions for terminal tabs and sidebar items.
+
+```tsx
+const { getStatusForTerminal, getStatusForTab, getStatusesForPath } = useAgentStatus({
+  terminalRegistry,
+});
+```
+
+**Options:** `{ terminalRegistry: TerminalRegistryEntry[] }`
+
+**Returns:**
+
+| Method                 | Signature                                       | Description                                                                                                              |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `getStatusForTerminal` | `(terminalId: string) => AgentStatus \| null`   | Status for a specific terminal by its ID                                                                                 |
+| `getStatusForTab`      | `(tabId: string) => AgentStatus \| null`        | Status for a tab by looking up the terminal registry entry matching the tab ID                                           |
+| `getStatusesForPath`   | `(absolutePath: string) => AgentStatus \| null` | Highest-priority status among all terminals whose `cwd` is a prefix of the given path (used for sidebar dot aggregation) |
+
+**Priority order** (lower = higher priority): `working` (0) > `halted` (1) > `done` (2).
+
+**Toast notifications** are fired on status transitions (skipping the initial status assignment):
+
+| Transition | Toast type | Duration        | Message                        |
+| ---------- | ---------- | --------------- | ------------------------------ |
+| → `halted` | `info`     | Persistent (0)  | "{AgentName} needs your input" |
+| → `done`   | `success`  | 5s auto-dismiss | "{AgentName} finished"         |
+
+Toast IDs are keyed by `agent-halted-{terminalId}` / `agent-done-{terminalId}` so duplicates are automatically deduplicated by `sonner`.
+
+### Integration Points
+
+The hook is instantiated once in `WorkspaceViewInner` and the getter functions are threaded down to child components:
+
+```
+WorkspaceViewInner
+  ├─ useAgentStatus({ terminalRegistry })
+  ├─ SplitPaneLayout     getAgentStatus={getStatusForTab}
+  │    └─ SplitLeafPane   getAgentStatus → TabBar → SortableTab → StatusDot
+  ├─ BottomPanel         getAgentStatus={getStatusForTab}
+  │    └─ TabBar          → SortableTab → StatusDot
+  └─ WorkspaceSidebar    getAgentStatusForPath={getStatusesForPath}
+       └─ WorkspaceItem   agentStatus + getAgentStatusForPath
+            ├─ StatusDot   (on workspace row)
+            └─ WorktreeItem agentStatus → StatusDot
+```
+
+New props added to existing components:
+
+| Component          | Prop                    | Type                                                        |
+| ------------------ | ----------------------- | ----------------------------------------------------------- |
+| `TabBar`           | `getAgentStatus`        | `(tabId: string) => AgentStatus \| null \| undefined`       |
+| `SortableTab`      | `agentStatus`           | `'working' \| 'halted' \| 'done' \| null`                   |
+| `WorkspaceSidebar` | `getAgentStatusForPath` | `(path: string) => AgentStatus \| null`                     |
+| `WorkspaceItem`    | `agentStatus`           | `'working' \| 'halted' \| 'done' \| null`                   |
+| `WorkspaceItem`    | `getAgentStatusForPath` | `(path: string) => 'working' \| 'halted' \| 'done' \| null` |
+| `WorktreeItem`     | `agentStatus`           | `'working' \| 'halted' \| 'done' \| null`                   |
+| `SplitPaneLayout`  | `getAgentStatus`        | `(tabId: string) => AgentStatus \| null`                    |
+| `SplitLeafPane`    | `getAgentStatus`        | `(tabId: string) => AgentStatus \| null`                    |
+| `BottomPanel`      | `getAgentStatus`        | `(tabId: string) => AgentStatus \| null`                    |
+
 ## Accessibility
 
 - Tree nodes have `role="treeitem"`, `tabIndex={0}`, and `aria-expanded` on directories
 - Status dots include `aria-label` (e.g. "Git status: modified") and `title` tooltips
+- `StatusDot` uses `role="img"` with `aria-label` (e.g. "Agent status: working") and `title` tooltip describing the status
 - Children containers use `role="group"`
 - Keyboard navigation via Enter/Space
 

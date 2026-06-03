@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, forwardRef } from 'react';
+import type { AgentStatus } from '@ymir/shared';
 import { useTerminalPane } from '../hooks/useTerminalPane';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { DiffViewer } from './DiffViewer';
@@ -31,6 +32,7 @@ export interface SplitLeafPaneProps {
   onClosePane?: (paneId: string) => void;
   isOnlyPane?: boolean;
   dirtyFiles?: Set<string>;
+  getAgentStatus?: (tabId: string) => AgentStatus | null;
 }
 
 export type { TerminalPanelHandle as SplitLeafPaneHandle };
@@ -58,6 +60,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
       onClosePane,
       isOnlyPane,
       dirtyFiles: externalDirtyFiles,
+      getAgentStatus,
     }: SplitLeafPaneProps,
     ref,
   ) {
@@ -260,6 +263,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
           onSplitDown={onSplitDown ? (tabId) => onSplitDown(paneId, tabId) : undefined}
           onClosePane={onClosePane ? () => onClosePane(paneId) : undefined}
           canClosePane={!isOnlyPane}
+          getAgentStatus={getAgentStatus}
         />
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {/* TerminalManager portals terminals into this container */}

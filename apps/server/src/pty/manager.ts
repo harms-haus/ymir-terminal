@@ -190,6 +190,17 @@ export class PTYManager {
     return this.terminals.has(id);
   }
 
+  /**
+   * Return a snapshot of terminalId → shell PID for all tracked terminals.
+   */
+  getTerminalPids(): Map<string, number> {
+    const pids = new Map<string, number>();
+    for (const [id, entry] of this.terminals) {
+      pids.set(id, entry.process.pid);
+    }
+    return pids;
+  }
+
   killAll(): void {
     for (const id of this.terminals.keys()) {
       this.kill(id);

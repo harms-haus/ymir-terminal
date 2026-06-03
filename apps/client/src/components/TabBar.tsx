@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { Tab } from '../hooks/useTabs';
+import type { AgentStatus } from '@ymir/shared';
 import {
   COLOR_BG_SECONDARY,
   COLOR_BORDER,
@@ -27,6 +28,7 @@ interface TabBarProps {
   onSplitDown?: (tabId?: string) => void;
   onClosePane?: () => void;
   canClosePane?: boolean;
+  getAgentStatus?: (tabId: string) => AgentStatus | null | undefined;
 }
 
 export function TabBar({
@@ -46,6 +48,7 @@ export function TabBar({
   onSplitDown,
   onClosePane,
   canClosePane,
+  getAgentStatus,
 }: TabBarProps) {
   // Inline rename state
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -215,6 +218,7 @@ export function TabBar({
             onSplitDown={onSplitDown ? () => onSplitDown(tab.id) : undefined}
             onClosePane={onClosePane}
             canClosePane={canClosePane}
+            agentStatus={getAgentStatus?.(tab.id)}
           />
         ))}
       </div>

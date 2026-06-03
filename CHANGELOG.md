@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version synchronization script (`scripts/sync-version.ts`)
 - npm publish helper script (`scripts/publish-npm.ts`)
 - Cross-platform build scripts replacing bash-only scripts
+- AI agent status indicator: animated status dots in terminal tabs and workspace/worktree sidebar items showing the operational state of coding agents (Claude, OpenCode, PI, Aider, Codex)
+  - Pulsing blue dot when agent is working, pulsing orange dot when waiting for input, static green dot when done
+  - Toast notifications when agent needs user input or finishes a task
+  - OSC 777 escape sequence parsing (Warp cli-agent protocol compatible) for agent-self-reported status
+  - Server-side process monitor polling for agent process detection with CPU-activity heuristics
+  - `agent.status` WebSocket event and `agent.statusQuery` WebSocket request channels
 
 ### Changed
 

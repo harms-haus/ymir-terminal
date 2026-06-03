@@ -127,6 +127,7 @@ Each tab is a `SortableTab` (memoized) wired to `@dnd-kit/react`'s `useSortable`
 - **Inline rename** — triggered from context menu; commits on Enter/blur, cancels on Escape
 - **Tooltips** — terminal tabs show `cwd`, editor tabs show `filePath`, diff tabs show `filePath (diff)`, git-tree tabs show `Git History — {repoPath}`
 - **Active accent line** — 2px `var(--accent)` top border on the active tab
+- **Agent status dot** — when a `getAgentStatus` prop is provided, each terminal tab renders a `StatusDot` indicator before its title text, showing the AI agent's operational state (working/halted/done). The dot is absent when no agent is associated with the terminal. See [Agent status system](#agent-status-system) below for details.
 - **Split actions** — `onSplitRight` and `onSplitDown` split the pane and optionally move the current tab to the new pane
 - **Close pane** — `onClosePane` / `canClosePane` allows closing the entire pane (disabled when it's the only pane)
 
@@ -199,6 +200,8 @@ PTY output → Terminal.onOutput callback
 
 The OSC 7 format is `ESC ] 7 ; file://hostname/path ST`. The parser (`lib/osc-parser.ts`) uses a global regex to find the last match in each data chunk and returns the decoded path. This enables tooltip display of the current directory and preserves CWD when transferring tabs between panes.
 
+The parsed CWD is also stored on the `TerminalRegistryEntry` as an optional `cwd?: string` field. This field enables path-based agent status lookups for sidebar items, allowing the sidebar to match an agent's working directory to a specific terminal.
+
 ## Title Tracking
 
 ghostty-web emits `onTitleChange` events when the terminal title changes (e.g. via shell `PROMPT_COMMAND`). The `Terminal` component forwards these through `onTitleChange` → `updateTabTitle`, keeping the tab strip in sync with the running process.
@@ -230,3 +233,10 @@ Users can split any pane via the tab or tab-bar context menu:
 - **Close Pane** — closes the pane and all its tabs (requires at least 2 panes in the layout). Terminals in the closed pane are terminated.
 
 Splitting is implemented in `WorkspaceView.handleSplitPane`: it calls `useSplitLayout.splitPane` to update the layout tree, then on the next frame transfers the specified tab (if any) from the source pane to the newly created pane. The new pane is auto-focused.
+
+## Agent Status System
+
+The agent status dot displayed in terminal tabs is the tab-level integration point for the broader agent status system:
+
+- **`StatusDot` component** and the **`useAgentStatus` hook** are documented in [`docs/components.md`](components.md).
+- **`agent.status` event** and the wire protocol for agent state notifications are documented in [`docs/protocol.md`](protocol.md).

@@ -16,6 +16,8 @@ export interface AuthDeps {
   passwordHash: string;
   signingSecret: string;
   sessionDb: Database;
+  /** Optional callback invoked after a connection successfully authenticates. */
+  onAuthenticated?: (sessionId: string) => void;
 }
 
 /** JWT expiry duration string (7 days) – keep in sync with jwt.ts default. */
@@ -126,6 +128,9 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () 
     } satisfies AuthResponse);
 
     conn.send(resp);
+
+    // Notify after successful auth (for initial agent status sync, etc.)
+    deps.onAuthenticated?.(conn.sessionId);
   });
 
   // --- periodic cleanup of stale authAttempts entries --------------------
@@ -174,6 +179,7 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () 
         }
 
         conn.isAuthenticated = true;
+        deps.onAuthenticated?.(conn.sessionId);
         return originalRoute(conn, envelope);
       } catch {
         // Token verification failed – fall through to AUTH_REQUIRED

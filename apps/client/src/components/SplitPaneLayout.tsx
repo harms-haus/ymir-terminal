@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { AgentStatus } from '@ymir/shared';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
 import type { LayoutNode, SplitNode } from '../lib/pane-tree';
@@ -30,6 +31,7 @@ export interface SplitPaneLayoutProps {
   onSplitDown?: (paneId: string, tabId?: string) => void;
   onClosePane?: (paneId: string) => void;
   dirtyFiles?: Set<string>;
+  getAgentStatus?: (tabId: string) => AgentStatus | null;
   paneHandleRefs: React.MutableRefObject<Map<string, TerminalPanelHandle>>;
   paneContainerRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   onLayoutChanged?: () => void;
@@ -57,6 +59,7 @@ export function SplitPaneLayout({
   paneHandleRefs,
   paneContainerRefs,
   onLayoutChanged,
+  getAgentStatus,
 }: SplitPaneLayoutProps) {
   const isOnlyPane = useMemo(() => collectPaneIds(layout).length === 1, [layout]);
 
@@ -105,6 +108,7 @@ export function SplitPaneLayout({
         onClosePane={onClosePane}
         isOnlyPane={isOnlyPane}
         dirtyFiles={dirtyFiles}
+        getAgentStatus={getAgentStatus}
       />
     );
   }
