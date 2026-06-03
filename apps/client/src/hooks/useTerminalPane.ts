@@ -1,13 +1,13 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useTabs } from './useTabs';
-import type { TabInfo } from '@ymir/shared';
+import type { TabInfo, PersistedTabInfo } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 import { useConfirm } from './useDialog';
 import { pathBasename } from '../lib/path-utils';
 
 export interface UseTerminalPaneOptions {
   workspaceId?: string | null;
-  pane?: 'content' | 'bottom';
+  pane?: string;
   dirtyFiles?: Set<string>;
   confirmMultipleText?: string;
   onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
@@ -28,6 +28,10 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
   // Track which workspaces have already been loaded from server
   const loadedWorkspacesRef = useRef<Set<string>>(new Set());
+
+  // Track which workspaces have been restored via loadRestoredTabs –
+  // prevents an in-flight tab.list response from overwriting them.
+  const restoredWorkspacesRef = useRef<Set<string>>(new Set());
 
   // Refs for options to avoid stale closures in callbacks
   const paneRef = useRef(pane);
@@ -108,6 +112,10 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
     if (workspaceId && !loadedWorkspacesRef.current.has(workspaceId)) {
       loadedWorkspacesRef.current.add(workspaceId);
+
+      // Skip tab.list if tabs were already restored via loadRestoredTabs
+      if (restoredWorkspacesRef.current.has(workspaceId)) return;
+
       sendRequest<{ tabs: TabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
         .then((response) => {
           // Filter out dead terminals
@@ -270,6 +278,39 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
   const getActiveTabId = useCallback(() => activeTabIdRef.current ?? null, []);
 
+  // --- Restore tabs from persisted session (called by parent via imperative handle) ---
+
+  const loadRestoredTabs = useCallback(
+    (wsId: string, restored: PersistedTabInfo[]) => {
+      restoredWorkspacesRef.current.add(wsId);
+      const mapped: TabInfo[] = restored.map((t, idx) => ({
+        id: t.id,
+        tabType: t.tabType,
+        title: t.customTitle ?? t.title ?? 'Terminal',
+        filePath: t.filePath,
+        terminalId: t.terminalId,
+        active: idx === 0, // first tab is active by default
+        sortOrder: t.sortOrder,
+        terminalAlive: t.terminalId != null ? true : undefined,
+        cwd: t.cwd,
+        customTitle: t.customTitle,
+        diffRef: t.diffRef as TabInfo['diffRef'],
+        repoPath: t.repoPath,
+        commitSha: t.commitSha,
+        parentSha: t.parentSha,
+      }));
+      loadTabs(wsId, mapped);
+
+      // Register terminal tabs with parent
+      for (const t of mapped) {
+        if (t.terminalId) {
+          onTerminalRegisteredRef.current?.(t.terminalId, t.id, wsId);
+        }
+      }
+    },
+    [loadTabs, restoredWorkspacesRef],
+  );
+
   return {
     // useTabs state
     tabs,
@@ -300,6 +341,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     // Imperative handle functions
     transferTabOut,
     receiveTab,
+    loadRestoredTabs,
     getTabs,
     getActiveTabId,
   };

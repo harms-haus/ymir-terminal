@@ -8,7 +8,7 @@
 | `Terminal`                 | ghostty-web terminal emulator with OSC 7 CWD and title tracking                                                                                                                                                                                                                                                                                                                                    |
 | `CodeEditor`               | CodeMirror 6 editor instance                                                                                                                                                                                                                                                                                                                                                                       |
 | `EditorPane`               | Extracted editor pane (file loading, save, retry)                                                                                                                                                                                                                                                                                                                                                  |
-| `ContentPane`              | `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation                                                                                                                                                                                                                                                                         |
+| `ContentPane`              | **(Legacy)** `forwardRef` tab coordinator — `ContentPaneHandle` for imperative tab management, batch close with dirty-file confirmation; superseded by `SplitLeafPane` in the split-pane architecture                                                                                                                                                                                             |
 | `SplitPaneContextMenu`     | Context menu for pane operations (renamed from `PaneContextMenu`)                                                                                                                                                                                                                                                                                                                                  |
 | `WorkspaceSidebar`         | Sidebar listing workspaces with expandable worktree sub-items, DnD sortable via `useDroppable`                                                                                                                                                                                                                                                                                                     |
 | `WorkspaceItem`            | Individual workspace item with expand/collapse chevron, worktree sub-items, context menu, and sortable via `useSortable`                                                                                                                                                                                                                                                                           |
@@ -28,10 +28,10 @@
 | `GitChangeTree`            | Recursive tree view for file changes grouped by directory with context menus                                                                                                                                                                                                                                                                                                                       |
 | `GitChangeContextMenu`     | Context menu for git file change items (stage, unstage, discard, diff)                                                                                                                                                                                                                                                                                                                             |
 | `LoginPage`                | Password authentication form                                                                                                                                                                                                                                                                                                                                                                       |
-| `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable`                                                                                                                                                                                                                                                                                   |
+| `TabBar`                   | Sortable tab strip — `variant` (content/bottom), context menu, inline rename, accent line, DnD via `useSortable`; accepts `onSplitRight`, `onSplitDown`, `onClosePane`, `canClosePane` for pane-splitting operations, and `group` for cross-pane DnD identification                                                                                                                              |
 | `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename)                                                                                                                                                                                                                                                                                                                         |
 | `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation                                                                                                                                                                                                                                                                              |
-| `WorkspaceView`            | Top-level workspace view wrapped in `DialogProvider` as the outermost shell, then `ToastProvider`, `PaneVisibilityProvider`, and `FileClipboardProvider`; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; composes `TopBar` with `CommandBar`; `DragDropProvider` for cross-pane terminal tab DnD                                                          |
+| `WorkspaceView`            | Top-level workspace view wrapped in `DialogProvider` as the outermost shell, then `ToastProvider`, `PaneVisibilityProvider`, and `FileClipboardProvider`; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; composes `TopBar` with `CommandBar`; `DragDropProvider` for cross-pane terminal tab DnD; orchestrates split-pane layout via `useSplitLayout`, cross-pane tab transfer, and terminal lifecycle management                                                                                                                                              |
 | `TopBar`                   | Top bar with connection indicator (left), command bar slot (center), pane toggle buttons (right)                                                                                                                                                                                                                                                                                                   |
 | `WindowControls`           | Extracted Tauri window control buttons (minimize, maximize, close) with hover states; lazily loads `@tauri-apps/api/window`; no-ops when not running in Tauri                                                                                                                                                                                                                                      |
 | `PaneToggleButtons`        | Extracted pane toggle buttons (workspace/terminal/explorer) with active/hover states; consumed by `TopBar`                                                                                                                                                                                                                                                                                         |
@@ -44,6 +44,8 @@
 | `AppContextMenu`           | Generic context menu wrapper built on `@radix-ui/react-context-menu`. Accepts an `items` array of `{ label, action, testId, icon?, destructive?, separatorAfter?, shortcutHint?, content? }` and renders them with consistent styling. Used by all 6 context menus (tab, workspace item, worktree item, git change, file tree, split pane)                                                         |
 | `CommandBar`               | File search and command palette (activated by click or Ctrl+K, `/` prefix for commands)                                                                                                                                                                                                                                                                                                            |
 | `AnimatedPane`             | Slide animation wrapper for collapsible panels                                                                                                                                                                                                                                                                                                                                                     |
+| `SplitPaneLayout`          | Recursive renderer for pane tree layout using `react-resizable-panels`; renders `PaneNode` leaves as `SplitLeafPane` and `SplitNode` internals as `Group`/`Panel`/`Separator` with configurable direction and resize handles                                                                                                                                                                       |
+| `SplitLeafPane`            | Leaf pane component with `TabBar`, terminal/editor/diff/git-tree content areas, and split/close operations; uses `useTerminalPane` for per-pane tab management; exposes `TerminalPanelHandle` via `forwardRef` for imperative cross-pane tab transfer                                                                                                                                              |
 | `ToastProvider`            | Toast notification system                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Project Sidebar
@@ -142,6 +144,76 @@ The `useGitRepos` hook manages all git state for the `GitPanel`. It accepts `wor
 | `refreshRepo`    | Refresh status (and optionally branches) for a single repo                        |
 | `pushLoading`    | Map of repo path → boolean push-in-progress state                                 |
 | `fetchLoading`   | Map of repo path → boolean fetch-in-progress state                                |
+
+## Split-Pane Architecture
+
+The editor area uses a binary tree layout where each leaf is a `SplitLeafPane` and each internal node is a resizable split (`SplitNode`). The tree is managed by `useSplitLayout` and rendered by `SplitPaneLayout`.
+
+```
+LayoutNode = PaneNode { type: 'pane', id }
+           | SplitNode { type: 'split', id, direction, children: [LayoutNode, LayoutNode], sizes: [string, string] }
+```
+
+- **Splitting** — `splitPane()` replaces a `PaneNode` with a `SplitNode` containing the original pane and a new empty pane, both at 50%
+- **Removing** — `removePane()` replaces the parent `SplitNode` with the sibling subtree; returns all removed pane IDs
+- **Persistence** — layout is serialized to JSON and saved under config key `pane_layout_{workspaceId}` with 300ms debounce
+- **Focus** — `focusedPaneId` tracks which pane has focus; panes render a colored border when focused
+
+### `useSplitLayout(workspaceId)`
+
+Manages the pane layout tree state, persistence, and focus tracking.
+
+| Return field        | Description                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| `layout`            | Current `LayoutNode` tree                                                                         |
+| `paneIds`           | Flat array of all `PaneNode` IDs in the tree                                                      |
+| `splitPane`         | Split a pane by ID in a given direction (`'horizontal'` \| `'vertical'`); auto-focuses new pane   |
+| `removePane`        | Remove a pane by ID; returns `removedPanes` array or `null` if it's the only pane                 |
+| `setLayout`         | Directly set a new layout tree                                                                    |
+| `loadLayout`        | Load persisted layout from server by workspace ID; falls back to single-pane default              |
+| `focusedPaneId`     | Currently focused pane ID                                                                         |
+| `setFocusedPaneId`  | Set the focused pane ID                                                                           |
+
+### `useTerminalPane(options)`
+
+Per-pane tab management hook with server sync. Wraps `useTabs` and adds:
+
+- **Server persistence** — syncs tab create/close/reorder/activate to the server via `tab.create`, `tab.delete`, `tab.reorder`, `tab.update`
+- **Tab restoration** — loads tabs from server on workspace switch (`tab.list`), or via `loadRestoredTabs` for session restore
+- **Dirty-file protection** — close/close-right/close-others confirm before closing editor tabs with unsaved changes
+- **Terminal lifecycle** — sends `terminal.close` on tab close and calls `onTerminalUnregistered`
+
+Options: `{ workspaceId?, pane?, dirtyFiles?, confirmMultipleText?, onTerminalRegistered?, onTerminalUnregistered? }`
+
+### `TerminalPanelHandle`
+
+Unified imperative handle exposed by `SplitLeafPane` (and `BottomPanel`) via `forwardRef`. Wired up by `useTerminalPanelHandle`:
+
+| Method             | Signature                                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `transferTabOut`   | `(tabId: string) => { terminalId, title, cwd?, customTitle? } \| null`                                                   |
+| `receiveTab`       | `(terminalId, title, cwd?, customTitle?) => string`                                                                      |
+| `loadRestoredTabs` | `(workspaceId: string, tabs: PersistedTabInfo[]) => void`                                                                 |
+| `reorderTabs`      | `(fromIndex: number, toIndex: number) => void`                                                                           |
+| `getTabs`          | `() => Tab[]`                                                                                                            |
+| `getActiveTabId`   | `() => string \| null`                                                                                                   |
+| `updateTabTitle`   | `(tabId: string, title: string) => void`                                                                                 |
+| `updateTabCwd`     | `(tabId: string, cwd: string) => void`                                                                                   |
+
+### Pane Tree Utilities (`lib/pane-tree.ts`)
+
+| Export              | Purpose                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `createDefaultLayout` | Returns a single `PaneNode` with a random UUID                                          |
+| `collectPaneIds`    | Recursively collects all `PaneNode` IDs from a tree                                        |
+| `findNode`          | Finds a node by ID in the tree                                                             |
+| `findParentSplit`   | Finds the parent `SplitNode` containing a child by ID                                      |
+| `replaceNode`       | Returns a new tree with a target node replaced (immutable)                                 |
+| `splitPane`         | Splits a pane into a `SplitNode` with original + new pane at 50/50                         |
+| `removePane`        | Removes a pane, collapsing its parent split into the sibling; returns removed pane IDs    |
+| `isOnlyPane`        | Checks if a pane ID is the sole pane in the tree                                           |
+| `serializeLayout`   | Serializes the tree to JSON                                                                |
+| `deserializeLayout` | Deserializes JSON to a `LayoutNode` with validation; returns `null` on invalid input       |
 
 ## Accessibility
 

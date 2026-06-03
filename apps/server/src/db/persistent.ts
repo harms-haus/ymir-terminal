@@ -52,6 +52,25 @@ export function initDatabase(dbPath: string): Database {
   }
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS persisted_tabs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+      title TEXT,
+      file_path TEXT,
+      pane TEXT DEFAULT 'content',
+      sort_order INTEGER DEFAULT 0,
+      diff_ref TEXT,
+      repo_path TEXT,
+      commit_sha TEXT,
+      parent_sha TEXT,
+      cwd TEXT,
+      custom_title TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS server_config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -143,4 +162,99 @@ export function reorderWorkspaces(db: Database, workspaceIds: string[]): void {
     }
   });
   tx();
+}
+
+// ---------------------------------------------------------------------------
+// Persisted tabs
+// ---------------------------------------------------------------------------
+
+export interface PersistedTab {
+  id: string;
+  workspace_id: string;
+  tab_type: string;
+  title: string | null;
+  file_path: string | null;
+  pane: string;
+  sort_order: number;
+  diff_ref: string | null;
+  repo_path: string | null;
+  commit_sha: string | null;
+  parent_sha: string | null;
+  cwd: string | null;
+  custom_title: string | null;
+  created_at: string;
+}
+
+export interface SavePersistedTabInput {
+  id: string;
+  workspaceId: string;
+  tabType: string;
+  title?: string | null;
+  filePath?: string | null;
+  pane?: string;
+  sortOrder?: number;
+  diffRef?: string | null;
+  repoPath?: string | null;
+  commitSha?: string | null;
+  parentSha?: string | null;
+  cwd?: string | null;
+  customTitle?: string | null;
+}
+
+export function savePersistedTab(db: Database, input: SavePersistedTabInput): void {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO persisted_tabs
+      (id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha, cwd, custom_title)
+    VALUES
+      ($id, $workspaceId, $tabType, $title, $filePath, $pane, $sortOrder, $diffRef, $repoPath, $commitSha, $parentSha, $cwd, $customTitle)
+  `);
+  stmt.run({
+    $id: input.id,
+    $workspaceId: input.workspaceId,
+    $tabType: input.tabType,
+    $title: input.title ?? null,
+    $filePath: input.filePath ?? null,
+    $pane: input.pane ?? 'content',
+    $sortOrder: input.sortOrder ?? 0,
+    $diffRef: input.diffRef ?? null,
+    $repoPath: input.repoPath ?? null,
+    $commitSha: input.commitSha ?? null,
+    $parentSha: input.parentSha ?? null,
+    $cwd: input.cwd ?? null,
+    $customTitle: input.customTitle ?? null,
+  });
+}
+
+export function deletePersistedTab(db: Database, tabId: string): boolean {
+  const stmt = db.prepare('DELETE FROM persisted_tabs WHERE id = ?');
+  const result = stmt.run(tabId);
+  return result.changes > 0;
+}
+
+export function updatePersistedTabOrder(db: Database, tabIds: string[]): void {
+  const updateStmt = db.prepare('UPDATE persisted_tabs SET sort_order = ? WHERE id = ?');
+  const tx = db.transaction(() => {
+    for (let i = 0; i < tabIds.length; i++) {
+      updateStmt.run(i, tabIds[i]);
+    }
+  });
+  tx();
+}
+
+export function updatePersistedTabTitle(db: Database, tabId: string, title: string): void {
+  db.prepare('UPDATE persisted_tabs SET custom_title = ? WHERE id = ?').run(title, tabId);
+}
+
+export function listPersistedTabsByWorkspace(
+  db: Database,
+  workspaceId: string,
+): PersistedTab[] {
+  const stmt = db.prepare(
+    'SELECT * FROM persisted_tabs WHERE workspace_id = ? ORDER BY sort_order ASC',
+  );
+  return stmt.all(workspaceId) as PersistedTab[];
+}
+
+export function deletePersistedTabsByWorkspace(db: Database, workspaceId: string): void {
+  db.prepare('DELETE FROM persisted_tabs WHERE workspace_id = ?').run(workspaceId);
 }

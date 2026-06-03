@@ -327,7 +327,75 @@ describe('session database', () => {
     expect(tabs[2].sort_order).toBe(2);
   });
 
-  // 15. cleanupSession deletes all related records
+  // 15. createTab with arbitrary pane ID works
+  test('createTab with arbitrary pane ID works', () => {
+    const sessionId = createSession(db);
+    const tabId = createTab(db, {
+      sessionId,
+      workspaceId: 'ws1',
+      tabType: 'terminal',
+      title: 'Custom Pane Tab',
+      pane: 'pane-abc-123',
+      order: 0,
+    });
+
+    expect(tabId).toBeTruthy();
+
+    const row = db.query('SELECT * FROM tabs WHERE id = ?').get(tabId) as Record<
+      string,
+      unknown
+    >;
+    expect(row).not.toBeNull();
+    expect(row.pane).toBe('pane-abc-123');
+  });
+
+  // 16. listTabs filters by arbitrary pane ID
+  test('listTabs filters by arbitrary pane ID', () => {
+    const sessionId = createSession(db);
+
+    // Create tabs with different panes
+    createTab(db, {
+      sessionId,
+      workspaceId: 'ws1',
+      tabType: 'terminal',
+      title: 'Pane A',
+      pane: 'pane-abc-123',
+      order: 0,
+    });
+    createTab(db, {
+      sessionId,
+      workspaceId: 'ws1',
+      tabType: 'editor',
+      title: 'Pane B',
+      pane: 'my-custom-pane',
+      order: 1,
+    });
+    createTab(db, {
+      sessionId,
+      workspaceId: 'ws1',
+      tabType: 'terminal',
+      title: 'Default Pane',
+      pane: 'content',
+      order: 2,
+    });
+
+    // Filter by arbitrary pane ID
+    const filtered = listTabs(db, sessionId, 'ws1', 'pane-abc-123') as Record<string, unknown>[];
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].title).toBe('Pane A');
+
+    // Filter by another arbitrary pane ID
+    const filtered2 = listTabs(db, sessionId, 'ws1', 'my-custom-pane') as Record<string, unknown>[];
+    expect(filtered2.length).toBe(1);
+    expect(filtered2[0].title).toBe('Pane B');
+
+    // Filter by content (standard pane) still works
+    const filtered3 = listTabs(db, sessionId, 'ws1', 'content') as Record<string, unknown>[];
+    expect(filtered3.length).toBe(1);
+    expect(filtered3[0].title).toBe('Default Pane');
+  });
+
+  // 17. cleanupSession deletes all related records
   test('cleanupSession deletes all related records', () => {
     const sessionId = createSession(db);
     const tabId = createTab(db, {

@@ -1,10 +1,10 @@
+import React, { useState, useEffect } from 'react';
 import { Terminal } from './Terminal';
-import { useState, useEffect } from 'react';
 
 export interface TerminalEntry {
   terminalId: string;
   tabId: string;
-  owningPane: 'content' | 'bottom';
+  owningPane: string;
   isActive: boolean;
   onTitleChange: (title: string) => void;
   onCwdChange: (cwd: string) => void;
@@ -19,15 +19,13 @@ export interface PaneBounds {
 
 interface TerminalManagerProps {
   terminals: TerminalEntry[];
-  contentBounds: PaneBounds | null;
-  bottomBounds: PaneBounds | null;
+  getPaneBounds: (paneId: string) => PaneBounds | null;
   terminalRefs: React.MutableRefObject<Map<string, { focus(): void }>>;
 }
 
-export function TerminalManager({
+export const TerminalManager = React.memo(function TerminalManager({
   terminals,
-  contentBounds,
-  bottomBounds,
+  getPaneBounds,
   terminalRefs,
 }: TerminalManagerProps) {
   // Stable ref callbacks: tabId -> ref callback. Created once per tabId to
@@ -60,7 +58,7 @@ export function TerminalManager({
       }}
     >
       {terminals.map((t) => {
-        const bounds = t.owningPane === 'bottom' ? bottomBounds : contentBounds;
+        const bounds = getPaneBounds(t.owningPane);
         if (!bounds) return null;
 
         // Get or create a stable ref callback for this tabId
@@ -97,4 +95,4 @@ export function TerminalManager({
       })}
     </div>
   );
-}
+});

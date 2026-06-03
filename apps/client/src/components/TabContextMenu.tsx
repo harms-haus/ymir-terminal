@@ -11,6 +11,10 @@ interface TabContextMenuProps {
   onRename: () => void;
   onMoveToBottom?: () => void;
   onMoveToContent?: () => void;
+  onSplitRight?: () => void;
+  onSplitDown?: () => void;
+  onClosePane?: () => void;
+  canClosePane?: boolean;
   children: React.ReactNode;
 }
 
@@ -23,6 +27,10 @@ export function TabContextMenu({
   onRename,
   onMoveToBottom,
   onMoveToContent,
+  onSplitRight,
+  onSplitDown,
+  onClosePane,
+  canClosePane,
   children,
 }: TabContextMenuProps) {
   const renameSelectedRef = useRef(false);
@@ -71,6 +79,35 @@ export function TabContextMenu({
             label: 'Move to Content Pane',
             testId: 'tab-menu-move-to-content' as const,
             action: onMoveToContent,
+          },
+        ]
+      : []),
+    ...(onSplitRight
+      ? [
+          {
+            label: 'Split Right',
+            testId: 'tab-menu-split-right' as const,
+            action: onSplitRight,
+          },
+        ]
+      : []),
+    ...(onSplitDown
+      ? [
+          {
+            label: 'Split Down',
+            testId: 'tab-menu-split-down' as const,
+            action: onSplitDown,
+          },
+        ]
+      : []),
+    ...(onClosePane
+      ? [
+          {
+            label: 'Close Pane',
+            testId: 'tab-menu-close-pane' as const,
+            action: onClosePane,
+            disabled: !canClosePane,
+            style: canClosePane ? undefined : { opacity: 0.5, cursor: 'default' },
           },
         ]
       : []),

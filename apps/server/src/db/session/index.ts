@@ -42,7 +42,7 @@ export function initSessionDb(): Database {
       tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
       title TEXT,
       file_path TEXT,
-      pane TEXT NOT NULL DEFAULT 'content' CHECK(pane IN ('content', 'bottom')),
+      pane TEXT NOT NULL DEFAULT 'content',
       active INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
       diff_ref TEXT,

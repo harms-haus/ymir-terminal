@@ -204,5 +204,24 @@ export function createMockPersistentDb(): Database {
     );
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS persisted_tabs (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+      title TEXT,
+      file_path TEXT,
+      pane TEXT DEFAULT 'content',
+      sort_order INTEGER DEFAULT 0,
+      diff_ref TEXT,
+      repo_path TEXT,
+      commit_sha TEXT,
+      parent_sha TEXT,
+      cwd TEXT,
+      custom_title TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
   return db;
 }

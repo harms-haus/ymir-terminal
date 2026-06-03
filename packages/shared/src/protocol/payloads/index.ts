@@ -95,6 +95,7 @@ import type {
   TabUpdateRequest,
   TabDeleteRequest,
   TabReorderRequest,
+  TabRestoreRequest,
 } from './tab';
 
 // ---------------------------------------------------------------------------
@@ -173,6 +174,7 @@ export const REQUEST_TYPES = [
   'tab.update',
   'tab.delete',
   'tab.reorder',
+  'tab.restore',
 ] as const;
 
 export type RequestType = (typeof REQUEST_TYPES)[number];
@@ -261,7 +263,8 @@ export type RequestPayload =
   | TabCreateRequest
   | TabUpdateRequest
   | TabDeleteRequest
-  | TabReorderRequest;
+  | TabReorderRequest
+  | TabRestoreRequest;
 
 export type EventPayload =
   | TerminalOutputEvent

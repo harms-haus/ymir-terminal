@@ -56,26 +56,34 @@ function makeTerminalEntry(
   };
 }
 
+function makeGetPaneBounds(
+  bounds: Record<string, { top: number; left: number; width: number; height: number } | null>,
+): (paneId: string) => { top: number; left: number; width: number; height: number } | null {
+  const map = new Map(Object.entries(bounds));
+  return (paneId: string) => map.get(paneId) ?? null;
+}
+
 function renderManager(
   options: {
     terminals?: ReturnType<typeof makeTerminalEntry>[];
-    contentBounds?: { top: number; left: number; width: number; height: number } | null;
-    bottomBounds?: { top: number; left: number; width: number; height: number } | null;
+    paneBounds?: Record<string, { top: number; left: number; width: number; height: number } | null>;
   } = {},
 ) {
-  const {
-    terminals = [],
-    contentBounds = { top: 0, left: 0, width: 800, height: 600 },
-    bottomBounds = { top: 600, left: 0, width: 800, height: 200 },
-  } = options;
+  const { terminals = [], paneBounds } = options;
 
   capturedTerminalRefs = new Map();
+
+  const getPaneBounds = makeGetPaneBounds(
+    paneBounds ?? {
+      content: { top: 0, left: 0, width: 800, height: 600 },
+      bottom: { top: 600, left: 0, width: 800, height: 200 },
+    },
+  );
 
   const result = render(
     React.createElement(TerminalManager, {
       terminals,
-      contentBounds,
-      bottomBounds,
+      getPaneBounds,
       terminalRefs: { current: capturedTerminalRefs } as React.MutableRefObject<
         Map<string, { focus(): void }>
       >,
@@ -137,13 +145,12 @@ describe('TerminalManager', () => {
       isActive: true,
     });
 
-    const contentBounds = { top: 10, left: 20, width: 500, height: 400 };
-    const bottomBounds = { top: 420, left: 20, width: 500, height: 150 };
-
     const { getByTestId } = renderManager({
       terminals: [entry1, entry2],
-      contentBounds,
-      bottomBounds,
+      paneBounds: {
+        content: { top: 10, left: 20, width: 500, height: 400 },
+        bottom: { top: 420, left: 20, width: 500, height: 150 },
+      },
     });
 
     // Content terminal should use contentBounds
@@ -172,11 +179,13 @@ describe('TerminalManager', () => {
       isActive: true,
     });
 
-    // contentBounds is null — the content terminal should not be rendered
+    // content pane bounds are null — the content terminal should not be rendered
     const { queryByTestId } = renderManager({
       terminals: [entry],
-      contentBounds: null,
-      bottomBounds: { top: 0, left: 0, width: 800, height: 200 },
+      paneBounds: {
+        content: null,
+        bottom: { top: 0, left: 0, width: 800, height: 200 },
+      },
     });
 
     expect(queryByTestId('mock-terminal-term-null-bounds')).toBeNull();
@@ -191,8 +200,7 @@ describe('TerminalManager', () => {
 
     const { getByTestId, queryByTestId } = renderManager({
       terminals: [entry1, entry2],
-      contentBounds: null,
-      bottomBounds: null,
+      paneBounds: { content: null, bottom: null },
     });
 
     // Overlay container still exists
@@ -223,8 +231,10 @@ describe('TerminalManager', () => {
 
     const { getByTestId } = renderManager({
       terminals: [active, inactive],
-      contentBounds: { top: 0, left: 0, width: 800, height: 600 },
-      bottomBounds: null,
+      paneBounds: {
+        content: { top: 0, left: 0, width: 800, height: 600 },
+        bottom: null,
+      },
     });
 
     const activeWrapper = getByTestId('mock-terminal-term-active').parentElement!;
@@ -249,8 +259,10 @@ describe('TerminalManager', () => {
 
     const { terminalRefs } = renderManager({
       terminals: [entry],
-      contentBounds: { top: 0, left: 0, width: 800, height: 600 },
-      bottomBounds: null,
+      paneBounds: {
+        content: { top: 0, left: 0, width: 800, height: 600 },
+        bottom: null,
+      },
     });
 
     // The terminal ref should have been registered with the tabId as key
@@ -287,8 +299,10 @@ describe('TerminalManager', () => {
 
     const { terminalRefs, rerender } = renderManager({
       terminals: [entry1, entry2],
-      contentBounds: { top: 0, left: 0, width: 800, height: 600 },
-      bottomBounds: null,
+      paneBounds: {
+        content: { top: 0, left: 0, width: 800, height: 600 },
+        bottom: null,
+      },
     });
 
     // Both refs should be registered
@@ -296,11 +310,11 @@ describe('TerminalManager', () => {
     expect(terminalRefs.has('tab-2')).toBe(true);
 
     // Re-render with only entry1 — entry2 is removed
+    const getPaneBounds = makeGetPaneBounds({ content: { top: 0, left: 0, width: 800, height: 600 }, bottom: null });
     rerender(
       React.createElement(TerminalManager, {
         terminals: [entry1],
-        contentBounds: { top: 0, left: 0, width: 800, height: 600 },
-        bottomBounds: null,
+        getPaneBounds,
         terminalRefs: { current: terminalRefs } as React.MutableRefObject<
           Map<string, { focus(): void }>
         >,

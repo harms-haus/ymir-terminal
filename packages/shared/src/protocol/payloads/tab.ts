@@ -1,6 +1,6 @@
 export interface TabListRequest {
   workspaceId: string;
-  pane?: 'content' | 'bottom';
+  pane?: string;
 }
 
 export interface TabInfo {
@@ -16,6 +16,8 @@ export interface TabInfo {
   repoPath?: string | null;
   commitSha?: string | null;
   parentSha?: string | null;
+  cwd?: string | null;
+  customTitle?: string | null;
 }
 
 export interface TabListResponse {
@@ -24,7 +26,7 @@ export interface TabListResponse {
 
 export interface TabCreateRequest {
   workspaceId: string;
-  pane: 'content' | 'bottom';
+  pane: string;
   tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
   title: string;
   terminalId?: string;
@@ -34,6 +36,8 @@ export interface TabCreateRequest {
   repoPath?: string;
   commitSha?: string;
   parentSha?: string;
+  cwd?: string;
+  customTitle?: string;
 }
 
 export interface TabCreateResponse {
@@ -53,4 +57,28 @@ export interface TabDeleteRequest {
 
 export interface TabReorderRequest {
   tabIds: string[];
+}
+
+export interface PersistedTabInfo {
+  id: string;
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  title: string | null;
+  filePath: string | null;
+  pane: string;
+  sortOrder: number;
+  diffRef: string | null;
+  repoPath: string | null;
+  commitSha: string | null;
+  parentSha: string | null;
+  cwd: string | null;
+  customTitle: string | null;
+  terminalId: string | null;
+}
+
+export interface TabRestoreRequest {
+  workspaceId: string;
+}
+
+export interface TabRestoreResponse {
+  tabs: PersistedTabInfo[];
 }

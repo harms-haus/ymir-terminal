@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Pane splitting: recursive binary tree layout with dynamic left/right and top/bottom splits
+- `SplitPaneLayout` and `SplitLeafPane` components for recursive pane rendering
+- `useSplitLayout` hook with debounced layout persistence per workspace
+- `useTerminalPane` hook for per-pane tab management with server sync
+- Unified `TerminalPanelHandle` imperative handle (replaces ContentPaneHandle/BottomPanelHandle)
+- Right-click context menus on tab bar for split/close operations
+- Cross-pane drag-and-drop for terminal tabs between any panes
+- Focused pane visual indicator with accent color border
+- `tab.restore` server channel for tab restoration after restart
+- `persisted_tabs` server database table for tab persistence
+- Layout persistence via config key `pane_layout_{workspaceId}`
 - CLI wrapper with `ymir`, `ymir web`, and `ymir update` commands
 - Cross-platform support (Linux + Windows)
 - Windows PTY support via ConPTY
@@ -18,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version synchronization script (`scripts/sync-version.ts`)
 - npm publish helper script (`scripts/publish-npm.ts`)
 - Cross-platform build scripts replacing bash-only scripts
+
+### Changed
+
+- Pane type changed from `'content' | 'bottom'` to dynamic string IDs
+- `useTerminalRegistry` refactored from 2-pane to N-pane model
+- `usePaneBounds` refactored from fixed containers to dynamic registration
+- `TerminalManager` refactored for dynamic pane bounds lookup
+- DnD groups changed from hardcoded 'content'/'bottom' to dynamic pane IDs
 
 ## [0.1.0] - 2026-05-31
 

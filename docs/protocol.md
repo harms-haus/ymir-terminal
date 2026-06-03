@@ -4,7 +4,10 @@ All communication uses a JSON envelope format over a single WebSocket connection
 
 ## Envelope Structure
 
+The base `MessageEnvelope` is a union discriminant. Three concrete subtypes refine it:
+
 ```typescript
+// Shared fields present on every envelope
 interface MessageEnvelope<T = unknown> {
   v: 1; // protocol version
   type: 'request' | 'response' | 'event';
@@ -12,7 +15,27 @@ interface MessageEnvelope<T = unknown> {
   channel?: string; // Required for requests; absent for most responses/events
   token?: string; // Auth token; attached by the client transport layer
   payload: T;
+}
+
+// Client → server request (id and channel are required)
+interface RequestEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | 'id'> {
+  type: 'request';
+  id: string;
+  payload: T;
+}
+
+// Server → client response (paired by id to a prior request)
+interface ResponseEnvelope<T = unknown> extends Omit<MessageEnvelope<T | null>, 'type' | 'id'> {
+  type: 'response';
+  id: string;
+  payload: T | null;
   error?: ErrorResponse; // code is typed as ErrorCode (union), not plain string
+}
+
+// Server → client unilateral event (no matching request)
+interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type'> {
+  type: 'event';
+  payload: T;
 }
 ```
 
@@ -95,11 +118,12 @@ interface MessageEnvelope<T = unknown> {
 | `git.remoteList`         | request   | List remotes                                                                                           |
 | `config.get`             | request   | Get a config value from server_config table                                                            |
 | `config.set`             | request   | Set a config value in server_config table                                                              |
-| `tab.list`               | request   | List tabs for a workspace (with terminal liveness)                                                     |
-| `tab.create`             | request   | Create a tab (terminal or editor)                                                                      |
+| `tab.list`               | request   | List tabs for a workspace (with terminal liveness); optional `pane` filter                             |
+| `tab.create`             | request   | Create a tab (terminal, editor, diff, or git-tree)                                                     |
 | `tab.update`             | request   | Update tab properties (active, title, sort order)                                                      |
 | `tab.delete`             | request   | Delete a tab                                                                                           |
 | `tab.reorder`            | request   | Reorder tabs by ID array                                                                               |
+| `tab.restore`            | request   | Restore persisted tabs for a workspace, creating new PTYs for terminal tabs                            |
 | `connection.status`      | event     | Connection status change                                                                               |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
@@ -186,6 +210,73 @@ Only the distinguishing fields are listed below.
 | `git.worktreeMerge`     | `GitWorktreeMergeRequest`     | `GitWorktreeMergeResponse`     | req: `worktreePath`, `targetBranch?`, `deleteAfterMerge?`, `filesToCopy?`; res: `success`, `message`, `worktreeRemoved?` |
 | `git.worktreeCopyFiles` | `GitWorktreeCopyFilesRequest` | `GitWorktreeCopyFilesResponse` | req: `dirPath?`; res: `untrackedFiles[]`, `configuredFiles[]`                                                            |
 
+## Tab Channel Type Reference
+
+All tab request payloads include `workspaceId` (except `tab.update`, `tab.delete` which use `tabId`).
+The `pane` field is a dynamic string (any pane ID), not limited to a fixed set.
+
+### Tab Listing & Restoration
+
+| Channel       | Request type        | Response type        | Fields                                                                                                    |
+| ------------- | ------------------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
+| `tab.list`    | `TabListRequest`    | `TabListResponse`    | req: `pane?`; res: `tabs` (`TabInfo[]`)                                                                   |
+| `tab.restore` | `TabRestoreRequest` | `TabRestoreResponse` | req: `workspaceId`; res: `tabs` (`PersistedTabInfo[]`) — creates new PTYs for terminal tabs, updates IDs  |
+
+### Tab Lifecycle
+
+| Channel       | Request type       | Response type    | Fields                                                                                                                              |
+| ------------- | ------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `tab.create`  | `TabCreateRequest` | `TabCreateResponse` | req: `pane`, `tabType`, `title`, `terminalId?`, `filePath?`, `diffRef?`, `diffRepoPath?`, `repoPath?`, `commitSha?`, `parentSha?`, `cwd?`, `customTitle?`; res: `tabId` |
+| `tab.update`  | `TabUpdateRequest` | —                | req: `tabId`, `active?`, `sortOrder?`, `title?`                                                                                     |
+| `tab.delete`  | `TabDeleteRequest` | —                | req: `tabId`                                                                                                                        |
+| `tab.reorder` | `TabReorderRequest`| —                | req: `tabIds` (`string[]`)                                                                                                          |
+
+### TabInfo
+
+Returned by `tab.list`. Represents a live tab in the current session.
+
+```typescript
+interface TabInfo {
+  id: string;
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  title: string | null;
+  filePath: string | null;
+  terminalId: string | null;
+  active: boolean;
+  sortOrder: number;
+  terminalAlive?: boolean;      // present when terminalId is set
+  diffRef?: 'staged' | 'unstaged' | 'commit' | null;
+  repoPath?: string | null;
+  commitSha?: string | null;
+  parentSha?: string | null;
+  cwd?: string | null;
+  customTitle?: string | null;
+}
+```
+
+### PersistedTabInfo
+
+Returned by `tab.restore`. Represents a tab persisted across server restarts.
+Terminal tabs include a freshly-created `terminalId`.
+
+```typescript
+interface PersistedTabInfo {
+  id: string;
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  title: string | null;
+  filePath: string | null;
+  pane: string;
+  sortOrder: number;
+  diffRef: string | null;
+  repoPath: string | null;
+  commitSha: string | null;
+  parentSha: string | null;
+  cwd: string | null;
+  customTitle: string | null;
+  terminalId: string | null;
+}
+```
+
 ## Protocol Type Reference
 
 ### Type Narrowing
@@ -196,7 +287,7 @@ Several protocol types use union types for correctness:
 | ----------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
 | `ConnectionStatusEvent` | `status`  | `'connecting' \| 'connected' \| 'disconnected' \| 'reconnecting'` (was bare `string`)                 |
 | `TabCreateRequest`      | `diffRef` | `'staged' \| 'unstaged' \| 'commit' \| null` (was bare `string`)                                      |
-| `TabInfo`               | —         | Renamed from `ServerTabInfo` throughout the protocol; includes `tabType`, `diffRef`, `repoPath`, etc. |
+| `TabInfo`               | —         | Includes `tabType`, `diffRef`, `repoPath`, `cwd`, `customTitle`, etc.                                                      |
 
 ### Removed Types
 

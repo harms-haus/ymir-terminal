@@ -1,5 +1,6 @@
 import { useImperativeHandle } from 'react';
 import type { Tab } from './useTabs';
+import type { PersistedTabInfo } from '@ymir/shared';
 
 /**
  * Shared imperative handle type exposed by both ContentPane and BottomPanel.
@@ -9,6 +10,7 @@ export interface TerminalPanelHandle {
     tabId: string,
   ) => { terminalId: string; title: string; cwd?: string; customTitle?: string } | null;
   receiveTab: (terminalId: string, title: string, cwd?: string, customTitle?: string) => string;
+  loadRestoredTabs: (workspaceId: string, tabs: PersistedTabInfo[]) => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   getTabs: () => Tab[];
   getActiveTabId: () => string | null;
@@ -28,6 +30,7 @@ export function useTerminalPanelHandle(
   const {
     transferTabOut,
     receiveTab,
+    loadRestoredTabs,
     reorderTabs,
     getTabs,
     getActiveTabId,
@@ -39,6 +42,7 @@ export function useTerminalPanelHandle(
     () => ({
       transferTabOut,
       receiveTab,
+      loadRestoredTabs,
       reorderTabs,
       getTabs,
       getActiveTabId,
@@ -48,6 +52,7 @@ export function useTerminalPanelHandle(
     [
       transferTabOut,
       receiveTab,
+      loadRestoredTabs,
       reorderTabs,
       getTabs,
       getActiveTabId,

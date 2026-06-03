@@ -1,11 +1,10 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { AppLayout } from './AppLayout';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { RightSidebar } from './RightSidebar';
-import { ContentPane } from './ContentPane';
-import type { TerminalPanelHandle as ContentPaneHandle } from '../hooks/useTerminalPanel';
+import { SplitPaneLayout } from './SplitPaneLayout';
+import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
 import { BottomPanel } from './BottomPanel';
-import type { TerminalPanelHandle as BottomPanelHandle } from '../hooks/useTerminalPanel';
 import { TerminalManager } from './TerminalManager';
 import { TopBar } from './TopBar';
 import { CommandBar } from './CommandBar';
@@ -18,10 +17,15 @@ import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider, type DragEndEvent, type DragOverEvent } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
+import { isSortable } from '@dnd-kit/react/sortable';
 import { FileClipboardProvider } from '../contexts/FileClipboardContext';
 import { usePaneBounds } from '../hooks/usePaneBounds';
 import { useTerminalRegistry } from '../hooks/useTerminalRegistry';
 import { useWorkspaceSelection } from '../hooks/useWorkspaceSelection';
+import { useSplitLayout } from '../hooks/useSplitLayout';
+import { collectPaneIds } from '../lib/pane-tree';
+import { sendRequest } from '../lib/send-request';
+import type { PersistedTabInfo, TabRestoreResponse } from '@ymir/shared';
 
 function WorkspaceViewInner() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -73,12 +77,95 @@ function WorkspaceViewInner() {
     loading,
   } = usePaneVisibility();
 
-  const contentPaneRef = useRef<ContentPaneHandle>(null);
-  const bottomPanelRef = useRef<BottomPanelHandle>(null);
+  const bottomPanelRef = useRef<TerminalPanelHandle>(null);
+  const paneHandleRefs = useRef<Map<string, TerminalPanelHandle>>(new Map());
+  const paneContainerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const registeredPanesRef = useRef(new Set<string>());
 
-  const { wrapperRef, contentTerminalRef, bottomTerminalRef, containerBounds } = usePaneBounds({
+  const {
+    layout,
+    paneIds,
+    splitPane,
+    removePane,
+    focusedPaneId,
+    setFocusedPaneId,
+    loadLayout,
+  } = useSplitLayout(activeWorkspaceId);
+
+  // Ref to read the latest layout in requestAnimationFrame callbacks without stale closures
+  const layoutRef = useRef(layout);
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
+  const { wrapperRef, registerContainer, getPaneBounds, bottomTerminalRef } = usePaneBounds({
     loading,
   });
+
+  // Sync split pane container elements with usePaneBounds so TerminalManager can position terminals
+  useEffect(() => {
+    const currentIds = new Set(paneIds);
+    // Register only new panes
+    for (const [paneId, element] of paneContainerRefs.current) {
+      if (!registeredPanesRef.current.has(paneId) && currentIds.has(paneId)) {
+        registerContainer(paneId, element);
+        registeredPanesRef.current.add(paneId);
+      }
+    }
+    // Clean up removed panes
+    for (const paneId of registeredPanesRef.current) {
+      if (!currentIds.has(paneId)) {
+        registeredPanesRef.current.delete(paneId);
+      }
+    }
+  }, [paneIds, registerContainer]);
+
+  // Load persisted layout when workspace changes
+  useEffect(() => {
+    loadLayout(activeWorkspaceId);
+  }, [activeWorkspaceId, loadLayout]);
+
+  // --- Restore tabs from persisted session on workspace switch ---
+  const restoredWorkspacesRef = useRef(new Set<string>());
+
+  const handleRestoreTabs = useCallback(
+    async (workspaceId: string) => {
+      if (restoredWorkspacesRef.current.has(workspaceId)) return;
+      restoredWorkspacesRef.current.add(workspaceId);
+
+      try {
+        const res = await sendRequest<TabRestoreResponse>('tab.restore', { workspaceId });
+        if (!res.tabs || res.tabs.length === 0) return;
+
+        // Group tabs by pane
+        const tabsByPane = new Map<string, PersistedTabInfo[]>();
+        for (const tab of res.tabs) {
+          const pane = tab.pane || 'content';
+          if (!tabsByPane.has(pane)) tabsByPane.set(pane, []);
+          tabsByPane.get(pane)!.push(tab);
+        }
+
+        // Wait a frame for pane handles to register after layout load
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+        for (const [paneId, tabs] of tabsByPane) {
+          const handle = paneHandleRefs.current.get(paneId);
+          if (!handle) continue;
+
+          handle.loadRestoredTabs(workspaceId, tabs);
+        }
+      } catch {
+        // Silent fail – restoration is best-effort
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (activeWorkspaceId) {
+      handleRestoreTabs(activeWorkspaceId);
+    }
+  }, [activeWorkspaceId, handleRestoreTabs]);
 
   const {
     terminalRegistry,
@@ -86,13 +173,12 @@ function WorkspaceViewInner() {
     terminalRefsMap,
     callbackCacheRef,
     terminalEntries,
-    setContentActiveTabId,
-    setBottomActiveTabId,
+    setActiveTabForPane,
+    handleTerminalRegistered,
     handleTerminalUnregistered,
-    handleContentTerminalRegistered,
     handleBottomTerminalRegistered,
   } = useTerminalRegistry({
-    contentPaneRef,
+    paneHandleRefs,
     bottomPanelRef,
     activeWorkspaceId,
   });
@@ -102,49 +188,33 @@ function WorkspaceViewInner() {
     const target = event.operation.target;
     if (!source?.id || !target?.id) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sourceGroup = (source as any).initialGroup ?? (source as any).group;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const targetGroup = (target as any).group ?? target?.data?.group;
+    // Only handle sortable tab drags; skip workspace/worktree reorder
+    if (!isSortable(source) || source.type !== 'tab') return;
 
-    // Workspace reorder — visual preview only (mutation fires on dragEnd)
-    if (source.type === 'workspace') {
-      return;
-    }
+    const sourceGroup = source.initialGroup;
+    const targetGroup = source.group;
 
-    // Worktree reorder within workspace — cosmetic only (client-side visual reordering)
-    if (source.type === 'worktree') {
-      return;
-    }
-
-    // Suppress OptimisticSortingPlugin DOM mutation for cross-group drags
+    // Suppress OptimisticSortingPlugin DOM mutation for cross-pane drags
     if (sourceGroup && targetGroup && sourceGroup !== targetGroup) {
       event.preventDefault();
       return;
     }
 
-    // Same-group reorder
-    if (sourceGroup === 'content') {
-      const paneTabs = contentPaneRef.current?.getTabs() ?? [];
-      const ids = paneTabs.map((t) => t.id);
-      const reordered = move(ids, event);
-      if (Array.isArray(reordered)) {
-        const fromIndex = paneTabs.findIndex((t) => t.id === source.id);
-        const toIndex = reordered.indexOf(source.id as string);
-        if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-          contentPaneRef.current?.reorderTabs(fromIndex, toIndex);
-        }
-      }
-    } else if (sourceGroup === 'bottom') {
-      const paneTabs = bottomPanelRef.current?.getTabs() ?? [];
-      const ids = paneTabs.map((t) => t.id);
-      const reordered = move(ids, event);
-      if (Array.isArray(reordered)) {
-        const fromIndex = paneTabs.findIndex((t) => t.id === source.id);
-        const toIndex = reordered.indexOf(source.id as string);
-        if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-          bottomPanelRef.current?.reorderTabs(fromIndex, toIndex);
-        }
+    // Same-pane reorder — get the handle for the owning pane
+    const handle =
+      sourceGroup === 'bottom'
+        ? bottomPanelRef.current
+        : paneHandleRefs.current.get(String(sourceGroup));
+    if (!handle) return;
+
+    const paneTabs = handle.getTabs();
+    const ids = paneTabs.map((t) => t.id);
+    const reordered = move(ids, event);
+    if (Array.isArray(reordered)) {
+      const fromIndex = paneTabs.findIndex((t) => t.id === source.id);
+      const toIndex = reordered.indexOf(String(source.id));
+      if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+        handle.reorderTabs(fromIndex, toIndex);
       }
     }
   }, []);
@@ -154,13 +224,7 @@ function WorkspaceViewInner() {
       if (event.canceled) return;
       const source = event.operation.source;
       const target = event.operation.target;
-      if (!source?.id || !(target as unknown as { data?: { group?: string } })?.data?.group) return;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sourceGroup = (source as any).initialGroup ?? (source as any).group;
-      const targetGroup =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (target as any).group ?? (target as unknown as { data?: { group?: string } })?.data?.group;
+      if (!source?.id || !target?.id) return;
 
       // Workspace reorder — commit final order on drag end
       if (source.type === 'workspace') {
@@ -174,35 +238,48 @@ function WorkspaceViewInner() {
         return;
       }
 
-      // Only handle cross-pane transfers
-      if (sourceGroup === targetGroup) return;
+      // Only handle sortable tab drags for cross-pane transfers
+      if (!isSortable(source) || source.type !== 'tab') return;
+
+      const initialGroup = source.initialGroup;
+      const currentGroup = source.group;
+
+      // Same pane — nothing to transfer
+      if (initialGroup === currentGroup) return;
 
       // Only allow drag within the active workspace
-      const sourceEntry = terminalRegistry.find((t) => t.tabId === (source.id as string));
+      const sourceEntry = terminalRegistry.find((t) => t.tabId === String(source.id));
       if (!sourceEntry || sourceEntry.workspaceId !== activeWorkspaceId) return;
 
-      // Determine source and target panes
-      const sourcePane =
-        sourceGroup === 'content' ? contentPaneRef.current : bottomPanelRef.current;
-      const targetPane =
-        targetGroup === 'content' ? contentPaneRef.current : bottomPanelRef.current;
-      if (!sourcePane || !targetPane) return;
+      // Determine source and target pane handles
+      const sourceHandle =
+        initialGroup === 'bottom'
+          ? bottomPanelRef.current
+          : paneHandleRefs.current.get(String(initialGroup));
+      const targetHandle =
+        currentGroup === 'bottom'
+          ? bottomPanelRef.current
+          : paneHandleRefs.current.get(String(currentGroup));
+      if (!sourceHandle || !targetHandle) return;
 
       // Transfer the tab: remove from source pane, add to target pane
-      const removed = sourcePane.transferTabOut(source.id as string);
+      const removed = sourceHandle.transferTabOut(String(source.id));
       if (!removed) return;
 
-      const newTabId = targetPane.receiveTab(
+      const newTabId = targetHandle.receiveTab(
         removed.terminalId,
         removed.title,
         removed.cwd,
         removed.customTitle,
       );
 
+      // Auto-expand the bottom panel if the tab was dragged there while collapsed
+      if (currentGroup === 'bottom' && !bottomVisible) {
+        toggleBottom();
+      }
+
       // Update terminal ownership — no unmount, just update the portal target
-      const newOwningPane = (targetGroup === 'content' ? 'content' : 'bottom') as
-        | 'content'
-        | 'bottom';
+      const newOwningPane = currentGroup === 'bottom' ? 'bottom' : String(currentGroup);
       setTerminalRegistry((prev) =>
         prev.map((t) =>
           t.terminalId === removed.terminalId
@@ -211,7 +288,7 @@ function WorkspaceViewInner() {
         ),
       );
     },
-    [activeWorkspaceId, terminalRegistry, reorderWorkspacesMutation],
+    [activeWorkspaceId, terminalRegistry, reorderWorkspacesMutation, bottomVisible, toggleBottom],
   );
 
   const handleAddWorkspace = useCallback(() => {
@@ -251,8 +328,12 @@ function WorkspaceViewInner() {
 
   const handleMoveToPane = useCallback(
     (tabId: string, sourcePane: 'content' | 'bottom') => {
-      const sourceRef = sourcePane === 'content' ? contentPaneRef : bottomPanelRef;
-      const targetRef = sourcePane === 'content' ? bottomPanelRef : contentPaneRef;
+      // Find the first split pane handle for content moves, or use bottom panel ref
+      const sourceRef =
+        sourcePane === 'content'
+          ? { current: paneHandleRefs.current.values().next().value ?? null }
+          : bottomPanelRef;
+      const targetRef = sourcePane === 'content' ? bottomPanelRef : { current: paneHandleRefs.current.values().next().value ?? null };
       const targetGroup = sourcePane === 'content' ? 'bottom' : 'content';
 
       // Auto-expand the bottom panel when moving a tab there while it is collapsed
@@ -284,6 +365,89 @@ function WorkspaceViewInner() {
   const handleCommandBarFileSelect = useCallback((path: string) => {
     setFileToOpen(path);
   }, []);
+
+  const handleSplitPane = useCallback(
+    (paneId: string, direction: 'horizontal' | 'vertical', tabId?: string) => {
+      const oldPaneIds = collectPaneIds(layout);
+      splitPane(paneId, direction);
+      // After splitPane updates layout state, find the new pane in the next render
+      if (tabId) {
+        // Move the specified tab to the new pane after mount
+        requestAnimationFrame(() => {
+          const newLayout = layoutRef.current;
+          const newPaneIds = collectPaneIds(newLayout);
+          const newPaneId = newPaneIds.find((id) => !oldPaneIds.includes(id));
+          if (!newPaneId) return;
+
+          const sourceHandle = paneHandleRefs.current.get(paneId);
+          const newHandle = paneHandleRefs.current.get(newPaneId);
+          if (!sourceHandle || !newHandle) return;
+
+          const removed = sourceHandle.transferTabOut(tabId);
+          if (!removed) return;
+
+          const newTabId = newHandle.receiveTab(
+            removed.terminalId,
+            removed.title,
+            removed.cwd,
+            removed.customTitle,
+          );
+
+          setTerminalRegistry((prev) =>
+            prev.map((t) =>
+              t.tabId === tabId
+                ? { ...t, tabId: newTabId, owningPane: newPaneId }
+                : t,
+            ),
+          );
+          callbackCacheRef.current.delete(tabId);
+        });
+      }
+    },
+    [layout, splitPane, setTerminalRegistry, callbackCacheRef],
+  );
+
+  const handleSplitRight = useCallback(
+    (paneId: string, tabId?: string) => {
+      handleSplitPane(paneId, 'horizontal', tabId);
+    },
+    [handleSplitPane],
+  );
+
+  const handleSplitDown = useCallback(
+    (paneId: string, tabId?: string) => {
+      handleSplitPane(paneId, 'vertical', tabId);
+    },
+    [handleSplitPane],
+  );
+
+  const handleClosePane = useCallback(
+    (paneId: string) => {
+      const currentPaneIds = collectPaneIds(layout);
+      if (currentPaneIds.length <= 1) return; // Can't close the last pane
+
+      const handle = paneHandleRefs.current.get(paneId);
+      if (handle) {
+        const tabs = handle.getTabs();
+        for (const tab of tabs) {
+          if (tab.terminalId) {
+            sendRequest('terminal.close', { terminalId: tab.terminalId }).catch(() => {});
+            handleTerminalUnregistered(tab.terminalId);
+          }
+        }
+      }
+
+      const removedIds = removePane(paneId);
+      if (removedIds) {
+        // Clean up callback cache for any removed tab IDs
+        const removedSet = new Set(removedIds);
+        setTerminalRegistry((prev) =>
+          prev.filter((t) => !removedSet.has(t.owningPane)),
+        );
+      }
+    },
+    [layout, removePane, handleTerminalUnregistered, setTerminalRegistry],
+  );
 
   // While pane visibility is loading from the server, render a placeholder to avoid layout flash
   if (loading) {
@@ -361,13 +525,14 @@ function WorkspaceViewInner() {
               terminalContainerRef={bottomTerminalRef}
               onTerminalRegistered={handleBottomTerminalRegistered}
               onTerminalUnregistered={handleTerminalUnregistered}
-              onActiveTabChange={setBottomActiveTabId}
+              onActiveTabChange={(tabId) => setActiveTabForPane('bottom', tabId)}
               onMoveToPane={(tabId) => handleMoveToPane(tabId, 'bottom')}
             />
           }
         >
-          <ContentPane
-            ref={contentPaneRef}
+          <SplitPaneLayout
+            layout={layout}
+            focusedPaneId={focusedPaneId}
             workspaceId={activeWorkspaceId}
             effectiveCwd={effectiveCwd}
             fileToOpen={fileToOpen}
@@ -376,11 +541,15 @@ function WorkspaceViewInner() {
             onDiffOpened={handleDiffOpened}
             commitToHighlight={commitToHighlight}
             onCommitHighlighted={handleCommitHighlighted}
-            terminalContainerRef={contentTerminalRef}
-            onTerminalRegistered={handleContentTerminalRegistered}
+            onTerminalRegistered={handleTerminalRegistered}
             onTerminalUnregistered={handleTerminalUnregistered}
-            onActiveTabChange={setContentActiveTabId}
-            onMoveToPane={(tabId) => handleMoveToPane(tabId, 'content')}
+            onActiveTabChange={(paneId, tabId) => setActiveTabForPane(paneId, tabId)}
+            onFocusPane={setFocusedPaneId}
+            onSplitRight={handleSplitRight}
+            onSplitDown={handleSplitDown}
+            onClosePane={handleClosePane}
+            paneHandleRefs={paneHandleRefs}
+            paneContainerRefs={paneContainerRefs}
           />
           <CreateWorkspaceDialog
             open={isDialogOpen}
@@ -405,8 +574,7 @@ function WorkspaceViewInner() {
       </DragDropProvider>
       <TerminalManager
         terminals={terminalEntries}
-        contentBounds={containerBounds.content}
-        bottomBounds={containerBounds.bottom}
+        getPaneBounds={getPaneBounds}
         terminalRefs={terminalRefsMap}
       />
     </div>

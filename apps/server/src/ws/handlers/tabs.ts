@@ -10,10 +10,15 @@ import {
   type TabUpdateRequest,
   type TabDeleteRequest,
   type TabReorderRequest,
+  type TabRestoreRequest,
+  type TabRestoreResponse,
   type TabInfo,
+  type PersistedTabInfo,
+  DEFAULT_COLS,
+  DEFAULT_ROWS,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
-import { createError, createResponse, type MessageRouter } from '../router';
+import { createError, createResponse, createEvent, type MessageRouter } from '../router';
 import {
   type Database,
   createTab,
@@ -22,9 +27,19 @@ import {
   reorderTabs,
   setActiveTab,
   createPane,
+  createTerminalInstance,
+  deleteTerminalInstance,
 } from '../../db/session';
-import { getWorkspace } from '../../db/persistent';
+import {
+  getWorkspace,
+  savePersistedTab,
+  deletePersistedTab,
+  updatePersistedTabOrder,
+  updatePersistedTabTitle,
+  listPersistedTabsByWorkspace,
+} from '../../db/persistent';
 import { validateTabOwnership, safePath } from '../../lib/handler-validation';
+import type { PTYManager } from '../../pty/manager';
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -33,6 +48,7 @@ import { validateTabOwnership, safePath } from '../../lib/handler-validation';
 export interface TabDeps {
   sessionDb: Database;
   persistentDb: Database;
+  ptyManager: PTYManager;
 }
 
 // ---------------------------------------------------------------------------
@@ -40,7 +56,7 @@ export interface TabDeps {
 // ---------------------------------------------------------------------------
 
 export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void {
-  const { sessionDb, persistentDb } = deps;
+  const { sessionDb, persistentDb, ptyManager } = deps;
 
   // --- tab.list -----------------------------------------------------------
   router.handle('tab.list', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -61,7 +77,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     // JOIN with panes to get terminal_id (tabs table doesn't have it)
     const pane = payload?.pane;
     let rows: Record<string, unknown>[];
-    if (pane && (pane === 'content' || pane === 'bottom')) {
+    if (pane) {
       const stmt = sessionDb.prepare(
         'SELECT t.*, p.terminal_id FROM tabs t LEFT JOIN panes p ON p.tab_id = t.id WHERE t.session_id = ? AND t.workspace_id = ? AND t.pane = ? ORDER BY t.sort_order ASC',
       );
@@ -121,8 +137,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       typeof payload.tabType !== 'string' ||
       !['terminal', 'editor', 'diff', 'git-tree'].includes(payload.tabType) ||
       typeof payload.title !== 'string' ||
-      typeof payload.pane !== 'string' ||
-      !['content', 'bottom'].includes(payload.pane)
+      typeof payload.pane !== 'string'
     ) {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'tab.create' },
@@ -191,6 +206,23 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       createPane(sessionDb, { tabId, terminalId: payload.terminalId });
     }
 
+    // Persist to persistent DB for server restart restoration
+    savePersistedTab(persistentDb, {
+      id: tabId,
+      workspaceId: payload.workspaceId,
+      tabType: payload.tabType,
+      title: payload.title,
+      filePath: payload.filePath,
+      pane: payload.pane,
+      sortOrder: order,
+      diffRef: payload.diffRef,
+      repoPath: payload.diffRepoPath ?? payload.repoPath,
+      commitSha: payload.commitSha,
+      parentSha: payload.parentSha,
+      cwd: payload.cwd,
+      customTitle: payload.customTitle,
+    });
+
     const resp: ResponseEnvelope<TabCreateResponse> = createResponse(req, { tabId });
     conn.send(resp);
   });
@@ -230,6 +262,11 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       title: payload.title,
     });
 
+    // Mirror title update to persistent storage
+    if (payload.title !== undefined) {
+      updatePersistedTabTitle(persistentDb, payload.tabId, payload.title);
+    }
+
     const resp: ResponseEnvelope = createResponse(req, null);
     conn.send(resp);
   });
@@ -254,6 +291,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     }
 
     deleteTab(sessionDb, payload.tabId);
+    deletePersistedTab(persistentDb, payload.tabId);
 
     const resp: ResponseEnvelope = createResponse(req, null);
     conn.send(resp);
@@ -312,8 +350,146 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
 
     const workspaceId = rows[0].workspace_id;
     reorderTabs(sessionDb, conn.sessionId, workspaceId, tabIds);
+    updatePersistedTabOrder(persistentDb, tabIds);
 
     const resp: ResponseEnvelope = createResponse(req, null);
+    conn.send(resp);
+  });
+
+  // --- tab.restore --------------------------------------------------------
+  router.handle('tab.restore', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<TabRestoreRequest>;
+    const payload = req.payload;
+
+    if (
+      payload == null ||
+      typeof payload !== 'object' ||
+      typeof payload.workspaceId !== 'string'
+    ) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'tab.restore' },
+        ErrorCodes.INVALID_MESSAGE,
+        'Missing required field: workspaceId',
+      );
+      conn.send(err);
+      return;
+    }
+
+    const workspaceId = payload.workspaceId;
+    const persistedTabs = listPersistedTabsByWorkspace(persistentDb, workspaceId);
+
+    const restoredTabs: PersistedTabInfo[] = [];
+
+    for (const ptab of persistedTabs) {
+      // Determine next sort order in session DB for this pane
+      const maxOrder = sessionDb
+        .prepare(
+          'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM tabs WHERE session_id = ? AND workspace_id = ? AND pane = ?',
+        )
+        .get(conn.sessionId, workspaceId, ptab.pane) as { max_order: number };
+      const order = maxOrder.max_order + 1;
+
+      // Create the tab in the session DB
+      const tabId = createTab(sessionDb, {
+        sessionId: conn.sessionId,
+        workspaceId,
+        tabType: ptab.tab_type,
+        title: ptab.custom_title ?? ptab.title,
+        filePath: ptab.file_path,
+        pane: ptab.pane,
+        order,
+        diffRef: ptab.diff_ref as 'staged' | 'unstaged' | 'commit' | null,
+        repoPath: ptab.repo_path,
+        commitSha: ptab.commit_sha,
+        parentSha: ptab.parent_sha,
+      });
+
+      let terminalId: string | null = null;
+
+      // For terminal tabs, create a new PTY
+      if (ptab.tab_type === 'terminal') {
+        const workspace = getWorkspace(persistentDb, workspaceId);
+        const workspaceCwd = workspace?.cwd ?? process.cwd();
+        const cwd = ptab.cwd ?? workspaceCwd;
+
+        const newTerminalId = createTerminalInstance(sessionDb, {
+          sessionId: conn.sessionId,
+          workspaceId,
+          cols: DEFAULT_COLS,
+          rows: DEFAULT_ROWS,
+        });
+
+        try {
+          ptyManager.create(newTerminalId, {
+            cwd,
+            cols: DEFAULT_COLS,
+            rows: DEFAULT_ROWS,
+            onData: (data: string) => {
+              const evt = createEvent('terminal.output', {
+                terminalId: newTerminalId,
+                data,
+              });
+              conn.send(evt);
+            },
+            onExit: (exitCode) => {
+              const evt = createEvent('terminal.exit', {
+                terminalId: newTerminalId,
+                exitCode: exitCode ?? 0,
+              });
+              conn.send(evt);
+              deleteTerminalInstance(sessionDb, newTerminalId);
+            },
+          });
+        } catch {
+          // If PTY creation fails, clean up the terminal instance but still restore the tab
+          deleteTerminalInstance(sessionDb, newTerminalId);
+        }
+
+        // Create pane association
+        createPane(sessionDb, { tabId, terminalId: newTerminalId });
+        terminalId = newTerminalId;
+      }
+
+      // Update the persisted tab with the new ID so future restores use it
+      savePersistedTab(persistentDb, {
+        id: tabId,
+        workspaceId,
+        tabType: ptab.tab_type,
+        title: ptab.title,
+        filePath: ptab.file_path,
+        pane: ptab.pane,
+        sortOrder: ptab.sort_order,
+        diffRef: ptab.diff_ref,
+        repoPath: ptab.repo_path,
+        commitSha: ptab.commit_sha,
+        parentSha: ptab.parent_sha,
+        cwd: ptab.cwd,
+        customTitle: ptab.custom_title,
+      });
+
+      // Delete old persisted record if ID changed
+      if (ptab.id !== tabId) {
+        deletePersistedTab(persistentDb, ptab.id);
+      }
+
+      restoredTabs.push({
+        id: tabId,
+        tabType: ptab.tab_type as PersistedTabInfo['tabType'],
+        title: ptab.custom_title ?? ptab.title,
+        filePath: ptab.file_path,
+        pane: ptab.pane,
+        sortOrder: ptab.sort_order,
+        diffRef: ptab.diff_ref,
+        repoPath: ptab.repo_path,
+        commitSha: ptab.commit_sha,
+        parentSha: ptab.parent_sha,
+        cwd: ptab.cwd,
+        customTitle: ptab.custom_title,
+        terminalId,
+      });
+    }
+
+    const resp: ResponseEnvelope<TabRestoreResponse> = createResponse(req, { tabs: restoredTabs });
     conn.send(resp);
   });
 }

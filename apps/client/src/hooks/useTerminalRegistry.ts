@@ -1,37 +1,43 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { TerminalEntry } from '../components/TerminalManager';
-import type { TerminalPanelHandle as ContentPaneHandle } from './useTerminalPanel';
-import type { TerminalPanelHandle as BottomPanelHandle } from './useTerminalPanel';
+import type { TerminalPanelHandle } from './useTerminalPanel';
 
 interface TerminalRegistryEntry {
   terminalId: string;
   tabId: string;
-  owningPane: 'content' | 'bottom';
+  owningPane: string;
   workspaceId: string;
 }
 
 interface UseTerminalRegistryParams {
-  contentPaneRef: React.RefObject<ContentPaneHandle | null>;
-  bottomPanelRef: React.RefObject<BottomPanelHandle | null>;
+  paneHandleRefs: React.MutableRefObject<Map<string, TerminalPanelHandle>>;
+  bottomPanelRef: React.RefObject<TerminalPanelHandle | null>;
   activeWorkspaceId: string | null;
 }
 
 export function useTerminalRegistry({
-  contentPaneRef,
+  paneHandleRefs,
   bottomPanelRef,
   activeWorkspaceId,
 }: UseTerminalRegistryParams) {
-  // Terminal registry — tracks all live terminals across both panes
+  // Terminal registry — tracks all live terminals across all panes
   const [terminalRegistry, setTerminalRegistry] = useState<TerminalRegistryEntry[]>([]);
   const terminalRefsMap = useRef<Map<string, { focus(): void }>>(new Map());
 
-  // Track active tab IDs from both panes (synced via callbacks)
-  const [contentActiveTabId, setContentActiveTabId] = useState<string | null>(null);
-  const [bottomActiveTabId, setBottomActiveTabId] = useState<string | null>(null);
+  // Track active tab IDs per pane (pane ID -> active tab ID or null)
+  const [activeTabByPane, setActiveTabByPane] = useState<Map<string, string | null>>(new Map());
+
+  const setActiveTabForPane = useCallback((paneId: string, tabId: string | null) => {
+    setActiveTabByPane((prev) => {
+      const next = new Map(prev);
+      next.set(paneId, tabId);
+      return next;
+    });
+  }, []);
 
   // Terminal lifecycle callbacks
   const handleTerminalRegistered = useCallback(
-    (terminalId: string, tabId: string, pane: 'content' | 'bottom', workspaceId: string) => {
+    (terminalId: string, tabId: string, pane: string, workspaceId: string) => {
       setTerminalRegistry((prev) => [
         ...prev,
         { terminalId, tabId, owningPane: pane, workspaceId },
@@ -41,10 +47,14 @@ export function useTerminalRegistry({
   );
 
   const handleTerminalUnregistered = useCallback((terminalId: string) => {
-    setTerminalRegistry((prev) => prev.filter((t) => t.terminalId !== terminalId));
+    setTerminalRegistry((prev) => {
+      const removed = prev.find((t) => t.terminalId === terminalId);
+      if (removed) callbackCacheRef.current.delete(removed.tabId);
+      return prev.filter((t) => t.terminalId !== terminalId);
+    });
   }, []);
 
-  // Content pane callbacks
+  // Content pane callback (uses 'content' as pane ID for backward compatibility)
   const handleContentTerminalRegistered = useCallback(
     (terminalId: string, tabId: string, workspaceId: string) => {
       handleTerminalRegistered(terminalId, tabId, 'content', workspaceId);
@@ -52,7 +62,7 @@ export function useTerminalRegistry({
     [handleTerminalRegistered],
   );
 
-  // Bottom panel callbacks
+  // Bottom panel callback
   const handleBottomTerminalRegistered = useCallback(
     (terminalId: string, tabId: string, workspaceId: string) => {
       handleTerminalRegistered(terminalId, tabId, 'bottom', workspaceId);
@@ -60,37 +70,42 @@ export function useTerminalRegistry({
     [handleTerminalRegistered],
   );
 
-  // Focus content pane's active terminal
-  useEffect(() => {
-    if (!contentActiveTabId) return;
-    const entry = terminalRegistry.find(
-      (t) => t.owningPane === 'content' && t.tabId === contentActiveTabId,
-    );
-    if (entry) {
-      const handle = requestAnimationFrame(() => {
-        terminalRefsMap.current.get(entry.tabId)?.focus();
-      });
-      return () => cancelAnimationFrame(handle);
-    }
-  }, [contentActiveTabId, terminalRegistry]);
+  // Track previous active tabs per pane to only focus changed panes
+  const prevActiveTabRef = useRef<Map<string, string | null>>(new Map());
 
-  // Focus bottom panel's active terminal
+  // Focus active terminal only for panes whose active tab actually changed
   useEffect(() => {
-    if (!bottomActiveTabId) return;
-    const entry = terminalRegistry.find(
-      (t) => t.owningPane === 'bottom' && t.tabId === bottomActiveTabId,
-    );
-    if (entry) {
-      const handle = requestAnimationFrame(() => {
-        terminalRefsMap.current.get(entry.tabId)?.focus();
-      });
-      return () => cancelAnimationFrame(handle);
+    const changedPanes: string[] = [];
+    for (const [paneId, tabId] of activeTabByPane) {
+      if (prevActiveTabRef.current.get(paneId) !== tabId) {
+        changedPanes.push(paneId);
+      }
     }
-  }, [bottomActiveTabId, terminalRegistry]);
+    prevActiveTabRef.current = new Map(activeTabByPane);
+
+    const handles: number[] = [];
+    for (const paneId of changedPanes) {
+      const activeTabId = activeTabByPane.get(paneId);
+      if (!activeTabId) continue;
+      const entry = terminalRegistry.find(
+        (t) => t.owningPane === paneId && t.tabId === activeTabId,
+      );
+      if (entry) {
+        handles.push(
+          requestAnimationFrame(() => {
+            terminalRefsMap.current.get(entry.tabId)?.focus();
+          }),
+        );
+      }
+    }
+    return () => {
+      for (const h of handles) cancelAnimationFrame(h);
+    };
+  }, [activeTabByPane, terminalRegistry]);
 
   // Stable callback cache: tabId -> {onTitleChange, onCwdChange}
-  // useState with lazy init gives a stable mutable Map; closures read pane refs
-  // only when invoked (in event handlers), satisfying the react-hooks/refs rule.
+  // Mutable Map ref; closures read pane refs only when invoked (in event
+  // handlers), satisfying the react-hooks/refs rule.
   const callbackCacheRef = useRef<
     Map<string, { onTitleChange: (title: string) => void; onCwdChange: (cwd: string) => void }>
   >(new Map());
@@ -102,13 +117,20 @@ export function useTerminalRegistry({
     return terminalRegistry.map((entry) => {
       let cached = cache.get(entry.tabId);
       if (!cached) {
-        const paneRef = entry.owningPane === 'content' ? contentPaneRef : bottomPanelRef;
         cached = {
           onTitleChange: (title: string) => {
-            paneRef.current?.updateTabTitle(entry.tabId, title);
+            const paneHandle =
+              entry.owningPane === 'bottom'
+                ? bottomPanelRef.current
+                : paneHandleRefs.current.get(entry.owningPane);
+            paneHandle?.updateTabTitle(entry.tabId, title);
           },
           onCwdChange: (cwd: string) => {
-            paneRef.current?.updateTabCwd(entry.tabId, cwd);
+            const paneHandle =
+              entry.owningPane === 'bottom'
+                ? bottomPanelRef.current
+                : paneHandleRefs.current.get(entry.owningPane);
+            paneHandle?.updateTabCwd(entry.tabId, cwd);
           },
         };
         cache.set(entry.tabId, cached);
@@ -119,13 +141,12 @@ export function useTerminalRegistry({
         owningPane: entry.owningPane,
         isActive:
           entry.workspaceId === activeWorkspaceId &&
-          ((entry.owningPane === 'content' && entry.tabId === contentActiveTabId) ||
-            (entry.owningPane === 'bottom' && entry.tabId === bottomActiveTabId)),
+          entry.tabId === activeTabByPane.get(entry.owningPane),
         onTitleChange: cached.onTitleChange,
         onCwdChange: cached.onCwdChange,
       };
     });
-  }, [terminalRegistry, contentActiveTabId, bottomActiveTabId, activeWorkspaceId]);
+  }, [terminalRegistry, activeTabByPane, activeWorkspaceId]);
   /* eslint-enable react-hooks/refs, react-hooks/exhaustive-deps */
 
   return {
@@ -134,10 +155,8 @@ export function useTerminalRegistry({
     terminalRefsMap,
     callbackCacheRef,
     terminalEntries,
-    contentActiveTabId,
-    setContentActiveTabId,
-    bottomActiveTabId,
-    setBottomActiveTabId,
+    activeTabByPane,
+    setActiveTabForPane,
     handleTerminalRegistered,
     handleTerminalUnregistered,
     handleContentTerminalRegistered,

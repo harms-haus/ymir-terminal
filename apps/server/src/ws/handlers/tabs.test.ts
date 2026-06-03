@@ -5,12 +5,14 @@ import {
   type TabListResponse,
   type TabCreateResponse,
   type TabCreateRequest,
+  type TabRestoreResponse,
 } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
-import { registerTabHandlers } from './tabs';
+import { registerTabHandlers, type TabDeps } from './tabs';
 import { initSessionDb, createSession, type Database } from '../../db/session';
 import { initDatabase as initPersistentDb } from '../../db/persistent';
+import { PTYManager } from '../../pty/manager';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -22,12 +24,19 @@ describe('registerTabHandlers', () => {
   let sessionDb: Database;
   let persistentDb: Database;
   let sessionId: string;
+  let ptyManager: PTYManager;
+  let deps: TabDeps;
 
   beforeEach(() => {
     router = new MessageRouter();
     conn = mockConn();
     sessionDb = initSessionDb();
     persistentDb = initPersistentDb(':memory:');
+    // Create a PTYManager that won't actually spawn processes
+    ptyManager = new PTYManager('linux', {
+      existsSync: () => true,
+    });
+    deps = { sessionDb, persistentDb, ptyManager };
     sessionId = createSession(sessionDb);
     conn.sessionId = sessionId;
   });
@@ -62,7 +71,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.create terminal', () => {
     it('creates a terminal tab and responds with tabId', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request<TabCreateRequest>('tab.create', {
         workspaceId: 'ws-1',
@@ -99,7 +108,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.create with terminalId', () => {
     it('creates a pane row linking tab to terminal', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request<TabCreateRequest>('tab.create', {
         workspaceId: 'ws-1',
@@ -135,7 +144,7 @@ describe('registerTabHandlers', () => {
         .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
         .run('ws-1', 'Test', wsCwd, '#007acc');
 
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request<TabCreateRequest>('tab.create', {
         workspaceId: 'ws-1',
@@ -165,7 +174,7 @@ describe('registerTabHandlers', () => {
         .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
         .run('ws-1', 'Test', wsCwd, '#007acc');
 
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request<TabCreateRequest>('tab.create', {
         workspaceId: 'ws-1',
@@ -184,7 +193,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('rejects filePath when workspace does not exist', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request<TabCreateRequest>('tab.create', {
         workspaceId: 'nonexistent-ws',
@@ -208,7 +217,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.create validation', () => {
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.create', {
         tabType: 'terminal',
@@ -224,7 +233,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns INVALID_MESSAGE when tabType is invalid', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.create', {
         workspaceId: 'ws-1',
@@ -239,24 +248,25 @@ describe('registerTabHandlers', () => {
       expect(resp.error!.code).toBe(ErrorCodes.INVALID_MESSAGE);
     });
 
-    it('returns INVALID_MESSAGE when pane is invalid', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+    it('accepts arbitrary string pane values', async () => {
+      registerTabHandlers(router, deps);
 
       const req = request('tab.create', {
         workspaceId: 'ws-1',
         tabType: 'terminal',
         title: 'T1',
-        pane: 'sidebar',
+        pane: 'my-custom-pane-42',
       });
 
       await router.route(conn, req);
 
       const resp = conn.sent[0] as ResponseEnvelope;
-      expect(resp.error!.code).toBe(ErrorCodes.INVALID_MESSAGE);
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload.tabId).toBeString();
     });
 
     it('returns INVALID_MESSAGE when payload is null', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.create', null);
 
@@ -273,7 +283,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.list', () => {
     it('returns all tabs for a workspace in sort_order', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       // Create 3 tabs
       await createTabViaHandler({
@@ -317,7 +327,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.list filters by workspace', () => {
     it('only returns tabs belonging to the requested workspace', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       // Create tabs for workspace A and B
       await createTabViaHandler({
@@ -357,7 +367,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.list filters by pane', () => {
     it('only returns content tabs when pane=content is specified', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       // Create content and bottom tabs
       await createTabViaHandler({
@@ -384,7 +394,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('only returns bottom tabs when pane=bottom is specified', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -416,7 +426,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.list with terminalAlive', () => {
     it('returns terminalAlive: true when terminal instance exists', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       // Create a terminal instance in the DB
       const terminalId = crypto.randomUUID();
@@ -446,7 +456,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns terminalAlive: false when terminal instance is deleted', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       // Create a terminal instance
       const terminalId = crypto.randomUUID();
@@ -485,7 +495,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.update', () => {
     it('updates active flag in the DB', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       // Create two tabs in the same pane
       const tabId1 = await createTabViaHandler({
@@ -523,7 +533,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('updates title', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const tabId = await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -547,7 +557,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns INVALID_MESSAGE when tabId is missing', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.update', { active: true });
       await router.route(conn, req);
@@ -557,7 +567,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns TAB_NOT_FOUND when tab does not exist', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.update', { tabId: 'nonexistent-id', active: true });
       await router.route(conn, req);
@@ -573,7 +583,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.delete', () => {
     it('removes the tab from the DB', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const tabId = await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -601,7 +611,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns INVALID_MESSAGE when tabId is missing', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.delete', {});
       await router.route(conn, req);
@@ -617,7 +627,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.delete ownership check', () => {
     it('rejects deletion of a tab from a different session', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const tabId = await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -649,7 +659,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.reorder', () => {
     it('reorders tabs according to the provided tabIds order', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const tabId1 = await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -697,7 +707,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns INVALID_MESSAGE when tabIds is empty', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.reorder', { tabIds: [] });
       await router.route(conn, req);
@@ -707,7 +717,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns INVALID_MESSAGE when tabIds contains non-strings', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.reorder', { tabIds: [123, 456] as unknown as string[] });
       await router.route(conn, req);
@@ -717,7 +727,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns INVALID_MESSAGE when tabIds is missing', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const req = request('tab.reorder', {});
       await router.route(conn, req);
@@ -733,7 +743,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.reorder ownership check', () => {
     it('rejects reorder when one tab belongs to a different session', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const tabId1 = await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -780,7 +790,7 @@ describe('registerTabHandlers', () => {
 
   describe('tab.create auto-increments sort_order', () => {
     it('assigns sort_order 0, 1, 2 for consecutive creates', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const tabId1 = await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -817,7 +827,7 @@ describe('registerTabHandlers', () => {
     });
 
     it('auto-increments independently per pane', async () => {
-      registerTabHandlers(router, { sessionDb, persistentDb });
+      registerTabHandlers(router, deps);
 
       const contentTab1 = await createTabViaHandler({
         workspaceId: 'ws-1',
@@ -851,6 +861,212 @@ describe('registerTabHandlers', () => {
       expect(contentRow1.sort_order).toBe(0);
       expect(bottomRow1.sort_order).toBe(0);
       expect(contentRow2.sort_order).toBe(1);
+    });
+  });
+
+  // =========================================================================
+  // 16. Persistent tab mirroring
+  // =========================================================================
+
+  describe('persistent tab mirroring', () => {
+    it('tab.create persists to persistent DB', async () => {
+      registerTabHandlers(router, deps);
+
+      const tabId = await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Persisted Tab',
+        pane: 'content',
+      });
+
+      const rows = persistentDb
+        .prepare('SELECT * FROM persisted_tabs WHERE id = ?')
+        .all(tabId) as Record<string, unknown>[];
+      expect(rows).toHaveLength(1);
+      expect(rows[0].tab_type).toBe('terminal');
+      expect(rows[0].workspace_id).toBe('ws-1');
+      expect(rows[0].title).toBe('Persisted Tab');
+      expect(rows[0].pane).toBe('content');
+    });
+
+    it('tab.create persists cwd and customTitle when provided', async () => {
+      registerTabHandlers(router, deps);
+
+      const _tabId = await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'My Tab',
+        pane: 'content',
+      });
+
+      // The helper doesn't pass cwd/customTitle, so create directly
+      conn.sent.length = 0;
+      const req = request<TabCreateRequest>('tab.create', {
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Editor',
+        pane: 'content',
+        cwd: '/some/cwd',
+        customTitle: 'My Custom',
+      });
+      await router.route(conn, req);
+      const resp = conn.sent[conn.sent.length - 1] as ResponseEnvelope<TabCreateResponse>;
+      const editorTabId = resp.payload!.tabId;
+
+      const row = persistentDb
+        .prepare('SELECT * FROM persisted_tabs WHERE id = ?')
+        .get(editorTabId) as Record<string, unknown>;
+      expect(row.cwd).toBe('/some/cwd');
+      expect(row.custom_title).toBe('My Custom');
+    });
+
+    it('tab.delete removes from persistent DB', async () => {
+      registerTabHandlers(router, deps);
+
+      const tabId = await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'To Delete',
+        pane: 'content',
+      });
+
+      // Verify persisted
+      expect(
+        persistentDb.prepare('SELECT id FROM persisted_tabs WHERE id = ?').get(tabId),
+      ).toBeDefined();
+
+      conn.sent.length = 0;
+      const req = request('tab.delete', { tabId });
+      await router.route(conn, req);
+
+      // Verify removed from persistent DB
+      expect(
+        persistentDb.prepare('SELECT id FROM persisted_tabs WHERE id = ?').get(tabId),
+      ).toBeNull();
+    });
+
+    it('tab.reorder updates sort_order in persistent DB', async () => {
+      registerTabHandlers(router, deps);
+
+      const tabId1 = await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Tab 1',
+        pane: 'content',
+      });
+      const tabId2 = await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Tab 2',
+        pane: 'content',
+      });
+
+      conn.sent.length = 0;
+      const req = request('tab.reorder', { tabIds: [tabId2, tabId1] });
+      await router.route(conn, req);
+
+      const row1 = persistentDb
+        .prepare('SELECT sort_order FROM persisted_tabs WHERE id = ?')
+        .get(tabId1) as { sort_order: number };
+      const row2 = persistentDb
+        .prepare('SELECT sort_order FROM persisted_tabs WHERE id = ?')
+        .get(tabId2) as { sort_order: number };
+
+      expect(row2.sort_order).toBe(0);
+      expect(row1.sort_order).toBe(1);
+    });
+
+    it('tab.update mirrors title to persistent DB', async () => {
+      registerTabHandlers(router, deps);
+
+      const tabId = await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Original',
+        pane: 'content',
+      });
+
+      conn.sent.length = 0;
+      const req = request('tab.update', { tabId, title: 'Updated' });
+      await router.route(conn, req);
+
+      const row = persistentDb
+        .prepare('SELECT custom_title FROM persisted_tabs WHERE id = ?')
+        .get(tabId) as { custom_title: string | null };
+      expect(row.custom_title).toBe('Updated');
+    });
+  });
+
+  // =========================================================================
+  // 17. tab.restore
+  // =========================================================================
+
+  describe('tab.restore', () => {
+    it('restores persisted editor tabs to session DB', async () => {
+      registerTabHandlers(router, deps);
+
+      // Seed a persisted editor tab directly
+      persistentDb
+        .prepare(
+          `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, file_path, pane, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run('ptab-1', 'ws-1', 'editor', 'index.ts', 'src/index.ts', 'content', 0);
+
+      const req = request('tab.restore', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabRestoreResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.tabs).toHaveLength(1);
+      expect(resp.payload!.tabs[0].tabType).toBe('editor');
+      expect(resp.payload!.tabs[0].filePath).toBe('src/index.ts');
+      expect(resp.payload!.tabs[0].terminalId).toBeNull();
+
+      // Verify the tab exists in the session DB
+      const sessionRow = sessionDb
+        .prepare('SELECT * FROM tabs WHERE id = ?')
+        .get(resp.payload!.tabs[0].id) as Record<string, unknown> | null;
+      expect(sessionRow).not.toBeNull();
+      expect(sessionRow!.tab_type).toBe('editor');
+    });
+
+    it('returns empty array when no persisted tabs exist', async () => {
+      registerTabHandlers(router, deps);
+
+      const req = request('tab.restore', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabRestoreResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.tabs).toHaveLength(0);
+    });
+
+    it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
+      registerTabHandlers(router, deps);
+
+      const req = request('tab.restore', {});
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope;
+      expect(resp.error!.code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('uses custom_title over title when restoring', async () => {
+      registerTabHandlers(router, deps);
+
+      persistentDb
+        .prepare(
+          `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, file_path, pane, sort_order, custom_title)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run('ptab-2', 'ws-1', 'editor', 'original.ts', 'src/original.ts', 'content', 0, 'Custom Name');
+
+      const req = request('tab.restore', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabRestoreResponse>;
+      expect(resp.payload!.tabs[0].title).toBe('Custom Name');
     });
   });
 });

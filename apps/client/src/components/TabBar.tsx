@@ -7,6 +7,8 @@ import {
   TITLE_BAR_HEIGHT,
 } from '../lib/theme';
 import { SortableTab } from './SortableTab';
+import { AppContextMenu } from './AppContextMenu';
+import { COLOR_DANGER } from '../lib/theme';
 import { useDroppable } from '@dnd-kit/react';
 
 interface TabBarProps {
@@ -22,6 +24,10 @@ interface TabBarProps {
   onRename?: (tabId: string, newTitle: string) => void;
   onMoveToPane?: (tabId: string) => void;
   group?: string;
+  onSplitRight?: (tabId?: string) => void;
+  onSplitDown?: (tabId?: string) => void;
+  onClosePane?: () => void;
+  canClosePane?: boolean;
 }
 
 export function TabBar({
@@ -37,6 +43,10 @@ export function TabBar({
   onRename,
   onMoveToPane,
   group,
+  onSplitRight,
+  onSplitDown,
+  onClosePane,
+  canClosePane,
 }: TabBarProps) {
   // Inline rename state
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -92,94 +102,124 @@ export function TabBar({
     data: { group },
   });
 
+  const contextMenuItems = [
+    {
+      label: 'Split Right',
+      testId: 'tab-bar-split-right',
+      action: () => onSplitRight?.(),
+    },
+    {
+      label: 'Split Down',
+      testId: 'tab-bar-split-down',
+      action: () => onSplitDown?.(),
+    },
+    ...(onClosePane
+      ? [
+          {
+            label: 'Close Pane',
+            testId: 'tab-bar-close-pane',
+            action: () => onClosePane(),
+            disabled: !canClosePane,
+            style: { color: COLOR_DANGER },
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div
-      data-testid="tab-bar"
-      style={{
-        height: `${TITLE_BAR_HEIGHT}px`,
-        background: isDropTarget ? 'rgba(255, 255, 255, 0.04)' : COLOR_BG_SECONDARY,
-        boxShadow: isDropTarget ? 'inset 0 0 0 1px var(--accent)' : undefined,
-        transition: 'background 0.15s, box-shadow 0.15s',
-        display: 'flex',
-        alignItems: 'flex-end',
-        borderBottom: `1px solid ${COLOR_BORDER}`,
-        flexShrink: 0,
-      }}
-    >
-      <style>{`
-        .tab-close-btn-focus:focus-visible { outline: 1px solid var(--accent, #007acc); outline-offset: -1px; }
-        .tab-close-btn-focus:hover { background: rgba(255,255,255,0.1); }
-        [role="tab"]:focus-visible { outline: 1px solid var(--accent, #007acc); outline-offset: -1px; }
-      `}</style>
-      {/* Scrollable tabs container */}
+    <AppContextMenu items={contextMenuItems} testId="tab-bar-context-menu">
       <div
-        ref={droppableRef}
-        role="tablist"
+        data-testid="tab-bar"
         style={{
-          flex: 1,
+          height: `${TITLE_BAR_HEIGHT}px`,
+          background: isDropTarget ? 'rgba(255, 255, 255, 0.04)' : COLOR_BG_SECONDARY,
+          boxShadow: isDropTarget ? 'inset 0 0 0 1px var(--accent)' : undefined,
+          transition: 'background 0.15s, box-shadow 0.15s',
           display: 'flex',
           alignItems: 'flex-end',
-          overflowX: 'auto',
-        }}
-      >
-        {tabs.map((tab, tabIdx) => (
-          <SortableTab
-            key={tab.id}
-            tab={tab}
-            tabs={tabs}
-            tabIdx={tabIdx}
-            totalTabs={tabs.length}
-            isActive={tab.id === activeTabId}
-            isBottom={isBottom}
-            renamingTabId={renamingTabId}
-            renameValue={renameValue}
-            renameInputRef={renameInputRef}
-            onActivate={onActivate}
-            onClose={onClose}
-            onCloseRight={onCloseRight}
-            onCloseOthers={onCloseOthers}
-            startRename={startRename}
-            commitRename={commitRename}
-            cancelRename={cancelRename}
-            setRenameValue={setRenameValue}
-            group={group}
-            onMoveToBottom={
-              onMoveToPane && tab.terminalId && variant === 'content'
-                ? () => onMoveToPane(tab.id)
-                : undefined
-            }
-            onMoveToContent={
-              onMoveToPane && tab.terminalId && variant === 'bottom'
-                ? () => onMoveToPane(tab.id)
-                : undefined
-            }
-          />
-        ))}
-      </div>
-      {/* + button OUTSIDE the scroll container so it stays fixed at right edge */}
-      <button
-        data-testid="tab-add"
-        aria-label="Add tab"
-        disabled={!canAddTerminal}
-        onClick={onAddTerminal}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: COLOR_TAB_ADD_TEXT,
-          cursor: canAddTerminal ? 'pointer' : 'not-allowed',
-          opacity: canAddTerminal ? undefined : 0.3,
-          fontSize: '18px',
-          lineHeight: `${TITLE_BAR_HEIGHT}px`,
-          padding: '0 10px',
-          height: `${TITLE_BAR_HEIGHT}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          borderBottom: `1px solid ${COLOR_BORDER}`,
           flexShrink: 0,
         }}
       >
-        +
-      </button>
-    </div>
+        <style>{`
+          .tab-close-btn-focus:focus-visible { outline: 1px solid var(--accent, #007acc); outline-offset: -1px; }
+          .tab-close-btn-focus:hover { background: rgba(255,255,255,0.1); }
+          [role="tab"]:focus-visible { outline: 1px solid var(--accent, #007acc); outline-offset: -1px; }
+        `}</style>
+        {/* Scrollable tabs container */}
+        <div
+          ref={droppableRef}
+          role="tablist"
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'flex-end',
+            overflowX: 'auto',
+          }}
+        >
+          {tabs.map((tab, tabIdx) => (
+            <SortableTab
+              key={tab.id}
+              tab={tab}
+              tabs={tabs}
+              tabIdx={tabIdx}
+              totalTabs={tabs.length}
+              isActive={tab.id === activeTabId}
+              isBottom={isBottom}
+              renamingTabId={renamingTabId}
+              renameValue={renameValue}
+              renameInputRef={renameInputRef}
+              onActivate={onActivate}
+              onClose={onClose}
+              onCloseRight={onCloseRight}
+              onCloseOthers={onCloseOthers}
+              startRename={startRename}
+              commitRename={commitRename}
+              cancelRename={cancelRename}
+              setRenameValue={setRenameValue}
+              group={group}
+              onMoveToBottom={
+                onMoveToPane && tab.terminalId && variant === 'content'
+                  ? () => onMoveToPane(tab.id)
+                  : undefined
+              }
+              onMoveToContent={
+                onMoveToPane && tab.terminalId && variant === 'bottom'
+                  ? () => onMoveToPane(tab.id)
+                  : undefined
+              }
+              onSplitRight={onSplitRight ? () => onSplitRight(tab.id) : undefined}
+              onSplitDown={onSplitDown ? () => onSplitDown(tab.id) : undefined}
+              onClosePane={onClosePane}
+              canClosePane={canClosePane}
+            />
+          ))}
+        </div>
+        {/* + button OUTSIDE the scroll container so it stays fixed at right edge */}
+        <button
+          data-testid="tab-add"
+          aria-label="Add tab"
+          disabled={!canAddTerminal}
+          onClick={onAddTerminal}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: COLOR_TAB_ADD_TEXT,
+            cursor: canAddTerminal ? 'pointer' : 'not-allowed',
+            opacity: canAddTerminal ? undefined : 0.3,
+            fontSize: '18px',
+            lineHeight: `${TITLE_BAR_HEIGHT}px`,
+            padding: '0 10px',
+            height: `${TITLE_BAR_HEIGHT}px`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          +
+        </button>
+      </div>
+    </AppContextMenu>
   );
 }

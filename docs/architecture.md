@@ -157,8 +157,8 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | Directory       | Purpose                                        |
 | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `components/`   | React UI components (see below)                |
-|                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useFileSearch`, `useGitRepos` for multi-repo git state management — repo discovery, status, branches, and operations) |
-|                 | `lib/`                                         | WebSocket client, request helper, git-utils, git-change-tree, git-graph, OSC 7 CWD parser, theme constants, context styles                                                                                                                                          |
+|                 | `hooks/`                                       | Custom React hooks for state and data (incl. `useCreateTerminalTab`, `usePaneVisibility` with `loading` state for persisted pane visibility, `useSplitLayout` for pane tree layout, `useTerminalPane` for per-pane tab management, `useTerminalPanel` for imperative handle wiring, `useFileSearch`, `useGitRepos` for multi-repo git state management — repo discovery, status, branches, and operations) |
+|                 | `lib/`                                         | WebSocket client, request helper, git-utils, git-change-tree, git-graph, OSC 7 CWD parser, pane-tree (binary tree model for split layouts), theme constants, context styles                                                                                                          |
 | `routes/`       | TanStack Router route definitions              |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`) |
 
@@ -215,10 +215,13 @@ The client extracts complex stateful logic into dedicated hooks, each with a sin
 
 | Hook                    | Purpose                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useTerminalRegistry`   | Tracks all live terminals across both content and bottom panes. Maintains a `terminalRegistry` array of `{ terminalId, tabId, owningPane, workspaceId }` entries, a `terminalRefsMap` for focus management, a stable `callbackCacheRef` for `onTitleChange`/`onCwdChange` per tab, and computed `terminalEntries` for `TerminalManager`. Auto-focuses the active terminal in each pane when the active tab changes. |
+| `useTerminalRegistry`   | Tracks all live terminals across all panes (content, bottom, and dynamic split panes). Maintains a `terminalRegistry` array of `{ terminalId, tabId, owningPane, workspaceId }` entries, a `terminalRefsMap` for focus management, a stable `callbackCacheRef` for `onTitleChange`/`onCwdChange` per tab, and computed `terminalEntries` for `TerminalManager`. Auto-focuses the active terminal only in panes whose active tab actually changed. |
 | `useWorkspaceSelection` | Manages workspace and worktree selection state. Derives `activeWorkspaceId` from `selectedWorkspaceId` (falls back to first workspace), fetches worktrees for all workspaces eagerly via `useQueries`, and exposes handlers for workspace CRUD, worktree CRUD, color/accents, and dialog state.                                                                                                                     |
-| `usePaneBounds`         | Tracks container bounds for the content and bottom terminal areas using `ResizeObserver`. Computes `{ top, left, width, height }` relative to a wrapper div for overlay positioning. Skips observation while pane visibility is loading to avoid stale refs.                                                                                                                                                        |
+| `usePaneBounds`         | Tracks container bounds for dynamic pane containers using `ResizeObserver`. Maintains a `registerContainer` callback ref for each pane ID and a `getPaneBounds` synchronous accessor. Computes `{ top, left, width, height }` relative to a wrapper div for overlay positioning. Skips observation while pane visibility is loading to avoid stale refs.                                                              |
 | `usePaginatedGitLog`    | Reusable pagination + infinite scroll for git commit history. Uses `useReducer` with a generation counter to discard stale responses after workspace/repo changes. Provides a `sentinelRef` (via `react-intersection-observer`) that auto-fetches the next page when scrolled into view. Page size defaults to 50.                                                                                                  |
+| `useSplitLayout`        | Manages the pane layout binary tree (`LayoutNode`) with debounced (300 ms) persistence to `config.set` via key `pane_layout_{workspaceId}`. Provides `splitPane`, `removePane`, `loadLayout`, and focused-pane tracking. Uses immutable tree mutations from `pane-tree.ts`.                                                                                                                                           |
+| `useTerminalPane`       | Per-pane tab management. Wraps `useTabs` with server sync (mirrors create/close/reorder/activate to WebSocket requests), dirty-file close confirmation, and an imperative interface for cross-pane tab transfer (`transferTabOut`/`receiveTab`). Also provides `loadRestoredTabs` for restoring persisted tabs on workspace switch.                                                                                 |
+| `useTerminalPanel`      | Defines the `TerminalPanelHandle` interface and wires it via `useImperativeHandle`. The handle exposes `transferTabOut`, `receiveTab`, `loadRestoredTabs`, `reorderTabs`, `getTabs`, `getActiveTabId`, `updateTabTitle`, and `updateTabCwd` — shared by ContentPane and BottomPanel.                                                                                                                                  |
 
 ## Testing
 
@@ -251,16 +254,48 @@ Resolved by `getConfigDir()` and `getYmirHomeDir()` in `packages/shared/src/util
 
 Ymir stores persistent data in SQLite:
 
-| Database   | Location                   | Purpose                                                                                             |
-| ---------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
-| Persistent | `{getConfigDir()}/ymir.db` | Workspaces, password hash, UI layout state                                                          |
-| Session    | In-memory (`:memory:`)     | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns) |
+| Database   | Location                   | Purpose                                                                                                                                              |
+| ---------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Persistent | `{getConfigDir()}/ymir.db` | Workspaces, password hash, UI layout state, persisted tabs (survive server restarts), server config (`pane_layout_*`, `ui_pane_visibility`, etc.)  |
+| Session    | In-memory (`:memory:`)     | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns)                                                 |
 
 The workspaces table includes a `sort_order` column (integer) that persists drag-and-drop ordering. The `WorkspaceSummary` type returned by `workspace.list` includes `sortOrder: number` reflecting this column.
 
 The config directory is created automatically on first run.
 
-The `server_config` key-value table (within the persistent database) stores UI layout persistence data — panel sizes and pane visibility — using keys like `ui_pane_visibility`, `ui_panel_sizes`, and `ui_project_sidebar_sizes`.
+The `server_config` key-value table (within the persistent database) stores UI layout persistence data. Config keys include:
+
+| Key pattern                              | Value                                        |
+| ---------------------------------------- | -------------------------------------------- |
+| `pane_layout_{workspaceId}`              | Serialized pane tree JSON (see `pane-tree`)  |
+| `ui_pane_visibility`                     | Pane visibility state                        |
+| `ui_panel_sizes`                         | Panel size state                             |
+| `ui_project_sidebar_sizes`              | Project sidebar size state                   |
+
+### Persisted Tabs
+
+The `persisted_tabs` table mirrors tab state into the persistent database so tabs survive server restarts. Every `tab.create`, `tab.delete`, `tab.reorder`, and `tab.update` handler writes through to this table.
+
+```sql
+persisted_tabs (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+  title TEXT,
+  file_path TEXT,
+  pane TEXT DEFAULT 'content',
+  sort_order INTEGER DEFAULT 0,
+  diff_ref TEXT,
+  repo_path TEXT,
+  commit_sha TEXT,
+  parent_sha TEXT,
+  cwd TEXT,
+  custom_title TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+)
+```
+
+CRUD functions: `savePersistedTab`, `deletePersistedTab`, `updatePersistedTabOrder`, `updatePersistedTabTitle`, `listPersistedTabsByWorkspace`, `deletePersistedTabsByWorkspace`.
 
 ## Windows Support
 
