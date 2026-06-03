@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { join } from 'node:path';
 import type { GitStatusResponse } from '@ymir/shared';
 import type { GitStatusCache } from './status-cache';
 import { GitStatusWatcher, DEBOUNCE_MS } from './status-watcher';
@@ -112,14 +113,14 @@ describe('GitStatusWatcher', () => {
     it('watches .git/HEAD', () => {
       watcher.watchRepo('/repo/.git', '/repo');
 
-      const headCall = mockWatchCalls.find((c) => c.path === '/repo/.git/HEAD');
+      const headCall = mockWatchCalls.find((c) => c.path === join('/repo/.git', 'HEAD'));
       expect(headCall).toBeDefined();
     });
 
     it('watches .git/refs with recursive option', () => {
       watcher.watchRepo('/repo/.git', '/repo');
 
-      const refsCall = mockWatchCalls.find((c) => c.path === '/repo/.git/refs');
+      const refsCall = mockWatchCalls.find((c) => c.path === join('/repo/.git', 'refs'));
       expect(refsCall).toBeDefined();
       expect(refsCall!.optsOrCb).toEqual({ recursive: true });
     });
