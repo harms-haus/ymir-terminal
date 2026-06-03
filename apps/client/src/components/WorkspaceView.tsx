@@ -90,9 +90,10 @@ function WorkspaceViewInner() {
     layoutRef.current = layout;
   }, [layout]);
 
-  const { wrapperRef, registerContainer, getPaneBounds, bottomTerminalRef } = usePaneBounds({
-    loading,
-  });
+  const { wrapperRef, registerContainer, getPaneBounds, allBounds, bottomTerminalRef } =
+    usePaneBounds({
+      loading,
+    });
 
   // Sync split pane container elements with usePaneBounds so TerminalManager can position terminals
   useEffect(() => {
@@ -574,6 +575,7 @@ function WorkspaceViewInner() {
         terminals={terminalEntries}
         getPaneBounds={getPaneBounds}
         terminalRefs={terminalRefsMap}
+        boundsVersion={allBounds}
       />
     </div>
   );

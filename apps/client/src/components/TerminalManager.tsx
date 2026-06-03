@@ -21,12 +21,16 @@ interface TerminalManagerProps {
   terminals: TerminalEntry[];
   getPaneBounds: (paneId: string) => PaneBounds | null;
   terminalRefs: React.MutableRefObject<Map<string, { focus(): void }>>;
+  /** Bounds version — when this changes, triggers a re-render to re-read getPaneBounds */
+  boundsVersion?: unknown;
 }
 
 export const TerminalManager = React.memo(function TerminalManager({
   terminals,
   getPaneBounds,
   terminalRefs,
+  // boundsVersion is not used directly — it forces re-renders when bounds update
+  boundsVersion: _boundsVersion,
 }: TerminalManagerProps) {
   // Stable ref callbacks: tabId -> ref callback. Created once per tabId to
   // avoid React tearing down and rebuilding the ref on every render.

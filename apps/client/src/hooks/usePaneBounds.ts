@@ -98,6 +98,8 @@ export function usePaneBounds({ loading }: UsePaneBoundsParams) {
     if (element) {
       containerRefs.current.set(paneId, element);
       observerRef.current?.observe(element);
+      // Immediately compute bounds so callers don't have to wait for the next ResizeObserver tick
+      updateBounds();
     } else {
       containerRefs.current.delete(paneId);
       if (boundsMap.current.has(paneId)) {
