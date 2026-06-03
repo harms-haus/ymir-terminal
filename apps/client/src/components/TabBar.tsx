@@ -121,19 +121,30 @@ export function TabBar({
     [hasSplitActions],
   );
 
-  // Close empty-area menu on any outside click or Escape
+  // Close empty-area menu on outside click or Escape
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!emptyMenuPos) return;
-    const close = () => setEmptyMenuPos(null);
-    document.addEventListener('click', close, true);
-    document.addEventListener('contextmenu', close, true);
-    document.addEventListener('keydown', (e) => {
+    const close = (e?: Event) => {
+      if (e && menuRef.current?.contains(e.target as Node)) return;
+      setEmptyMenuPos(null);
+    };
+    const onClick = (e: Event) => close(e);
+    const onContextMenu = (e: Event) => close(e);
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
-    });
+    };
+    // Use a microtask to avoid the opening click from immediately closing
+    const timer = setTimeout(() => {
+      document.addEventListener('click', onClick);
+      document.addEventListener('contextmenu', onContextMenu);
+      document.addEventListener('keydown', onKeyDown);
+    }, 0);
     return () => {
-      document.removeEventListener('click', close, true);
-      document.removeEventListener('contextmenu', close, true);
-      document.removeEventListener('keydown', close);
+      clearTimeout(timer);
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('contextmenu', onContextMenu);
+      document.removeEventListener('keydown', onKeyDown);
     };
   }, [emptyMenuPos]);
 
