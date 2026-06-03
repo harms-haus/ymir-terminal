@@ -239,7 +239,9 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          border: focused ? '1px solid var(--accent-dim, var(--accent, #007acc))' : '1px solid transparent',
+          border: focused
+            ? '1px solid var(--accent-dim, var(--accent, #007acc))'
+            : '1px solid transparent',
           boxSizing: 'border-box',
         }}
         onMouseDown={onFocus}
