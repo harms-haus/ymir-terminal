@@ -62,6 +62,7 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
     handleRenameTab,
     transferTabOut,
     receiveTab,
+    loadRestoredTabs,
     getTabs,
     getActiveTabId,
   } = useTerminalPane({
@@ -208,6 +209,7 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
   useTerminalPanelHandle(ref, {
     transferTabOut,
     receiveTab,
+    loadRestoredTabs,
     reorderTabs,
     getTabs,
     getActiveTabId,

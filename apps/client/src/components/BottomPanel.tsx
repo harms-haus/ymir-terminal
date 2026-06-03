@@ -44,6 +44,7 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
     handleRenameTab,
     transferTabOut,
     receiveTab,
+    loadRestoredTabs,
     getTabs,
     getActiveTabId,
   } = useTerminalPane({

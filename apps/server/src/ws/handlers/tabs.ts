@@ -390,14 +390,14 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
         sessionId: conn.sessionId,
         workspaceId,
         tabType: ptab.tab_type,
-        title: ptab.custom_title ?? ptab.title,
-        filePath: ptab.file_path,
+        title: ptab.custom_title ?? ptab.title ?? undefined,
+        filePath: ptab.file_path ?? undefined,
         pane: ptab.pane,
         order,
         diffRef: ptab.diff_ref as 'staged' | 'unstaged' | 'commit' | null,
-        repoPath: ptab.repo_path,
-        commitSha: ptab.commit_sha,
-        parentSha: ptab.parent_sha,
+        repoPath: ptab.repo_path ?? undefined,
+        commitSha: ptab.commit_sha ?? undefined,
+        parentSha: ptab.parent_sha ?? undefined,
       });
 
       let terminalId: string | null = null;

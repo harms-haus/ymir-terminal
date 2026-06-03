@@ -77,6 +77,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
       handleRenameTab,
       transferTabOut,
       receiveTab,
+      loadRestoredTabs,
       getTabs,
       getActiveTabId,
     } = useTerminalPane({
