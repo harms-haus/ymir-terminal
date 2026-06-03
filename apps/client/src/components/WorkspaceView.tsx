@@ -17,7 +17,6 @@ import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider, type DragEndEvent, type DragOverEvent } from '@dnd-kit/react';
 import { move } from '@dnd-kit/helpers';
-import { isSortable } from '@dnd-kit/react/sortable';
 import { FileClipboardProvider } from '../contexts/FileClipboardContext';
 import { usePaneBounds } from '../hooks/usePaneBounds';
 import { useTerminalRegistry } from '../hooks/useTerminalRegistry';
@@ -179,7 +178,7 @@ function WorkspaceViewInner() {
     if (!source?.id || !target?.id) return;
 
     // Only handle sortable tab drags; skip workspace/worktree reorder
-    if (!isSortable(source) || source.type !== 'tab') return;
+    if (source.type !== 'tab') return;
 
     const sourceGroup = source.initialGroup;
     const targetGroup = source.group;
@@ -229,7 +228,7 @@ function WorkspaceViewInner() {
       }
 
       // Only handle sortable tab drags for cross-pane transfers
-      if (!isSortable(source) || source.type !== 'tab') return;
+      if (source.type !== 'tab') return;
 
       const initialGroup = source.initialGroup;
       const currentGroup = source.group;
