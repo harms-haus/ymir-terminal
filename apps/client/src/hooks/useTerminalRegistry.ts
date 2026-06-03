@@ -29,6 +29,7 @@ export function useTerminalRegistry({
 
   const setActiveTabForPane = useCallback((paneId: string, tabId: string | null) => {
     setActiveTabByPane((prev) => {
+      if (prev.get(paneId) === tabId) return prev;
       const next = new Map(prev);
       next.set(paneId, tabId);
       return next;
