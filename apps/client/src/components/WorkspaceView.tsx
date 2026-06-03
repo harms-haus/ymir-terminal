@@ -178,10 +178,10 @@ function WorkspaceViewInner() {
     if (!source?.id || !target?.id) return;
 
     // Only handle sortable tab drags; skip workspace/worktree reorder
-    if (source.type !== 'tab') return;
+    if ((source as any).type !== 'tab') return;
 
-    const sourceGroup = source.initialGroup;
-    const targetGroup = source.group;
+    const sourceGroup = (source as any).initialGroup;
+    const targetGroup = (source as any).group;
 
     // Suppress OptimisticSortingPlugin DOM mutation for cross-pane drags
     if (sourceGroup && targetGroup && sourceGroup !== targetGroup) {
@@ -228,10 +228,10 @@ function WorkspaceViewInner() {
       }
 
       // Only handle sortable tab drags for cross-pane transfers
-      if (source.type !== 'tab') return;
+      if ((source as any).type !== 'tab') return;
 
-      const initialGroup = source.initialGroup;
-      const currentGroup = source.group;
+      const initialGroup = (source as any).initialGroup;
+      const currentGroup = (source as any).group;
 
       // Same pane — nothing to transfer
       if (initialGroup === currentGroup) return;
