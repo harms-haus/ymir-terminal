@@ -86,6 +86,7 @@ import {
   type TabUpdateRequest,
   type TabDeleteRequest,
   type TabReorderRequest,
+  type TabRestoreRequest,
   // Unions
   type RequestPayload,
   type EventPayload,
@@ -168,6 +169,7 @@ describe('REQUEST_TYPES', () => {
     'tab.update',
     'tab.delete',
     'tab.reorder',
+    'tab.restore',
   ];
 
   it('contains all expected request types', () => {
@@ -175,7 +177,7 @@ describe('REQUEST_TYPES', () => {
   });
 
   it('has exactly 71 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(71);
+    expect(REQUEST_TYPES).toHaveLength(72);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -352,6 +354,7 @@ describe('RequestPayload union', () => {
       { tabId: 'tab-1' } satisfies TabUpdateRequest,
       { tabId: 'tab-1' } satisfies TabDeleteRequest,
       { tabIds: ['tab-1', 'tab-2'] } satisfies TabReorderRequest,
+      { workspaceId: 'ws-1' } satisfies TabRestoreRequest,
     ];
 
     // Ensure they all survive a JSON round-trip
