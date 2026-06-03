@@ -26,10 +26,10 @@ interface PaneNode {
 
 interface SplitNode {
   type: 'split';
-  id: string;               // UUID
+  id: string; // UUID
   direction: SplitDirection;
   children: [LayoutNode, LayoutNode]; // exactly two children
-  sizes: [string, string];            // e.g. ['50%', '50%']
+  sizes: [string, string]; // e.g. ['50%', '50%']
 }
 
 type LayoutNode = PaneNode | SplitNode;
@@ -122,21 +122,21 @@ Deserializes a JSON string back into a `LayoutNode`. Runs the tree through `isVa
 ## Layout Hook (`useSplitLayout`)
 
 ```typescript
-function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult
+function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult;
 ```
 
 ### Return Type
 
-| Property          | Type                                                     | Description                                         |
-| ----------------- | -------------------------------------------------------- | --------------------------------------------------- |
-| `layout`          | `LayoutNode`                                             | Current layout tree                                 |
-| `paneIds`         | `string[]`                                               | All pane IDs (derived via `collectPaneIds`)         |
-| `splitPane`       | `(paneId, direction) => void`                            | Split a pane, auto-focus the new pane               |
-| `removePane`      | `(paneId) => string[] \| null`                           | Remove a pane; returns removed IDs or `null`        |
-| `setLayout`       | `(layout) => void`                                       | Directly replace the layout state                   |
-| `loadLayout`      | `(workspaceId) => Promise<void>`                         | Load persisted layout or create default              |
-| `focusedPaneId`   | `string \| null`                                         | Currently focused pane                               |
-| `setFocusedPaneId`| `(paneId) => void`                                       | Change focused pane                                  |
+| Property           | Type                             | Description                                  |
+| ------------------ | -------------------------------- | -------------------------------------------- |
+| `layout`           | `LayoutNode`                     | Current layout tree                          |
+| `paneIds`          | `string[]`                       | All pane IDs (derived via `collectPaneIds`)  |
+| `splitPane`        | `(paneId, direction) => void`    | Split a pane, auto-focus the new pane        |
+| `removePane`       | `(paneId) => string[] \| null`   | Remove a pane; returns removed IDs or `null` |
+| `setLayout`        | `(layout) => void`               | Directly replace the layout state            |
+| `loadLayout`       | `(workspaceId) => Promise<void>` | Load persisted layout or create default      |
+| `focusedPaneId`    | `string \| null`                 | Currently focused pane                       |
+| `setFocusedPaneId` | `(paneId) => void`               | Change focused pane                          |
 
 ### Debounced Persistence
 
@@ -198,10 +198,10 @@ interface SplitPaneLayoutProps {
 
 **Ref wiring:**
 
-| Ref map               | Purpose                                                      |
-| --------------------- | ------------------------------------------------------------ |
-| `paneHandleRefs`      | Maps `paneId → TerminalPanelHandle` for tab transfer between panes |
-| `paneContainerRefs`   | Maps `paneId → HTMLDivElement` for terminal DOM anchoring (portals) |
+| Ref map             | Purpose                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| `paneHandleRefs`    | Maps `paneId → TerminalPanelHandle` for tab transfer between panes  |
+| `paneContainerRefs` | Maps `paneId → HTMLDivElement` for terminal DOM anchoring (portals) |
 
 Both maps are populated via callback refs in `renderLeafPane`. When a pane unmounts (close/split), the ref is deleted.
 
@@ -235,13 +235,13 @@ interface SplitLeafPaneProps {
 
 **Tab types and content rendering:**
 
-| Tab type     | Component      | Condition                                                      |
-| ------------ | -------------- | -------------------------------------------------------------- |
-| `editor`     | `EditorPane`   | `activeTab.type === 'editor'` and `filePath` + `workspaceId`   |
-| `diff`       | `DiffViewer`   | `activeTab.type === 'diff'` and `filePath` + `diffRepoPath`    |
-| `git-tree`   | `GitTreeTab`   | `activeTab.type === 'git-tree'` and `repoPath`                 |
-| *(terminal)* | Portaled       | Terminal instances are portaled into `terminalContainerRef` by `TerminalManager` |
-| *(none)*     | Empty state    | "No tabs open" with "Open Terminal" button                     |
+| Tab type     | Component    | Condition                                                                        |
+| ------------ | ------------ | -------------------------------------------------------------------------------- |
+| `editor`     | `EditorPane` | `activeTab.type === 'editor'` and `filePath` + `workspaceId`                     |
+| `diff`       | `DiffViewer` | `activeTab.type === 'diff'` and `filePath` + `diffRepoPath`                      |
+| `git-tree`   | `GitTreeTab` | `activeTab.type === 'git-tree'` and `repoPath`                                   |
+| _(terminal)_ | Portaled     | Terminal instances are portaled into `terminalContainerRef` by `TerminalManager` |
+| _(none)_     | Empty state  | "No tabs open" with "Open Terminal" button                                       |
 
 **Focus indication:** The outer `div` renders a `1px solid var(--accent)` border when `focused` is `true`, and `transparent` when `false`. Focus is captured on `mousedown` via the `onFocus` callback.
 
@@ -331,12 +331,12 @@ Layout persistence is entirely **client-side** via the generic `config.set`/`con
 
 Individual tab state is persisted separately through server-backed operations:
 
-| Operation         | RPC              | Description                                              |
-| ----------------- | ---------------- | -------------------------------------------------------- |
-| Tab creation      | `tab.create`     | Persists tab metadata (type, title, filePath, pane, etc.) |
-| Tab deletion      | `tab.delete`     | Removes persisted tab record                              |
-| Tab reordering    | `tab.reorder`    | Updates persisted tab order                               |
-| Tab activation    | `tab.update`     | Marks a tab as active (activate event)                    |
+| Operation      | RPC           | Description                                               |
+| -------------- | ------------- | --------------------------------------------------------- |
+| Tab creation   | `tab.create`  | Persists tab metadata (type, title, filePath, pane, etc.) |
+| Tab deletion   | `tab.delete`  | Removes persisted tab record                              |
+| Tab reordering | `tab.reorder` | Updates persisted tab order                               |
+| Tab activation | `tab.update`  | Marks a tab as active (activate event)                    |
 
 Note: Tab title and cwd changes are tracked **locally in the client only** and are never synced to the server. The client does not send `tab.update` with a `title` field. Title and cwd are derived from the terminal process state (e.g., shell prompt, `pwd`) and are ephemeral per session.
 

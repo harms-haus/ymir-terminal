@@ -17,7 +17,12 @@ export interface SplitPaneLayoutProps {
   onDiffOpened?: () => void;
   commitToHighlight?: { commitSha?: string; repoPath: string } | null;
   onCommitHighlighted?: () => void;
-  onTerminalRegistered?: (terminalId: string, tabId: string, paneId: string, workspaceId: string) => void;
+  onTerminalRegistered?: (
+    terminalId: string,
+    tabId: string,
+    paneId: string,
+    workspaceId: string,
+  ) => void;
   onTerminalUnregistered?: (terminalId: string) => void;
   onActiveTabChange?: (paneId: string, activeTabId: string | null) => void;
   onFocusPane?: (paneId: string) => void;
@@ -106,10 +111,7 @@ export function SplitPaneLayout({
 
   function renderSplitNode(node: SplitNode) {
     return (
-      <Group
-        orientation={node.direction}
-        onLayoutChanged={onLayoutChanged}
-      >
+      <Group orientation={node.direction} onLayoutChanged={onLayoutChanged}>
         {renderChild(node.children[0], node.sizes[0])}
         <Separator
           style={{

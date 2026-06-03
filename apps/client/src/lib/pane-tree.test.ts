@@ -75,17 +75,12 @@ describe('findNode', () => {
   test('finds deeply nested panes (3+ levels)', () => {
     const root = split('s1', 'horizontal', [
       pane('a'),
-      split('s2', 'vertical', [
-        pane('b'),
-        split('s3', 'horizontal', [pane('c'), pane('d')]),
-      ]),
+      split('s2', 'vertical', [pane('b'), split('s3', 'horizontal', [pane('c'), pane('d')])]),
     ]);
 
     expect(findNode(root, 'c')).toEqual(pane('c'));
     expect(findNode(root, 'd')).toEqual(pane('d'));
-    expect(findNode(root, 's3')).toEqual(
-      split('s3', 'horizontal', [pane('c'), pane('d')]),
-    );
+    expect(findNode(root, 's3')).toEqual(split('s3', 'horizontal', [pane('c'), pane('d')]));
   });
 
   test('returns null for missing id in complex tree', () => {
@@ -294,9 +289,7 @@ describe('removePane', () => {
     // The removed subtree is just pane 'c'
     expect(result!.removedPanes).toEqual(['c']);
     // The layout should be s2 (the sibling of c)
-    expect(result!.layout).toEqual(
-      split('s2', 'vertical', [pane('a'), pane('b')]),
-    );
+    expect(result!.layout).toEqual(split('s2', 'vertical', [pane('a'), pane('b')]));
   });
 
   test('removePane returns removedPaneIds for a nested split that gets removed entirely', () => {
@@ -317,9 +310,7 @@ describe('removePane', () => {
     // The removed subtree is just pane 'a'
     expect(result!.removedPanes).toEqual(['a']);
     // The layout should be s2
-    expect(result!.layout).toEqual(
-      split('s2', 'vertical', [pane('b'), pane('c')]),
-    );
+    expect(result!.layout).toEqual(split('s2', 'vertical', [pane('b'), pane('c')]));
   });
 
   test('removePane preserves sibling when removing from deeply nested split', () => {
@@ -369,10 +360,7 @@ describe('collectPaneIds', () => {
   test('nested tree returns all pane ids', () => {
     const root = split('s1', 'horizontal', [
       pane('a'),
-      split('s2', 'vertical', [
-        pane('b'),
-        split('s3', 'horizontal', [pane('c'), pane('d')]),
-      ]),
+      split('s2', 'vertical', [pane('b'), split('s3', 'horizontal', [pane('c'), pane('d')])]),
     ]);
     expect(collectPaneIds(root).sort()).toEqual(['a', 'b', 'c', 'd']);
   });

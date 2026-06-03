@@ -245,10 +245,7 @@ export function updatePersistedTabTitle(db: Database, tabId: string, title: stri
   db.prepare('UPDATE persisted_tabs SET custom_title = ? WHERE id = ?').run(title, tabId);
 }
 
-export function listPersistedTabsByWorkspace(
-  db: Database,
-  workspaceId: string,
-): PersistedTab[] {
+export function listPersistedTabsByWorkspace(db: Database, workspaceId: string): PersistedTab[] {
   const stmt = db.prepare(
     'SELECT * FROM persisted_tabs WHERE workspace_id = ? ORDER BY sort_order ASC',
   );

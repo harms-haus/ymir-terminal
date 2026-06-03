@@ -89,26 +89,23 @@ export function usePaneBounds({ loading }: UsePaneBoundsParams) {
 
   // Register (or unregister) a pane container element by paneId.
   // Safe to use as a React ref callback.
-  const registerContainer = useCallback(
-    (paneId: string, element: HTMLDivElement | null) => {
-      const prev = containerRefs.current.get(paneId);
-      if (prev) {
-        observerRef.current?.unobserve(prev);
-      }
+  const registerContainer = useCallback((paneId: string, element: HTMLDivElement | null) => {
+    const prev = containerRefs.current.get(paneId);
+    if (prev) {
+      observerRef.current?.unobserve(prev);
+    }
 
-      if (element) {
-        containerRefs.current.set(paneId, element);
-        observerRef.current?.observe(element);
-      } else {
-        containerRefs.current.delete(paneId);
-        if (boundsMap.current.has(paneId)) {
-          boundsMap.current.delete(paneId);
-          setAllBounds(new Map(boundsMap.current));
-        }
+    if (element) {
+      containerRefs.current.set(paneId, element);
+      observerRef.current?.observe(element);
+    } else {
+      containerRefs.current.delete(paneId);
+      if (boundsMap.current.has(paneId)) {
+        boundsMap.current.delete(paneId);
+        setAllBounds(new Map(boundsMap.current));
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   // Get bounds for a specific pane (synchronous, reads from ref)
   const getPaneBounds = useCallback((paneId: string): PaneBounds | null => {

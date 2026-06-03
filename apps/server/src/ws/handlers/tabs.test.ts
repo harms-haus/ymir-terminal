@@ -1060,7 +1060,16 @@ describe('registerTabHandlers', () => {
           `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, file_path, pane, sort_order, custom_title)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run('ptab-2', 'ws-1', 'editor', 'original.ts', 'src/original.ts', 'content', 0, 'Custom Name');
+        .run(
+          'ptab-2',
+          'ws-1',
+          'editor',
+          'original.ts',
+          'src/original.ts',
+          'content',
+          0,
+          'Custom Name',
+        );
 
       const req = request('tab.restore', { workspaceId: 'ws-1' });
       await router.route(conn, req);

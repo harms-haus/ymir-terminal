@@ -361,11 +361,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     const req = envelope as RequestEnvelope<TabRestoreRequest>;
     const payload = req.payload;
 
-    if (
-      payload == null ||
-      typeof payload !== 'object' ||
-      typeof payload.workspaceId !== 'string'
-    ) {
+    if (payload == null || typeof payload !== 'object' || typeof payload.workspaceId !== 'string') {
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'tab.restore' },
         ErrorCodes.INVALID_MESSAGE,

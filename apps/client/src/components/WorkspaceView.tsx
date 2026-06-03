@@ -82,15 +82,8 @@ function WorkspaceViewInner() {
   const paneContainerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const registeredPanesRef = useRef(new Set<string>());
 
-  const {
-    layout,
-    paneIds,
-    splitPane,
-    removePane,
-    focusedPaneId,
-    setFocusedPaneId,
-    loadLayout,
-  } = useSplitLayout(activeWorkspaceId);
+  const { layout, paneIds, splitPane, removePane, focusedPaneId, setFocusedPaneId, loadLayout } =
+    useSplitLayout(activeWorkspaceId);
 
   // Ref to read the latest layout in requestAnimationFrame callbacks without stale closures
   const layoutRef = useRef(layout);
@@ -128,38 +121,35 @@ function WorkspaceViewInner() {
   // --- Restore tabs from persisted session on workspace switch ---
   const restoredWorkspacesRef = useRef(new Set<string>());
 
-  const handleRestoreTabs = useCallback(
-    async (workspaceId: string) => {
-      if (restoredWorkspacesRef.current.has(workspaceId)) return;
-      restoredWorkspacesRef.current.add(workspaceId);
+  const handleRestoreTabs = useCallback(async (workspaceId: string) => {
+    if (restoredWorkspacesRef.current.has(workspaceId)) return;
+    restoredWorkspacesRef.current.add(workspaceId);
 
-      try {
-        const res = await sendRequest<TabRestoreResponse>('tab.restore', { workspaceId });
-        if (!res.tabs || res.tabs.length === 0) return;
+    try {
+      const res = await sendRequest<TabRestoreResponse>('tab.restore', { workspaceId });
+      if (!res.tabs || res.tabs.length === 0) return;
 
-        // Group tabs by pane
-        const tabsByPane = new Map<string, PersistedTabInfo[]>();
-        for (const tab of res.tabs) {
-          const pane = tab.pane || 'content';
-          if (!tabsByPane.has(pane)) tabsByPane.set(pane, []);
-          tabsByPane.get(pane)!.push(tab);
-        }
-
-        // Wait a frame for pane handles to register after layout load
-        await new Promise<void>((r) => requestAnimationFrame(() => r()));
-
-        for (const [paneId, tabs] of tabsByPane) {
-          const handle = paneHandleRefs.current.get(paneId);
-          if (!handle) continue;
-
-          handle.loadRestoredTabs(workspaceId, tabs);
-        }
-      } catch {
-        // Silent fail – restoration is best-effort
+      // Group tabs by pane
+      const tabsByPane = new Map<string, PersistedTabInfo[]>();
+      for (const tab of res.tabs) {
+        const pane = tab.pane || 'content';
+        if (!tabsByPane.has(pane)) tabsByPane.set(pane, []);
+        tabsByPane.get(pane)!.push(tab);
       }
-    },
-    [],
-  );
+
+      // Wait a frame for pane handles to register after layout load
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+      for (const [paneId, tabs] of tabsByPane) {
+        const handle = paneHandleRefs.current.get(paneId);
+        if (!handle) continue;
+
+        handle.loadRestoredTabs(workspaceId, tabs);
+      }
+    } catch {
+      // Silent fail – restoration is best-effort
+    }
+  }, []);
 
   useEffect(() => {
     if (activeWorkspaceId) {
@@ -333,7 +323,10 @@ function WorkspaceViewInner() {
         sourcePane === 'content'
           ? { current: paneHandleRefs.current.values().next().value ?? null }
           : bottomPanelRef;
-      const targetRef = sourcePane === 'content' ? bottomPanelRef : { current: paneHandleRefs.current.values().next().value ?? null };
+      const targetRef =
+        sourcePane === 'content'
+          ? bottomPanelRef
+          : { current: paneHandleRefs.current.values().next().value ?? null };
       const targetGroup = sourcePane === 'content' ? 'bottom' : 'content';
 
       // Auto-expand the bottom panel when moving a tab there while it is collapsed
@@ -395,9 +388,7 @@ function WorkspaceViewInner() {
 
           setTerminalRegistry((prev) =>
             prev.map((t) =>
-              t.tabId === tabId
-                ? { ...t, tabId: newTabId, owningPane: newPaneId }
-                : t,
+              t.tabId === tabId ? { ...t, tabId: newTabId, owningPane: newPaneId } : t,
             ),
           );
           callbackCacheRef.current.delete(tabId);
@@ -441,9 +432,7 @@ function WorkspaceViewInner() {
       if (removedIds) {
         // Clean up callback cache for any removed tab IDs
         const removedSet = new Set(removedIds);
-        setTerminalRegistry((prev) =>
-          prev.filter((t) => !removedSet.has(t.owningPane)),
-        );
+        setTerminalRegistry((prev) => prev.filter((t) => !removedSet.has(t.owningPane)));
       }
     },
     [layout, removePane, handleTerminalUnregistered, setTerminalRegistry],

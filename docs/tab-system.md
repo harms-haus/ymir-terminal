@@ -24,9 +24,9 @@ interface Tab {
 
 **Tab types:**
 
-| Type       | Description                                                    |
-| ---------- | -------------------------------------------------------------- |
-| `terminal` | A PTY-backed terminal session                                  |
+| Type       | Description                                                   |
+| ---------- | ------------------------------------------------------------- |
+| `terminal` | A PTY-backed terminal session                                 |
 | `editor`   | A file editor backed by the Monaco-based `EditorPane`         |
 | `diff`     | A file diff viewer (`DiffViewer`) for staged/unstaged/commit  |
 | `git-tree` | A git history browser (`GitTreeTab`) for a specific repo path |
@@ -64,7 +64,7 @@ Each `SplitLeafPane` (and `BottomPanel`) owns an independent `useTabs` instance:
 | `reorderTabs`     | Move a tab from one index to another (used by DnD)                        |
 | `closeTabsRight`  | Close all tabs to the right of a given tab                                |
 | `closeOtherTabs`  | Close all tabs except the given one                                       |
-| `setDisplayTitle` | Set or clear a tab's `customTitle` (empty string clears it)              |
+| `setDisplayTitle` | Set or clear a tab's `customTitle` (empty string clears it)               |
 | `switchWorkspace` | Set the active workspace; auto-initializes empty state for new workspaces |
 | `loadTabs`        | Load tab state from server data for a given workspace                     |
 
@@ -93,19 +93,19 @@ interface UseTerminalPaneOptions {
 
 **Additional returned methods:**
 
-| Method              | Description                                                              |
-| ------------------- | ------------------------------------------------------------------------ |
-| `handleCloseTab`    | Close with dirty-file confirmation (editor) or terminal cleanup          |
-| `handleCloseRight`  | Close tabs to the right with batch confirmation                          |
-| `handleCloseOthers` | Close all other tabs with batch confirmation                             |
-| `handleRenameTab`   | Set `customTitle` via `setDisplayTitle`                                  |
-| `handleTitleChange` | Forward terminal title changes to `updateTabTitle`                       |
-| `handleCwdChange`   | Forward OSC 7 CWD changes to `updateTabCwd`                              |
-| `transferTabOut`    | Remove a terminal tab and return its data (for cross-pane transfer)      |
-| `receiveTab`        | Create a new terminal tab from transferred data                          |
-| `loadRestoredTabs`  | Bulk-load persisted tabs for a workspace (from `tab.restore` response)   |
-| `getTabs`           | Read current tabs via ref                                                |
-| `getActiveTabId`    | Read active tab ID via ref                                               |
+| Method              | Description                                                            |
+| ------------------- | ---------------------------------------------------------------------- |
+| `handleCloseTab`    | Close with dirty-file confirmation (editor) or terminal cleanup        |
+| `handleCloseRight`  | Close tabs to the right with batch confirmation                        |
+| `handleCloseOthers` | Close all other tabs with batch confirmation                           |
+| `handleRenameTab`   | Set `customTitle` via `setDisplayTitle`                                |
+| `handleTitleChange` | Forward terminal title changes to `updateTabTitle`                     |
+| `handleCwdChange`   | Forward OSC 7 CWD changes to `updateTabCwd`                            |
+| `transferTabOut`    | Remove a terminal tab and return its data (for cross-pane transfer)    |
+| `receiveTab`        | Create a new terminal tab from transferred data                        |
+| `loadRestoredTabs`  | Bulk-load persisted tabs for a workspace (from `tab.restore` response) |
+| `getTabs`           | Read current tabs via ref                                              |
+| `getActiveTabId`    | Read active tab ID via ref                                             |
 
 > **Note:** `handleTitleChange` and `handleCwdChange` are **internal wiring helpers**, not consumer-facing APIs. They are thin wrappers that forward to `updateTabTitle` / `updateTabCwd` from `useTabs`. In practice, the connection between terminal PTY events and tab state is established through the **stable callback cache** in `useTerminalRegistry` (`callbackCacheRef`), which builds per-tab callbacks that look up the owning pane's imperative handle and call `paneHandle.updateTabTitle()` / `paneHandle.updateTabCwd()` directly. These methods are not called by any component outside of `useTerminalPane` itself — they exist so the hook's public surface includes a self-contained title/CWD forwarding path alongside the registry-driven one.
 
@@ -113,10 +113,10 @@ interface UseTerminalPaneOptions {
 
 `TabBar` renders a sortable, context-menu-equipped tab strip. It supports two visual variants via the `variant` prop:
 
-| Variant   | Used by          | Styling                                                              |
-| --------- | ---------------- | -------------------------------------------------------------------- |
-| `content` | `SplitLeafPane`  | Inactive tabs use `COLOR_TAB_INACTIVE` background, 13px font         |
-| `bottom`  | `BottomPanel`    | Inactive tabs are transparent, 12px font, accent underline on active |
+| Variant   | Used by         | Styling                                                              |
+| --------- | --------------- | -------------------------------------------------------------------- |
+| `content` | `SplitLeafPane` | Inactive tabs use `COLOR_TAB_INACTIVE` background, 13px font         |
+| `bottom`  | `BottomPanel`   | Inactive tabs are transparent, 12px font, accent underline on active |
 
 Each tab is a `SortableTab` (memoized) wired to `@dnd-kit/react`'s `useSortable` with a `group` identifier set to the pane's UUID. This group is used by the `DragDropProvider` in `WorkspaceView` to distinguish same-pane reorders from cross-pane transfers.
 

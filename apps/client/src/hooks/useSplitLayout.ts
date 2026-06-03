@@ -116,8 +116,7 @@ export function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult
     // Only re-focus if the removed pane was the focused pane
     const survivingPaneIds = collectPaneIds(result.layout);
     const wasFocused =
-      focusedPaneIdRef.current !== null &&
-      result.removedPanes.includes(focusedPaneIdRef.current);
+      focusedPaneIdRef.current !== null && result.removedPanes.includes(focusedPaneIdRef.current);
     if (wasFocused && survivingPaneIds.length > 0) {
       setFocusedPaneId(survivingPaneIds[0]);
     }

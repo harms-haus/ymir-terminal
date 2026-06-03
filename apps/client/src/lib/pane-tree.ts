@@ -109,11 +109,7 @@ export function replaceNode(
  * pane (children[0]) and a new empty pane (children[1]), both at 50%.
  * Returns a new tree. The original tree is not mutated.
  */
-export function splitPane(
-  root: LayoutNode,
-  paneId: string,
-  direction: SplitDirection,
-): LayoutNode {
+export function splitPane(root: LayoutNode, paneId: string, direction: SplitDirection): LayoutNode {
   const replacement: SplitNode = {
     type: 'split',
     id: crypto.randomUUID(),

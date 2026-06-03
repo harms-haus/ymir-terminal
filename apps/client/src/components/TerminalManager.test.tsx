@@ -66,7 +66,10 @@ function makeGetPaneBounds(
 function renderManager(
   options: {
     terminals?: ReturnType<typeof makeTerminalEntry>[];
-    paneBounds?: Record<string, { top: number; left: number; width: number; height: number } | null>;
+    paneBounds?: Record<
+      string,
+      { top: number; left: number; width: number; height: number } | null
+    >;
   } = {},
 ) {
   const { terminals = [], paneBounds } = options;
@@ -310,7 +313,10 @@ describe('TerminalManager', () => {
     expect(terminalRefs.has('tab-2')).toBe(true);
 
     // Re-render with only entry1 — entry2 is removed
-    const getPaneBounds = makeGetPaneBounds({ content: { top: 0, left: 0, width: 800, height: 600 }, bottom: null });
+    const getPaneBounds = makeGetPaneBounds({
+      content: { top: 0, left: 0, width: 800, height: 600 },
+      bottom: null,
+    });
     rerender(
       React.createElement(TerminalManager, {
         terminals: [entry1],

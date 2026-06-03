@@ -341,10 +341,7 @@ describe('session database', () => {
 
     expect(tabId).toBeTruthy();
 
-    const row = db.query('SELECT * FROM tabs WHERE id = ?').get(tabId) as Record<
-      string,
-      unknown
-    >;
+    const row = db.query('SELECT * FROM tabs WHERE id = ?').get(tabId) as Record<string, unknown>;
     expect(row).not.toBeNull();
     expect(row.pane).toBe('pane-abc-123');
   });

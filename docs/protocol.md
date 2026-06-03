@@ -217,19 +217,19 @@ The `pane` field is a dynamic string (any pane ID), not limited to a fixed set.
 
 ### Tab Listing & Restoration
 
-| Channel       | Request type        | Response type        | Fields                                                                                                    |
-| ------------- | ------------------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
-| `tab.list`    | `TabListRequest`    | `TabListResponse`    | req: `pane?`; res: `tabs` (`TabInfo[]`)                                                                   |
-| `tab.restore` | `TabRestoreRequest` | `TabRestoreResponse` | req: `workspaceId`; res: `tabs` (`PersistedTabInfo[]`) — creates new PTYs for terminal tabs, updates IDs  |
+| Channel       | Request type        | Response type        | Fields                                                                                                   |
+| ------------- | ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `tab.list`    | `TabListRequest`    | `TabListResponse`    | req: `pane?`; res: `tabs` (`TabInfo[]`)                                                                  |
+| `tab.restore` | `TabRestoreRequest` | `TabRestoreResponse` | req: `workspaceId`; res: `tabs` (`PersistedTabInfo[]`) — creates new PTYs for terminal tabs, updates IDs |
 
 ### Tab Lifecycle
 
-| Channel       | Request type       | Response type    | Fields                                                                                                                              |
-| ------------- | ------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `tab.create`  | `TabCreateRequest` | `TabCreateResponse` | req: `pane`, `tabType`, `title`, `terminalId?`, `filePath?`, `diffRef?`, `diffRepoPath?`, `repoPath?`, `commitSha?`, `parentSha?`, `cwd?`, `customTitle?`; res: `tabId` |
-| `tab.update`  | `TabUpdateRequest` | —                | req: `tabId`, `active?`, `sortOrder?`, `title?`                                                                                     |
-| `tab.delete`  | `TabDeleteRequest` | —                | req: `tabId`                                                                                                                        |
-| `tab.reorder` | `TabReorderRequest`| —                | req: `tabIds` (`string[]`)                                                                                                          |
+| Channel       | Request type        | Response type       | Fields                                                                                                                                                                  |
+| ------------- | ------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tab.create`  | `TabCreateRequest`  | `TabCreateResponse` | req: `pane`, `tabType`, `title`, `terminalId?`, `filePath?`, `diffRef?`, `diffRepoPath?`, `repoPath?`, `commitSha?`, `parentSha?`, `cwd?`, `customTitle?`; res: `tabId` |
+| `tab.update`  | `TabUpdateRequest`  | —                   | req: `tabId`, `active?`, `sortOrder?`, `title?`                                                                                                                         |
+| `tab.delete`  | `TabDeleteRequest`  | —                   | req: `tabId`                                                                                                                                                            |
+| `tab.reorder` | `TabReorderRequest` | —                   | req: `tabIds` (`string[]`)                                                                                                                                              |
 
 ### TabInfo
 
@@ -244,7 +244,7 @@ interface TabInfo {
   terminalId: string | null;
   active: boolean;
   sortOrder: number;
-  terminalAlive?: boolean;      // present when terminalId is set
+  terminalAlive?: boolean; // present when terminalId is set
   diffRef?: 'staged' | 'unstaged' | 'commit' | null;
   repoPath?: string | null;
   commitSha?: string | null;
@@ -283,11 +283,11 @@ interface PersistedTabInfo {
 
 Several protocol types use union types for correctness:
 
-| Type                    | Field     | Union                                                                                                 |
-| ----------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| `ConnectionStatusEvent` | `status`  | `'connecting' \| 'connected' \| 'disconnected' \| 'reconnecting'` (was bare `string`)                 |
-| `TabCreateRequest`      | `diffRef` | `'staged' \| 'unstaged' \| 'commit' \| null` (was bare `string`)                                      |
-| `TabInfo`               | —         | Includes `tabType`, `diffRef`, `repoPath`, `cwd`, `customTitle`, etc.                                                      |
+| Type                    | Field     | Union                                                                                 |
+| ----------------------- | --------- | ------------------------------------------------------------------------------------- |
+| `ConnectionStatusEvent` | `status`  | `'connecting' \| 'connected' \| 'disconnected' \| 'reconnecting'` (was bare `string`) |
+| `TabCreateRequest`      | `diffRef` | `'staged' \| 'unstaged' \| 'commit' \| null` (was bare `string`)                      |
+| `TabInfo`               | —         | Includes `tabType`, `diffRef`, `repoPath`, `cwd`, `customTitle`, etc.                 |
 
 ### Removed Types
 
