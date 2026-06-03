@@ -40,6 +40,13 @@ export function generateId(): string {
 }
 
 export function toBase64(data: Uint8Array | string): string {
+  if (typeof Buffer !== 'undefined') {
+    if (typeof data === 'string') {
+      return Buffer.from(data, 'utf8').toString('base64');
+    }
+    return Buffer.from(data).toString('base64');
+  }
+  // Browser fallback
   const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -49,6 +56,10 @@ export function toBase64(data: Uint8Array | string): string {
 }
 
 export function fromBase64(data: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(data, 'base64');
+  }
+  // Browser fallback
   const binary = atob(data);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {

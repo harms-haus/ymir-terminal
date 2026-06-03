@@ -104,21 +104,21 @@ describe('GitStatusWatcher', () => {
 
   describe('watchRepo', () => {
     it('creates three watchers for a repository', () => {
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       // HEAD, refs, and working tree root
       expect(mockWatchers.length).toBe(3);
     });
 
     it('watches .git/HEAD', () => {
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const headCall = mockWatchCalls.find((c) => c.path === join('/repo/.git', 'HEAD'));
       expect(headCall).toBeDefined();
     });
 
     it('watches .git/refs with recursive option', () => {
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const refsCall = mockWatchCalls.find((c) => c.path === join('/repo/.git', 'refs'));
       expect(refsCall).toBeDefined();
@@ -126,7 +126,7 @@ describe('GitStatusWatcher', () => {
     });
 
     it('watches the repo root with recursive option', () => {
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const rootCall = mockWatchCalls.find((c) => c.path === '/repo');
       expect(rootCall).toBeDefined();
@@ -140,18 +140,18 @@ describe('GitStatusWatcher', () => {
 
   describe('deduplication', () => {
     it('does not create duplicate watchers when called twice for the same path', () => {
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
       const countAfterFirst = mockWatchers.length;
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       // No additional watchers should have been created
       expect(mockWatchers.length).toBe(countAfterFirst);
     });
 
     it('creates watchers for different repos independently', () => {
-      watcher.watchRepo('/repo-a/.git', '/repo-a');
-      watcher.watchRepo('/repo-b/.git', '/repo-b');
+      watcher.watchRepo('/repo-a', '/repo-a');
+      watcher.watchRepo('/repo-b', '/repo-b');
 
       // 3 watchers per repo = 6 total
       expect(mockWatchers.length).toBe(6);
@@ -170,12 +170,12 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       // Fire multiple rapid refreshes
-      watcher.scheduleRefresh('/repo/.git');
-      watcher.scheduleRefresh('/repo/.git');
-      watcher.scheduleRefresh('/repo/.git');
+      watcher.scheduleRefresh('/repo');
+      watcher.scheduleRefresh('/repo');
+      watcher.scheduleRefresh('/repo');
 
       // Advance past debounce
       await Bun.sleep(DEBOUNCE_MS + 50);
@@ -190,9 +190,9 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
-      watcher.scheduleRefresh('/repo/.git');
+      watcher.scheduleRefresh('/repo');
 
       // Before debounce fires
       await Bun.sleep(DEBOUNCE_MS / 2);
@@ -210,13 +210,13 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
-      watcher.scheduleRefresh('/repo/.git');
+      watcher.scheduleRefresh('/repo');
       await Bun.sleep(DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(1);
 
-      watcher.scheduleRefresh('/repo/.git');
+      watcher.scheduleRefresh('/repo');
       await Bun.sleep(DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(2);
     });
@@ -234,13 +234,13 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       // Schedule a debounced refresh
-      watcher.scheduleRefresh('/repo/.git');
+      watcher.scheduleRefresh('/repo');
 
       // Immediately refreshNow — should cancel the timer and refresh
-      await watcher.refreshNow('/repo/.git');
+      await watcher.refreshNow('/repo');
 
       expect(refreshCount).toBe(1);
 
@@ -250,9 +250,9 @@ describe('GitStatusWatcher', () => {
     });
 
     it('invalidates the cache before refreshing', async () => {
-      await watcher.refreshNow('/repo/.git');
+      await watcher.refreshNow('/repo');
 
-      expect(cache.invalidate).toHaveBeenCalledWith('/repo/.git');
+      expect(cache.invalidate).toHaveBeenCalledWith('/repo');
     });
 
     it('still works when no debounce timer is pending', async () => {
@@ -262,7 +262,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      await watcher.refreshNow('/repo/.git');
+      await watcher.refreshNow('/repo');
       expect(refreshCount).toBe(1);
     });
   });
@@ -276,7 +276,7 @@ describe('GitStatusWatcher', () => {
       const handler = mock(() => {});
       watcher.setStatusChangeHandler(handler);
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const status1 = makeStatus('main');
       const status2 = makeStatus('feature');
@@ -286,28 +286,28 @@ describe('GitStatusWatcher', () => {
         return callIndex++ === 0 ? status1 : status2;
       });
 
-      await watcher.refreshStatus('/repo/.git');
+      await watcher.refreshStatus('/repo');
       expect(handler).toHaveBeenCalledTimes(1);
-      expect(handler).toHaveBeenCalledWith('/repo/.git', status1);
+      expect(handler).toHaveBeenCalledWith('/repo', status1);
 
-      await watcher.refreshStatus('/repo/.git');
+      await watcher.refreshStatus('/repo');
       expect(handler).toHaveBeenCalledTimes(2);
-      expect(handler).toHaveBeenCalledWith('/repo/.git', status2);
+      expect(handler).toHaveBeenCalledWith('/repo', status2);
     });
 
     it('is NOT called when status is unchanged', async () => {
       const handler = mock(() => {});
       watcher.setStatusChangeHandler(handler);
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const status = makeStatus('main');
       cache.getOrCreate = mock(async () => status);
 
-      await watcher.refreshStatus('/repo/.git');
+      await watcher.refreshStatus('/repo');
       expect(handler).toHaveBeenCalledTimes(1);
 
-      await watcher.refreshStatus('/repo/.git');
+      await watcher.refreshStatus('/repo');
       // Same status — should NOT fire again
       expect(handler).toHaveBeenCalledTimes(1);
     });
@@ -318,7 +318,7 @@ describe('GitStatusWatcher', () => {
 
       cache.getOrCreate = mock(async () => makeStatus('main'));
 
-      await watcher.refreshStatus('/repo/.git');
+      await watcher.refreshStatus('/repo');
       expect(handler).toHaveBeenCalledTimes(1);
     });
   });
@@ -329,10 +329,10 @@ describe('GitStatusWatcher', () => {
 
   describe('unwatchRepo', () => {
     it('closes all watchers for the repo', () => {
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
       const watchersBefore = [...mockWatchers];
 
-      watcher.unwatchRepo('/repo/.git');
+      watcher.unwatchRepo('/repo');
 
       for (const w of watchersBefore) {
         expect(w.close).toHaveBeenCalled();
@@ -346,10 +346,10 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
-      watcher.scheduleRefresh('/repo/.git');
+      watcher.watchRepo('/repo', '/repo');
+      watcher.scheduleRefresh('/repo');
 
-      watcher.unwatchRepo('/repo/.git');
+      watcher.unwatchRepo('/repo');
 
       // Wait past debounce — no refresh should fire
       await Bun.sleep(DEBOUNCE_MS + 50);
@@ -357,16 +357,16 @@ describe('GitStatusWatcher', () => {
     });
 
     it('is a no-op for a repo that was never watched', () => {
-      expect(() => watcher.unwatchRepo('/nonexistent/.git')).not.toThrow();
+      expect(() => watcher.unwatchRepo('/nonexistent')).not.toThrow();
     });
 
     it('allows re-watching after unwatching', () => {
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
       const countAfterFirst = mockWatchers.length;
 
-      watcher.unwatchRepo('/repo/.git');
+      watcher.unwatchRepo('/repo');
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
       // Should have created new watchers (originals were closed)
       expect(mockWatchers.length).toBe(countAfterFirst + 3);
     });
@@ -378,8 +378,8 @@ describe('GitStatusWatcher', () => {
 
   describe('unwatchAll', () => {
     it('closes all watchers across all repos', () => {
-      watcher.watchRepo('/repo-a/.git', '/repo-a');
-      watcher.watchRepo('/repo-b/.git', '/repo-b');
+      watcher.watchRepo('/repo-a', '/repo-a');
+      watcher.watchRepo('/repo-b', '/repo-b');
       const allWatchers = [...mockWatchers];
 
       watcher.unwatchAll();
@@ -413,7 +413,7 @@ describe('GitStatusWatcher', () => {
         safetyPollMs: TEST_POLL_MS,
       });
 
-      pollWatcher.watchRepo('/repo/.git', '/repo');
+      pollWatcher.watchRepo('/repo', '/repo');
 
       // Advance past safety poll interval (TEST_POLL_MS = 100ms)
       await Bun.sleep(TEST_POLL_MS + 50);
@@ -441,7 +441,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       // Find the root watcher (third watcher registered)
       const rootWatcher = mockWatchers[2];
@@ -459,7 +459,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const rootWatcher = mockWatchers[2];
       rootWatcher._callback('change', 'node_modules/pkg/index.js');
@@ -475,7 +475,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const rootWatcher = mockWatchers[2];
       rootWatcher._callback('change', 'src/index.ts');
@@ -491,7 +491,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const rootWatcher = mockWatchers[2];
       rootWatcher._callback('change', null);
@@ -507,7 +507,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const rootWatcher = mockWatchers[2];
 
@@ -541,7 +541,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const headWatcher = mockWatchers[0];
       headWatcher._callback('change', 'HEAD');
@@ -557,7 +557,7 @@ describe('GitStatusWatcher', () => {
         return factory();
       });
 
-      watcher.watchRepo('/repo/.git', '/repo');
+      watcher.watchRepo('/repo', '/repo');
 
       const refsWatcher = mockWatchers[1];
       refsWatcher._callback('change', 'refs/heads/main');

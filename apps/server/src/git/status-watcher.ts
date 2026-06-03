@@ -15,6 +15,11 @@ const EXCLUDED_DIRS = [
   '__pycache__/',
 ];
 
+/** Pre-compiled regex for fast directory exclusion checks. */
+const EXCLUDED_PATTERN = new RegExp(
+  EXCLUDED_DIRS.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+);
+
 /** Debounce delay in milliseconds before triggering a status refresh. */
 export const DEBOUNCE_MS = 500;
 
@@ -43,9 +48,19 @@ export interface GitStatusWatcherOptions {
 }
 
 /**
+ * Element-by-element comparison for two readonly arrays.
+ */
+function arraysEqual<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+/**
  * Cheap equality check for two GitStatusResponse values.
- * Scalar fields are compared first; the arrays are only stringified
- * when their lengths match (fast for small lists, still catches reorderings).
+ * Scalar fields are compared first; arrays are compared element-by-element.
  */
 function statusChanged(a: GitStatusResponse | null, b: GitStatusResponse): boolean {
   if (a === null) return true;
@@ -56,11 +71,7 @@ function statusChanged(a: GitStatusResponse | null, b: GitStatusResponse): boole
     a.hasRemote !== b.hasRemote
   )
     return true;
-  if (a.changes.length !== b.changes.length || a.staged.length !== b.staged.length) return true;
-  return (
-    JSON.stringify(a.changes) !== JSON.stringify(b.changes) ||
-    JSON.stringify(a.staged) !== JSON.stringify(b.staged)
-  );
+  return !arraysEqual(a.changes, b.changes) || !arraysEqual(a.staged, b.staged);
 }
 
 export class GitStatusWatcher {
@@ -88,19 +99,25 @@ export class GitStatusWatcher {
   /**
    * Start watching a git repository for changes that affect status.
    *
-   * @param absoluteGitDir  Absolute path to the `.git` directory.
-   * @param repoRoot        Absolute path to the repository working-tree root.
+   * Both params are the repo-root path (e.g. `/home/user/project`).
+   * The `.git` subdirectory path is derived internally for filesystem watching.
+   * The repo-root path is used as the canonical key throughout the watcher,
+   * cache, and broadcast system.
+   *
+   * @param repoRootKey     Repo-root path used as the canonical key.
+   * @param repoRootPath    Repo-root path used to derive the `.git` directory
+   *                        for filesystem watchers (HEAD, refs).
    */
-  watchRepo(absoluteGitDir: string, repoRoot: string): void {
+  watchRepo(repoRootKey: string, repoRootPath: string): void {
     if (this.repos.size >= GitStatusWatcher.MAX_WATCHED_REPOS) {
       console.warn(
         `[GitStatusWatcher] Max watched repos (${GitStatusWatcher.MAX_WATCHED_REPOS}) reached, skipping`,
-        absoluteGitDir,
+        repoRootKey,
       );
       return;
     }
 
-    if (this.repos.has(absoluteGitDir)) return;
+    if (this.repos.has(repoRootKey)) return;
 
     const state: RepoState = {
       watchers: [],
@@ -108,29 +125,32 @@ export class GitStatusWatcher {
       lastStatus: null,
     };
 
+    // Derive the .git directory from the repo-root path for filesystem watching
+    const gitDir = join(repoRootPath, '.git');
+
     // Watch .git/HEAD — fires on branch switches and commits
-    const headPath = join(absoluteGitDir, 'HEAD');
+    const headPath = join(gitDir, 'HEAD');
     const headWatcher = watch(headPath, () => {
-      this.scheduleRefresh(absoluteGitDir);
+      this.scheduleRefresh(repoRootKey);
     });
     state.watchers.push(headWatcher);
 
     // Watch .git/refs/ — fires on new commits and tag creation
-    const refsPath = join(absoluteGitDir, 'refs');
+    const refsPath = join(gitDir, 'refs');
     const refsWatcher = watch(refsPath, { recursive: true }, () => {
-      this.scheduleRefresh(absoluteGitDir);
+      this.scheduleRefresh(repoRootKey);
     });
     state.watchers.push(refsWatcher);
 
     // Watch the working tree for file-level changes
-    const rootWatcher = watch(repoRoot, { recursive: true }, (_eventType, filename) => {
+    const rootWatcher = watch(repoRootPath, { recursive: true }, (_eventType, filename) => {
       if (!filename) return;
       if (this.isExcluded(filename)) return;
-      this.scheduleRefresh(absoluteGitDir);
+      this.scheduleRefresh(repoRootKey);
     });
     state.watchers.push(rootWatcher);
 
-    this.repos.set(absoluteGitDir, state);
+    this.repos.set(repoRootKey, state);
 
     // Start safety poll on first watched repo
     this.ensureSafetyPoll();
@@ -243,7 +263,7 @@ export class GitStatusWatcher {
    * working-tree watch events.
    */
   private isExcluded(filename: string): boolean {
-    return EXCLUDED_DIRS.some((dir) => filename.includes(dir));
+    return EXCLUDED_PATTERN.test(filename);
   }
 
   /** Start the safety-poll interval if it isn't already running. */
@@ -262,10 +282,12 @@ export class GitStatusWatcher {
     for (let i = 0; i < dirs.length; i += SAFETY_POLL_BATCH_SIZE) {
       const batch = dirs.slice(i, i + SAFETY_POLL_BATCH_SIZE);
       await Promise.all(
-        batch.map((gitDir) => {
-          this.cache.invalidate(gitDir);
-          return this.refreshStatus(gitDir);
-        }),
+        batch
+          .filter((repoKey) => !this.cache.isFresh(repoKey))
+          .map((repoKey) => {
+            this.cache.invalidate(repoKey);
+            return this.refreshStatus(repoKey);
+          }),
       );
     }
   }

@@ -205,18 +205,20 @@ export function osc777EventToStatus(event: string): AgentStatus | null {
 // ---------------------------------------------------------------------------
 
 /**
- * The first 4 base64 characters of the raw bytes `\x1b]7` — the unavoidable
+ * The first 7 base64 characters of the raw bytes `\x1b]777` — the unavoidable
  * start of any OSC 777 sequence.
  *
- * Base64 of `\x1b]7` (3 bytes) → `G103`.  Checking this prefix on
- * base64-encoded terminal data is a fast pre-filter that avoids decoding
- * every output chunk.
+ * Base64 of `\x1b]777` (5 bytes) → `G103Nzc` (without padding).  Checking this
+ * prefix on base64-encoded terminal data is a fast pre-filter that avoids
+ * decoding every output chunk.  Using `\x1b]777` instead of just `\x1b]7`
+ * avoids false positives from OSC 7 (working directory) sequences that are
+ * emitted by shells on every prompt.
  */
-const OSC777_BASE64_PREFIX = 'G103';
+const OSC777_BASE64_PREFIX = 'G103Nzc';
 
 /**
  * Returns `true` when the base64-encoded data starts with the bytes that
- * begin an OSC 777 escape sequence (`\x1b]7`).
+ * begin an OSC 777 escape sequence (`\x1b]777`).
  *
  * This is a cheap pre-filter intended to avoid full base64 decoding of every
  * terminal output chunk.  It is **not** a definitive check — a false positive

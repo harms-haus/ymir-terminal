@@ -7,20 +7,20 @@ import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 // ---------------------------------------------------------------------------
 // Module-level mocks
 //
-// mock.module('node:fs') is called at module scope so that the mocked
-// readFileSync is used by process-monitor.ts when it reads /proc/[pid]/stat.
-// The mock returns a stat string with zero CPU time by default; individual
-// tests can override via mockReadFileSync.mockImplementation().
+// mock.module('node:fs/promises') is called at module scope so that the
+// mocked readFile is used by process-monitor.ts when it reads
+// /proc/[pid]/stat. The mock returns a stat string with zero CPU time by
+// default; individual tests can override via mockReadFile.mockImplementation().
 // ---------------------------------------------------------------------------
 
-const mockReadFileSync = mock((_path: string): string => {
+const mockReadFile = mock(async (_path: string): Promise<string> => {
   // Default: utime=0, stime=0 → totalJiffies=0 → idle on first poll
   // Fields: pid comm state ppid ... utime stime ...
   // Index:   0    1    2    3    ...  13    14
   return '0 (agent) S 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0';
 });
-mock.module('node:fs', () => ({
-  readFileSync: mockReadFileSync,
+mock.module('node:fs/promises', () => ({
+  readFile: mockReadFile,
 }));
 
 // ---------------------------------------------------------------------------
@@ -40,18 +40,46 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Store the original Bun.spawnSync before any test overrides it.
+ * Build a parent→children index from a process map (same logic as the
+ * production code inside poll()).
+ */
+function buildChildrenOf(map: Map<number, ProcessEntry>): Map<number, ProcessEntry[]> {
+  const childrenOf = new Map<number, ProcessEntry[]>();
+  for (const entry of map.values()) {
+    const siblings = childrenOf.get(entry.ppid);
+    if (siblings) siblings.push(entry);
+    else childrenOf.set(entry.ppid, [entry]);
+  }
+  return childrenOf;
+}
+
+/**
+ * Create a ReadableStream that yields the given text as UTF-8 bytes,
+ * simulating what Bun.spawn's stdout pipe produces.
+ */
+function streamFromText(text: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+}
+
+/**
+ * Store the original Bun.spawn before any test overrides it.
  * afterEach restores it so mocks never leak between tests.
  */
-let originalSpawnSync: unknown;
+let originalSpawn: unknown;
 
 beforeEach(() => {
-  originalSpawnSync = (Bun as Record<string, unknown>).spawnSync;
+  originalSpawn = (Bun as Record<string, unknown>).spawn;
 });
 
 afterEach(() => {
-  (Bun as Record<string, unknown>).spawnSync = originalSpawnSync;
-  mockReadFileSync.mockClear();
+  (Bun as Record<string, unknown>).spawn = originalSpawn;
+  mockReadFile.mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -59,7 +87,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('getProcessSnapshot', () => {
-  test('parses fake ps output correctly', () => {
+  test('parses fake ps output correctly', async () => {
     const fakeOutput = [
       '  100     1 bash             /bin/bash',
       '  200   100 node             node /usr/local/bin/claude',
@@ -67,11 +95,12 @@ describe('getProcessSnapshot', () => {
       '',
     ].join('\n');
 
-    (Bun as Record<string, unknown>).spawnSync = mock(() => ({
-      stdout: Buffer.from(fakeOutput),
+    (Bun as Record<string, unknown>).spawn = mock(() => ({
+      stdout: streamFromText(fakeOutput),
+      exited: Promise.resolve(0),
     }));
 
-    const snapshot = getProcessSnapshot();
+    const snapshot = await getProcessSnapshot();
 
     expect(snapshot.size).toBe(3);
     expect(snapshot.get(100)).toEqual({
@@ -94,12 +123,13 @@ describe('getProcessSnapshot', () => {
     });
   });
 
-  test('returns empty map for empty ps output', () => {
-    (Bun as Record<string, unknown>).spawnSync = mock(() => ({
-      stdout: Buffer.from(''),
+  test('returns empty map for empty ps output', async () => {
+    (Bun as Record<string, unknown>).spawn = mock(() => ({
+      stdout: streamFromText(''),
+      exited: Promise.resolve(0),
     }));
 
-    const snapshot = getProcessSnapshot();
+    const snapshot = await getProcessSnapshot();
     expect(snapshot.size).toBe(0);
   });
 });
@@ -114,7 +144,8 @@ describe('getDescendants', () => {
       [300, { pid: 300, ppid: 200, comm: 'claude', args: 'claude' }],
     ]);
 
-    const descendants = getDescendants(100, map);
+    const childrenOf = buildChildrenOf(map);
+    const descendants = getDescendants(100, childrenOf);
 
     expect(descendants).toHaveLength(3);
     const pids = descendants.map((d) => d.pid).sort();
@@ -126,7 +157,8 @@ describe('getDescendants', () => {
       [1, { pid: 1, ppid: 0, comm: 'init', args: '/sbin/init' }],
     ]);
 
-    const descendants = getDescendants(1, map);
+    const childrenOf = buildChildrenOf(map);
+    const descendants = getDescendants(1, childrenOf);
     expect(descendants).toHaveLength(0);
   });
 
@@ -135,7 +167,8 @@ describe('getDescendants', () => {
       [1, { pid: 1, ppid: 0, comm: 'init', args: '/sbin/init' }],
     ]);
 
-    const descendants = getDescendants(999, map);
+    const childrenOf = buildChildrenOf(map);
+    const descendants = getDescendants(999, childrenOf);
     expect(descendants).toHaveLength(0);
   });
 });
@@ -279,26 +312,27 @@ describe('ProcessMonitor', () => {
   // -----------------------------------------------------------------------
 
   describe('poll', () => {
-    test('detects agent and calls callback', () => {
+    test('detects agent and calls callback', async () => {
       const fakePsOutput = [
         '  100     1 bash             /bin/bash',
         '  200   100 node             node /usr/local/bin/claude',
       ].join('\n');
 
-      (Bun as Record<string, unknown>).spawnSync = mock(() => ({
-        stdout: Buffer.from(fakePsOutput),
+      (Bun as Record<string, unknown>).spawn = mock(() => ({
+        stdout: streamFromText(fakePsOutput),
+        exited: Promise.resolve(0),
       }));
 
       // Return stat with non-zero CPU time for activity detection
-      mockReadFileSync.mockImplementation((_path: string): string => {
+      mockReadFile.mockImplementation(async (_path: string): Promise<string> => {
         // utime=100, stime=50 → totalJiffies=150
-        return '0 (agent) S 0 0 0 0 0 0 0 0 0 0 100 50 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0';
+        return '0 (agent) S 0 0 0 0 0 0 0 0 0 0 100 50 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0';
       });
 
       const callback = mock();
       const monitor = new ProcessMonitor(callback);
       monitor.trackTerminal('term-1', 100);
-      monitor.poll();
+      await monitor.poll();
 
       expect(callback).toHaveBeenCalledTimes(1);
       const [terminalId, agentPresent, , agentName] = callback.mock.calls[0];
@@ -307,20 +341,21 @@ describe('ProcessMonitor', () => {
       expect(agentName).toBe('claude');
     });
 
-    test('detects no agent and calls callback with false', () => {
+    test('detects no agent and calls callback with false', async () => {
       const fakePsOutput = [
         '  100     1 bash             /bin/bash',
         '  101   100 git              git status',
       ].join('\n');
 
-      (Bun as Record<string, unknown>).spawnSync = mock(() => ({
-        stdout: Buffer.from(fakePsOutput),
+      (Bun as Record<string, unknown>).spawn = mock(() => ({
+        stdout: streamFromText(fakePsOutput),
+        exited: Promise.resolve(0),
       }));
 
       const callback = mock();
       const monitor = new ProcessMonitor(callback);
       monitor.trackTerminal('term-1', 100);
-      monitor.poll();
+      await monitor.poll();
 
       expect(callback).toHaveBeenCalledTimes(1);
       const [terminalId, agentPresent, agentActive, agentName] = callback.mock.calls[0];
@@ -330,19 +365,20 @@ describe('ProcessMonitor', () => {
       expect(agentName).toBeUndefined();
     });
 
-    test('reports agent as active when CPU time increases between polls', () => {
+    test('reports agent as active when CPU time increases between polls', async () => {
       const fakePsOutput = [
         '  100     1 bash             /bin/bash',
         '  200   100 node             node /usr/local/bin/claude',
       ].join('\n');
 
-      (Bun as Record<string, unknown>).spawnSync = mock(() => ({
-        stdout: Buffer.from(fakePsOutput),
+      (Bun as Record<string, unknown>).spawn = mock(() => ({
+        stdout: streamFromText(fakePsOutput),
+        exited: Promise.resolve(0),
       }));
 
-      // Track calls to readFileSync so we can return different values
+      // Track calls to readFile so we can return different values
       let callCount = 0;
-      mockReadFileSync.mockImplementation((_path: string): string => {
+      mockReadFile.mockImplementation(async (_path: string): Promise<string> => {
         callCount++;
         if (callCount === 1) {
           // First poll: utime=100, stime=50 → totalJiffies=150 (baseline)
@@ -357,9 +393,9 @@ describe('ProcessMonitor', () => {
       monitor.trackTerminal('term-1', 100);
 
       // First poll – establishes baseline (agent idle)
-      monitor.poll();
+      await monitor.poll();
       // Second poll – CPU increased → agent active
-      monitor.poll();
+      await monitor.poll();
 
       expect(callback).toHaveBeenCalledTimes(2);
 
@@ -375,25 +411,26 @@ describe('ProcessMonitor', () => {
       expect(callback.mock.calls[1][3]).toBe('claude');
     });
 
-    test('falls back to active when /proc is unavailable', () => {
+    test('falls back to active when /proc is unavailable', async () => {
       const fakePsOutput = [
         '  100     1 bash             /bin/bash',
         '  200   100 node             node /usr/local/bin/claude',
       ].join('\n');
 
-      (Bun as Record<string, unknown>).spawnSync = mock(() => ({
-        stdout: Buffer.from(fakePsOutput),
+      (Bun as Record<string, unknown>).spawn = mock(() => ({
+        stdout: streamFromText(fakePsOutput),
+        exited: Promise.resolve(0),
       }));
 
-      // Simulate /proc not available (throw on read)
-      mockReadFileSync.mockImplementation((_path: string): string => {
+      // Simulate /proc not available (rejected promise)
+      mockReadFile.mockImplementation(async (_path: string): Promise<string> => {
         throw new Error('ENOENT: no such file');
       });
 
       const callback = mock();
       const monitor = new ProcessMonitor(callback);
       monitor.trackTerminal('term-1', 100);
-      monitor.poll();
+      await monitor.poll();
 
       expect(callback).toHaveBeenCalledTimes(1);
       expect(callback.mock.calls[0][0]).toBe('term-1');
@@ -403,7 +440,7 @@ describe('ProcessMonitor', () => {
       expect(callback.mock.calls[0][3]).toBe('claude');
     });
 
-    test('handles multiple tracked terminals independently', () => {
+    test('handles multiple tracked terminals independently', async () => {
       const fakePsOutput = [
         '  100     1 bash             /bin/bash',
         '  200   100 node             node /usr/local/bin/claude',
@@ -411,15 +448,16 @@ describe('ProcessMonitor', () => {
         '  301   300 git              git log',
       ].join('\n');
 
-      (Bun as Record<string, unknown>).spawnSync = mock(() => ({
-        stdout: Buffer.from(fakePsOutput),
+      (Bun as Record<string, unknown>).spawn = mock(() => ({
+        stdout: streamFromText(fakePsOutput),
+        exited: Promise.resolve(0),
       }));
 
       const callback = mock();
       const monitor = new ProcessMonitor(callback);
       monitor.trackTerminal('term-1', 100); // has agent descendant
       monitor.trackTerminal('term-2', 300); // no agent descendant
-      monitor.poll();
+      await monitor.poll();
 
       // term-1: agent present
       // term-2: no agent
@@ -452,35 +490,35 @@ describe('ProcessMonitor', () => {
       (monitor as unknown as { prevCpuTimes: Map<number, number> }).prevCpuTimes.set(200, 150);
 
       // Mock the globals
-      const origSetInterval = globalThis.setInterval;
-      const origClearInterval = globalThis.clearInterval;
-      const fakeTimerId = 123 as unknown as ReturnType<typeof setInterval>;
-      const mockSetInterval = mock((_fn: (...args: unknown[]) => void, _ms: number) => fakeTimerId);
-      const mockClearInterval = mock((_id: unknown) => {});
-      globalThis.setInterval = mockSetInterval as unknown as typeof globalThis.setInterval;
-      globalThis.clearInterval = mockClearInterval as unknown as typeof globalThis.clearInterval;
+      const origSetTimeout = globalThis.setTimeout;
+      const origClearTimeout = globalThis.clearTimeout;
+      const fakeTimerId = 123 as unknown as ReturnType<typeof setTimeout>;
+      const mockSetTimeout = mock((_fn: (...args: unknown[]) => void, _ms: number) => fakeTimerId);
+      const mockClearTimeout = mock((_id: unknown) => {});
+      globalThis.setTimeout = mockSetTimeout as unknown as typeof globalThis.setTimeout;
+      globalThis.clearTimeout = mockClearTimeout as unknown as typeof globalThis.clearTimeout;
 
       try {
-        // Initially no interval
+        // Initially no timeout
         expect(
-          (monitor as unknown as { intervalId: ReturnType<typeof setInterval> | null }).intervalId,
+          (monitor as unknown as { intervalId: ReturnType<typeof setTimeout> | null }).intervalId,
         ).toBeNull();
 
         monitor.start();
-        expect(mockSetInterval).toHaveBeenCalledTimes(1);
-        expect(mockSetInterval).toHaveBeenCalledWith(expect.any(Function), 2000);
+        expect(mockSetTimeout).toHaveBeenCalledTimes(1);
+        expect(mockSetTimeout).toHaveBeenCalledWith(expect.any(Function), 2000);
         expect(
-          (monitor as unknown as { intervalId: ReturnType<typeof setInterval> | null }).intervalId,
+          (monitor as unknown as { intervalId: ReturnType<typeof setTimeout> | null }).intervalId,
         ).toBe(fakeTimerId);
 
         // Second start should be a no-op
         monitor.start();
-        expect(mockSetInterval).toHaveBeenCalledTimes(1);
+        expect(mockSetTimeout).toHaveBeenCalledTimes(1);
 
         monitor.stop();
-        expect(mockClearInterval).toHaveBeenCalledWith(fakeTimerId);
+        expect(mockClearTimeout).toHaveBeenCalledWith(fakeTimerId);
         expect(
-          (monitor as unknown as { intervalId: ReturnType<typeof setInterval> | null }).intervalId,
+          (monitor as unknown as { intervalId: ReturnType<typeof setTimeout> | null }).intervalId,
         ).toBeNull();
         expect(
           (monitor as unknown as { trackedTerminals: Map<string, number> }).trackedTerminals.size,
@@ -489,8 +527,8 @@ describe('ProcessMonitor', () => {
           (monitor as unknown as { prevCpuTimes: Map<number, number> }).prevCpuTimes.size,
         ).toBe(0);
       } finally {
-        globalThis.setInterval = origSetInterval;
-        globalThis.clearInterval = origClearInterval;
+        globalThis.setTimeout = origSetTimeout;
+        globalThis.clearTimeout = origClearTimeout;
       }
     });
 
@@ -502,10 +540,15 @@ describe('ProcessMonitor', () => {
       monitor.stop();
     });
 
-    test('poll with no tracked terminals does not call callback', () => {
+    test('poll with no tracked terminals does not call callback', async () => {
+      (Bun as Record<string, unknown>).spawn = mock(() => ({
+        stdout: streamFromText(''),
+        exited: Promise.resolve(0),
+      }));
+
       const callback = mock();
       const monitor = new ProcessMonitor(callback);
-      monitor.poll();
+      await monitor.poll();
       expect(callback).not.toHaveBeenCalled();
     });
   });

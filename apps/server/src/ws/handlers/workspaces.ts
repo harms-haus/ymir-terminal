@@ -46,7 +46,7 @@ export interface WorkspaceDeps {
   broadcastEvent: (envelope: EventEnvelope) => void;
   /** GitStatusWatcher instance (optional — used when available). */
   gitStatusWatcher?: GitStatusWatcher;
-  /** Map tracking git dir → workspace metadata (shared with git handlers). */
+  /** Map tracking repo root → workspace metadata (shared with git handlers). */
   watchedGitDirs?: Map<string, { workspaceId: string; repoPath: string }>;
   /** Internal: allows tests to inject mock CRUD functions. */
   _mocks?: {
@@ -121,8 +121,9 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
           const repoRoot = join(cwd, repo.path);
           const gitDirPath = join(repoRoot, '.git');
           if (existsSync(gitDirPath)) {
-            gitStatusWatcher.watchRepo(gitDirPath, repoRoot);
-            watchedGitDirs.set(gitDirPath, { workspaceId, repoPath: repo.path });
+            // Use repo-root as the canonical key throughout the watcher/cache/broadcast system
+            gitStatusWatcher.watchRepo(repoRoot, repoRoot);
+            watchedGitDirs.set(repoRoot, { workspaceId, repoPath: repo.path });
           }
         }
       })
@@ -142,14 +143,14 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
     if (!gitStatusWatcher || !watchedGitDirs) return;
     // Collect keys first, then iterate to avoid mutation-while-iterating issues
     const toRemove: string[] = [];
-    for (const [gitDir, info] of watchedGitDirs) {
+    for (const [repoRootKey, info] of watchedGitDirs) {
       if (info.workspaceId === workspaceId) {
-        toRemove.push(gitDir);
+        toRemove.push(repoRootKey);
       }
     }
-    for (const gitDir of toRemove) {
-      gitStatusWatcher.unwatchRepo(gitDir);
-      watchedGitDirs.delete(gitDir);
+    for (const repoRootKey of toRemove) {
+      gitStatusWatcher.unwatchRepo(repoRootKey);
+      watchedGitDirs.delete(repoRootKey);
     }
   }
 

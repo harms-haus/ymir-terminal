@@ -322,18 +322,18 @@ describe('osc777EventToStatus', () => {
 // ---------------------------------------------------------------------------
 
 describe('hasOSC777Prefix', () => {
-  it('returns true when base64 data starts with G103', () => {
-    // Base64 of \x1b]7 (3 bytes) is "G103"
-    // So base64 of \x1b]777;notify;... will start with "G103..."
+  it('returns true when base64 data starts with G103Nzc', () => {
+    // Base64 of \x1b]777 (5 bytes) is "G103Nzc=" (with padding)
+    // The prefix checks the first 7 chars of unpadded base64
     expect(hasOSC777Prefix('G103Nzc=')).toBeTrue();
     expect(hasOSC777Prefix('G103Nzc7')).toBeTrue();
-    expect(hasOSC777Prefix('G103xyz')).toBeTrue();
   });
 
-  it('returns false when base64 data does not start with G103', () => {
+  it('returns false when base64 data does not start with G103Nzc', () => {
     expect(hasOSC777Prefix('')).toBeFalse();
     expect(hasOSC777Prefix('SGVsbG8=')).toBeFalse(); // "Hello"
     expect(hasOSC777Prefix('ABCDEF')).toBeFalse();
     expect(hasOSC777Prefix('G102')).toBeFalse(); // close but not matching
+    expect(hasOSC777Prefix('G103xyz')).toBeFalse(); // no longer matches — needs full G103Nzc prefix
   });
 });

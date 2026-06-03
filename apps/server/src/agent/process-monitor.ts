@@ -3,7 +3,7 @@
 // terminal shells
 // ---------------------------------------------------------------------------
 
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -38,12 +38,17 @@ export interface ProcessEntry {
  *
  * A single shared call is used for efficiency across all tracked terminals.
  */
-export function getProcessSnapshot(): Map<number, ProcessEntry> {
-  const result = Bun.spawnSync(['ps', '-eo', 'pid=,ppid=,comm=,args=']);
-  const output = result.stdout.toString();
+export async function getProcessSnapshot(): Promise<Map<number, ProcessEntry>> {
+  const proc = Bun.spawn(['ps', '-eo', 'pid=,ppid=,comm=,args='], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  const text = await new Response(proc.stdout).text();
+  await proc.exited;
+
   const map = new Map<number, ProcessEntry>();
 
-  for (const line of output.split('\n')) {
+  for (const line of text.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
@@ -66,21 +71,16 @@ export function getProcessSnapshot(): Map<number, ProcessEntry> {
 // ---------------------------------------------------------------------------
 
 /**
- * BFS from `rootPid` through `processMap`, collecting all processes whose
+ * BFS from `rootPid` through `childrenOf`, collecting all processes whose
  * `ppid` matches any discovered process.
+ *
+ * @param childrenOf – Pre-built parent→children index (avoids rebuilding it
+ *   for every tracked terminal in the same poll cycle).
  */
 export function getDescendants(
   rootPid: number,
-  processMap: Map<number, ProcessEntry>,
+  childrenOf: Map<number, ProcessEntry[]>,
 ): ProcessEntry[] {
-  // Build parent → children index (O(N) once)
-  const childrenOf = new Map<number, ProcessEntry[]>();
-  for (const entry of processMap.values()) {
-    const siblings = childrenOf.get(entry.ppid);
-    if (siblings) siblings.push(entry);
-    else childrenOf.set(entry.ppid, [entry]);
-  }
-
   // BFS with index-based queue (no Array.shift())
   const result: ProcessEntry[] = [];
   const queue = [rootPid];
@@ -145,7 +145,7 @@ export function isAgent(entry: ProcessEntry): string | null {
  */
 export class ProcessMonitor {
   private trackedTerminals: Map<string, number> = new Map();
-  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private intervalId: ReturnType<typeof setTimeout> | null = null;
   private onAgentStatusChange: (
     terminalId: string,
     agentPresent: boolean,
@@ -186,20 +186,41 @@ export class ProcessMonitor {
   // Polling lifecycle
   // -----------------------------------------------------------------------
 
-  /** Start the polling interval. No-op if already started. */
+  /**
+   * Start the polling loop. No-op if already started.
+   *
+   * Uses recursive setTimeout to ensure the next poll only starts after the
+   * current one completes, avoiding concurrent poll() invocations.
+   */
   start(): void {
     if (this.intervalId !== null) return;
-    this.intervalId = setInterval(() => this.poll(), this.pollIntervalMs);
+    this.pollLoop();
   }
 
-  /** Stop the polling interval and clear all tracked state. */
+  /** Stop the polling loop and clear all tracked state. */
   stop(): void {
     if (this.intervalId !== null) {
-      clearInterval(this.intervalId);
+      clearTimeout(this.intervalId);
       this.intervalId = null;
     }
     this.trackedTerminals.clear();
     this.prevCpuTimes.clear();
+  }
+
+  /**
+   * Schedule the next poll cycle. Only called from start() / pollLoop().
+   */
+  private pollLoop(): void {
+    this.intervalId = setTimeout(async () => {
+      try {
+        await this.poll();
+      } catch (err) {
+        console.error('ProcessMonitor poll error:', err);
+      }
+      if (this.intervalId !== null) {
+        this.pollLoop();
+      }
+    }, this.pollIntervalMs);
   }
 
   // -----------------------------------------------------------------------
@@ -210,23 +231,32 @@ export class ProcessMonitor {
    * Single poll cycle – public for testing.
    *
    * 1. Takes a process snapshot.
-   * 2. For each tracked terminal, BFS from its shell PID to find descendant
+   * 2. Builds a parent→children index once.
+   * 3. For each tracked terminal, BFS from its shell PID to find descendant
    *    processes.
-   * 3. Checks each descendant against AGENT_PATTERNS.
-   * 4. If an agent is found, reads /proc/[pid]/stat to determine CPU
+   * 4. Checks each descendant against AGENT_PATTERNS.
+   * 5. If an agent is found, reads /proc/[pid]/stat to determine CPU
    *    activity and calls the callback with presence + activity flags.
-   * 5. If no agent is found, calls the callback with present=false.
+   * 6. If no agent is found, calls the callback with present=false.
    */
-  poll(): void {
-    const snapshot = getProcessSnapshot();
+  async poll(): Promise<void> {
+    const snapshot = await getProcessSnapshot();
 
     // Prune stale CPU time entries for PIDs that no longer exist
     for (const pid of this.prevCpuTimes.keys()) {
       if (!snapshot.has(pid)) this.prevCpuTimes.delete(pid);
     }
 
+    // Build parent→children index once (O(N)), shared across all terminals
+    const childrenOf = new Map<number, ProcessEntry[]>();
+    for (const entry of snapshot.values()) {
+      const siblings = childrenOf.get(entry.ppid);
+      if (siblings) siblings.push(entry);
+      else childrenOf.set(entry.ppid, [entry]);
+    }
+
     for (const [terminalId, shellPid] of this.trackedTerminals) {
-      const descendants = getDescendants(shellPid, snapshot);
+      const descendants = getDescendants(shellPid, childrenOf);
       let agentFound: { name: string; pid: number } | null = null;
 
       for (const entry of descendants) {
@@ -240,7 +270,7 @@ export class ProcessMonitor {
       if (agentFound) {
         let active = true; // fallback when /proc is unavailable
         try {
-          const statContent = readFileSync(`/proc/${agentFound.pid}/stat`, 'utf8');
+          const statContent = await readFile(`/proc/${agentFound.pid}/stat`, 'utf8');
           const fields = statContent.split(' ');
           const utime = parseInt(fields[13], 10) || 0; // field 14 (0-indexed 13)
           const stime = parseInt(fields[14], 10) || 0; // field 15 (0-indexed 14)
