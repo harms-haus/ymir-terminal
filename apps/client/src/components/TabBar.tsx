@@ -100,6 +100,67 @@ export function TabBar({
 
   const isBottom = variant === 'bottom';
 
+  // -----------------------------------------------------------------------
+  // Callback cache — stable per-tab-id wrappers for SortableTab
+  //   SortableTab is wrapped in React.memo; inline arrow functions passed as
+  //   props would defeat the memo and force every tab to re-render whenever
+  //   TabBar re-renders.  We cache a single function per (action, tabId) pair
+  //   so that identical prop references survive across renders.
+  // -----------------------------------------------------------------------
+  const [callbackCache] = useState(() => new Map<string, () => void>());
+
+  const getMoveToBottomCallback = useCallback(
+    (tabId: string) => {
+      const key = `move-bottom-${tabId}`;
+      let cb = callbackCache.get(key);
+      if (!cb) {
+        cb = () => onMoveToPane?.(tabId);
+        callbackCache.set(key, cb);
+      }
+      return cb;
+    },
+    [callbackCache, onMoveToPane],
+  );
+
+  const getMoveToContentCallback = useCallback(
+    (tabId: string) => {
+      const key = `move-content-${tabId}`;
+      let cb = callbackCache.get(key);
+      if (!cb) {
+        cb = () => onMoveToPane?.(tabId);
+        callbackCache.set(key, cb);
+      }
+      return cb;
+    },
+    [callbackCache, onMoveToPane],
+  );
+
+  const getSplitRightCallback = useCallback(
+    (tabId: string) => {
+      const key = `split-right-${tabId}`;
+      let cb = callbackCache.get(key);
+      if (!cb) {
+        cb = () => onSplitRight?.(tabId);
+        callbackCache.set(key, cb);
+      }
+      return cb;
+    },
+    [callbackCache, onSplitRight],
+  );
+
+  const getSplitDownCallback = useCallback(
+    (tabId: string) => {
+      const key = `split-down-${tabId}`;
+      let cb = callbackCache.get(key);
+      if (!cb) {
+        cb = () => onSplitDown?.(tabId);
+        callbackCache.set(key, cb);
+      }
+      return cb;
+    },
+    [callbackCache, onSplitDown],
+  );
+
   const { ref: droppableRef, isDropTarget } = useDroppable({
     id: `tab-bar-${group || 'default'}`,
     type: 'tab-bar',
@@ -206,16 +267,16 @@ export function TabBar({
             group={group}
             onMoveToBottom={
               onMoveToPane && tab.terminalId && variant === 'content'
-                ? () => onMoveToPane(tab.id)
+                ? getMoveToBottomCallback(tab.id)
                 : undefined
             }
             onMoveToContent={
               onMoveToPane && tab.terminalId && variant === 'bottom'
-                ? () => onMoveToPane(tab.id)
+                ? getMoveToContentCallback(tab.id)
                 : undefined
             }
-            onSplitRight={onSplitRight ? () => onSplitRight(tab.id) : undefined}
-            onSplitDown={onSplitDown ? () => onSplitDown(tab.id) : undefined}
+            onSplitRight={onSplitRight ? getSplitRightCallback(tab.id) : undefined}
+            onSplitDown={onSplitDown ? getSplitDownCallback(tab.id) : undefined}
             onClosePane={onClosePane}
             canClosePane={canClosePane}
             agentStatus={getAgentStatus?.(tab.id)}

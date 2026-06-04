@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+} from 'react';
 import { wsClient } from '../lib/ws-client';
 import { sendRequest } from '../lib/send-request';
 import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
@@ -170,11 +178,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     autoLogin();
   }, [isTauri, login, getTauriConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return React.createElement(
-    AuthContext.Provider,
-    { value: { isAuthenticated, token, login, logout } },
-    children,
+  const value = useMemo(
+    () => ({ isAuthenticated, token, login, logout }),
+    [isAuthenticated, token, login, logout],
   );
+
+  return React.createElement(AuthContext.Provider, { value }, children);
 }
 
 // ---------------------------------------------------------------------------

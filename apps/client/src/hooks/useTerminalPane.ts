@@ -125,13 +125,17 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
   // Switch workspace + load tabs from server (keyed by scopeKey)
   // ---------------------------------------------------------------------------
   useEffect(() => {
+    let cancelled = false;
     switchWorkspace(scopeKey ?? null);
 
     if (scopeKey && !loadedWorkspacesRef.current.has(scopeKey)) {
       loadedWorkspacesRef.current.add(scopeKey);
 
       // Skip tab.list if tabs were already restored via loadRestoredTabs
-      if (restoredWorkspacesRef.current.has(scopeKey)) return;
+      if (restoredWorkspacesRef.current.has(scopeKey))
+        return () => {
+          cancelled = true;
+        };
 
       const { workspaceId: realWsId, worktreePath } = parseScopeKey(scopeKey);
 
@@ -141,6 +145,9 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
         worktreePath,
       })
         .then((response) => {
+          // Ignore stale responses from a previous workspace switch
+          if (cancelled) return;
+
           // Ref-based guards — always read current values, no stale closures
           if (restoredWorkspacesRef.current.has(scopeKey)) return;
           if (tabsRef.current.length > 0) return;
@@ -158,6 +165,10 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
         })
         .catch(console.error);
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [scopeKey, switchWorkspace, loadTabs]);
 
   // --- Shared handle logic ---

@@ -9,10 +9,16 @@ interface AnimatedPaneProps {
 }
 
 export function AnimatedPane({ direction, visible, onCollapseReady, children }: AnimatedPaneProps) {
-  // Detect prefers-reduced-motion
-  const prefersReducedMotion = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Detect prefers-reduced-motion at runtime, including changes
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
   }, []);
 
   const transition = prefersReducedMotion ? 'none' : ANIMATION_TRANSITION;
@@ -81,7 +87,7 @@ export function AnimatedPane({ direction, visible, onCollapseReady, children }: 
           width: '100%',
           transform,
           transition,
-          willChange: 'transform',
+          ...(!prefersReducedMotion && { willChange: 'transform' }),
           ...(overlayActive && {
             position: 'relative' as const,
           }),

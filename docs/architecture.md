@@ -91,23 +91,24 @@ Process-monitor heartbeats are ignored while an OSC 777 status is still fresh.
 
 ## Tech Stack
 
-| Layer           | Technology                                                                              |
-| --------------- | --------------------------------------------------------------------------------------- |
-| Runtime         | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner                     |
-| Language        | TypeScript (strict mode)                                                                |
-| Backend         | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                                         |
-| Frontend        | React 19, TanStack Router, TanStack Query, Vite                                         |
-| Terminal        | `ghostty-web` + `ghostty-web FitAddon`                                                  |
-| Code Editor     | CodeMirror 6 (`@codemirror/lang-*`)                                                     |
-| Auth            | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry                   |
-| DnD             | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer          |
-| Context Menu    | `@radix-ui/react-context-menu`                                                          |
-| Virtualization  | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories |
-| Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API     |
-| Desktop Shell   | Tauri 2.x (Rust) — wraps webview in native window                                       |
-| Sidecar         | Compiled Bun binary — server bundled as platform-native executable                      |
-| Styling         | Inline CSS, `react-resizable-panels` for IDE layout                                     |
-| Testing         | `bun:test`, Testing Library (React), happy-dom                                          |
+| Layer           | Technology                                                                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime         | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner                                                                                                |
+| Language        | TypeScript (strict mode)                                                                                                                                           |
+| Backend         | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                                                                                                                    |
+| Frontend        | React 19, TanStack Router, TanStack Query, Vite                                                                                                                    |
+| Terminal        | `ghostty-web` + `ghostty-web FitAddon`                                                                                                                             |
+| Code Editor     | CodeMirror 6 (`@codemirror/lang-*`)                                                                                                                                |
+| Auth            | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry                                                                                              |
+| DnD             | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer                                                                                     |
+| Context Menu    | `@radix-ui/react-context-menu`                                                                                                                                     |
+| Virtualization  | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories and file trees                                                             |
+| Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API                                                                                |
+| Desktop Shell   | Tauri 2.x (Rust) — wraps webview in native window                                                                                                                  |
+| Sidecar         | Compiled Bun binary — server bundled as platform-native executable                                                                                                 |
+| Styling         | Inline CSS, `react-resizable-panels` for IDE layout                                                                                                                |
+| Performance     | `useStableCallback` hook for stable callback references; WS client RAF batching for high-frequency channels (`terminal.output`, `file.change`, `git.statusChange`) |
+| Testing         | `bun:test`, Testing Library (React), happy-dom                                                                                                                     |
 
 ## Project Structure
 

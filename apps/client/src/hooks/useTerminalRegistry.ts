@@ -112,13 +112,16 @@ export function useTerminalRegistry({
     Map<string, { onTitleChange: (title: string) => void; onCwdChange: (cwd: string) => void }>
   >(new Map());
 
+  // Cache previous terminal entries for reference stability
+  const prevEntriesRef = useRef<TerminalEntry[]>([]);
+
   // Build terminal entries for TerminalManager
   /* eslint-disable react-hooks/refs, react-hooks/exhaustive-deps -- stable mutable cache and stable refs */
   const terminalEntries: TerminalEntry[] = useMemo(() => {
     const cache = callbackCacheRef.current;
     // Deduplicate by terminalId — a terminal should only appear once
     const seen = new Set<string>();
-    return terminalRegistry
+    const newEntries = terminalRegistry
       .filter((entry) => {
         if (seen.has(entry.terminalId)) return false;
         seen.add(entry.terminalId);
@@ -160,8 +163,24 @@ export function useTerminalRegistry({
           onCwdChange: cached.onCwdChange,
         };
       });
+
+    // Preserve reference stability when no visually meaningful fields changed
+    const prev = prevEntriesRef.current;
+    if (
+      newEntries.length === prev.length &&
+      newEntries.every(
+        (entry, i) =>
+          entry.terminalId === prev[i].terminalId &&
+          entry.tabId === prev[i].tabId &&
+          entry.owningPane === prev[i].owningPane &&
+          entry.isActive === prev[i].isActive,
+      )
+    ) {
+      return prev;
+    }
+    prevEntriesRef.current = newEntries;
+    return newEntries;
   }, [terminalRegistry, activeTabByPane, activeWorkspaceId]);
-  /* eslint-enable react-hooks/refs, react-hooks/exhaustive-deps */
 
   return {
     terminalRegistry,
@@ -177,3 +196,4 @@ export function useTerminalRegistry({
     handleBottomTerminalRegistered,
   };
 }
+/* eslint-enable react-hooks/refs, react-hooks/exhaustive-deps */

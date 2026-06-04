@@ -184,4 +184,36 @@ describe('useFileChange', () => {
 
     expect(callback).not.toHaveBeenCalled();
   });
+
+  // -----------------------------------------------------------------------
+  // 6. Does not resubscribe when callback reference changes
+  // -----------------------------------------------------------------------
+  test('does not resubscribe when callback changes', () => {
+    const callback1 = mock(() => {});
+    const callback2 = mock(() => {});
+
+    const { rerender } = renderHook(({ cb }) => useFileChange('ws-1', cb), {
+      initialProps: { cb: callback1 },
+    });
+
+    // One subscription after initial render
+    expect(messageHandlers.length).toBe(1);
+
+    // Re-render with a different callback reference
+    rerender({ cb: callback2 });
+
+    // Subscription count must remain the same — no resubscription
+    expect(messageHandlers.length).toBe(1);
+
+    // The latest callback should fire for incoming events
+    simulateIncoming(makeFileChangeEvent('ws-1', '/updated.txt'));
+
+    expect(callback1).not.toHaveBeenCalled();
+    expect(callback2).toHaveBeenCalledTimes(1);
+    expect(callback2).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      path: '/updated.txt',
+      kind: 'modify',
+    });
+  });
 });
