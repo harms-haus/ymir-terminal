@@ -1,3 +1,4 @@
+import { resolve as pathResolve } from 'node:path';
 import { describe, expect, it, beforeEach } from 'bun:test';
 import {
   ErrorCodes,
@@ -891,7 +892,7 @@ describe('registerTabHandlers', () => {
 
     it('tab.create persists cwd and customTitle when provided', async () => {
       // Seed a workspace so path validation can resolve relative paths
-      const wsCwd = '/tmp/test-workspace';
+      const wsCwd = process.cwd();
       persistentDb
         .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
         .run('ws-1', 'Test', wsCwd, '#007acc');
@@ -922,7 +923,7 @@ describe('registerTabHandlers', () => {
       const row = persistentDb
         .prepare('SELECT * FROM persisted_tabs WHERE id = ?')
         .get(editorTabId) as Record<string, unknown>;
-      expect(row.cwd).toBe(`${wsCwd}/src`);
+      expect(row.cwd).toBe(pathResolve(wsCwd, 'src'));
       expect(row.custom_title).toBe('My Custom');
     });
 
@@ -1092,7 +1093,7 @@ describe('registerTabHandlers', () => {
   describe('worktree_path in tab.create', () => {
     it('creates a tab with worktree_path set in the session DB', async () => {
       // Seed a workspace so path validation can resolve relative paths
-      const wsCwd = '/tmp/test-workspace';
+      const wsCwd = process.cwd();
       persistentDb
         .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
         .run('ws-1', 'Test', wsCwd, '#007acc');
@@ -1116,7 +1117,7 @@ describe('registerTabHandlers', () => {
         worktree_path: string | null;
       } | null;
       expect(row).not.toBeNull();
-      expect(row!.worktree_path).toBe(`${wsCwd}/worktrees/feature`);
+      expect(row!.worktree_path).toBe(pathResolve(wsCwd, 'worktrees/feature'));
     });
 
     it('creates a tab with NULL worktree_path when not provided', async () => {
@@ -1143,7 +1144,7 @@ describe('registerTabHandlers', () => {
 
     it('persists worktree_path to the persistent DB', async () => {
       // Seed a workspace so path validation can resolve relative paths
-      const wsCwd = '/tmp/test-workspace';
+      const wsCwd = process.cwd();
       persistentDb
         .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
         .run('ws-1', 'Test', wsCwd, '#007acc');
@@ -1166,7 +1167,7 @@ describe('registerTabHandlers', () => {
         .prepare('SELECT worktree_path FROM persisted_tabs WHERE id = ?')
         .get(tabId) as { worktree_path: string | null } | null;
       expect(row).not.toBeNull();
-      expect(row!.worktree_path).toBe(`${wsCwd}/worktrees/feature`);
+      expect(row!.worktree_path).toBe(pathResolve(wsCwd, 'worktrees/feature'));
     });
   });
 
