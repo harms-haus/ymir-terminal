@@ -20,6 +20,7 @@ export {
   updateTerminalSize,
   deleteTerminalInstance,
 } from './terminals';
+export { createBottomPanelTab, listBottomPanelTabs } from './bottom-panel';
 
 // ── DDL & session lifecycle ──────────────────────────────────────────────────
 
