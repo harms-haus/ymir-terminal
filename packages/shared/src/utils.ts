@@ -79,8 +79,9 @@ export function expandTilde(filePath: string): string {
 }
 
 function getConfigDir(): string {
+  const os = getOs();
   const path = getPath();
-  if (!path) return '';
+  if (!os || !path) return '';
   if (IS_WINDOWS) {
     return path.join(getWindowsLocalAppData(), 'ymir');
   }

@@ -1,38 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { resolve } from 'node:path';
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import { ErrorCodes } from '@ymir/shared';
-import { mockConn, request } from '../../../test-helpers/mock-utils';
+import { mockConn, request, expectSuccessResponse } from '../../../test-helpers/mock-utils';
+import { createTestDeps } from '../../../test-helpers/git-test-utils';
 import { MessageRouter } from '../../router';
 import { registerGitHandlers } from './index';
-import type { GitDeps } from './index';
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-function createTestDeps(overrides: Record<string, any> = {}): GitDeps {
-  const getWorkspaceFn = mock((_db: unknown, id: string) => {
-    if (id === 'ws-1') {
-      return {
-        id: 'ws-1',
-        name: 'Test',
-        cwd: '/home/dev/project',
-        color: '#007acc',
-        sort_order: 0,
-      };
-    }
-    return null;
-  });
-
-  return {
-    persistentDb: {} as any,
-    _mocks: {
-      getWorkspace: getWorkspaceFn,
-      ...overrides,
-    },
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -68,10 +40,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { result: string };
+      const payload = expectSuccessResponse<{ result: string }>(resp);
       expect(payload.result).toBe('Fast-forward');
     });
 
@@ -164,10 +133,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(rebaseBranchFn.mock.calls[0][1]).toBe('main');
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { result: string };
+      const payload = expectSuccessResponse<{ result: string }>(resp);
       expect(payload.result).toBe('Successfully rebased');
     });
 
@@ -218,8 +184,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(rebaseAbortFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
@@ -268,10 +233,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(isRebaseInProgressFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { inProgress: boolean };
+      const payload = expectSuccessResponse<{ inProgress: boolean }>(resp);
       expect(payload.inProgress).toBe(true);
     });
 
@@ -288,9 +250,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { inProgress: boolean };
+      const payload = expectSuccessResponse<{ inProgress: boolean }>(resp);
       expect(payload.inProgress).toBe(false);
     });
 
@@ -342,8 +302,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(pullRemoteFn.mock.calls[0][1]).toBe(true);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('calls doPullRemote with rebase=false when not specified', async () => {
@@ -361,7 +320,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(pullRemoteFn.mock.calls[0][1]).toBeUndefined();
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
@@ -436,8 +395,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(syncRemoteFn.mock.calls[0][1]).toBe('feature');
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('uses empty string when getCurrentBranch returns null', async () => {
@@ -459,7 +417,7 @@ describe('git merge / rebase / pull / sync handlers', () => {
       expect(syncRemoteFn.mock.calls[0][1]).toBe('');
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
@@ -527,10 +485,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       });
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { commitHash: string };
+      const payload = expectSuccessResponse<{ commitHash: string }>(resp);
       expect(payload.commitHash).toBe('amended123');
     });
 
@@ -553,9 +508,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       });
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { commitHash: string };
+      const payload = expectSuccessResponse<{ commitHash: string }>(resp);
       expect(payload.commitHash).toBe('noedit456');
     });
 
@@ -646,10 +599,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       });
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { commitHash: string };
+      const payload = expectSuccessResponse<{ commitHash: string }>(resp);
       expect(payload.commitHash).toBe('allhash789');
     });
 
@@ -766,8 +716,7 @@ describe('git operations handlers (commitAmend, commitAll, stageAll)', () => {
       expect(stageAllFilesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('resolves repoPath relative to workspace cwd', async () => {

@@ -41,5 +41,11 @@ export function updateTerminalSize(
 }
 
 export function deleteTerminalInstance(db: Database, terminalId: string): void {
-  db.prepare('DELETE FROM terminal_instances WHERE id = ?').run(terminalId);
+  try {
+    db.prepare('DELETE FROM terminal_instances WHERE id = ?').run(terminalId);
+  } catch {
+    // Idempotent: the row may have already been removed by cleanupSession
+    // (CASCADE delete), or the in-memory DB may have been closed during
+    // shutdown before this onExit callback fired.
+  }
 }

@@ -36,7 +36,7 @@ export function useCreateTerminalTab(
         creatingRef.current = false;
       }
     },
-    [workspaceId, tabs.length, createTab, createTerminal, onCreated],
+    [workspaceId, createTab, createTerminal, onCreated, tabs.length],
   );
 
   return createTerminalTab;

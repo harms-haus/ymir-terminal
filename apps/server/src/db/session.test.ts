@@ -13,10 +13,9 @@ import {
   getTerminalInstance,
   updateTerminalSize,
   deleteTerminalInstance,
-  createBottomPanelTab,
-  listBottomPanelTabs,
   cleanupSession,
 } from './session';
+import { createBottomPanelTab, listBottomPanelTabs } from './bottom-panel';
 
 describe('session database', () => {
   let db: Database;

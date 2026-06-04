@@ -148,6 +148,48 @@ export function TabBar({
     };
   }, [emptyMenuPos]);
 
+  // Auto-focus first menu item when menu opens
+  useEffect(() => {
+    if (!emptyMenuPos) return;
+    requestAnimationFrame(() => {
+      const firstItem = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]');
+      firstItem?.focus();
+    });
+  }, [emptyMenuPos]);
+
+  // Keyboard navigation for context menu
+  const handleMenuKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!menuRef.current) return;
+    const items = Array.from(menuRef.current.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const currentIdx = items.indexOf(document.activeElement as HTMLElement);
+
+    switch (e.key) {
+      case 'ArrowDown': {
+        e.preventDefault();
+        const next = currentIdx < items.length - 1 ? currentIdx + 1 : 0;
+        items[next]?.focus();
+        break;
+      }
+      case 'ArrowUp': {
+        e.preventDefault();
+        const prev = currentIdx > 0 ? currentIdx - 1 : items.length - 1;
+        items[prev]?.focus();
+        break;
+      }
+      case 'Enter':
+      case ' ': {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.click();
+        break;
+      }
+      case 'Escape': {
+        e.preventDefault();
+        setEmptyMenuPos(null);
+        break;
+      }
+    }
+  }, []);
+
   return (
     <div
       data-testid="tab-bar"
@@ -168,6 +210,8 @@ export function TabBar({
         .tab-close-btn-focus:focus-visible { outline: 1px solid var(--accent, #007acc); outline-offset: -1px; }
         .tab-close-btn-focus:hover { background: rgba(255,255,255,0.1); }
         [role="tab"]:focus-visible { outline: 1px solid var(--accent, #007acc); outline-offset: -1px; }
+        [role="menuitem"]:hover, [role="menuitem"]:focus { background: rgba(255,255,255,0.08); }
+        [role="menuitem"]:focus { outline: 1px solid var(--accent, #007acc); outline-offset: -1px; }
       `}</style>
       {/* Scrollable tabs container */}
       <div
@@ -245,7 +289,11 @@ export function TabBar({
       {/* Manual context menu for empty-area right-click (no Radix, avoids nesting) */}
       {emptyMenuPos && (
         <div
+          ref={menuRef}
           data-testid="tab-bar-context-menu"
+          role="menu"
+          tabIndex={-1}
+          onKeyDown={handleMenuKeyDown}
           style={{
             position: 'fixed',
             left: emptyMenuPos.x,
@@ -257,12 +305,14 @@ export function TabBar({
             padding: 4,
             boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
             zIndex: 9999,
+            outline: 'none',
           }}
         >
           {onSplitRight && (
             <div
               data-testid="tab-bar-split-right"
               role="menuitem"
+              tabIndex={-1}
               style={{ padding: '6px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 3 }}
               onClick={() => {
                 setEmptyMenuPos(null);
@@ -276,6 +326,7 @@ export function TabBar({
             <div
               data-testid="tab-bar-split-down"
               role="menuitem"
+              tabIndex={-1}
               style={{ padding: '6px 12px', fontSize: 13, cursor: 'pointer', borderRadius: 3 }}
               onClick={() => {
                 setEmptyMenuPos(null);
@@ -289,6 +340,7 @@ export function TabBar({
             <div
               data-testid="tab-bar-close-pane"
               role="menuitem"
+              tabIndex={-1}
               style={{
                 padding: '6px 12px',
                 fontSize: 13,

@@ -9,7 +9,7 @@ import {
   type WorkspaceCreateResponse,
   type FileChangeEvent as FileChangePayload,
 } from '@ymir/shared';
-import { mockConn, request } from '../../test-helpers/mock-utils';
+import { mockConn, request, makeGetWorkspaceMock } from '../../test-helpers/mock-utils';
 import type { Database } from 'bun:sqlite';
 import { MessageRouter } from '../router';
 import { registerWorkspaceHandlers } from './workspaces';
@@ -33,6 +33,7 @@ describe('registerWorkspaceHandlers', () => {
   let startManagedWatcherFn: ReturnType<typeof mock>;
   let stopManagedWatcherFn: ReturnType<typeof mock>;
   let reorderWorkspacesFn: ReturnType<typeof mock>;
+  let deletePersistedTabsByWorkspaceFn: ReturnType<typeof mock>;
   let broadcastedEvents: EventEnvelope[];
 
   beforeEach(() => {
@@ -66,18 +67,16 @@ describe('registerWorkspaceHandlers', () => {
       };
     });
     deleteWorkspaceFn = mock(() => true);
-    getWorkspaceFn = mock(() => ({
+    getWorkspaceFn = makeGetWorkspaceMock({
       id: 'ws-1',
       name: 'original',
       cwd: '/original',
       color: '#000000',
-      sort_order: 0,
-      created_at: '2025-01-01T00:00:00Z',
-      updated_at: '2025-01-01T00:00:00Z',
-    }));
+    });
     startManagedWatcherFn = mock(() => {});
     stopManagedWatcherFn = mock(() => {});
     reorderWorkspacesFn = mock(() => {});
+    deletePersistedTabsByWorkspaceFn = mock(() => {});
 
     broadcastedEvents = [];
 
@@ -96,6 +95,7 @@ describe('registerWorkspaceHandlers', () => {
         startManagedWatcher: startManagedWatcherFn,
         stopManagedWatcher: stopManagedWatcherFn,
         reorderWorkspaces: reorderWorkspacesFn,
+        deletePersistedTabsByWorkspace: deletePersistedTabsByWorkspaceFn,
       },
     });
   });

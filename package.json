@@ -45,8 +45,5 @@
   },
   "patchedDependencies": {
     "ghostty-web@0.4.0": "patches/ghostty-web@0.4.0.patch"
-  },
-  "dependencies": {
-    "chokidar": "^5.0.0"
   }
 }

@@ -9,6 +9,8 @@ export async function stashPush(
   if (options?.includeUntracked) args.push('-u');
   if (options?.message) args.push('-m', options.message);
   await spawnGitChecked(args, dirPath);
+  // 'git stash push' always creates the new stash at stash@{0}, shifting
+  // existing entries down. The ref is deterministic — no parsing needed.
   return 'stash@{0}';
 }
 

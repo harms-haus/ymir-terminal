@@ -32,8 +32,8 @@ interface ResponseEnvelope<T = unknown> extends Omit<MessageEnvelope<T | null>, 
   error?: ErrorResponse; // code is typed as ErrorCode (union), not plain string
 }
 
-// Server → client unilateral event (no matching request)
-interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type'> {
+// Server → client unilateral event (no matching request, no id)
+interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | 'id'> {
   type: 'event';
   payload: T;
 }
@@ -61,6 +61,8 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type'> {
 | `workspace.update`           | request   | Update workspace settings                                                                                |
 | `workspace.delete`           | request   | Delete a workspace                                                                                       |
 | `workspace.reorder`          | request   | Reorder workspaces by ID array                                                                           |
+| `workspace.subscribe`        | request   | Subscribe to real-time updates for a workspace                                                           |
+| `workspace.unsubscribe`      | request   | Unsubscribe from real-time updates for a workspace                                                       |
 | `file.tree`                  | request   | Get directory listing                                                                                    |
 | `file.read`                  | request   | Read file contents                                                                                       |
 | `file.write`                 | request   | Write file contents                                                                                      |
@@ -129,6 +131,21 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type'> {
 | `connection.status`          | event     | Connection status change                                                                                 |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
+
+## Shared Git Types
+
+```typescript
+type GitFileChangeStatus = 'M' | 'A' | 'D' | 'R' | 'C' | '??';
+```
+
+| Value | Meaning   |
+| ----- | --------- |
+| `M`   | Modified  |
+| `A`   | Added     |
+| `D`   | Deleted   |
+| `R`   | Renamed   |
+| `C`   | Copied    |
+| `??`  | Untracked |
 
 ## Git Channel Type Reference
 
@@ -253,19 +270,19 @@ The `pane` field is a dynamic string (any pane ID), not limited to a fixed set.
 
 ### Tab Listing & Restoration
 
-| Channel       | Request type        | Response type        | Fields                                                                                                   |
-| ------------- | ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `tab.list`    | `TabListRequest`    | `TabListResponse`    | req: `pane?`; res: `tabs` (`TabInfo[]`)                                                                  |
-| `tab.restore` | `TabRestoreRequest` | `TabRestoreResponse` | req: `workspaceId`; res: `tabs` (`PersistedTabInfo[]`) — creates new PTYs for terminal tabs, updates IDs |
+| Channel       | Request type        | Response type        | Fields                                                                                                                    |
+| ------------- | ------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `tab.list`    | `TabListRequest`    | `TabListResponse`    | req: `pane?`, `worktreePath?`; res: `tabs` (`TabInfo[]`)                                                                  |
+| `tab.restore` | `TabRestoreRequest` | `TabRestoreResponse` | req: `workspaceId`, `worktreePath?`; res: `tabs` (`PersistedTabInfo[]`) — creates new PTYs for terminal tabs, updates IDs |
 
 ### Tab Lifecycle
 
-| Channel       | Request type        | Response type       | Fields                                                                                                                                                                  |
-| ------------- | ------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tab.create`  | `TabCreateRequest`  | `TabCreateResponse` | req: `pane`, `tabType`, `title`, `terminalId?`, `filePath?`, `diffRef?`, `diffRepoPath?`, `repoPath?`, `commitSha?`, `parentSha?`, `cwd?`, `customTitle?`; res: `tabId` |
-| `tab.update`  | `TabUpdateRequest`  | —                   | req: `tabId`, `active?`, `sortOrder?`, `title?`                                                                                                                         |
-| `tab.delete`  | `TabDeleteRequest`  | —                   | req: `tabId`                                                                                                                                                            |
-| `tab.reorder` | `TabReorderRequest` | —                   | req: `tabIds` (`string[]`)                                                                                                                                              |
+| Channel       | Request type        | Response type       | Fields                                                                                                                                                                                   |
+| ------------- | ------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tab.create`  | `TabCreateRequest`  | `TabCreateResponse` | req: `pane`, `tabType`, `title`, `terminalId?`, `filePath?`, `diffRef?`, `diffRepoPath?`, `repoPath?`, `commitSha?`, `parentSha?`, `cwd?`, `customTitle?`, `worktreePath?`; res: `tabId` |
+| `tab.update`  | `TabUpdateRequest`  | —                   | req: `tabId`, `active?`, `sortOrder?`, `title?`                                                                                                                                          |
+| `tab.delete`  | `TabDeleteRequest`  | —                   | req: `tabId`                                                                                                                                                                             |
+| `tab.reorder` | `TabReorderRequest` | —                   | req: `tabIds` (`string[]`)                                                                                                                                                               |
 
 ### TabInfo
 
@@ -287,6 +304,7 @@ interface TabInfo {
   parentSha?: string | null;
   cwd?: string | null;
   customTitle?: string | null;
+  worktreePath?: string | null;
 }
 ```
 
@@ -310,6 +328,7 @@ interface PersistedTabInfo {
   cwd: string | null;
   customTitle: string | null;
   terminalId: string | null;
+  worktreePath?: string | null;
 }
 ```
 

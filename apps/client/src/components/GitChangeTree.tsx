@@ -20,8 +20,6 @@ function statusLabel(status?: GitFileChangeStatus): string {
       return 'Copied';
     case '??':
       return 'Untracked';
-    case '?':
-      return 'Untracked';
     default:
       return 'Unknown';
   }

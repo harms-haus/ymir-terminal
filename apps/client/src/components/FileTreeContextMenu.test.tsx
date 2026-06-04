@@ -6,6 +6,7 @@ setupAllMocks();
 import { describe, test, expect, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
+import { FileTreeContext } from './FileTreeContext';
 
 // ---------------------------------------------------------------------------
 // Mock useDialog hooks (used by FileTreeContextMenu for confirm dialogs)
@@ -51,24 +52,31 @@ function renderContextMenu(
   const onCopy = overrides.onCopy ?? mock(() => {});
   const onPaste = overrides.onPaste ?? mock(() => {});
 
+  const contextValue = {
+    onNewFile,
+    onNewFolder,
+    onRename,
+    onDelete,
+    onOpenEditor,
+    onCut,
+    onCopy,
+    onPaste,
+    clipboardHasItem: overrides.clipboardHasItem ?? false,
+    workspaceCwd: overrides.workspaceCwd ?? '/home/user/project',
+  };
+
   const result = render(
     React.createElement(
-      FileTreeContextMenu,
-      {
-        path: overrides.path ?? '/src',
-        isDirectory: overrides.isDirectory ?? true,
-        onNewFile,
-        onNewFolder,
-        onRename,
-        onDelete,
-        onOpenEditor,
-        onCut,
-        onCopy,
-        onPaste,
-        clipboardHasItem: overrides.clipboardHasItem ?? false,
-        workspaceCwd: overrides.workspaceCwd ?? '/home/user/project',
-      } as React.Attributes & React.ComponentProps<typeof FileTreeContextMenu>,
-      React.createElement('div', { 'data-testid': 'trigger' }, 'Trigger'),
+      FileTreeContext.Provider,
+      { value: contextValue },
+      React.createElement(
+        FileTreeContextMenu,
+        {
+          path: overrides.path ?? '/src',
+          isDirectory: overrides.isDirectory ?? true,
+        } as React.Attributes & React.ComponentProps<typeof FileTreeContextMenu>,
+        React.createElement('div', { 'data-testid': 'trigger' }, 'Trigger'),
+      ),
     ),
   );
 

@@ -34,14 +34,20 @@ export class GitStatusCache {
     return Date.now() - entry.timestamp;
   }
 
-  /** Remove the cache entry for the given path. */
+  /** Remove the cache entry and any in-flight promise for the given path. */
   invalidate(gitDir: string): void {
     this.cache.delete(gitDir);
+    this.inflight.delete(gitDir);
   }
 
   /** Remove all cache entries. */
   invalidateAll(): void {
     this.cache.clear();
+  }
+
+  /** Returns `true` if there is an in-flight promise for the given path. */
+  hasInFlight(gitDir: string): boolean {
+    return this.inflight.has(gitDir);
   }
 
   /** Returns `true` if an entry exists and is younger than `CACHE_TTL_MS`. */

@@ -7,7 +7,9 @@
  */
 
 import { Database } from 'bun:sqlite';
+import { expect } from 'bun:test';
 import { PROTOCOL_VERSION, type RequestEnvelope } from '@ymir/shared';
+import type { Workspace } from '../db/persistent';
 import { ClientConnection } from '../ws/connection';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +105,130 @@ export function request<T = unknown>(
     payload,
     ...(token ? { token } : {}),
   } as RequestEnvelope<T>;
+}
+
+// ---------------------------------------------------------------------------
+// Workspace mock factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Describes a workspace entry to be returned by a `getWorkspace` mock.
+ *
+ * Only `id`, `cwd`, and `name` are required for most handler tests. Other
+ * fields default to sensible values.
+ */
+export interface MockWorkspaceEntry {
+  id: string;
+  name?: string;
+  cwd?: string;
+  color?: string;
+  sort_order?: number;
+}
+
+const DEFAULT_MOCK_WORKSPACE: Required<MockWorkspaceEntry> = {
+  id: 'ws-1',
+  name: 'Test',
+  cwd: '/home/dev/project',
+  color: '#007acc',
+  sort_order: 0,
+};
+
+/**
+ * Create a mock `getWorkspace` function for use in handler tests.
+ *
+ * @param workspaces - One or more workspace entries the mock should return.
+ *                     If a string is passed, it is treated as the workspace id
+ *                     with all other fields set to defaults.
+ *                     Any id not in the list returns `null`.
+ *                     Defaults to a single workspace with id `'ws-1'`,
+ *                     cwd `'/home/dev/project'`.
+ * @returns A `(db: unknown, id: string) => Workspace | null` mock function.
+ *
+ * @example
+ * ```ts
+ * // Default: ws-1 → /home/dev/project
+ * const getWorkspace = makeGetWorkspaceMock();
+ *
+ * // Custom workspace
+ * const getWorkspace = makeGetWorkspaceMock({ id: 'ws-42', cwd: '/tmp/test' });
+ *
+ * // Multiple workspaces
+ * const getWorkspace = makeGetWorkspaceMock(
+ *   { id: 'ws-1', cwd: '/home/dev/project' },
+ *   { id: 'ws-2', cwd: '/tmp/plain', name: 'No Git' },
+ * );
+ * ```
+ */
+export function makeGetWorkspaceMock(
+  ...workspaces: Array<MockWorkspaceEntry | string>
+): (db: unknown, id: string) => Workspace | null {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { mock: bunMock } = require('bun:test') as unknown as {
+    mock: <T extends (...args: any[]) => any>(fn: T) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  };
+
+  const entries: Required<MockWorkspaceEntry>[] =
+    workspaces.length > 0
+      ? workspaces.map((w) =>
+          typeof w === 'string'
+            ? { ...DEFAULT_MOCK_WORKSPACE, id: w }
+            : {
+                id: w.id,
+                name: w.name ?? DEFAULT_MOCK_WORKSPACE.name,
+                cwd: w.cwd ?? DEFAULT_MOCK_WORKSPACE.cwd,
+                color: w.color ?? DEFAULT_MOCK_WORKSPACE.color,
+                sort_order: w.sort_order ?? DEFAULT_MOCK_WORKSPACE.sort_order,
+              },
+        )
+      : [{ ...DEFAULT_MOCK_WORKSPACE }];
+
+  const byId = new Map(entries.map((e) => [e.id, e]));
+
+  return bunMock((_db: unknown, id: string): Workspace | null => {
+    const entry = byId.get(id);
+    if (!entry) return null;
+    return {
+      id: entry.id,
+      name: entry.name,
+      cwd: entry.cwd,
+      color: entry.color,
+      sort_order: entry.sort_order,
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Response assertions
+// ---------------------------------------------------------------------------
+
+/**
+ * Assert that the given response envelope is a successful response.
+ *
+ * Checks `type === 'response'`, optionally verifies the request `id`, and
+ * asserts `error` is `undefined`. Returns the typed payload so callers can
+ * chain further assertions.
+ *
+ * @param resp      - The response envelope (first element from `conn.sent[]`).
+ * @param requestId - Optional request id to assert against.
+ * @returns         - The `resp.payload` value cast to `T`.
+ *
+ * @example
+ * ```ts
+ * const resp = conn.sent[0] as Record<string, unknown>;
+ * const payload = expectSuccessResponse<GitStatusResponse>(resp, req.id);
+ * expect(payload.branch).toBe('main');
+ * ```
+ */
+export function expectSuccessResponse<T = unknown>(
+  resp: Record<string, unknown>,
+  requestId?: string,
+): T {
+  expect(resp.type).toBe('response');
+  if (requestId) expect(resp.id).toBe(requestId);
+  expect(resp.error).toBeUndefined();
+  return resp.payload as T;
 }
 
 // ---------------------------------------------------------------------------

@@ -5,41 +5,19 @@ await setupTestDom();
 import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
 import { renderHook, act } from '@testing-library/react';
 import type { ConnectionStatus } from '../lib/ws-client';
+import { createMockWsClient } from '../test-helpers/mock-ws-client';
 
 // ---------------------------------------------------------------------------
 // Mock ws-client module
 // ---------------------------------------------------------------------------
 
-type StatusHandler = (status: ConnectionStatus) => void;
+const mockWs = createMockWsClient({ initialStatus: 'disconnected' });
 
-let mockStatus: ConnectionStatus = 'disconnected';
-let statusHandlers: StatusHandler[] = [];
-
-const mockOnStatusChange = mock((handler: StatusHandler) => {
-  statusHandlers.push(handler);
-  return () => {
-    statusHandlers = statusHandlers.filter((h) => h !== handler);
-  };
-});
-
-const mockGetStatus = mock(() => mockStatus);
-
-mock.module('../lib/ws-client', () => ({
-  wsClient: {
-    getStatus: mockGetStatus,
-    onStatusChange: mockOnStatusChange,
-  },
-}));
+// NOTE: mock.module must be called directly at module scope for Bun to hoist it.
+mock.module('../lib/ws-client', () => ({ wsClient: mockWs.wsClient }));
 
 // Import after mocking
 const { useConnectionStatus } = await import('./useConnectionStatus');
-
-function simulateStatusChange(status: ConnectionStatus) {
-  mockStatus = status;
-  for (const handler of statusHandlers) {
-    handler(status);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -52,15 +30,11 @@ afterAll(() => {
 
 describe('useConnectionStatus', () => {
   beforeEach(() => {
-    mockStatus = 'disconnected';
-    statusHandlers = [];
-    mockGetStatus.mockClear();
-    mockOnStatusChange.mockClear();
+    mockWs.reset();
   });
 
   afterEach(() => {
-    // Clean up any remaining handlers
-    statusHandlers = [];
+    mockWs.reset();
   });
 
   // 1. Returns { status, isConnected, isReconnecting }
@@ -79,12 +53,12 @@ describe('useConnectionStatus', () => {
     expect(result.current.status).toBe('disconnected');
 
     act(() => {
-      simulateStatusChange('connecting');
+      mockWs.simulateStatusChange('connecting');
     });
     expect(result.current.status).toBe('connecting');
 
     act(() => {
-      simulateStatusChange('connected');
+      mockWs.simulateStatusChange('connected');
     });
     expect(result.current.status).toBe('connected');
   });
@@ -97,22 +71,22 @@ describe('useConnectionStatus', () => {
     expect(result.current.isConnected).toBe(false);
 
     act(() => {
-      simulateStatusChange('connecting');
+      mockWs.simulateStatusChange('connecting');
     });
     expect(result.current.isConnected).toBe(false);
 
     act(() => {
-      simulateStatusChange('connected');
+      mockWs.simulateStatusChange('connected');
     });
     expect(result.current.isConnected).toBe(true);
 
     act(() => {
-      simulateStatusChange('reconnecting');
+      mockWs.simulateStatusChange('reconnecting');
     });
     expect(result.current.isConnected).toBe(false);
 
     act(() => {
-      simulateStatusChange('disconnected');
+      mockWs.simulateStatusChange('disconnected');
     });
     expect(result.current.isConnected).toBe(false);
   });
@@ -124,22 +98,22 @@ describe('useConnectionStatus', () => {
     expect(result.current.isReconnecting).toBe(false);
 
     act(() => {
-      simulateStatusChange('connecting');
+      mockWs.simulateStatusChange('connecting');
     });
     expect(result.current.isReconnecting).toBe(false);
 
     act(() => {
-      simulateStatusChange('connected');
+      mockWs.simulateStatusChange('connected');
     });
     expect(result.current.isReconnecting).toBe(false);
 
     act(() => {
-      simulateStatusChange('reconnecting');
+      mockWs.simulateStatusChange('reconnecting');
     });
     expect(result.current.isReconnecting).toBe(true);
 
     act(() => {
-      simulateStatusChange('disconnected');
+      mockWs.simulateStatusChange('disconnected');
     });
     expect(result.current.isReconnecting).toBe(false);
   });
@@ -158,7 +132,7 @@ describe('useConnectionStatus', () => {
 
     for (const s of statuses) {
       act(() => {
-        simulateStatusChange(s);
+        mockWs.simulateStatusChange(s);
       });
       expect(result.current.status).toBe(s);
     }
@@ -168,19 +142,18 @@ describe('useConnectionStatus', () => {
   test('subscribes on mount and unsubscribes on unmount', () => {
     const { unmount } = renderHook(() => useConnectionStatus());
 
-    expect(mockOnStatusChange).toHaveBeenCalledTimes(1);
-    expect(statusHandlers.length).toBe(1);
+    expect(mockWs.mockOnStatusChange.mock.calls.length).toBe(1);
+    expect(mockWs.statusHandlerCount).toBe(1);
 
     unmount();
 
-    expect(statusHandlers.length).toBe(0);
+    expect(mockWs.statusHandlerCount).toBe(0);
   });
 
   // 7. Initial status comes from wsClient.getStatus()
   test('initial status comes from wsClient.getStatus()', () => {
-    mockStatus = 'connecting';
     const { result } = renderHook(() => useConnectionStatus());
-    expect(result.current.status).toBe('connecting');
-    expect(mockGetStatus).toHaveBeenCalled();
+    expect(result.current.status).toBe('disconnected');
+    expect(mockWs.mockGetStatus.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 });

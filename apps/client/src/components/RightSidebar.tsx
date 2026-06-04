@@ -6,9 +6,8 @@ import { GitPanel } from './GitPanel';
 import { GitHistoryPanel } from './GitHistoryPanel';
 import { sendRequest } from '../lib/send-request';
 import { useFileChange } from '../hooks/useFileChange';
-import { useGitStatusSubscription } from '../hooks/useGitStatusSubscription';
+import { useGitStatusSubscription } from '../hooks/git';
 import { usePrompt } from '../hooks/useDialog';
-import './RightSidebar.css';
 import type { FileNode } from '@ymir/shared';
 import type { GitStatusResponse } from '@ymir/shared';
 import { mergeDeletedFiles } from '../lib/git-utils';
@@ -266,127 +265,138 @@ export function RightSidebar({
   );
 
   return (
-    <div
-      data-testid="right-sidebar-content"
-      style={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
+    <>
+      <style>{`
+        [data-testid='right-sidebar'] [data-separator]:hover {
+          background: #555 !important;
+        }
+        [data-testid='right-sidebar-content'] button:focus-visible {
+          outline: 2px solid var(--accent, #007acc);
+          outline-offset: 1px;
+        }
+      `}</style>
       <div
+        data-testid="right-sidebar-content"
         style={{
-          height: `${TITLE_BAR_HEIGHT}px`,
+          height: '100%',
           display: 'flex',
-          alignItems: 'center',
-          padding: '0 12px',
-          borderBottom: `1px solid ${COLOR_BORDER}`,
-          fontSize: '11px',
-          textTransform: 'uppercase' as const,
-          color: COLOR_TEXT_MUTED,
-          flexShrink: 0,
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}
       >
-        <span style={{ flex: 1 }}>Project</span>
-        <button
-          data-testid="toggle-file-tree"
-          title="File Explorer"
-          aria-label="File Explorer"
-          onClick={() => setTopView('tree')}
-          style={{
-            background: topView === 'tree' ? COLOR_HOVER_BG : 'transparent',
-            border: 'none',
-            color: topView === 'tree' ? COLOR_TEXT : COLOR_TEXT_MUTED,
-            cursor: 'pointer',
-            padding: '2px 6px',
-            borderRadius: '3px',
-            fontSize: '12px',
-            lineHeight: 1,
-            fontFamily: "'JetBrainsMono Nerd Font'",
-          }}
-        >
-          󰙅
-        </button>
-        <button
-          data-testid="toggle-git-changes"
-          title="Git Changes"
-          aria-label="Git Changes"
-          onClick={() => setTopView('changes')}
-          style={{
-            background: topView === 'changes' ? COLOR_HOVER_BG : 'transparent',
-            border: 'none',
-            color: topView === 'changes' ? COLOR_TEXT : COLOR_TEXT_MUTED,
-            cursor: 'pointer',
-            padding: '2px 6px',
-            borderRadius: '3px',
-            fontSize: '12px',
-            lineHeight: 1,
-          }}
-        >
-          ⎇
-        </button>
-      </div>
-      {error && (
         <div
           style={{
-            padding: '8px',
-            color: COLOR_ERROR,
-            fontSize: '12px',
+            height: `${TITLE_BAR_HEIGHT}px`,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 12px',
             borderBottom: `1px solid ${COLOR_BORDER}`,
+            fontSize: '11px',
+            textTransform: 'uppercase' as const,
+            color: COLOR_TEXT_MUTED,
+            flexShrink: 0,
           }}
         >
-          {error}
+          <span style={{ flex: 1 }}>Project</span>
+          <button
+            data-testid="toggle-file-tree"
+            title="File Explorer"
+            aria-label="File Explorer"
+            onClick={() => setTopView('tree')}
+            style={{
+              background: topView === 'tree' ? COLOR_HOVER_BG : 'transparent',
+              border: 'none',
+              color: topView === 'tree' ? COLOR_TEXT : COLOR_TEXT_MUTED,
+              cursor: 'pointer',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              fontSize: '12px',
+              lineHeight: 1,
+              fontFamily: "'JetBrainsMono Nerd Font'",
+            }}
+          >
+            󰙅
+          </button>
+          <button
+            data-testid="toggle-git-changes"
+            title="Git Changes"
+            aria-label="Git Changes"
+            onClick={() => setTopView('changes')}
+            style={{
+              background: topView === 'changes' ? COLOR_HOVER_BG : 'transparent',
+              border: 'none',
+              color: topView === 'changes' ? COLOR_TEXT : COLOR_TEXT_MUTED,
+              cursor: 'pointer',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              fontSize: '12px',
+              lineHeight: 1,
+            }}
+          >
+            ⎇
+          </button>
         </div>
-      )}
-      <Group
-        orientation="vertical"
-        style={{ flex: 1, minHeight: 0 }}
-        groupRef={explorerGroupRef}
-        onLayoutChanged={handleExplorerLayoutChanged}
-      >
-        <Panel id="topPane" defaultSize="60%" minSize="20%" style={{ overflow: 'auto' }}>
-          {topView === 'tree' ? (
-            workspaceId ? (
-              <FileTree
-                tree={treeWithDeleted}
-                onFileSelect={onFileSelect}
-                onOpenEditor={onFileSelect}
-                workspaceId={workspaceId}
-                onNewFile={handleNewFile}
-                onNewFolder={handleNewFolder}
-                onRename={handleRename}
-                onDelete={handleDelete}
-                gitStatus={effectiveGitStatus}
-                workspaceRoot={workspaceCwd}
-                onCut={handleCut}
-                onCopy={handleCopy}
-                onPaste={handlePaste}
-                clipboardHasItem={clipboard.mode !== null}
-                workspaceCwd={workspaceCwd}
-              />
+        {error && (
+          <div
+            style={{
+              padding: '8px',
+              color: COLOR_ERROR,
+              fontSize: '12px',
+              borderBottom: `1px solid ${COLOR_BORDER}`,
+            }}
+          >
+            {error}
+          </div>
+        )}
+        <Group
+          orientation="vertical"
+          style={{ flex: 1, minHeight: 0 }}
+          groupRef={explorerGroupRef}
+          onLayoutChanged={handleExplorerLayoutChanged}
+        >
+          <Panel id="topPane" defaultSize="60%" minSize="20%" style={{ overflow: 'auto' }}>
+            {topView === 'tree' ? (
+              workspaceId ? (
+                <FileTree
+                  tree={treeWithDeleted}
+                  onFileSelect={onFileSelect}
+                  onOpenEditor={onFileSelect}
+                  workspaceId={workspaceId}
+                  onNewFile={handleNewFile}
+                  onNewFolder={handleNewFolder}
+                  onRename={handleRename}
+                  onDelete={handleDelete}
+                  gitStatus={effectiveGitStatus}
+                  workspaceRoot={workspaceCwd}
+                  onCut={handleCut}
+                  onCopy={handleCopy}
+                  onPaste={handlePaste}
+                  clipboardHasItem={clipboard.mode !== null}
+                  workspaceCwd={workspaceCwd}
+                />
+              ) : (
+                <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>
+              )
             ) : (
-              <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>
-            )
-          ) : (
-            <GitPanel
+              <GitPanel
+                workspaceId={workspaceId}
+                workspaceCwd={workspaceCwd ?? null}
+                onOpenEditor={onFileSelect}
+                onOpenDiff={onOpenDiff}
+                onOpenGitTree={onOpenGitTree}
+              />
+            )}
+          </Panel>
+          <Separator style={{ height: '2px', background: COLOR_BORDER }} />
+          <Panel id="historyPane" defaultSize="40%" minSize="10%" style={{ overflow: 'hidden' }}>
+            <GitHistoryPanel
               workspaceId={workspaceId}
-              workspaceCwd={workspaceCwd ?? null}
-              onOpenEditor={onFileSelect}
-              onOpenDiff={onOpenDiff}
-              onOpenGitTree={onOpenGitTree}
+              workspaceCwd={workspaceCwd}
+              onCommitClick={onCommitClick}
             />
-          )}
-        </Panel>
-        <Separator style={{ height: '2px', background: COLOR_BORDER }} />
-        <Panel id="historyPane" defaultSize="40%" minSize="10%" style={{ overflow: 'hidden' }}>
-          <GitHistoryPanel
-            workspaceId={workspaceId}
-            workspaceCwd={workspaceCwd}
-            onCommitClick={onCommitClick}
-          />
-        </Panel>
-      </Group>
-    </div>
+          </Panel>
+        </Group>
+      </div>
+    </>
   );
 }

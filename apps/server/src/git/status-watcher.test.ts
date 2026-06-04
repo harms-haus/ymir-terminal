@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { join } from 'node:path';
 import type { GitStatusResponse } from '@ymir/shared';
 import type { GitStatusCache } from './status-cache';
-import { GitStatusWatcher, DEBOUNCE_MS } from './status-watcher';
+import { GitStatusWatcher } from './status-watcher';
 
 // ---------------------------------------------------------------------------
 // Mock chokidar — intercept watch before status-watcher is loaded
@@ -32,6 +32,10 @@ function createMockWatcher(): MockChokidarWatcher {
   return w;
 }
 
+// IMPORTANT: mock.module() is process-scoped in Bun — once called it cannot
+// be undone per-test-file.  We accept this trade-off because chokidar is only
+// needed by status-watcher and no other test file mocks it.  If contamination
+// becomes an issue, migrate to a DI-based approach (inject chokidar via deps).
 mock.module('chokidar', () => {
   return {
     default: {
@@ -45,6 +49,10 @@ mock.module('chokidar', () => {
     },
   };
 });
+
+// Ensure any process-scoped mock.module registrations are cleaned up when the
+// test suite finishes, preventing leakage into other test files.
+afterAll(() => mock.restore());
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,12 +81,16 @@ function makeMockCache(overrides: Partial<GitStatusCache> = {}): GitStatusCache 
     invalidate: mock(() => {}),
     invalidateAll: mock(() => {}),
     isFresh: mock(() => false),
+    hasInFlight: mock(() => false),
     getOrCreate: mock(async (_dir: string, factory: () => Promise<GitStatusResponse>) => {
       return factory();
     }),
     ...overrides,
   } as unknown as GitStatusCache;
 }
+
+/** A short debounce delay used by tests (avoids relying on the real 500 ms). */
+const TEST_DEBOUNCE_MS = 10;
 
 /** A short safety-poll interval for tests that exercise the poll. */
 const TEST_POLL_MS = 100;
@@ -97,8 +109,13 @@ describe('GitStatusWatcher', () => {
     mockWatchCalls.length = 0;
     cache = makeMockCache();
     getStatus = mock(async () => makeStatus());
-    // Disable safety poll by default to avoid interfering with debounce/event tests
-    watcher = new GitStatusWatcher({ cache, getStatus, disableSafetyPoll: true });
+    // Use a short debounce and disable safety poll to avoid timing flakes
+    watcher = new GitStatusWatcher({
+      cache,
+      getStatus,
+      debounceMs: TEST_DEBOUNCE_MS,
+      disableSafetyPoll: true,
+    });
   });
 
   afterEach(async () => {
@@ -206,8 +223,8 @@ describe('GitStatusWatcher', () => {
       watcher.scheduleRefresh('/repo');
       watcher.scheduleRefresh('/repo');
 
-      // Advance past debounce
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      // Advance past debounce (TEST_DEBOUNCE_MS = 10 ms)
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
 
       expect(refreshCount).toBe(1);
     });
@@ -224,11 +241,11 @@ describe('GitStatusWatcher', () => {
       watcher.scheduleRefresh('/repo');
 
       // Before debounce fires
-      await Bun.sleep(DEBOUNCE_MS / 2);
+      await Bun.sleep(TEST_DEBOUNCE_MS / 2);
       expect(refreshCount).toBe(0);
 
       // After debounce fires
-      await Bun.sleep(DEBOUNCE_MS / 2 + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS / 2 + 50);
       expect(refreshCount).toBe(1);
     });
 
@@ -242,11 +259,11 @@ describe('GitStatusWatcher', () => {
       watcher.watchRepo('/repo', '/repo');
 
       watcher.scheduleRefresh('/repo');
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(1);
 
       watcher.scheduleRefresh('/repo');
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(2);
     });
   });
@@ -274,7 +291,7 @@ describe('GitStatusWatcher', () => {
       expect(refreshCount).toBe(1);
 
       // Wait past the original debounce window — no additional refresh
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(1);
     });
 
@@ -447,7 +464,7 @@ describe('GitStatusWatcher', () => {
       await watcher.unwatchRepo('/repo');
 
       // Wait past debounce — no refresh should fire
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(0);
     });
 
@@ -593,7 +610,7 @@ describe('GitStatusWatcher', () => {
       const headWatcher = mockWatchers[0];
       headWatcher._callbacks['change']();
 
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(1);
     });
 
@@ -609,7 +626,7 @@ describe('GitStatusWatcher', () => {
       const refsWatcher = mockWatchers[1];
       refsWatcher._callbacks['all']();
 
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(1);
     });
 
@@ -625,7 +642,7 @@ describe('GitStatusWatcher', () => {
       const indexWatcher = mockWatchers[2];
       indexWatcher._callbacks['change']();
 
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(1);
     });
 
@@ -641,7 +658,7 @@ describe('GitStatusWatcher', () => {
       const rootWatcher = mockWatchers[3];
       rootWatcher._callbacks['all']('change', 'src/index.ts');
 
-      await Bun.sleep(DEBOUNCE_MS + 50);
+      await Bun.sleep(TEST_DEBOUNCE_MS + 50);
       expect(refreshCount).toBe(1);
     });
   });

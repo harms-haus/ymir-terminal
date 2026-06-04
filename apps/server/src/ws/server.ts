@@ -15,6 +15,9 @@ import { cleanupAuthAttempts } from './handlers/auth';
 /** Active connections keyed by session ID. */
 export const connections = new Map<string, ClientConnection>();
 
+/** WeakMap associating ServerWebSocket instances with their ClientConnection. */
+const connectionMap = new WeakMap<ServerWebSocket, ClientConnection>();
+
 /** MIME types for common static file extensions. */
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -128,7 +131,10 @@ export async function startWebSocketServer(options: WsServerOptions): Promise<Se
         }
 
         const conn = new ClientConnection(ws);
-        (ws as unknown as Record<string, unknown>).__conn = conn;
+        // Extract client IP from the WebSocket's remote address or X-Forwarded-For header
+        const wsRemote = (ws as unknown as { remoteAddress?: string }).remoteAddress;
+        conn.clientIp = wsRemote ?? 'unknown';
+        connectionMap.set(ws, conn);
         connections.set(conn.sessionId, conn);
       },
 
@@ -193,6 +199,5 @@ export async function startWebSocketServer(options: WsServerOptions): Promise<Se
 
 /** Retrieve the ClientConnection stored on a ServerWebSocket. */
 function getConnection(ws: ServerWebSocket): ClientConnection | undefined {
-  const conn = (ws as unknown as Record<string, unknown>).__conn;
-  return conn instanceof ClientConnection ? conn : undefined;
+  return connectionMap.get(ws);
 }

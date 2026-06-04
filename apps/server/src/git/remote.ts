@@ -1,6 +1,9 @@
 import { spawnGit, spawnGitChecked } from './status';
 
 export async function pushBranch(dirPath: string, branch: string): Promise<void> {
+  if (!/^[a-zA-Z0-9\/. _-]+$/.test(branch)) {
+    throw new Error(`Invalid branch name: ${branch}`);
+  }
   try {
     await spawnGitChecked(['push', 'origin', branch], dirPath);
   } catch (error) {
@@ -51,7 +54,7 @@ export async function addRemote(dirPath: string, name: string, url: string): Pro
     url.startsWith('http://') ||
     url.startsWith('ssh://') ||
     url.startsWith('git://') ||
-    url.includes(':');
+    /^[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+:/.test(url); // SCP-like: user@host:path
   if (!isValidUrl) {
     throw new Error(`Invalid remote URL: ${url}`);
   }

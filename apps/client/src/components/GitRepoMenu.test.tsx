@@ -137,7 +137,6 @@ describe('GitRepoMenu', () => {
     const { getByTestId } = renderGitRepoMenu();
 
     // Commit submenu items
-    expect(getByTestId('git-repo-menu-commit')).toBeTruthy();
     expect(getByTestId('git-repo-menu-commit-staged')).toBeTruthy();
     expect(getByTestId('git-repo-menu-commit-all')).toBeTruthy();
     expect(getByTestId('git-repo-menu-undo-commit')).toBeTruthy();

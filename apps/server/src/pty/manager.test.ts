@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-function-type */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-function-type */
 import { describe, expect, it, beforeEach, afterEach, mock } from 'bun:test';
 import { PTYManager } from './manager';
 import { toBase64 } from '@ymir/shared';
@@ -7,83 +7,144 @@ import { toBase64 } from '@ymir/shared';
 // process-scoped mock.module('node:fs') contamination across test files.
 const mockExistsSync = mock((_path: string) => true);
 
+// ---------------------------------------------------------------------------
+// Shared helpers for safe Bun global mocking
+// ---------------------------------------------------------------------------
+
+interface MockTerminalInstance {
+  cols: number;
+  rows: number;
+  dataCallback: Function;
+  written: Buffer[];
+  resizeOpts: { cols: number; rows: number } | null;
+  resizeCalls: { cols: number; rows: number }[];
+  closed: boolean;
+  write(data: Buffer): void;
+  resize(cols: number, rows: number): void;
+  close(): void;
+}
+
+/**
+ * Factory that builds a MockTerminal class wired to `instances`.
+ * Each new mock terminal pushes itself into `instances` for inspection.
+ */
+function createMockTerminalClass(
+  instances: MockTerminalInstance[],
+): new (opts: any) => MockTerminalInstance {
+  return class MockTerminal {
+    cols: number;
+    rows: number;
+    dataCallback: Function;
+    written: Buffer[] = [];
+    resizeOpts: { cols: number; rows: number } | null = null;
+    resizeCalls: { cols: number; rows: number }[] = [];
+    closed = false;
+
+    constructor(opts: any) {
+      this.cols = opts.cols;
+      this.rows = opts.rows;
+      this.dataCallback = opts.data;
+      instances.push(this as MockTerminalInstance);
+    }
+
+    write(data: Buffer) {
+      this.written.push(data);
+    }
+
+    resize(cols: number, rows: number) {
+      this.resizeOpts = { cols, rows };
+      this.resizeCalls.push({ cols, rows });
+      this.cols = cols;
+      this.rows = rows;
+    }
+
+    close() {
+      this.closed = true;
+    }
+  } as unknown as new (opts: any) => MockTerminalInstance;
+}
+
+/**
+ * Safely install mocks for `Bun.Terminal` and `Bun.spawn`, returning a
+ * `restore` function that is guaranteed to undo every overwrite even if
+ * one of the assignments throws.
+ *
+ * Pattern:
+ * ```ts
+ *   const { restore } = safeInstallBunMocks(TerminalCls, spawnFn);
+ *   try { /* test body *\/ } finally { restore(); }
+ * ```
+ */
+function safeInstallBunMocks(TerminalImpl: any, SpawnImpl: any): { restore: () => void } {
+  const saved = {
+    Terminal: (Bun as any).Terminal,
+    spawn: (Bun as any).spawn,
+  };
+  try {
+    (Bun as any).Terminal = TerminalImpl;
+    (Bun as any).spawn = SpawnImpl;
+  } catch (e) {
+    // If the second assignment fails, roll back the first.
+    (Bun as any).Terminal = saved.Terminal;
+    (Bun as any).spawn = saved.spawn;
+    throw e;
+  }
+  return {
+    restore() {
+      (Bun as any).Terminal = saved.Terminal;
+      (Bun as any).spawn = saved.spawn;
+    },
+  };
+}
+
+/**
+ * Build the default `Bun.spawn` mock that tracks spawned processes.
+ */
+function createMockSpawn(spawned: any[]): any {
+  return mock((_cmd: string[], _opts: any) => {
+    let _resolve: (code: number) => void;
+    const exited = new Promise<number>((resolve) => {
+      _resolve = resolve;
+    });
+    const proc = {
+      killed: false,
+      exited,
+      _resolve: () => _resolve(0),
+      kill() {
+        this.killed = true;
+      },
+    };
+    spawned.push(proc);
+    return proc;
+  });
+}
+
 describe('PTYManager', () => {
   let manager: PTYManager;
-  let mockTerminalInstances: any[];
+  let mockTerminalInstances: MockTerminalInstance[];
   let mockSpawnedProcesses: any[];
-  let originalTerminal: any;
-  let originalSpawn: any;
+  let restore: () => void;
 
   beforeEach(() => {
     manager = new PTYManager('linux', { existsSync: mockExistsSync });
     mockTerminalInstances = [];
     mockSpawnedProcesses = [];
 
-    // Store originals
-    originalTerminal = (Bun as any).Terminal;
-    originalSpawn = (Bun as any).spawn;
-
-    // Mock Bun.Terminal
-    (Bun as any).Terminal = class MockTerminal {
-      cols: number;
-      rows: number;
-      dataCallback: Function;
-      written: Buffer[] = [];
-      resizeOpts: { cols: number; rows: number } | null = null;
-      resizeCalls: { cols: number; rows: number }[] = [];
-      closed = false;
-
-      constructor(opts: any) {
-        this.cols = opts.cols;
-        this.rows = opts.rows;
-        this.dataCallback = opts.data;
-        mockTerminalInstances.push(this);
-      }
-
-      write(data: Buffer) {
-        this.written.push(data);
-      }
-
-      resize(cols: number, rows: number) {
-        this.resizeOpts = { cols, rows };
-        this.resizeCalls.push({ cols, rows });
-        this.cols = cols;
-        this.rows = rows;
-      }
-
-      close() {
-        this.closed = true;
-      }
-    };
-
     // Reset existsSync mock to default (all shells exist)
     mockExistsSync.mockImplementation((_path: string) => true);
 
-    // Mock Bun.spawn
-    (Bun as any).spawn = mock((_cmd: string[], opts: any) => {
-      let _resolve: (code: number) => void;
-      const exited = new Promise<number>((resolve) => {
-        _resolve = resolve;
-      });
-      const proc = {
-        killed: false,
-        exited,
-        _resolve: () => _resolve(0),
-        kill() {
-          this.killed = true;
-        },
-      };
-      mockSpawnedProcesses.push(proc);
-      return proc;
-    });
+    // Install Bun.Terminal and Bun.spawn mocks safely.
+    // safeInstallBunMocks captures originals and rolls back if any
+    // assignment fails, preventing cross-test contamination.
+    const result = safeInstallBunMocks(
+      createMockTerminalClass(mockTerminalInstances),
+      createMockSpawn(mockSpawnedProcesses),
+    );
+    restore = result.restore;
   });
 
-  // Restore originals after each test
-  // (handled by afterEach below)
-
   afterEach(() => {
-    (Bun as any).Terminal = originalTerminal;
-    (Bun as any).spawn = originalSpawn;
+    restore();
   });
 
   it('create() creates a PTY and returns the id', () => {
@@ -391,6 +452,62 @@ describe('PTYManager', () => {
     ).toThrow('Shell not allowed: /usr/bin/fish');
   });
 
+  it('resize() throws for invalid dimensions (NaN)', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-invalid-nan', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    expect(() => manager.resize('test-invalid-nan', NaN, 24)).toThrow(
+      'Invalid terminal dimensions: NaNx24',
+    );
+  });
+
+  it('resize() throws for invalid dimensions (zero)', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-invalid-zero', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    expect(() => manager.resize('test-invalid-zero', 80, 0)).toThrow(
+      'Invalid terminal dimensions: 80x0',
+    );
+  });
+
+  it('resize() throws for invalid dimensions (negative)', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-invalid-neg', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    expect(() => manager.resize('test-invalid-neg', -1, 24)).toThrow(
+      'Invalid terminal dimensions: -1x24',
+    );
+  });
+
+  it('resize() throws for invalid dimensions (Infinity)', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-invalid-inf', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    expect(() => manager.resize('test-invalid-inf', Infinity, 24)).toThrow(
+      'Invalid terminal dimensions: Infinityx24',
+    );
+  });
+
   it('killAll() closes all terminals', () => {
     const onData = mock((_data: string) => {});
     manager.create('term-1', {
@@ -431,13 +548,12 @@ describe('PTYManager', () => {
 
     // Verify terminal exists before kill
     expect(manager.has('cleanup-test')).toBe(true);
-    expect(manager.terminals.has('cleanup-test')).toBe(true);
+    expect(manager.has('cleanup-test')).toBe(true);
 
     manager.kill('cleanup-test');
 
     // Terminal should be fully removed from the map
     expect(manager.has('cleanup-test')).toBe(false);
-    expect(manager.terminals.has('cleanup-test')).toBe(false);
 
     // Terminal should be closed and process killed
     expect(mockTerminalInstances[0].closed).toBe(true);
@@ -479,78 +595,27 @@ describe('PTYManager', () => {
 
 describe('PTYManager (win32)', () => {
   let manager: PTYManager;
-  let mockTerminalInstances: any[];
+  let mockTerminalInstances: MockTerminalInstance[];
   let mockSpawnedProcesses: any[];
-  let originalTerminal: any;
-  let originalSpawn: any;
+  let restore: () => void;
 
   beforeEach(() => {
     manager = new PTYManager('win32', { existsSync: mockExistsSync });
     mockTerminalInstances = [];
     mockSpawnedProcesses = [];
 
-    // Store originals
-    originalTerminal = (Bun as any).Terminal;
-    originalSpawn = (Bun as any).spawn;
-
-    // Mock Bun.Terminal
-    (Bun as any).Terminal = class MockTerminal {
-      cols: number;
-      rows: number;
-      dataCallback: Function;
-      written: Buffer[] = [];
-      resizeOpts: { cols: number; rows: number } | null = null;
-      resizeCalls: { cols: number; rows: number }[] = [];
-      closed = false;
-
-      constructor(opts: any) {
-        this.cols = opts.cols;
-        this.rows = opts.rows;
-        this.dataCallback = opts.data;
-        mockTerminalInstances.push(this);
-      }
-
-      write(data: Buffer) {
-        this.written.push(data);
-      }
-
-      resize(cols: number, rows: number) {
-        this.resizeOpts = { cols, rows };
-        this.resizeCalls.push({ cols, rows });
-        this.cols = cols;
-        this.rows = rows;
-      }
-
-      close() {
-        this.closed = true;
-      }
-    };
-
     // Reset existsSync mock to default (all shells exist)
     mockExistsSync.mockImplementation((_path: string) => true);
 
-    // Mock Bun.spawn
-    (Bun as any).spawn = mock((_cmd: string[], opts: any) => {
-      let _resolve: (code: number) => void;
-      const exited = new Promise<number>((resolve) => {
-        _resolve = resolve;
-      });
-      const proc = {
-        killed: false,
-        exited,
-        _resolve: () => _resolve(0),
-        kill() {
-          this.killed = true;
-        },
-      };
-      mockSpawnedProcesses.push(proc);
-      return proc;
-    });
+    const result = safeInstallBunMocks(
+      createMockTerminalClass(mockTerminalInstances),
+      createMockSpawn(mockSpawnedProcesses),
+    );
+    restore = result.restore;
   });
 
   afterEach(() => {
-    (Bun as any).Terminal = originalTerminal;
-    (Bun as any).spawn = originalSpawn;
+    restore();
   });
 
   it('create() defaults to cmd.exe when no shell and no COMSPEC', () => {

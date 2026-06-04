@@ -4,9 +4,6 @@
   "workspaces": {
     "": {
       "name": "ymir",
-      "dependencies": {
-        "chokidar": "^5.0.0",
-      },
       "devDependencies": {
         "@tauri-apps/cli": "^2",
         "eslint": "^9",
@@ -70,6 +67,7 @@
     "apps/server": {
       "name": "@ymir/server",
       "dependencies": {
+        "chokidar": "^5.0.0",
         "jose": "^6.2.3",
       },
       "devDependencies": {

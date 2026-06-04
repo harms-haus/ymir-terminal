@@ -9,6 +9,7 @@
     "test:coverage": "bun test --coverage"
   },
   "dependencies": {
+    "chokidar": "^5.0.0",
     "jose": "^6.2.3"
   },
   "devDependencies": {

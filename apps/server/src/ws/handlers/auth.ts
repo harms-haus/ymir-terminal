@@ -10,7 +10,7 @@ import type { ClientConnection } from '../connection';
 import { verifyPassword } from '../../auth/password';
 import { generateToken, verifyToken } from '../../auth/jwt';
 import { createError, createResponse, type MessageRouter } from '../router';
-import { createSession, type Database } from '../../db/session';
+import { createSession, cleanupSession, type Database } from '../../db/session';
 
 export interface AuthDeps {
   passwordHash: string;
@@ -22,7 +22,9 @@ export interface AuthDeps {
 const TOKEN_EXPIRY = '7d';
 
 const authAttempts = new Map<string, { count: number; lastAttempt: number }>();
+const ipAuthAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const MAX_AUTH_ATTEMPTS = 5;
+const MAX_IP_AUTH_ATTEMPTS = 20;
 const AUTH_WINDOW_MS = 60_000; // 1 minute
 const MAX_PASSWORD_LENGTH = 128;
 const MAX_AUTH_ENTRIES = 10_000;
@@ -42,6 +44,17 @@ function enforceAuthAttemptsLimit(): void {
   const excess = sorted.length - MAX_AUTH_ENTRIES;
   for (let i = 0; i < excess; i++) {
     authAttempts.delete(sorted[i][0]);
+  }
+}
+
+/** Evict oldest entries when ipAuthAttempts exceeds the maximum size. */
+function enforceIpAuthAttemptsLimit(): void {
+  if (ipAuthAttempts.size <= MAX_AUTH_ENTRIES) return;
+
+  const sorted = [...ipAuthAttempts.entries()].sort((a, b) => a[1].lastAttempt - b[1].lastAttempt);
+  const excess = sorted.length - MAX_AUTH_ENTRIES;
+  for (let i = 0; i < excess; i++) {
+    ipAuthAttempts.delete(sorted[i][0]);
   }
 }
 
@@ -95,6 +108,22 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () 
       return;
     }
 
+    // Per-IP rate limiting
+    const clientIp = conn.clientIp ?? 'unknown';
+    const ipAttempts = ipAuthAttempts.get(clientIp) || { count: 0, lastAttempt: 0 };
+    if (now - ipAttempts.lastAttempt >= AUTH_WINDOW_MS) {
+      ipAttempts.count = 0;
+    }
+    if (ipAttempts.count >= MAX_IP_AUTH_ATTEMPTS) {
+      const err: ResponseEnvelope = createError(
+        { id: req.id, channel: req.channel ?? 'auth' },
+        ErrorCodes.AUTH_FAILED,
+        'Too many authentication attempts from this address. Try again later.',
+      );
+      conn.send(err);
+      return;
+    }
+
     const valid = await verifyPassword(password, deps.passwordHash);
 
     if (!valid) {
@@ -102,6 +131,9 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () 
       attempts.count++;
       attempts.lastAttempt = Date.now();
       authAttempts.set(conn.sessionId, attempts);
+      ipAttempts.count++;
+      ipAttempts.lastAttempt = Date.now();
+      ipAuthAttempts.set(clientIp, ipAttempts);
       const err: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'auth' },
         ErrorCodes.AUTH_FAILED,
@@ -128,7 +160,7 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () 
     conn.send(resp);
   });
 
-  // --- periodic cleanup of stale authAttempts entries --------------------
+  // --- periodic cleanup of stale authAttempts and ipAuthAttempts entries ---
   const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [key, val] of authAttempts) {
@@ -136,7 +168,13 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () 
         authAttempts.delete(key);
       }
     }
+    for (const [key, val] of ipAuthAttempts) {
+      if (now - val.lastAttempt >= AUTH_WINDOW_MS) {
+        ipAuthAttempts.delete(key);
+      }
+    }
     enforceAuthAttemptsLimit();
+    enforceIpAuthAttemptsLimit();
   }, AUTH_WINDOW_MS);
 
   // --- auth middleware ----------------------------------------------------
@@ -162,11 +200,20 @@ export function registerAuthHandlers(router: MessageRouter, deps: AuthDeps): () 
     const token = envelope.token;
     if (typeof token === 'string' && token.length > 0) {
       try {
-        await verifyToken(token, deps.signingSecret);
+        const decoded = await verifyToken(token, deps.signingSecret);
 
         // Token is valid — ensure this connection has a DB session row.
         // On page refresh a new WebSocket is created with a fresh sessionId,
         // so we create a session for it (idempotent if already present).
+        //
+        // If the token carries a *different* sessionId (the usual reconnect
+        // case), clean up the old session first to avoid orphaned rows
+        // (tabs, terminals, etc.) that would otherwise remain in the DB.
+        const oldSessionId = decoded.sessionId;
+        if (oldSessionId !== conn.sessionId) {
+          cleanupSession(deps.sessionDb, oldSessionId);
+        }
+
         try {
           createSession(deps.sessionDb, conn.sessionId);
         } catch {

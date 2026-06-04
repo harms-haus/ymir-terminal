@@ -41,6 +41,8 @@ interface RepoState {
 export interface GitStatusWatcherOptions {
   cache: GitStatusCache;
   getStatus: (dir: string) => Promise<GitStatusResponse>;
+  /** Override the debounce delay in ms (default: DEBOUNCE_MS). */
+  debounceMs?: number;
   /** Override the safety-poll interval (for testing). */
   safetyPollMs?: number;
   /** Disable the automatic safety poll entirely. */
@@ -84,10 +86,12 @@ export class GitStatusWatcher {
   private safetyPollTimer: ReturnType<typeof setInterval> | null = null;
   private safetyPollMs: number;
   private disableSafetyPoll: boolean;
+  private debounceMs: number;
 
   constructor(opts: GitStatusWatcherOptions) {
     this.cache = opts.cache;
     this.getStatusFn = opts.getStatus;
+    this.debounceMs = opts.debounceMs ?? DEBOUNCE_MS;
     this.safetyPollMs = opts.safetyPollMs ?? DEFAULT_SAFETY_POLL_MS;
     this.disableSafetyPoll = opts.disableSafetyPoll ?? false;
   }
@@ -179,8 +183,10 @@ export class GitStatusWatcher {
 
     state.debounceTimer = setTimeout(() => {
       state.debounceTimer = null;
-      void this.refreshStatus(absoluteGitDir);
-    }, DEBOUNCE_MS);
+      this.refreshStatus(absoluteGitDir).catch((err) => {
+        console.error('[GitStatusWatcher] refresh error:', err);
+      });
+    }, this.debounceMs);
   }
 
   /**
@@ -289,7 +295,7 @@ export class GitStatusWatcher {
       const batch = dirs.slice(i, i + SAFETY_POLL_BATCH_SIZE);
       await Promise.all(
         batch
-          .filter((repoKey) => !this.cache.isFresh(repoKey))
+          .filter((repoKey) => !this.cache.isFresh(repoKey) && !this.cache.hasInFlight(repoKey))
           .map((repoKey) => {
             this.cache.invalidate(repoKey);
             return this.refreshStatus(repoKey);

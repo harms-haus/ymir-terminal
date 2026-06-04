@@ -1,38 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { resolve } from 'node:path';
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import { ErrorCodes, type GitStashEntry } from '@ymir/shared';
-import { mockConn, request } from '../../../test-helpers/mock-utils';
+import { mockConn, request, expectSuccessResponse } from '../../../test-helpers/mock-utils';
+import { createTestDeps } from '../../../test-helpers/git-test-utils';
 import { MessageRouter } from '../../router';
 import { registerGitHandlers } from './index';
-import type { GitDeps } from './index';
-
-// ---------------------------------------------------------------------------
-// Shared helpers
-// ---------------------------------------------------------------------------
-
-function createTestDeps(overrides: Record<string, any> = {}): GitDeps {
-  const getWorkspaceFn = mock((_db: unknown, id: string) => {
-    if (id === 'ws-1') {
-      return {
-        id: 'ws-1',
-        name: 'Test',
-        cwd: '/home/dev/project',
-        color: '#007acc',
-        sort_order: 0,
-      };
-    }
-    return null;
-  });
-
-  return {
-    persistentDb: {} as any,
-    _mocks: {
-      getWorkspace: getWorkspaceFn,
-      ...overrides,
-    },
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -75,10 +47,7 @@ describe('git stash handlers', () => {
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { stashRef: string };
+      const payload = expectSuccessResponse<{ stashRef: string }>(resp);
       expect(payload.stashRef).toBe('stash@{0}');
     });
 
@@ -101,7 +70,7 @@ describe('git stash handlers', () => {
       });
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {
@@ -214,10 +183,7 @@ describe('git stash handlers', () => {
       expect(stashListFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { stashes: GitStashEntry[] };
+      const payload = expectSuccessResponse<{ stashes: GitStashEntry[] }>(resp);
       expect(payload.stashes).toEqual(fakeStashes);
     });
 
@@ -231,9 +197,7 @@ describe('git stash handlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { stashes: GitStashEntry[] };
+      const payload = expectSuccessResponse<{ stashes: GitStashEntry[] }>(resp);
       expect(payload.stashes).toEqual([]);
     });
 
@@ -297,8 +261,7 @@ describe('git stash handlers', () => {
       expect(stashApplyFn.mock.calls[0][1]).toBe('stash@{0}');
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('works without stashRef (defaults to latest)', async () => {
@@ -381,8 +344,7 @@ describe('git stash handlers', () => {
       expect(stashPopFn.mock.calls[0][1]).toBe('stash@{1}');
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('works without stashRef (defaults to latest)', async () => {
@@ -464,8 +426,7 @@ describe('git stash handlers', () => {
       expect(stashDropFn.mock.calls[0][1]).toBe('stash@{0}');
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE when stashRef is missing', async () => {
@@ -563,8 +524,7 @@ describe('git stash handlers', () => {
       expect(stashClearFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE when workspaceId is missing', async () => {

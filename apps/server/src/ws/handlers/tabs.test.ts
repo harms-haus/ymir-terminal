@@ -1010,6 +1010,11 @@ describe('registerTabHandlers', () => {
 
   describe('tab.restore', () => {
     it('restores persisted editor tabs to session DB', async () => {
+      // Seed workspace so getWorkspace succeeds
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', process.cwd(), '#007acc');
+
       registerTabHandlers(router, deps);
 
       // Seed a persisted editor tab directly
@@ -1039,6 +1044,11 @@ describe('registerTabHandlers', () => {
     });
 
     it('returns empty array when no persisted tabs exist', async () => {
+      // Seed workspace so getWorkspace succeeds
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', process.cwd(), '#007acc');
+
       registerTabHandlers(router, deps);
 
       const req = request('tab.restore', { workspaceId: 'ws-1' });
@@ -1060,6 +1070,11 @@ describe('registerTabHandlers', () => {
     });
 
     it('uses custom_title over title when restoring', async () => {
+      // Seed workspace so getWorkspace succeeds
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', process.cwd(), '#007acc');
+
       registerTabHandlers(router, deps);
 
       persistentDb
@@ -1289,6 +1304,11 @@ describe('registerTabHandlers', () => {
 
   describe('tab.restore with worktreePath', () => {
     it('restores only persisted tabs matching the worktreePath', async () => {
+      // Seed workspace so getWorkspace succeeds
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', process.cwd(), '#007acc');
+
       registerTabHandlers(router, deps);
 
       // Seed persisted tabs with different worktree_paths
@@ -1327,6 +1347,11 @@ describe('registerTabHandlers', () => {
     });
 
     it('restores only non-worktree persisted tabs when worktreePath is omitted', async () => {
+      // Seed workspace so getWorkspace succeeds
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', process.cwd(), '#007acc');
+
       registerTabHandlers(router, deps);
 
       // Seed persisted tabs with different worktree_paths

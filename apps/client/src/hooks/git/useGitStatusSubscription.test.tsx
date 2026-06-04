@@ -1,31 +1,18 @@
 /// <reference lib="dom" />
-import { setupTestDom } from '../test-helpers/mock-setup';
+import { setupTestDom } from '../../test-helpers/mock-setup';
 await setupTestDom();
 
 import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
 import { renderHook } from '@testing-library/react';
 import type { MessageEnvelope } from '@ymir/shared';
+import { createMockWsClient, mockWsClientModule } from '../../test-helpers/mock-ws-client';
 
 // ---------------------------------------------------------------------------
 // Mock ws-client module
 // ---------------------------------------------------------------------------
 
-type MessageHandler = (envelope: MessageEnvelope) => void;
-
-let messageHandlers: MessageHandler[] = [];
-
-const mockOnMessage = mock((handler: MessageHandler) => {
-  messageHandlers.push(handler);
-  return () => {
-    messageHandlers = messageHandlers.filter((h) => h !== handler);
-  };
-});
-
-mock.module('../lib/ws-client', () => ({
-  wsClient: {
-    onMessage: mockOnMessage,
-  },
-}));
+const mockWs = createMockWsClient();
+mockWsClientModule(mockWs.wsClient);
 
 // Import after mocking
 const { useGitStatusSubscription } = await import('./useGitStatusSubscription');
@@ -35,9 +22,7 @@ const { useGitStatusSubscription } = await import('./useGitStatusSubscription');
 // ---------------------------------------------------------------------------
 
 function simulateIncoming(envelope: MessageEnvelope) {
-  for (const handler of [...messageHandlers]) {
-    handler(envelope);
-  }
+  mockWs.simulateMessage(envelope);
 }
 
 function makeGitStatusChangeEvent(
@@ -75,12 +60,11 @@ afterAll(() => {
 
 describe('useGitStatusSubscription', () => {
   beforeEach(() => {
-    messageHandlers = [];
-    mockOnMessage.mockClear();
+    mockWs.reset();
   });
 
   afterEach(() => {
-    messageHandlers = [];
+    mockWs.reset();
   });
 
   // -----------------------------------------------------------------------
@@ -168,11 +152,11 @@ describe('useGitStatusSubscription', () => {
 
     const { unmount } = renderHook(() => useGitStatusSubscription('ws-1', callback));
 
-    expect(messageHandlers.length).toBe(1);
+    expect(mockWs.messageHandlerCount).toBe(1);
 
     unmount();
 
-    expect(messageHandlers.length).toBe(0);
+    expect(mockWs.messageHandlerCount).toBe(0);
 
     // After unmount, incoming messages should not reach callback
     simulateIncoming(makeGitStatusChangeEvent('ws-1', 'packages/server'));
@@ -189,8 +173,8 @@ describe('useGitStatusSubscription', () => {
     renderHook(() => useGitStatusSubscription(null, callback));
 
     // No subscription should have been made
-    expect(mockOnMessage).not.toHaveBeenCalled();
-    expect(messageHandlers.length).toBe(0);
+    expect(mockWs.mockOnMessage.mock.calls.length).toBe(0);
+    expect(mockWs.messageHandlerCount).toBe(0);
 
     // Simulate incoming messages — callback should never fire
     simulateIncoming(makeGitStatusChangeEvent('ws-1', 'packages/server'));

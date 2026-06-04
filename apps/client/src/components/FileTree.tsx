@@ -1,6 +1,7 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import type { FileNode, GitStatusResponse } from '@ymir/shared';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
+import { FileTreeContext } from './FileTreeContext';
 import { buildGitPathMap, computeDirectoryStatus } from '../lib/git-utils';
 import { GIT_STATUS_COLORS } from '../lib/theme';
 
@@ -59,6 +60,15 @@ export function FileTree({
   }, [tree]);
 
   const lastClickedPathRef = useRef<string | null>(null);
+  const onCopyRef = useRef(onCopy);
+  const onCutRef = useRef(onCut);
+  const onPasteRef = useRef(onPaste);
+
+  useEffect(() => {
+    onCopyRef.current = onCopy;
+    onCutRef.current = onCut;
+    onPasteRef.current = onPaste;
+  });
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -70,22 +80,22 @@ export function FileTree({
 
       if (e.key === 'c' && !e.shiftKey) {
         e.preventDefault();
-        onCopy?.(activePath);
+        onCopyRef.current?.(activePath);
       } else if (e.key === 'x' && !e.shiftKey) {
         e.preventDefault();
-        onCut?.(activePath);
+        onCutRef.current?.(activePath);
       } else if (e.key === 'v') {
         const node = nodeMap.get(activePath);
         if (node?.isDirectory && clipboardHasItem) {
           e.preventDefault();
-          onPaste?.(activePath);
+          onPasteRef.current?.(activePath);
         }
       }
     }
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedPath, nodeMap, onCopy, onCut, onPaste, clipboardHasItem]);
+  }, [selectedPath, nodeMap, clipboardHasItem]);
 
   const toggleExpanded = (path: string) => {
     setExpandedPaths((prev) => {
@@ -96,33 +106,52 @@ export function FileTree({
     });
   };
 
+  const contextValue = useMemo(
+    () => ({
+      onNewFile,
+      onNewFolder,
+      onRename,
+      onDelete,
+      onOpenEditor,
+      onCut,
+      onCopy,
+      onPaste,
+      clipboardHasItem,
+      workspaceCwd,
+    }),
+    [
+      onNewFile,
+      onNewFolder,
+      onRename,
+      onDelete,
+      onOpenEditor,
+      onCut,
+      onCopy,
+      onPaste,
+      clipboardHasItem,
+      workspaceCwd,
+    ],
+  );
+
   return (
-    <div data-testid="file-tree" role="tree" style={{ fontSize: '12px', userSelect: 'none' }}>
-      {tree.map((node) => (
-        <FileTreeNode
-          key={node.path}
-          node={node}
-          onFileSelect={onFileSelect}
-          depth={0}
-          gitPathMap={gitPathMap}
-          workspaceRoot={workspaceRoot}
-          selectedPath={selectedPath}
-          onNewFile={onNewFile}
-          onNewFolder={onNewFolder}
-          onRename={onRename}
-          onDelete={onDelete}
-          onOpenEditor={onOpenEditor}
-          expandedPaths={expandedPaths}
-          onToggleExpanded={toggleExpanded}
-          onCut={onCut}
-          onCopy={onCopy}
-          onPaste={onPaste}
-          clipboardHasItem={clipboardHasItem}
-          workspaceCwd={workspaceCwd}
-          lastClickedPathRef={lastClickedPathRef}
-        />
-      ))}
-    </div>
+    <FileTreeContext.Provider value={contextValue}>
+      <div data-testid="file-tree" role="tree" style={{ fontSize: '12px', userSelect: 'none' }}>
+        {tree.map((node) => (
+          <FileTreeNode
+            key={node.path}
+            node={node}
+            onFileSelect={onFileSelect}
+            depth={0}
+            gitPathMap={gitPathMap}
+            workspaceRoot={workspaceRoot}
+            selectedPath={selectedPath}
+            expandedPaths={expandedPaths}
+            onToggleExpanded={toggleExpanded}
+            lastClickedPathRef={lastClickedPathRef}
+          />
+        ))}
+      </div>
+    </FileTreeContext.Provider>
   );
 }
 
@@ -135,25 +164,15 @@ const GIT_STATUS_LABELS: Record<string, string> = {
   C: 'copied',
 };
 
-function FileTreeNode({
+const FileTreeNode = React.memo(function FileTreeNode({
   node,
   onFileSelect,
   depth,
   gitPathMap,
   workspaceRoot,
   selectedPath,
-  onNewFile,
-  onNewFolder,
-  onRename,
-  onDelete,
-  onOpenEditor,
   expandedPaths,
   onToggleExpanded,
-  onCut,
-  onCopy,
-  onPaste,
-  clipboardHasItem,
-  workspaceCwd,
   lastClickedPathRef,
 }: {
   node: FileNode;
@@ -162,18 +181,8 @@ function FileTreeNode({
   gitPathMap: Map<string, { status: string; staged: boolean }>;
   workspaceRoot?: string;
   selectedPath?: string;
-  onNewFile?: (parentDir: string) => void;
-  onNewFolder?: (parentDir: string) => void;
-  onRename?: (path: string) => void;
-  onDelete?: (path: string) => void;
-  onOpenEditor?: (path: string) => void;
   expandedPaths: Set<string>;
   onToggleExpanded: (path: string) => void;
-  onCut?: (path: string) => void;
-  onCopy?: (path: string) => void;
-  onPaste?: (targetDir: string) => void;
-  clipboardHasItem?: boolean;
-  workspaceCwd?: string;
   lastClickedPathRef: React.RefObject<string | null>;
 }) {
   const expanded = expandedPaths.has(node.path);
@@ -200,22 +209,10 @@ function FileTreeNode({
 
   return (
     <div>
-      <FileTreeContextMenu
-        path={node.path}
-        isDirectory={node.isDirectory}
-        onNewFile={onNewFile}
-        onNewFolder={onNewFolder}
-        onRename={onRename}
-        onDelete={onDelete}
-        onOpenEditor={onOpenEditor}
-        onCut={onCut}
-        onCopy={onCopy}
-        onPaste={onPaste}
-        clipboardHasItem={clipboardHasItem}
-        workspaceCwd={workspaceCwd}
-      >
+      <FileTreeContextMenu path={node.path} isDirectory={node.isDirectory}>
         <div
           data-testid={`tree-node-${node.path}`}
+          data-path={node.path}
           role="treeitem"
           tabIndex={0}
           aria-expanded={node.isDirectory ? expanded : undefined}
@@ -225,6 +222,61 @@ function FileTreeNode({
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               handleClick();
+              return;
+            }
+
+            if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+              e.preventDefault();
+              const currentEl = e.currentTarget;
+              const treeRoot = currentEl.closest<HTMLElement>('[role="tree"]');
+              if (!treeRoot) return;
+              const items = Array.from(treeRoot.querySelectorAll<HTMLElement>('[role="treeitem"]'));
+              const currentIndex = items.indexOf(currentEl);
+              if (currentIndex === -1) return;
+
+              if (e.key === 'ArrowDown') {
+                if (currentIndex < items.length - 1) {
+                  items[currentIndex + 1].focus();
+                }
+              } else if (e.key === 'ArrowUp') {
+                if (currentIndex > 0) {
+                  items[currentIndex - 1].focus();
+                }
+              } else if (e.key === 'ArrowLeft') {
+                if (node.isDirectory && expanded) {
+                  onToggleExpanded(node.path);
+                } else {
+                  const parentGroup = currentEl.closest<HTMLElement>('[role="group"]');
+                  if (parentGroup) {
+                    const parentItem = parentGroup.closest<HTMLElement>('[role="treeitem"]');
+                    if (parentItem) {
+                      parentItem.focus();
+                    }
+                  }
+                }
+              } else if (e.key === 'ArrowRight') {
+                if (node.isDirectory && !expanded) {
+                  onToggleExpanded(node.path);
+                  requestAnimationFrame(() => {
+                    const updatedItems = Array.from(
+                      treeRoot.querySelectorAll<HTMLElement>('[role="treeitem"]'),
+                    );
+                    const idx = updatedItems.indexOf(currentEl);
+                    if (idx >= 0 && idx < updatedItems.length - 1) {
+                      updatedItems[idx + 1].focus();
+                    }
+                  });
+                } else if (
+                  node.isDirectory &&
+                  expanded &&
+                  node.children &&
+                  node.children.length > 0
+                ) {
+                  if (currentIndex < items.length - 1) {
+                    items[currentIndex + 1].focus();
+                  }
+                }
+              }
             }
           }}
           style={{
@@ -236,7 +288,7 @@ function FileTreeNode({
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
-            outline: 'none',
+
             overflow: 'hidden',
           }}
         >
@@ -306,18 +358,8 @@ function FileTreeNode({
               gitPathMap={gitPathMap}
               workspaceRoot={workspaceRoot}
               selectedPath={selectedPath}
-              onNewFile={onNewFile}
-              onNewFolder={onNewFolder}
-              onRename={onRename}
-              onDelete={onDelete}
-              onOpenEditor={onOpenEditor}
               expandedPaths={expandedPaths}
               onToggleExpanded={onToggleExpanded}
-              onCut={onCut}
-              onCopy={onCopy}
-              onPaste={onPaste}
-              clipboardHasItem={clipboardHasItem}
-              workspaceCwd={workspaceCwd}
               lastClickedPathRef={lastClickedPathRef}
             />
           ))}
@@ -325,4 +367,4 @@ function FileTreeNode({
       )}
     </div>
   );
-}
+});

@@ -106,6 +106,14 @@ export const Terminal = forwardRef(function Terminal(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-size the ghostty terminal when cols/rows props change.
+  // ghostty's onResize handler will call resizeTerminal(cols, rows) to
+  // notify the backend.
+  useEffect(() => {
+    if (!termRef.current) return;
+    termRef.current.resize(cols, rows);
+  }, [cols, rows]);
+
   return (
     <div
       ref={containerRef}

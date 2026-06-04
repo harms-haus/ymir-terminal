@@ -4,24 +4,26 @@
 
 The `ymir` CLI is a compiled Bun binary (`bun build --compile`) that serves as the primary entry point for end users. It dispatches to three commands:
 
-| Command   | Behavior                                                                                                                                                                                       |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| (default) | `launchApp()` — spawns the Tauri desktop app binary from `{getYmirHomeDir()}`, sets `YMIR_HOME`, `YMIR_STATIC_DIR`, `YMIR_SERVER_PATH` env vars, and detaches                                  |
-| `web`     | `startWeb()` — spawns the server binary with `--host`, `--port`, `--staticDir`, and `YMIR_PASSWORD`; optionally opens the browser                                                              |
-| `update`  | `selfUpdate()` — fetches the latest GitHub release, downloads platform-matched binaries in parallel, replaces them in `{getYmirHomeDir()}` atomically (rename on Unix, `.old` swap on Windows) |
+| Command   | Behavior                                                                                                                                                                                                                                                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (default) | `launchApp()` — spawns the Tauri desktop app binary from `{getYmirHomeDir()}`, sets `YMIR_HOME`, `YMIR_STATIC_DIR`, `YMIR_SERVER_PATH` env vars, and detaches                                                                                                                                                                 |
+| `web`     | `startWeb()` — spawns the server binary with `--host`, `--port`, `--staticDir`, and `YMIR_PASSWORD`; forwards `SIGINT`/`SIGTERM` to the child process for clean shutdown; optionally opens the browser                                                                                                                        |
+| `update`  | `selfUpdate()` — fetches the latest GitHub release, downloads platform-matched assets in parallel into a temp directory (`~/.ymir/update-temp/`), extracts `.tar.gz` (Linux/macOS) or `.zip` (Windows) archives as needed, then replaces binaries in `{getYmirHomeDir()}` atomically (rename on Unix, `.old` swap on Windows) |
 
 ## Binary Layout (`~/.ymir/`)
 
 The home directory (`getYmirHomeDir()`) contains all installed artifacts:
 
 ```
-~/.ymir/                          (Unix)
+~/.ymir/                          (Linux / macOS)
 %LOCALAPPDATA%\ymir\             (Windows)
 ├── ymir              CLI binary
 ├── ymir-server       Server binary
 ├── ymir-app          Tauri desktop app
 └── client-dist/      Compiled client SPA assets
 ```
+
+During updates, a temporary `update-temp/` directory is created inside the home directory to hold downloaded archives and extracted binaries. It is cleaned up after the update completes (or on failure).
 
 Binary names include `.exe` suffix on Windows (e.g. `ymir.exe`, `ymir-server.exe`, `ymir-app.exe`).
 
@@ -55,16 +57,16 @@ It checks for prerequisites (Bun, Rust, cargo, Tauri system deps), clones the re
 
 ## Build Scripts
 
-| Script                            | Purpose                                                                                                     |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `scripts/build-server.ts`         | Compile `apps/server` into a standalone binary via `bun build --compile`                                    |
-| `scripts/build-cli.ts`            | Compile `apps/cli` into a standalone binary via `bun build --compile`                                       |
-| `scripts/build-client-dist.ts`    | Build client SPA + package as `.tar.gz` (Linux/macOS) or `.zip` (Windows)                                   |
-| `scripts/build-all.ts`            | Orchestrate all builds: client → server → CLI → Tauri → extract                                             |
-| `scripts/extract-tauri-binary.ts` | Copy Tauri binary from `target/release/` to `dist/ymir-app`                                                 |
-| `scripts/publish-npm.ts`          | Copy binaries, sync versions, publish all npm packages (`--dry-run` supported)                              |
-| `scripts/sync-version.ts`         | Read/check/set version across `constants.ts`, `Cargo.toml`, `tauri.conf.json`, and all `package.json` files |
-| `scripts/lib/build-utils.ts`      | Shared helpers: target map, `getPlatformTarget()`, `getTargetTriple()`, `runCommand()`, `ensureDir()`       |
+| Script                            | Purpose                                                                                                                                                                                            |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/build-server.ts`         | Compile `apps/server` into a standalone binary via `bun build --compile`                                                                                                                           |
+| `scripts/build-cli.ts`            | Compile `apps/cli` into a standalone binary via `bun build --compile`                                                                                                                              |
+| `scripts/build-client-dist.ts`    | Build client SPA + package as `.tar.gz` (Linux/macOS) or `.zip` (Windows)                                                                                                                          |
+| `scripts/build-all.ts`            | Orchestrate all builds: client → server → CLI → Tauri → extract                                                                                                                                    |
+| `scripts/extract-tauri-binary.ts` | Copy Tauri binary from `target/release/` to `dist/ymir-app`                                                                                                                                        |
+| `scripts/publish-npm.ts`          | Copy binaries, sync versions, publish all npm packages (`--dry-run` supported)                                                                                                                     |
+| `scripts/sync-version.ts`         | Read/check/set version across `constants.ts`, `Cargo.toml`, `tauri.conf.json`, and all `package.json` files                                                                                        |
+| `scripts/lib/build-utils.ts`      | Shared helpers: `TARGET_MAP` (Linux, macOS, Windows × x64/arm64), `getPlatformTarget()`, `getTargetTriple()`, `getBinaryName()`, `parseBuildArgs()`, `runCommand()`, `ensureDir()`, `formatSize()` |
 
 ## Version Synchronization
 

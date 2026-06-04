@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 
-// Shared constants
-export const GITHUB_REPO = 'harms-haus/ymir-terminal';
+// Re-export shared constants from the canonical source.
+export { GITHUB_REPO } from '../../packages/shared/src/constants';
 
 // Mapping from Bun compile targets to Tauri target triples
 export const TARGET_MAP: Record<string, string> = {

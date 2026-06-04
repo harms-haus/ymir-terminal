@@ -81,7 +81,7 @@ export const TerminalManager = React.memo(function TerminalManager({
         if (!bounds) {
           return (
             <div
-              key={t.tabId}
+              key={t.terminalId}
               style={{
                 position: 'absolute',
                 width: 0,
@@ -103,7 +103,7 @@ export const TerminalManager = React.memo(function TerminalManager({
 
         return (
           <div
-            key={t.tabId}
+            key={t.terminalId}
             style={{
               position: 'absolute',
               top: bounds.top,

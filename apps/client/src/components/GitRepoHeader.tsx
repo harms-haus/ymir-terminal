@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import type { GitRepoInfo, GitBranch } from '@ymir/shared';
-import type { UseGitReposReturn } from '../hooks/useGitRepos';
+import type { UseGitReposReturn } from '../hooks/git';
 import { GitBranchSelector } from './GitBranchSelector';
 import { GitRepoMenu } from './GitRepoMenu';
 import {
@@ -50,6 +51,17 @@ export function GitRepoHeader({
   pushLoading = false,
   fetchLoading = false,
 }: GitRepoHeaderProps) {
+  const [rebaseInProgress, setRebaseInProgress] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    gitOps.isRebaseInProgress(repoInfo.path).then((v) => {
+      if (!cancelled) setRebaseInProgress(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [gitOps, repoInfo.path]);
   return (
     <div
       data-testid="git-repo-header"
@@ -160,7 +172,7 @@ export function GitRepoHeader({
           repoInfo={repoInfo}
           branches={branches}
           status={gitOps.repoStatuses.get(repoInfo.path)}
-          isRebaseInProgress={false}
+          isRebaseInProgress={rebaseInProgress}
           onPull={(rebase) => gitOps.pull(repoInfo.path, { rebase })}
           onPush={(branch) => gitOps.push(repoInfo.path, branch)}
           onFetch={() => gitOps.fetch(repoInfo.path)}

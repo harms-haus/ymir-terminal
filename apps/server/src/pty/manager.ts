@@ -30,7 +30,7 @@ export class PTYManager {
   readonly #fallbackOrder: string[];
   readonly #deps: { existsSync: (path: string) => boolean };
 
-  terminals = new Map<
+  #terminals = new Map<
     string,
     {
       terminal: unknown;
@@ -111,7 +111,7 @@ export class PTYManager {
       throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
     }
 
-    this.terminals.set(id, {
+    this.#terminals.set(id, {
       terminal,
       process: proc,
       lastCols: options.cols,
@@ -120,35 +120,48 @@ export class PTYManager {
 
     proc.exited
       .then((code: number) => {
-        const entry = this.terminals.get(id);
+        const entry = this.#terminals.get(id);
         if (entry) entry.exited = true;
-        this.terminals.delete(id);
-        options.onExit?.(code);
+        this.#terminals.delete(id);
+        try {
+          options.onExit?.(code);
+        } catch {
+          // Swallow errors from user-provided onExit callback
+        }
       })
       .catch(() => {
-        const entry = this.terminals.get(id);
+        const entry = this.#terminals.get(id);
         if (entry) entry.exited = true;
-        this.terminals.delete(id);
-        options.onExit?.(null);
+        this.#terminals.delete(id);
+        try {
+          options.onExit?.(null);
+        } catch {
+          // Swallow errors from user-provided onExit callback
+        }
+      })
+      .catch((err) => {
+        console.warn('Unexpected error in PTY exit handler:', err);
       });
 
     return id;
   }
 
   write(id: string, base64Data: string): void {
-    const entry = this.terminals.get(id);
+    const entry = this.#terminals.get(id);
     if (!entry) throw new Error(`Terminal ${id} not found`);
+    if (entry.exited) throw new Error(`Terminal ${id} has exited`);
     const decoded = fromBase64(base64Data);
     (entry.terminal as { write: (data: Uint8Array | string) => void }).write(decoded);
   }
 
   resize(id: string, cols: number, rows: number): void {
-    const entry = this.terminals.get(id);
+    const entry = this.#terminals.get(id);
     if (!entry) throw new Error(`Terminal ${id} not found`);
     const safeCols = Math.floor(cols);
     const safeRows = Math.floor(rows);
-    if (!Number.isFinite(safeCols) || safeCols < 1 || !Number.isFinite(safeRows) || safeRows < 1)
-      return;
+    if (!Number.isFinite(safeCols) || safeCols < 1 || !Number.isFinite(safeRows) || safeRows < 1) {
+      throw new Error(`Invalid terminal dimensions: ${cols}x${rows}`);
+    }
     if (safeCols === entry.lastCols && safeRows === entry.lastRows) return;
     try {
       (entry.terminal as { resize: (cols: number, rows: number) => void }).resize(
@@ -160,16 +173,18 @@ export class PTYManager {
 
       // Bun.Terminal.resize() does not send SIGWINCH to the child process.
       // Send it manually so the shell redraws its prompt.
-      // Guard against TOCTOU: if the process has already exited (but the
-      // microtask to delete the Map entry hasn't run yet), skip SIGWINCH to
-      // avoid signalling a recycled PID.
+      //
+      // There is an inherent TOCTOU race: the child may exit between
+      // terminal.resize() and process.kill() below, and the OS could recycle
+      // the PID.  We cannot fully prevent this without PID file descriptors
+      // (pidfd), so we simply catch the error and move on.
+      //
       // On Windows, ConPTY handles resize via terminal.resize() directly.
       if (!this.#isWindows) {
-        if (entry.exited) return;
         try {
           process.kill(entry.process.pid, 'SIGWINCH');
         } catch {
-          // Process may have exited; ignore ESRCH
+          // Process may have exited (ESRCH) or PID was recycled; swallow.
         }
       }
     } catch (err) {
@@ -178,20 +193,20 @@ export class PTYManager {
   }
 
   kill(id: string): void {
-    const entry = this.terminals.get(id);
+    const entry = this.#terminals.get(id);
     if (!entry) return;
     (entry.terminal as { close: () => void }).close();
     // Note: On Windows, process.kill sends SIGTERM which Bun maps to TerminateProcess
     entry.process.kill('SIGTERM');
-    this.terminals.delete(id);
+    this.#terminals.delete(id);
   }
 
   has(id: string): boolean {
-    return this.terminals.has(id);
+    return this.#terminals.has(id);
   }
 
   killAll(): void {
-    for (const id of this.terminals.keys()) {
+    for (const id of this.#terminals.keys()) {
       this.kill(id);
     }
   }

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { describe, expect, it, beforeEach, afterEach, mock } from 'bun:test';
 import { ErrorCodes, type FileTreeResponse, type FileReadResponse } from '@ymir/shared';
-import { mockConn, request } from '../../test-helpers/mock-utils';
+import { mockConn, request, makeGetWorkspaceMock } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerFileHandlers } from './files/index';
 import type { FileDeps } from './files/index';
@@ -40,18 +40,7 @@ describe('registerFileHandlers', () => {
     renameFileFn = mock(() => Promise.resolve());
     createFileFn = mock(() => Promise.resolve());
     createDirectoryFn = mock(() => Promise.resolve());
-    getWorkspaceFn = mock((_db: unknown, id: string) => {
-      if (id === 'ws-1') {
-        return {
-          id: 'ws-1',
-          name: 'Test',
-          cwd: '/home/dev/project',
-          color: '#007acc',
-          sort_order: 0,
-        };
-      }
-      return null;
-    });
+    getWorkspaceFn = makeGetWorkspaceMock();
 
     const deps: FileDeps = {
       persistentDb: {} as any,
@@ -275,6 +264,20 @@ describe('registerFileHandlers', () => {
       expect(writeFileFn).toHaveBeenCalledTimes(0);
       const resp = conn.sent[0] as Record<string, unknown>;
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    });
+
+    it('returns INVALID_MESSAGE when content exceeds max size', async () => {
+      const req = request('file.write', {
+        workspaceId: 'ws-1',
+        path: '/home/dev/project/big.ts',
+        content: 'x'.repeat(50 * 1024 * 1024 + 1),
+      });
+      await router.route(conn, req);
+
+      expect(writeFileFn).toHaveBeenCalledTimes(0);
+      const resp = conn.sent[0] as Record<string, unknown>;
+      expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+      expect((resp.error as Record<string, unknown>).message).toContain('exceeds maximum size');
     });
   });
 
@@ -506,18 +509,7 @@ describe('file.copy (integration)', () => {
         findAvailableName: fileOps.findAvailableName,
       },
       _mocks: {
-        getWorkspace: mock((_db: unknown, id: string) => {
-          if (id === 'ws-1') {
-            return {
-              id: 'ws-1',
-              name: 'Test',
-              cwd: tmpDir,
-              color: '#007acc',
-              sort_order: 0,
-            };
-          }
-          return null;
-        }) as any,
+        getWorkspace: makeGetWorkspaceMock({ id: 'ws-1', cwd: tmpDir }),
       },
     };
 
@@ -700,18 +692,7 @@ describe('file.move (integration)', () => {
         findAvailableName: fileOps.findAvailableName,
       },
       _mocks: {
-        getWorkspace: mock((_db: unknown, id: string) => {
-          if (id === 'ws-1') {
-            return {
-              id: 'ws-1',
-              name: 'Test',
-              cwd: tmpDir,
-              color: '#007acc',
-              sort_order: 0,
-            };
-          }
-          return null;
-        }) as any,
+        getWorkspace: makeGetWorkspaceMock({ id: 'ws-1', cwd: tmpDir }),
       },
     };
 

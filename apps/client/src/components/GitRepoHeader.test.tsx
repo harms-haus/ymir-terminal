@@ -6,7 +6,7 @@ setupAllMocks();
 import { describe, test, expect, afterEach, mock } from 'bun:test';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
-import type { UseGitReposReturn } from '../hooks/useGitRepos';
+import type { UseGitReposReturn } from '../hooks/git';
 
 // ---------------------------------------------------------------------------
 // Mock useDialog hooks — GitRepoMenu (used inside GitRepoHeader) uses them

@@ -31,6 +31,8 @@ export async function spawnGit(args: string[], cwd: string): Promise<string> {
  * Spawn a git command that throws on non-zero exit codes.
  * Unlike `spawnGit` (which silently returns ''), this captures stderr
  * so callers can meaningfully handle failures.
+ *
+ * The error message is sanitized to avoid leaking server paths to clients.
  */
 export async function spawnGitChecked(args: string[], cwd: string): Promise<string> {
   const proc = Bun.spawn(['git', ...args], {
@@ -45,10 +47,19 @@ export async function spawnGitChecked(args: string[], cwd: string): Promise<stri
   ]);
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    const detail = stderr.trim() || `git exited with code ${exitCode}`;
-    throw new Error(`git ${args.join(' ')} failed (exit ${exitCode}): ${detail}`);
+    const detail = sanitizeGitError(stderr.trim() || `git exited with code ${exitCode}`);
+    throw new Error(detail);
   }
   return stdout;
+}
+
+/**
+ * Sanitize a git error message to prevent leaking absolute paths
+ * or command invocation details to the client.
+ */
+function sanitizeGitError(message: string): string {
+  // Strip absolute paths, replacing them with just the basename
+  return message.replace(/\/[^\s]+\/([^/\s]+)/g, '$1');
 }
 
 export async function getCurrentBranch(dirPath: string): Promise<string | null> {
@@ -64,7 +75,7 @@ export async function getGitStatus(dirPath: string): Promise<GitStatusResponse |
     spawnGit(['status', '--porcelain=v1'], dirPath),
   ]);
 
-  const branch = branchResult || 'unknown';
+  const branch = branchResult;
   const changes: GitFileChange[] = [];
   const staged: GitFileChange[] = [];
 

@@ -42,6 +42,18 @@ export const safePath = _safePath;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Strip absolute paths from an error message so that server filesystem
+ * layout is not leaked to clients.  Replaces path segments that look like
+ * absolute paths (e.g. `/home/user/project/file.txt`) with just the
+ * basename, keeping the message human-readable without exposing internals.
+ */
+export function sanitizeErrorMessage(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  // Replace absolute paths with just the filename
+  return msg.replace(/\/[^\s]+\/([^/\s]+)/g, '$1');
+}
+
 export function resolveWorkspace(
   deps: FileDeps,
   payload: Record<string, unknown>,
@@ -129,7 +141,22 @@ export async function handleFileRequest(
   }
 
   // 4. Execute operation
-  await operation(resolvedPaths);
+  try {
+    await operation(resolvedPaths);
+  } catch (err: unknown) {
+    const message = sanitizeErrorMessage(err);
+    const cause =
+      err instanceof Error ? (err.cause as NodeJS.ErrnoException | undefined) : undefined;
+    const code =
+      cause?.code === 'ENOENT'
+        ? ErrorCodes.FILE_NOT_FOUND
+        : cause?.code === 'EACCES' || cause?.code === 'EPERM'
+          ? ErrorCodes.PERMISSION_DENIED
+          : ErrorCodes.HANDLER_ERROR;
+    const errResp: ResponseEnvelope = createError({ id: req.id, channel }, code, message);
+    conn.send(errResp);
+    return;
+  }
 
   // 5. Send success response
   const resp: ResponseEnvelope = createResponse(req, { success: true });

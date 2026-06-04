@@ -1,9 +1,0 @@
-[data-testid='right-sidebar'] [data-separator]:hover {
-  background: #555 !important;
-}
-
-/* Toggle button focus indicator */
-[data-testid='right-sidebar-content'] button:focus-visible {
-  outline: 2px solid var(--accent, #007acc);
-  outline-offset: 1px;
-}

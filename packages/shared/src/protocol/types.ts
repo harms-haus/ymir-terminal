@@ -74,7 +74,7 @@ export interface ResponseEnvelope<T = unknown> extends Omit<
 }
 
 /** A server → client unilateral event (no matching request). */
-export interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type'> {
+export interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | 'id'> {
   type: 'event';
   payload: T;
 }

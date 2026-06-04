@@ -11,13 +11,14 @@ import {
   WINDOW_CTRL_ICON_SIZE,
 } from '../lib/theme';
 
+import type { TauriWindow } from '../types/tauri';
+
 // Tauri window controls (lazy-loaded to avoid errors in browser)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let tauriAppWindow: any = null;
-async function getTauriWindow() {
+let tauriAppWindow: TauriWindow | null | false = null;
+
+async function getTauriWindow(): Promise<TauriWindow | false> {
   if (tauriAppWindow !== null) return tauriAppWindow;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!(window as any).__TAURI_INTERNALS__) {
+  if (!window.__TAURI_INTERNALS__) {
     tauriAppWindow = false;
     return false;
   }
@@ -41,16 +42,19 @@ export function WindowControls() {
   const [hoverClose, setHoverClose] = useState(false);
 
   const handleMinimize = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getTauriWindow().then((w: any) => w?.minimize());
+    getTauriWindow().then((w) => {
+      if (w) w.minimize();
+    });
   }, []);
   const handleMaximize = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getTauriWindow().then((w: any) => w?.toggleMaximize());
+    getTauriWindow().then((w) => {
+      if (w) w.toggleMaximize();
+    });
   }, []);
   const handleClose = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getTauriWindow().then((w: any) => w?.close());
+    getTauriWindow().then((w) => {
+      if (w) w.close();
+    });
   }, []);
 
   return (

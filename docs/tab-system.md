@@ -54,23 +54,24 @@ Each `SplitLeafPane` receives its `paneId` (a UUID) and uses it as both its DnD 
 
 Each `SplitLeafPane` (and `BottomPanel`) owns an independent `useTabs` instance:
 
-| Method            | Description                                                               |
-| ----------------- | ------------------------------------------------------------------------- |
-| `createTab`       | Create a tab and activate it                                              |
-| `closeTab`        | Close a tab; activate the previous tab (or the next, or null)             |
-| `activateTab`     | Set a tab as active                                                       |
-| `updateTabTitle`  | Update a tab's display title                                              |
-| `updateTabCwd`    | Update a terminal tab's working directory (from OSC 7 parsing)            |
-| `reorderTabs`     | Move a tab from one index to another (used by DnD)                        |
-| `closeTabsRight`  | Close all tabs to the right of a given tab                                |
-| `closeOtherTabs`  | Close all tabs except the given one                                       |
-| `setDisplayTitle` | Set or clear a tab's `customTitle` (empty string clears it)               |
-| `switchWorkspace` | Set the active workspace; auto-initializes empty state for new workspaces |
-| `loadTabs`        | Load tab state from server data for a given workspace                     |
+| Method            | Description                                                                      |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `createTab`       | Create a tab and activate it                                                     |
+| `closeTab`        | Close a tab; activate the previous tab (or the next, or null)                    |
+| `activateTab`     | Set a tab as active                                                              |
+| `updateTabTitle`  | Update a tab's display title                                                     |
+| `updateTabCwd`    | Update a terminal tab's working directory (from OSC 7 parsing)                   |
+| `reorderTabs`     | Move a tab from one index to another (used by DnD)                               |
+| `closeTabsRight`  | Close all tabs to the right of a given tab                                       |
+| `closeOtherTabs`  | Close all tabs except the given one                                              |
+| `setDisplayTitle` | Set or clear a tab's `customTitle` (empty string clears it)                      |
+| `switchWorkspace` | Set the active scope via `scopeKey`; auto-initializes empty state for new scopes |
+| `loadTabs`        | Load tab state from server data for a given scope key                            |
+| `cleanupScope`    | Remove a scope key's entry from the internal Map (prevents unbounded growth)     |
 
-`useTabs` stores per-workspace state in a `Map` keyed by `workspaceId`. When `switchWorkspace` is called, the hook swaps to that workspace's tab set, creating an empty entry if none exists. All new tabs are auto-assigned the current `workspaceId`.
+`useTabs` stores per-scope state in a `Map` keyed by `scopeKey` (a string of the form `"workspaceId"` or `"workspaceId:/path/to/worktree"`). When `switchWorkspace` is called with a `scopeKey`, the hook swaps to that scope's tab set, creating an empty entry if none exists. The `Tab.workspaceId` field stores the real workspace ID (parsed from the scope key), while the Map key includes the optional worktree path for scope isolation. All new tabs are auto-assigned the current workspace ID.
 
-`closeTab` uses a ref (`activeTabIdRef`) to avoid stale closures when computing which tab to activate next.
+`closeTab` uses a ref (`activeTabIdRef`) to avoid stale closures when computing which tab to activate next. The `cleanupScope` method removes a scope entry entirely, used when worktrees or workspaces are deleted to prevent unbounded Map growth.
 
 ## `useTerminalPane` Hook
 
@@ -81,6 +82,7 @@ Each `SplitLeafPane` (and `BottomPanel`) owns an independent `useTabs` instance:
 ```typescript
 interface UseTerminalPaneOptions {
   workspaceId?: string | null;
+  scopeKey?: string | null; // the full scope key (e.g. "workspaceId" or "workspaceId:/path/to/worktree")
   pane?: string; // the paneId UUID (or 'bottom' for BottomPanel)
   dirtyFiles?: Set<string>;
   confirmMultipleText?: string;
@@ -108,6 +110,57 @@ interface UseTerminalPaneOptions {
 | `getActiveTabId`    | Read active tab ID via ref                                             |
 
 > **Note:** `handleTitleChange` and `handleCwdChange` are **internal wiring helpers**, not consumer-facing APIs. They are thin wrappers that forward to `updateTabTitle` / `updateTabCwd` from `useTabs`. In practice, the connection between terminal PTY events and tab state is established through the **stable callback cache** in `useTerminalRegistry` (`callbackCacheRef`), which builds per-tab callbacks that look up the owning pane's imperative handle and call `paneHandle.updateTabTitle()` / `paneHandle.updateTabCwd()` directly. These methods are not called by any component outside of `useTerminalPane` itself — they exist so the hook's public surface includes a self-contained title/CWD forwarding path alongside the registry-driven one.
+
+## `useTabRestore` Hook
+
+`useTabRestore` handles distributing restored tabs to the correct pane handles when the active scope (workspace or worktree) changes. It lives in `WorkspaceView` and runs as a side effect.
+
+```typescript
+interface UseTabRestoreParams {
+  activeScopeKey: string | null; // e.g. "workspaceId" or "workspaceId:/path/to/worktree"
+  paneHandleRefs: MutableRefObject<Map<string, TerminalPanelHandle>>;
+}
+```
+
+**Behavior:**
+
+1. When `activeScopeKey` changes, the hook fires `tab.restore` with the parsed `workspaceId` and optional `worktreePath`.
+2. Each scope is restored **at most once** — a `Set<string>` ref tracks which scope keys have been restored.
+3. The response tabs are **grouped by `pane`** into a `Map<string, PersistedTabInfo[]>`.
+4. After a `requestAnimationFrame` delay (to allow pane handles to register after layout load), each group is dispatched to the matching pane handle via `handle.loadRestoredTabs(scopeKey, tabs)`.
+5. Errors are swallowed — restoration is best-effort.
+
+**Interaction with `useTerminalPane`:** `loadRestoredTabs` on each pane handle creates tabs locally and marks the workspace as already-restored so that subsequent `tab.list` calls during workspace switch are skipped.
+
+## `useTabDragDrop` Hook
+
+`useTabDragDrop` extracts drag-over and drag-end logic from `WorkspaceView` into a dedicated hook. It handles same-pane tab reorder, cross-pane tab transfer, and workspace list reordering.
+
+```typescript
+interface UseTabDragDropParams {
+  paneHandleRefs: MutableRefObject<Map<string, TerminalPanelHandle>>;
+  bottomPanelRef: RefObject<TerminalPanelHandle | null>;
+  workspacesRef: MutableRefObject<WorkspaceSummary[] | undefined>;
+  reorderWorkspacesMutation: ReturnType<typeof useReorderWorkspaces>;
+  terminalRegistry: TerminalRegistryEntry[];
+  setTerminalRegistry: React.Dispatch<React.SetStateAction<TerminalRegistryEntry[]>>;
+  activeWorkspaceId: string | null;
+  bottomVisible: boolean;
+  toggleBottom: () => void;
+}
+```
+
+**Returns:** `{ handleDragOver, handleDragEnd }` — callbacks wired directly to `DragDropProvider`.
+
+**`handleDragOver`** — fires during drag. For sortable tabs (`source.type === 'tab'`):
+
+- If source and target groups differ (cross-pane), calls `event.preventDefault()` to suppress the `OptimisticSortingPlugin` DOM mutation.
+- If same group, looks up the owning pane handle and calls `reorderTabs(fromIndex, toIndex)` based on `move()` output.
+
+**`handleDragEnd`** — fires on drop:
+
+- For `source.type === 'workspace'`: computes the final workspace order via `move()` and fires `reorderWorkspacesMutation.mutate`.
+- For cross-pane tab transfers: validates the source tab belongs to the active workspace, then calls `sourceHandle.transferTabOut(id)` → `targetHandle.receiveTab(...)` and updates `terminalRegistry` to reflect the new owning pane. Auto-expands the bottom panel if the tab was dragged there while collapsed.
 
 ## TabBar Component
 
@@ -220,8 +273,18 @@ Tabs are persisted per-workspace and per-pane:
 
 1. **Create/close/reorder/activate** events are synced to the server immediately via `tab.create`, `tab.delete`, `tab.reorder`, and `tab.update` requests.
 2. **On workspace switch**, `tab.list` is called with `{ workspaceId, pane }` to load the persisted tab set. Dead terminals (`terminalAlive === false`) are filtered out.
-3. **Session restore** uses `tab.restore` which returns all tabs for a workspace grouped by `pane`. `WorkspaceView` distributes them to the matching pane handles via `loadRestoredTabs`.
+3. **Session restore** uses `tab.restore` which returns all tabs for a workspace grouped by `pane`. `useTabRestore` distributes them to the matching pane handles via `loadRestoredTabs` (see [useTabRestore Hook](#usetabrestore-hook)).
 4. The `pane` field in `PersistedTabInfo` stores the pane UUID, allowing tabs to be restored to their original pane after reload.
+
+### `tab.restore` Partial Failure
+
+The server's `tab.restore` handler wraps each terminal tab's PTY creation in an individual `try/catch`. If a single tab fails (e.g. its CWD directory no longer exists), the handler logs the error and continues with the remaining tabs. This means:
+
+- **The response may contain a subset** of the originally persisted tabs — failed terminals are omitted from the `restoredTabs` array.
+- **Non-terminal tabs** (editor, diff, git-tree) are always restored since they have no PTY dependency.
+- **If PTY creation fails** after the terminal instance is created, the instance is cleaned up (`deleteTerminalInstance`) but the tab is still included in the response without a `terminalId`.
+- **CWD resolution fallback**: If a terminal tab's CWD is outside the workspace root, the handler checks whether it matches a known git worktree. If not, it falls back to the workspace root.
+- The persisted tab record is updated with the new session tab ID (and the old record deleted if the ID changed) so that future restores reference the correct entry.
 
 ## Pane Splitting
 

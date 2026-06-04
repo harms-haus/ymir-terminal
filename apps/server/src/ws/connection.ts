@@ -17,6 +17,8 @@ export class ClientConnection {
   readonly sessionId: string;
   isAuthenticated = false;
   lastActive = new Date();
+  /** Client IP address extracted from the WebSocket upgrade request. */
+  clientIp?: string;
 
   #ws: WsLike;
   #openWorkspaces = new Set<string>();

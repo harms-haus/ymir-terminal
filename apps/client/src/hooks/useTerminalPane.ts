@@ -32,12 +32,8 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
   const confirm = useConfirm();
 
-  // Track which scope keys have already been loaded from server
-  const loadedWorkspacesRef = useRef<Set<string>>(new Set());
-
-  // Track which scope keys have been restored via loadRestoredTabs –
-  // prevents an in-flight tab.list response from overwriting them.
-  const restoredWorkspacesRef = useRef<Set<string>>(new Set());
+  // Track which scope keys have been loaded (from server or restored tabs)
+  const loadedScopesRef = useRef<Set<string>>(new Set());
 
   // Refs for options to avoid stale closures in callbacks
   const paneRef = useRef(pane);
@@ -128,14 +124,8 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     let cancelled = false;
     switchWorkspace(scopeKey ?? null);
 
-    if (scopeKey && !loadedWorkspacesRef.current.has(scopeKey)) {
-      loadedWorkspacesRef.current.add(scopeKey);
-
-      // Skip tab.list if tabs were already restored via loadRestoredTabs
-      if (restoredWorkspacesRef.current.has(scopeKey))
-        return () => {
-          cancelled = true;
-        };
+    if (scopeKey && !loadedScopesRef.current.has(scopeKey)) {
+      loadedScopesRef.current.add(scopeKey);
 
       const { workspaceId: realWsId, worktreePath } = parseScopeKey(scopeKey);
 
@@ -148,8 +138,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
           // Ignore stale responses from a previous workspace switch
           if (cancelled) return;
 
-          // Ref-based guards — always read current values, no stale closures
-          if (restoredWorkspacesRef.current.has(scopeKey)) return;
+          // If tabs were already loaded via restore, skip overwriting
           if (tabsRef.current.length > 0) return;
 
           // Filter out dead terminals
@@ -321,7 +310,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
 
   const loadRestoredTabs = useCallback(
     (scopeKeyParam: string, restored: PersistedTabInfo[]) => {
-      restoredWorkspacesRef.current.add(scopeKeyParam);
+      loadedScopesRef.current.add(scopeKeyParam);
       const { workspaceId: realWsId } = parseScopeKey(scopeKeyParam);
       const mapped: TabInfo[] = restored.map((t, idx) => ({
         id: t.id,
@@ -348,7 +337,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
         }
       }
     },
-    [loadTabs, restoredWorkspacesRef],
+    [loadTabs],
   );
 
   return {

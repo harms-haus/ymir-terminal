@@ -67,12 +67,14 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
+const ROOT = import.meta.dir.replace(/\/scripts$/, '');
+
 // ── Spawn server ───────────────────────────────────────────────
 console.log(`[dev] Starting server on port ${SERVER_PORT} and client on port ${CLIENT_PORT}...`);
 
 server = spawn({
   cmd: ['bun', 'apps/server/src/index.ts', `--password=${process.env.YMIR_PASSWORD || 'dev'}`],
-  cwd: import.meta.dir.replace(/\/scripts$/, ''),
+  cwd: ROOT,
   stdout: 'pipe',
   stderr: 'pipe',
   env: { ...process.env, PORT: String(SERVER_PORT) },
@@ -80,7 +82,7 @@ server = spawn({
 
 client = spawn({
   cmd: ['bun', 'run', '--cwd', 'apps/client', 'dev'],
-  cwd: import.meta.dir.replace(/\/scripts$/, ''),
+  cwd: ROOT,
   stdout: 'pipe',
   stderr: 'pipe',
   env: { ...process.env, PORT: String(CLIENT_PORT) },

@@ -16,14 +16,14 @@ export interface UseTauriReturn {
   getTauriConfig: () => Promise<TauriConfig | null>;
 }
 
-// Cache the Tauri API imports to avoid repeated dynamic imports
-let _invoke: ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null | false =
-  null;
+import type { TauriInvoke } from '../types/tauri';
 
-async function getInvoke() {
+// Cache the Tauri API imports to avoid repeated dynamic imports
+let _invoke: TauriInvoke | null | false = null;
+
+async function getInvoke(): Promise<TauriInvoke | false> {
   if (_invoke !== null) return _invoke;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!(window as any).__TAURI_INTERNALS__) {
+  if (!window.__TAURI_INTERNALS__) {
     _invoke = false;
     return false;
   }
@@ -44,8 +44,7 @@ async function getInvoke() {
  * or the app is running in a browser.
  */
 export function useTauri(): UseTauriReturn {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isTauri = !!(window as any).__TAURI_INTERNALS__;
+  const isTauri = !!window.__TAURI_INTERNALS__;
 
   const getTauriConfig = async (): Promise<TauriConfig | null> => {
     const invoke = await getInvoke();

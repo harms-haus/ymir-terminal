@@ -177,7 +177,7 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
       mergeWorktreeMutation.mutate({
         workspaceId,
         worktreePath,
-        targetBranch: 'main',
+        targetBranch: _branch,
         deleteAfterMerge,
         filesToCopy,
       });

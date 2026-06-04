@@ -104,11 +104,14 @@ pub fn run() {
                     // (like get_tauri_config) remain accessible. The embedded frontend connects
                     // to the sidecar via WebSocket using the port injected here.
                     if let Some(window) = app_handle.get_webview_window("main") {
-                        let _ = window.eval(&format!(
+                        if let Err(e) = window.eval(&format!(
                             "window.__YMIR_SIDECAR_PORT = {};",
                             port
-                        ));
-                        crate::log::global_log(&format!("[ymir] Sidecar port {} injected into webview", port));
+                        )) {
+                            crate::log::global_log(&format!("[ymir] WARNING: failed to inject sidecar port into webview: {e}"));
+                        } else {
+                            crate::log::global_log(&format!("[ymir] Sidecar port {} injected into webview", port));
+                        }
                     } else {
                         crate::log::global_log("[ymir] WARNING: main window not found");
                     }
@@ -125,11 +128,11 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let state = window.try_state::<AppState>();
                 if let Some(state) = state {
-                    if let Ok(mut guard) = state.sidecar_child.lock() {
-                        if let Some(child) = guard.take() {
-                            let _ = child.kill();
-                            crate::log::global_log("[ymir] Sidecar killed on window close");
-                        }
+                    // Recover from mutex poisoning so the sidecar is always cleaned up.
+                    let mut guard = state.sidecar_child.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(child) = guard.take() {
+                        let _ = child.kill();
+                        crate::log::global_log("[ymir] Sidecar killed on window close");
                     }
                 }
             }

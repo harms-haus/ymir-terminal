@@ -38,15 +38,10 @@ export async function deleteFile(path: string): Promise<void> {
 
 export async function renameFile(oldPath: string, newPath: string): Promise<void> {
   try {
-    try {
-      await access(newPath);
-      throw new Error(`Destination already exists: ${newPath}`);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.startsWith('Destination already exists')) {
-        throw err;
-      }
-      // access threw because file doesn't exist — proceed
-    }
+    const exists = await access(newPath)
+      .then(() => true)
+      .catch(() => false);
+    if (exists) throw new Error(`Destination already exists: ${newPath}`);
     await rename(oldPath, newPath);
   } catch (err) {
     throw new Error(`Failed to rename file: ${oldPath} -> ${newPath}`, { cause: err });

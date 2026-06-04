@@ -5,7 +5,13 @@ import { MessageRouter } from '../router';
 import { registerAuthHandlers } from './auth';
 import { hashPassword } from '../../auth/password';
 import { generateToken, generateSigningSecret, verifyToken } from '../../auth/jwt';
-import { initSessionDb, type Database } from '../../db/session';
+import {
+  initSessionDb,
+  createSession,
+  createTab,
+  createTerminalInstance,
+  type Database,
+} from '../../db/session';
 
 // mockConn and request are imported from ../../test-helpers/mock-utils
 
@@ -194,5 +200,77 @@ describe('registerAuthHandlers', () => {
     const payload = resp.payload as Record<string, unknown>;
     expect(typeof payload.token).toBe('string');
     expect(typeof payload.expiresIn).toBe('number');
+  });
+
+  // -------------------------------------------------------------------------
+  // Session cleanup on reconnect
+  // -------------------------------------------------------------------------
+
+  it('cleans up old session data when client reconnects with a valid JWT', async () => {
+    // Simulate a previous connection that had a session with tabs and terminals
+    const oldSessionId = 'old-session-123';
+    createSession(sessionDb, oldSessionId);
+    createTab(sessionDb, {
+      sessionId: oldSessionId,
+      workspaceId: 'ws-1',
+      tabType: 'terminal',
+      title: 'Old Tab',
+      order: 0,
+    });
+    createTerminalInstance(sessionDb, {
+      sessionId: oldSessionId,
+      workspaceId: 'ws-1',
+      cols: 80,
+      rows: 24,
+    });
+
+    // Verify old session data exists
+    const oldTabs = sessionDb.prepare('SELECT * FROM tabs WHERE session_id = ?').all(oldSessionId);
+    const oldTerminals = sessionDb
+      .prepare('SELECT * FROM terminal_instances WHERE session_id = ?')
+      .all(oldSessionId);
+    expect(oldTabs.length).toBe(1);
+    expect(oldTerminals.length).toBe(1);
+
+    // Generate a JWT bound to the old session
+    const token = await generateToken(oldSessionId, signingSecret);
+
+    // Simulate a new connection (page refresh) with a different sessionId
+    const newConn = mockConn({ isAuthenticated: false });
+
+    // Register a dummy handler to route to
+    let handlerReached = false;
+    router.handle('workspace.list', async () => {
+      handlerReached = true;
+    });
+
+    const req = request('workspace.list', {}, token);
+    await router.route(newConn, req);
+
+    // Handler should have been reached (auth passed)
+    expect(handlerReached).toBe(true);
+    expect(newConn.isAuthenticated).toBe(true);
+
+    // Old session data should be cleaned up (no orphaned rows)
+    const remainingOldTabs = sessionDb
+      .prepare('SELECT * FROM tabs WHERE session_id = ?')
+      .all(oldSessionId);
+    const remainingOldTerminals = sessionDb
+      .prepare('SELECT * FROM terminal_instances WHERE session_id = ?')
+      .all(oldSessionId);
+    expect(remainingOldTabs.length).toBe(0);
+    expect(remainingOldTerminals.length).toBe(0);
+
+    // The old session row itself should be gone
+    const oldSessionRow = sessionDb
+      .prepare('SELECT * FROM client_sessions WHERE id = ?')
+      .get(oldSessionId);
+    expect(oldSessionRow).toBeNull();
+
+    // A new session row should exist for the new connection
+    const newSessionRow = sessionDb
+      .prepare('SELECT * FROM client_sessions WHERE id = ?')
+      .get(newConn.sessionId);
+    expect(newSessionRow).toBeDefined();
   });
 });

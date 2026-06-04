@@ -61,14 +61,6 @@ export function validateTerminalOwnership(
 // ---------------------------------------------------------------------------
 
 /**
- * Result of a successful {@link validateTabOwnership} call.
- */
-export interface TabOwnershipResult {
-  /** The tab DB row. */
-  tab: Record<string, unknown>;
-}
-
-/**
  * Validate that a tab exists and belongs to the requesting session.
  *
  * If validation fails the appropriate error is sent on `conn` and `null` is

@@ -42,6 +42,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TerminalManager` refactored for dynamic pane bounds lookup
 - DnD groups changed from hardcoded 'content'/'bottom' to dynamic pane IDs
 
+### Refactoring
+
+- Split `useGitRepos` monolith into 5 domain hooks: `useGitDiscovery`, `useGitStatus`, `useGitOperations`, `useGitBranches`, `useGitStash` (`hooks/git/`)
+- Split `GitTreeTab` monolith into sub-components: `GitCommitList`, `GitCommitDetail`, `GitCommitFilter`, `FileRow`, `TreeRow` (`components/git-tree/`)
+- Split `GitRepoMenu` monolith into submenu configs: `commitMenuItems`, `branchMenuItems`, `changesMenuItems`, `stashMenuItems`, `pullPushMenuItems`, `remoteMenuItems` (`components/git-menu/`)
+- Extract shared `CommitGraphRow` from `GitHistoryPanel` and `GitTreeTab` (`components/git-graph/`)
+- Extract shared `PaneContent` base component for `ContentPane` and `SplitLeafPane`
+- Create `FileTreeContext` to eliminate prop drilling in file tree
+- Extract `useTabDragDrop`, `useTabRestore`, `usePaneCallbacks` hooks from `WorkspaceView`
+- Deduplicate test helpers across server and client test files
+
+### Bug Fixes
+
+- Fix PTY Manager unhandled rejection in `onExit` callbacks
+- Fix `GitStatusWatcher` cache invalidation race condition
+- Fix PTY resize SIGWINCH TOCTOU and silent return on invalid dimensions
+- Fix WS close handler race condition
+- Fix status watcher error swallowing and safety-poll races
+- Fix file handler error propagation
+- Fix `stopAllWatchers` Map mutation during iteration
+- Fix auth session leak on reconnect
+- Fix `useCreateTerminalTab` stale `tabs.length` closure
+- Fix hardcoded `isRebaseInProgress` and merge target
+- Fix `FileTree` listener churn and `useTheme` memo
+- Fix `useGitRepos` discovery race and serial fetching
+- Fix `Terminal.tsx` missing resize deps
+- Fix CLI update archive extraction and macOS support
+- Fix CLI web signal forwarding
+- Fix Rust mutex poisoning in `log.rs` and sidecar cleanup
+- Fix Rust sidecar `target_triple` and `build.rs` safeguards
+
+### Security
+
+- Add branch name validation to git push and sync operations
+- Replace `execSync` with `execFileSync` in CLI update (command injection fix)
+- Add `file.write` size limit (50MB) and config value validation
+- Add IP-based rate limiting for authentication
+- Restrict `addRemote` URL validation to prevent SSRF
+- Sanitize error messages to prevent path leakage
+- Use `WeakMap` for WS connection storage
+
+### Accessibility
+
+- Add React `ErrorBoundary` to app root
+- Fix invisible focus indicators on `FileTree` and `GitCommitFilter`
+- Add arrow-key navigation to `FileTree`
+- Make `TabBar` context menu keyboard accessible
+- Expand `Dialog` focus trap to include `select`/`textarea`/`a[href]`
+
+### Dead Code Removal
+
+- Remove unused server exports and wire `deletePersistedTabsByWorkspace`
+- Move `chokidar` to server package, remove from root
+- Inline `RightSidebar.css`
+- Remove unused `commit` function from `useGitRepos`
+- Remove unused `GitFileChangeStatus` `'?'` variant
+- Remove unused constants and duplicated imports
+
+### Tests
+
+- Add `AppContextMenu` component tests
+- Add `CreateWorktreeDialog` and `MergeWorktreeDialog` tests
+- Add `GitChangesSection` component tests
+- Fix flaky timing tests with configurable debounce
+- Fix tautological tests and strengthen weak assertions
+- Fix `mock.module` contamination and test isolation
+
 ## [0.1.0] - 2026-05-31
 
 ### Added

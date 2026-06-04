@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { formatRelativeTime } from '../lib/git-utils';
 import { usePaginatedGitLog } from '../hooks/usePaginatedGitLog';
-import { COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_ERROR, GIT_GRAPH_COLORS } from '../lib/theme';
+import { COLOR_TEXT, COLOR_TEXT_MUTED, COLOR_ERROR } from '../lib/theme';
 import {
   LANE_WIDTH,
   GRAPH_LEFT_PADDING,
@@ -11,6 +11,7 @@ import {
   computeActiveLanes,
 } from '../lib/git-graph';
 import type { LaneInfo, ActiveLane } from '../lib/git-graph';
+import { CommitGraphRow } from './git-graph/CommitGraphRow';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -33,10 +34,7 @@ const CommitRow = memo(function CommitRow({
   style,
   onClick,
 }: CommitRowProps) {
-  const { commit, lane, colorIndex, linesDown } = info;
-  const color = GIT_GRAPH_COLORS[colorIndex % GIT_GRAPH_COLORS.length];
-  const cx = lane * LANE_WIDTH + GRAPH_LEFT_PADDING;
-  const cy = ROW_HEIGHT / 2;
+  const { commit } = info;
   const [hovered, setHovered] = useState(false);
 
   const handleKeyDown = useCallback(
@@ -66,60 +64,7 @@ const CommitRow = memo(function CommitRow({
       }}
     >
       {/* Graph column */}
-      <svg width={graphWidth} height={ROW_HEIGHT} style={{ flexShrink: 0 }}>
-        {/* Pass-through vertical lines */}
-        {activeLanes.map((al) => {
-          const x = al.lane * LANE_WIDTH + GRAPH_LEFT_PADDING;
-          const c = GIT_GRAPH_COLORS[al.colorIndex % GIT_GRAPH_COLORS.length];
-          return (
-            <line
-              key={`pt-${al.lane}`}
-              x1={x}
-              y1={0}
-              x2={x}
-              y2={ROW_HEIGHT}
-              stroke={c}
-              strokeWidth={1.5}
-            />
-          );
-        })}
-
-        {/* Lines going down to parents */}
-        {linesDown.map((seg, idx) => {
-          const fromX = seg.fromLane * LANE_WIDTH + GRAPH_LEFT_PADDING;
-          const toX = seg.toLane * LANE_WIDTH + GRAPH_LEFT_PADDING;
-          const segColor = GIT_GRAPH_COLORS[seg.colorIndex % GIT_GRAPH_COLORS.length];
-
-          if (seg.fromLane === seg.toLane) {
-            // Same lane — vertical line from center to bottom
-            return (
-              <line
-                key={`ld-${idx}`}
-                x1={fromX}
-                y1={cy}
-                x2={toX}
-                y2={ROW_HEIGHT}
-                stroke={segColor}
-                strokeWidth={1.5}
-              />
-            );
-          }
-
-          // Different lane — cubic bezier curve
-          return (
-            <path
-              key={`ld-${idx}`}
-              d={`M ${fromX} ${cy} C ${fromX} ${ROW_HEIGHT * 0.75} ${toX} ${ROW_HEIGHT * 0.75} ${toX} ${ROW_HEIGHT}`}
-              stroke={segColor}
-              strokeWidth={1.5}
-              fill="none"
-            />
-          );
-        })}
-
-        {/* Node dot */}
-        <circle cx={cx} cy={cy} r={4} fill={color} />
-      </svg>
+      <CommitGraphRow info={info} graphWidth={graphWidth} activeLanes={activeLanes} />
 
       {/* Commit info */}
       <div
@@ -219,6 +164,7 @@ export function GitHistoryPanel({
 
   // ── Virtualizer ──────────────────────────────────────────────────────
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: laneData.length,
     getScrollElement: () => parentRef.current,

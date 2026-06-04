@@ -56,6 +56,25 @@ mock.module('./TabContextMenu', () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Trigger the rename callback stored on the mock TabContextMenu element.
+ * This is necessary because the mock TabContextMenu does not render a
+ * real context menu — the onRename callback is captured via ref and
+ * must be invoked directly to test the rename flow.
+ */
+function triggerRenameOnMock(container: HTMLElement) {
+  const contextMenuEl = container.querySelector(
+    '[data-testid="mock-tab-context-menu"]',
+  ) as HTMLElement;
+  expect(contextMenuEl).toBeTruthy();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  expect(typeof (contextMenuEl as any).__onRename).toBe('function');
+  act(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (contextMenuEl as any).__onRename();
+  });
+}
+
 const sampleTabs: Tab[] = [
   { id: 'tab-1', type: 'terminal', title: 'Terminal 1', terminalId: 'term-1', workspaceId: 'ws-1' },
   { id: 'tab-2', type: 'terminal', title: 'Terminal 2', terminalId: 'term-2', workspaceId: 'ws-1' },
@@ -357,10 +376,9 @@ describe('TabBar', () => {
     const contextMenus = container.querySelectorAll('[data-testid="mock-tab-context-menu"]');
     expect(contextMenus.length).toBeGreaterThan(0);
 
+    // The data attribute proves the mock received onCloseOthers as a function
     for (const menu of contextMenus) {
       expect((menu as HTMLElement).dataset.hasCloseOthers).toBe('true');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(typeof (menu as any).__onCloseOthers).toBe('function');
     }
   });
 
@@ -374,10 +392,9 @@ describe('TabBar', () => {
     const contextMenus = container.querySelectorAll('[data-testid="mock-tab-context-menu"]');
     expect(contextMenus.length).toBeGreaterThan(0);
 
+    // The data attribute proves the mock received onCloseRight as a function
     for (const menu of contextMenus) {
       expect((menu as HTMLElement).dataset.hasCloseRight).toBe('true');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(typeof (menu as any).__onCloseRight).toBe('function');
     }
   });
 
@@ -397,19 +414,8 @@ describe('TabBar', () => {
     // Initially no input
     expect(container.querySelectorAll('input').length).toBe(0);
 
-    // Get the context menu mock element and trigger rename
-    const contextMenuEl = container.querySelector(
-      '[data-testid="mock-tab-context-menu"]',
-    ) as HTMLElement;
-    expect(contextMenuEl).toBeTruthy();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(typeof (contextMenuEl as any).__onRename).toBe('function');
-
-    // Trigger rename — this causes a React state update
-    act(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (contextMenuEl as any).__onRename();
-    });
+    // Trigger rename via the mock context menu's stored callback
+    triggerRenameOnMock(container);
 
     // Now an input should appear
     const inputs = container.querySelectorAll('input');
@@ -430,14 +436,8 @@ describe('TabBar', () => {
       activeTabId: 't1',
     });
 
-    // Trigger rename
-    const contextMenuEl = container.querySelector(
-      '[data-testid="mock-tab-context-menu"]',
-    ) as HTMLElement;
-    act(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (contextMenuEl as any).__onRename();
-    });
+    // Trigger rename via the mock context menu's stored callback
+    triggerRenameOnMock(container);
 
     const input = container.querySelector('input') as HTMLInputElement;
     expect(input).toBeTruthy();
@@ -470,14 +470,8 @@ describe('TabBar', () => {
       activeTabId: 't1',
     });
 
-    // Trigger rename
-    const contextMenuEl = container.querySelector(
-      '[data-testid="mock-tab-context-menu"]',
-    ) as HTMLElement;
-    act(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (contextMenuEl as any).__onRename();
-    });
+    // Trigger rename via the mock context menu's stored callback
+    triggerRenameOnMock(container);
 
     const input = container.querySelector('input') as HTMLInputElement;
     expect(input).toBeTruthy();
@@ -508,14 +502,8 @@ describe('TabBar', () => {
       activeTabId: 't1',
     });
 
-    // Trigger rename
-    const contextMenuEl = container.querySelector(
-      '[data-testid="mock-tab-context-menu"]',
-    ) as HTMLElement;
-    act(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (contextMenuEl as any).__onRename();
-    });
+    // Trigger rename via the mock context menu's stored callback
+    triggerRenameOnMock(container);
 
     const input = container.querySelector('input') as HTMLInputElement;
 
@@ -542,14 +530,8 @@ describe('TabBar', () => {
       activeTabId: 't1',
     });
 
-    // Trigger rename
-    const contextMenuEl = container.querySelector(
-      '[data-testid="mock-tab-context-menu"]',
-    ) as HTMLElement;
-    act(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (contextMenuEl as any).__onRename();
-    });
+    // Trigger rename via the mock context menu's stored callback
+    triggerRenameOnMock(container);
 
     const input = container.querySelector('input') as HTMLInputElement;
 
@@ -643,14 +625,8 @@ describe('TabBar', () => {
       activeTabId: 't1',
     });
 
-    // Trigger rename
-    const contextMenuEl = container.querySelector(
-      '[data-testid="mock-tab-context-menu"]',
-    ) as HTMLElement;
-    act(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (contextMenuEl as any).__onRename();
-    });
+    // Trigger rename via the mock context menu's stored callback
+    triggerRenameOnMock(container);
 
     const input = container.querySelector('input') as HTMLInputElement;
     expect(input).toBeTruthy();

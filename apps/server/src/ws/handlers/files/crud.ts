@@ -1,6 +1,7 @@
-import { basename, join, relative, isAbsolute } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { stat } from 'node:fs/promises';
 import {
+  ErrorCodes,
   type MessageEnvelope,
   type RequestEnvelope,
   type FileWriteRequest,
@@ -14,6 +15,14 @@ import type { ClientConnection } from '../../connection';
 import * as fileOps from '../../../files/operations';
 import { type FileDeps, handleFileRequest } from './shared';
 import type { MessageRouter } from '../../router';
+import { createError } from '../../router';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Maximum allowed content size for file.write (50 MB). */
+const MAX_WRITE_CONTENT_SIZE = 50 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Registration — create, write, delete, rename, copy, move handlers
@@ -33,6 +42,20 @@ export function registerCrudHandlers(router: MessageRouter, deps: FileDeps): voi
   // --- file.write ---------------------------------------------------------
   router.handle('file.write', async (conn: ClientConnection, envelope: MessageEnvelope) => {
     const req = envelope as RequestEnvelope<FileWriteRequest>;
+
+    // Validate content size before processing
+    const content = req.payload?.content;
+    if (typeof content === 'string' && content.length > MAX_WRITE_CONTENT_SIZE) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'file.write' },
+          ErrorCodes.INVALID_MESSAGE,
+          `Content exceeds maximum size of ${MAX_WRITE_CONTENT_SIZE} bytes`,
+        ),
+      );
+      return;
+    }
+
     await handleFileRequest(
       conn,
       req,
@@ -111,7 +134,7 @@ export function registerCrudHandlers(router: MessageRouter, deps: FileDeps): voi
       async ({ srcPath, destDir: resolvedDestDir }) => {
         // Guard against copying into self or a descendant
         const rel = relative(srcPath, resolvedDestDir);
-        if (!rel.startsWith('..') && !isAbsolute(rel)) {
+        if (!rel.startsWith('..')) {
           throw new Error('Cannot copy into a subdirectory of the source');
         }
         const baseName = basename(srcPath);
@@ -140,7 +163,7 @@ export function registerCrudHandlers(router: MessageRouter, deps: FileDeps): voi
       async ({ srcPath, destDir: resolvedDestDir }) => {
         // Guard against moving into self or a descendant
         const rel = relative(srcPath, resolvedDestDir);
-        if (!rel.startsWith('..') && !isAbsolute(rel)) {
+        if (!rel.startsWith('..')) {
           throw new Error('Cannot move into a subdirectory of the source');
         }
         const baseName = basename(srcPath);

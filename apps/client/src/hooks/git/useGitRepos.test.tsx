@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { setupTestDom } from '../test-helpers/mock-setup';
+import { setupTestDom } from '../../test-helpers/mock-setup';
 await setupTestDom();
 
 import { describe, test, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
@@ -20,7 +20,7 @@ const mockOnMessage = mock((handler: MessageHandler) => {
   };
 });
 
-mock.module('../lib/ws-client', () => ({
+mock.module('../../lib/ws-client', () => ({
   wsClient: {
     onMessage: mockOnMessage,
   },
@@ -58,12 +58,12 @@ const sendRequestMock = mock((channel: string, _payload: unknown) => {
   return Promise.resolve({});
 });
 
-mock.module('../lib/send-request', () => ({
+mock.module('../../lib/send-request', () => ({
   sendRequest: sendRequestMock,
 }));
 
 // Import after mocking
-const { useGitRepos } = await import('./useGitRepos');
+const { useGitRepos } = await import('./index');
 
 // ---------------------------------------------------------------------------
 // Helpers

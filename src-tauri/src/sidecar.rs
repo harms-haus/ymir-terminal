@@ -119,20 +119,16 @@ impl SidecarManager {
     }
 
     fn target_triple() -> &'static str {
-        #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
-        { return "x86_64-pc-windows-msvc"; }
-        #[cfg(all(target_arch = "aarch64", target_os = "windows"))]
-        { return "aarch64-pc-windows-msvc"; }
-        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
-        { return "x86_64-unknown-linux-gnu"; }
-        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-        { return "aarch64-unknown-linux-gnu"; }
-        #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
-        { return "x86_64-apple-darwin"; }
-        #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
-        { return "aarch64-apple-darwin"; }
-        #[allow(unreachable_code)]
-        { "unknown" }
+        use std::env::consts::{ARCH, OS};
+        match (ARCH, OS) {
+            ("x86_64", "windows") => "x86_64-pc-windows-msvc",
+            ("aarch64", "windows") => "aarch64-pc-windows-msvc",
+            ("x86_64", "linux") => "x86_64-unknown-linux-gnu",
+            ("aarch64", "linux") => "aarch64-unknown-linux-gnu",
+            ("x86_64", "macos") => "x86_64-apple-darwin",
+            ("aarch64", "macos") => "aarch64-apple-darwin",
+            _ => "unknown",
+        }
     }
 
     /// Try to find the sidecar binary next to the current executable.

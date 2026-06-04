@@ -20,14 +20,11 @@ describe('useTabs', () => {
   test('returns tabs, activeTabId, createTab, closeTab, activateTab', () => {
     const { result } = renderHook(() => useTabs());
 
-    expect(result.current).toHaveProperty('tabs');
-    expect(result.current).toHaveProperty('activeTabId');
-    expect(result.current).toHaveProperty('createTab');
-    expect(result.current).toHaveProperty('closeTab');
-    expect(result.current).toHaveProperty('activateTab');
-    expect(result.current).toHaveProperty('setDisplayTitle');
-    expect(result.current).toHaveProperty('switchWorkspace');
-    expect(result.current).toHaveProperty('loadTabs');
+    // Verify initial state values, not just property existence
+    expect(result.current.tabs).toEqual([]);
+    expect(result.current.activeTabId).toBeNull();
+
+    // Verify callback functions exist and are callable
     expect(typeof result.current.createTab).toBe('function');
     expect(typeof result.current.closeTab).toBe('function');
     expect(typeof result.current.activateTab).toBe('function');

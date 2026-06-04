@@ -1,6 +1,7 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
 import {
   IS_WINDOWS,
+  IS_MACOS,
   VERSION,
   CLI_BINARY_NAME,
   APP_BINARY_NAME,
@@ -9,18 +10,60 @@ import {
 
 describe('update command', () => {
   describe('platform asset naming', () => {
-    test('PLATFORM_TAG is windows-x64 on Windows or linux-x64 otherwise', () => {
-      const platformTag = IS_WINDOWS ? 'windows-x64' : 'linux-x64';
+    test('PLATFORM_TAG follows platform-arch pattern', () => {
+      const platform = process.platform;
+      const arch = process.arch;
+
+      let platformName: string;
+      if (platform === 'win32') {
+        platformName = 'windows';
+      } else if (platform === 'darwin') {
+        platformName = 'darwin';
+      } else {
+        platformName = 'linux';
+      }
+
+      let archName: string;
+      if (arch === 'arm64') {
+        archName = 'arm64';
+      } else {
+        archName = 'x64';
+      }
+
+      const platformTag = `${platformName}-${archName}`;
 
       if (IS_WINDOWS) {
         expect(platformTag).toBe('windows-x64');
+      } else if (IS_MACOS) {
+        expect(platformTag).toContain('darwin');
+        expect(platformTag).toContain(arch === 'arm64' ? 'arm64' : 'x64');
       } else {
-        expect(platformTag).toBe('linux-x64');
+        expect(platformTag).toContain('linux');
+        expect(platformTag).toContain(arch === 'arm64' ? 'arm64' : 'x64');
       }
     });
 
     test('binary names include platform suffix in release assets', () => {
-      const platformTag = IS_WINDOWS ? 'windows-x64' : 'linux-x64';
+      const platform = process.platform;
+      const arch = process.arch;
+
+      let platformName: string;
+      if (platform === 'win32') {
+        platformName = 'windows';
+      } else if (platform === 'darwin') {
+        platformName = 'darwin';
+      } else {
+        platformName = 'linux';
+      }
+
+      let archName: string;
+      if (arch === 'arm64') {
+        archName = 'arm64';
+      } else {
+        archName = 'x64';
+      }
+
+      const platformTag = `${platformName}-${archName}`;
       const binaryNames = [CLI_BINARY_NAME, APP_BINARY_NAME, SERVER_BINARY_NAME];
 
       for (const name of binaryNames) {
@@ -90,12 +133,7 @@ describe('update command', () => {
         logs.push(args.join(' '));
       };
 
-      try {
-        await selfUpdate();
-      } catch (err) {
-        // process.exit mock throws
-        expect(String(err)).toContain('process.exit(0)');
-      }
+      await selfUpdate();
 
       console.log = originalLog;
       expect(logs.some((l) => l.includes('up to date'))).toBe(true);
@@ -155,7 +193,26 @@ describe('update command', () => {
       }
 
       console.error = originalError;
-      const platformTag = IS_WINDOWS ? 'windows-x64' : 'linux-x64';
+      const platform = process.platform;
+      const arch = process.arch;
+
+      let platformName: string;
+      if (platform === 'win32') {
+        platformName = 'windows';
+      } else if (platform === 'darwin') {
+        platformName = 'darwin';
+      } else {
+        platformName = 'linux';
+      }
+
+      let archName: string;
+      if (arch === 'arm64') {
+        archName = 'arm64';
+      } else {
+        archName = 'x64';
+      }
+
+      const platformTag = `${platformName}-${archName}`;
       expect(errors.some((e) => e.includes(platformTag))).toBe(true);
     });
   });

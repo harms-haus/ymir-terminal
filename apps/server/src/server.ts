@@ -203,6 +203,9 @@ export async function startServer(options: StartServerOptions): Promise<void> {
       conn.close();
     }
 
+    // Allow connections to finish draining before closing databases
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     // Close databases
     try {
       db.close();

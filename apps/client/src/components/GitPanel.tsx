@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGitRepos } from '../hooks/useGitRepos';
+import { useGitRepos } from '../hooks/git';
 import { GitRepoHeader } from './GitRepoHeader';
 import { GitCommitInput } from './GitCommitInput';
 import { GitChangesSection } from './GitChangesSection';
@@ -111,7 +111,9 @@ export function GitPanel({
             {!collapsedRepos.has(repo.path) && (
               <>
                 <GitCommitInput
-                  onCommit={(message) => git.commit(repo.path, message)}
+                  onCommit={(message) =>
+                    git.commitAll(repo.path, message, { includeUntracked: false })
+                  }
                   disabled={!hasStagedFiles}
                   loading={false}
                 />

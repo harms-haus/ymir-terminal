@@ -107,8 +107,9 @@ class WSClient {
         for (const handler of this.messageHandlers) {
           handler(envelope);
         }
-      } catch {
+      } catch (err) {
         // Ignore malformed messages
+        console.warn('[ws-client] Failed to parse message:', err);
       }
     };
 

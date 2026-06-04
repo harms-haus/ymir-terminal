@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, accessSync, constants } from 'node:fs';
 import { getYmirHomeDir, APP_BINARY_NAME, SERVER_BINARY_NAME } from '@ymir/shared';
 
 export function launchApp(): void {
@@ -11,6 +11,13 @@ export function launchApp(): void {
     console.error(
       `Ymir is not installed at ${binaryPath}.\nRun 'ymir update' to install the latest version.`,
     );
+    process.exit(1);
+  }
+
+  try {
+    accessSync(binaryPath, constants.X_OK);
+  } catch {
+    console.error(`Binary at ${binaryPath} is not executable.\nRun 'ymir update' to reinstall.`);
     process.exit(1);
   }
 

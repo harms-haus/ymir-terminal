@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
+import http from 'node:http';
 import { getYmirHomeDir, SERVER_BINARY_NAME, IS_MACOS, IS_WINDOWS } from '@ymir/shared';
 
 function printWebHelp(): void {
@@ -97,6 +98,14 @@ export function startWeb(args: string[]): void {
     },
   );
 
+  // Forward signals to the server child process so it shuts down cleanly
+  const shutdownServer = (signal: string) => {
+    server.kill(signal as NodeJS.Signals);
+  };
+
+  process.on('SIGINT', () => shutdownServer('SIGINT'));
+  process.on('SIGTERM', () => shutdownServer('SIGTERM'));
+
   server.on('error', (err) => {
     console.error(`Failed to start server: ${err.message}`);
     process.exit(1);
@@ -104,8 +113,25 @@ export function startWeb(args: string[]): void {
 
   if (!noOpen) {
     const url = `http://${host}:${port}`;
+    const healthUrl = `http://${host}:${port}/health`;
 
-    setTimeout(() => {
+    const pollHealth = (retries: number) => {
+      if (retries <= 0) {
+        console.warn('Server did not become ready in time; skipping browser open.');
+        return;
+      }
+
+      http
+        .get(healthUrl, (res) => {
+          res.resume();
+          openBrowser(url);
+        })
+        .on('error', () => {
+          setTimeout(() => pollHealth(retries - 1), 100);
+        });
+    };
+
+    const openBrowser = (url: string) => {
       let command: string;
       let cmdArgs: string[];
 
@@ -122,7 +148,10 @@ export function startWeb(args: string[]): void {
 
       const opener = spawn(command, cmdArgs, { stdio: 'ignore' });
       opener.unref();
-    }, 1500);
+    };
+
+    // Poll for up to 30 seconds (300 retries × 100ms)
+    pollHealth(300);
   }
 
   server.on('close', (code) => {

@@ -136,7 +136,7 @@ export class MessageRouter {
           id: envelope.id ?? '',
           channel: envelope.channel,
         },
-        'INVALID_MESSAGE',
+        ErrorCodes.INVALID_MESSAGE,
         `No handler for channel: ${envelope.channel ?? '<missing>'}`,
       );
     }

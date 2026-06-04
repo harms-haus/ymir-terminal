@@ -1,4 +1,12 @@
 /**
+ * Browser-safe path utilities.
+ *
+ * These intentionally duplicate small pieces of `node:path` so they can be
+ * used in the browser (where `node:path` is unavailable). They handle both
+ * `/` and `\` separators for cross-platform compatibility.
+ */
+
+/**
  * Split a path into segments, handling both / and \ separators.
  */
 export function splitPath(path: string): string[] {

@@ -42,10 +42,10 @@ pub fn global_log(msg: &str) {
     let line = format!("[{timestamp}] {msg}\n");
     eprint!("{line}");
     if let Some(mutex) = LOG.get() {
-        if let Ok(mut file) = mutex.lock() {
-            let _ = file.write_all(line.as_bytes());
-            let _ = file.flush();
-        }
+        // Recover from mutex poisoning so logging survives prior panics.
+        let mut file = mutex.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = file.write_all(line.as_bytes());
+        let _ = file.flush();
     }
 }
 

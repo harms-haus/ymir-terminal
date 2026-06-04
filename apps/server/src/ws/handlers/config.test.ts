@@ -146,6 +146,63 @@ describe('registerConfigHandlers', () => {
   });
 
   // -----------------------------------------------------------------------
+  // config.set — value exceeds max length returns INVALID_MESSAGE
+  // -----------------------------------------------------------------------
+  it('config.set returns INVALID_MESSAGE when value exceeds max length', async () => {
+    const longValue = 'a'.repeat(4097);
+    const req = request('config.set', { key: 'my-key', value: longValue });
+    await router.route(conn, req);
+
+    expect(conn.sent.length).toBe(1);
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.error).toBeDefined();
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    expect((resp.error as Record<string, unknown>).message).toContain('4096');
+  });
+
+  // -----------------------------------------------------------------------
+  // config.set — value at exactly max length succeeds
+  // -----------------------------------------------------------------------
+  it('config.set succeeds when value is exactly max length', async () => {
+    const maxValue = 'b'.repeat(4096);
+    const setReq = request('config.set', { key: 'my-key', value: maxValue });
+    await router.route(conn, setReq);
+
+    expect(conn.sent.length).toBe(1);
+    const setResp = conn.sent[0] as Record<string, unknown>;
+    expect(setResp.error).toBeUndefined();
+    expect((setResp.payload as Record<string, unknown>).ok).toBe(true);
+  });
+
+  // -----------------------------------------------------------------------
+  // config.set — invalid key format returns INVALID_MESSAGE
+  // -----------------------------------------------------------------------
+  it('config.set returns INVALID_MESSAGE for invalid key format', async () => {
+    const req = request('config.set', { key: 'INVALID KEY!', value: 'test' });
+    await router.route(conn, req);
+
+    expect(conn.sent.length).toBe(1);
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.error).toBeDefined();
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    expect((resp.error as Record<string, unknown>).message).toContain('Invalid key format');
+  });
+
+  // -----------------------------------------------------------------------
+  // config.get — invalid key format returns INVALID_MESSAGE
+  // -----------------------------------------------------------------------
+  it('config.get returns INVALID_MESSAGE for invalid key format', async () => {
+    const req = request('config.get', { key: 'INVALID KEY!' });
+    await router.route(conn, req);
+
+    expect(conn.sent.length).toBe(1);
+    const resp = conn.sent[0] as Record<string, unknown>;
+    expect(resp.error).toBeDefined();
+    expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.INVALID_MESSAGE);
+    expect((resp.error as Record<string, unknown>).message).toContain('Invalid key format');
+  });
+
+  // -----------------------------------------------------------------------
   // Unauthenticated — AUTH_REQUIRED error
   // -----------------------------------------------------------------------
   it('Unauthenticated returns AUTH_REQUIRED error', async () => {

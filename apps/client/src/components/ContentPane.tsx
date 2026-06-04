@@ -1,13 +1,10 @@
 import { useState, useCallback, useEffect, forwardRef } from 'react';
 import { useTerminalPane } from '../hooks/useTerminalPane';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
-import { DiffViewer } from './DiffViewer';
-import { EditorPane } from './EditorPane';
-import { GitTreeTab } from './GitTreeTab';
+import { PaneContent } from './PaneContent';
 import { TabBar } from './TabBar';
 import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
 import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
-import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { pathBasename } from '../lib/path-utils';
 
 export interface ContentPaneProps {
@@ -236,76 +233,15 @@ export const ContentPane = forwardRef<TerminalPanelHandle, ContentPaneProps>(fun
         onMoveToPane={onMoveToPane}
         group="content"
       />
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {/* TerminalManager portals terminals into this container */}
-        <div
-          ref={terminalContainerRef}
-          data-testid="terminal-container"
-          style={{ height: '100%', pointerEvents: 'none' }}
-        />
-        {activeTab?.type === 'editor' && activeTab.filePath && workspaceId && (
-          <div style={{ position: 'absolute', inset: 0, background: COLOR_BG_PRIMARY }}>
-            <EditorPane
-              key={activeTab.filePath}
-              workspaceId={workspaceId}
-              filePath={activeTab.filePath}
-              onDirtyChange={handleDirtyChange}
-            />
-          </div>
-        )}
-        {activeTab?.type === 'diff' &&
-          activeTab.filePath &&
-          workspaceId &&
-          activeTab.diffRepoPath && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: COLOR_BG_PRIMARY,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <DiffViewer
-                key={`${activeTab.filePath}-${activeTab.diffRef}`}
-                workspaceId={workspaceId}
-                repoPath={activeTab.diffRepoPath}
-                filePath={activeTab.filePath}
-                staged={activeTab.diffRef === 'staged'}
-                onOpenEditor={handleAddEditor}
-                commitSha={activeTab.diffRef === 'commit' ? activeTab.commitSha : undefined}
-                parentSha={activeTab.diffRef === 'commit' ? activeTab.parentSha : undefined}
-              />
-            </div>
-          )}
-        {activeTab?.type === 'git-tree' && activeTab.repoPath != null && workspaceId && (
-          <div style={{ position: 'absolute', inset: 0, background: COLOR_BG_PRIMARY }}>
-            <GitTreeTab
-              workspaceId={workspaceId}
-              repoPath={activeTab.repoPath}
-              highlightCommitSha={commitToHighlight?.commitSha ?? null}
-              onOpenCommitDiff={(commitSha, parentSha, filePath) =>
-                handleAddCommitDiff(commitSha, parentSha, filePath, activeTab.repoPath!)
-              }
-            />
-          </div>
-        )}
-        {!activeTab && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              color: COLOR_TEXT_DIM,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: COLOR_BG_PRIMARY,
-            }}
-          >
-            No tabs open
-          </div>
-        )}
-      </div>
+      <PaneContent
+        activeTab={activeTab}
+        terminalContainerRef={terminalContainerRef}
+        workspaceId={workspaceId}
+        commitToHighlight={commitToHighlight}
+        onDirtyChange={handleDirtyChange}
+        onOpenEditor={handleAddEditor}
+        onOpenCommitDiff={handleAddCommitDiff}
+      />
     </div>
   );
 });

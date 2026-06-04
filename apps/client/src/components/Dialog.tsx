@@ -39,6 +39,13 @@ const titleStyle: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const FOCUSABLE_SELECTOR =
+  'input, button, select, textarea, a[href], summary, [contenteditable], [tabindex]:not([tabindex="-1"])';
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -73,9 +80,7 @@ export function Dialog({
     const timer = setTimeout(() => {
       const card = cardRef.current;
       if (!card) return;
-      const first = card.querySelector<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])',
-      );
+      const first = card.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
       first?.focus();
     }, 0);
 
@@ -105,9 +110,7 @@ export function Dialog({
       const card = cardRef.current;
       if (!card) return;
 
-      const focusable = card.querySelectorAll<HTMLElement>(
-        'input, button, [tabindex]:not([tabindex="-1"])',
-      );
+      const focusable = card.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
       if (focusable.length === 0) return;
 
       const first = focusable[0];
@@ -197,8 +200,9 @@ export function Dialog({
 // Module-level style injection (injected once per page load)
 // ---------------------------------------------------------------------------
 
-if (typeof document !== 'undefined') {
+if (typeof document !== 'undefined' && !document.getElementById('ymir-dialog-styles')) {
   const style = document.createElement('style');
+  style.id = 'ymir-dialog-styles';
   style.textContent = `
     [data-testid] input:focus-visible,
     [data-testid] button:focus-visible {

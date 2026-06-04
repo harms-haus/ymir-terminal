@@ -1,6 +1,7 @@
-import { rename, mkdir, rm } from 'node:fs/promises';
+import { rename, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { existsSync, renameSync, createWriteStream } from 'node:fs';
+import { existsSync, renameSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import {
   getYmirHomeDir,
   CLI_BINARY_NAME,
@@ -16,7 +17,30 @@ interface GithubRelease {
   assets: Array<{ name: string; browser_download_url: string }>;
 }
 
-const PLATFORM_TAG = IS_WINDOWS ? 'windows-x64' : 'linux-x64';
+function getPlatformTag(): string {
+  const platform = process.platform;
+  const arch = process.arch;
+
+  let platformName: string;
+  if (platform === 'win32') {
+    platformName = 'windows';
+  } else if (platform === 'darwin') {
+    platformName = 'darwin';
+  } else {
+    platformName = 'linux';
+  }
+
+  let archName: string;
+  if (arch === 'arm64') {
+    archName = 'arm64';
+  } else {
+    archName = 'x64';
+  }
+
+  return `${platformName}-${archName}`;
+}
+
+const PLATFORM_TAG = getPlatformTag();
 const BINARY_NAMES = [CLI_BINARY_NAME, APP_BINARY_NAME, SERVER_BINARY_NAME];
 
 async function fetchLatestRelease(): Promise<GithubRelease> {
@@ -40,19 +64,23 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
     throw new Error(`Failed to download ${url}: ${response.status}`);
   }
 
-  const body = response.body;
-  if (!body) {
-    throw new Error(`No response body for ${url}`);
+  const arrayBuffer = await response.arrayBuffer();
+  await writeFile(destPath, Buffer.from(arrayBuffer));
+}
+
+async function extractArchive(archivePath: string, extractDir: string): Promise<string> {
+  await mkdir(extractDir, { recursive: true });
+
+  if (archivePath.endsWith('.tar.gz')) {
+    execFileSync('tar', ['xzf', archivePath, '-C', extractDir]);
+  } else if (archivePath.endsWith('.zip')) {
+    execFileSync('unzip', ['-o', archivePath, '-d', extractDir]);
+  } else {
+    // Not an archive, return as-is
+    return archivePath;
   }
 
-  return new Promise((resolve, reject) => {
-    const stream = createWriteStream(destPath);
-    stream.on('finish', resolve);
-    stream.on('error', reject);
-
-    // @ts-expect-error - Node ReadableStream from fetch is pipeable
-    body.pipe(stream);
-  });
+  return extractDir;
 }
 
 function replaceBinaryUnix(tempPath: string, finalPath: string): void {
@@ -64,19 +92,19 @@ async function replaceBinaryWindows(tempPath: string, finalPath: string): Promis
 
   if (existsSync(finalPath)) {
     if (existsSync(oldPath)) {
-      await rm(oldPath, { force: true });
+      rmSync(oldPath, { force: true });
     }
     await rename(finalPath, oldPath);
   }
 
   await rename(tempPath, finalPath);
 
-  // Safe file deletion after a short delay (no shell injection risk)
-  setTimeout(async () => {
-    try {
-      await rm(oldPath, { force: true });
-    } catch {}
-  }, 3000);
+  // Clean up old binary synchronously
+  try {
+    if (existsSync(oldPath)) {
+      rmSync(oldPath, { force: true });
+    }
+  } catch {}
 }
 
 export async function selfUpdate(): Promise<void> {
@@ -95,7 +123,7 @@ export async function selfUpdate(): Promise<void> {
 
   if (latestVersion === VERSION) {
     console.log('Already up to date.');
-    process.exit(0);
+    return;
   }
 
   console.log(`New version available: ${latestVersion} (current: ${VERSION})`);
@@ -143,12 +171,22 @@ export async function selfUpdate(): Promise<void> {
 
     // Replace binaries
     for (const { tempPath, finalName } of downloaded) {
+      let binaryPath = tempPath;
+
+      // Extract archive if needed
+      if (tempPath.endsWith('.tar.gz') || tempPath.endsWith('.zip')) {
+        const extractDir = join(tempDir, `extract-${finalName}`);
+        await extractArchive(tempPath, extractDir);
+        // Find the extracted binary
+        binaryPath = join(extractDir, finalName);
+      }
+
       const finalPath = join(homeDir, finalName);
 
       if (IS_WINDOWS) {
-        await replaceBinaryWindows(tempPath, finalPath);
+        await replaceBinaryWindows(binaryPath, finalPath);
       } else {
-        replaceBinaryUnix(tempPath, finalPath);
+        replaceBinaryUnix(binaryPath, finalPath);
       }
 
       console.log(`Updated ${finalName}`);

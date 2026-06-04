@@ -26,6 +26,7 @@ import {
   deleteWorkspace as dbDeleteWorkspace,
   getWorkspace as dbGetWorkspace,
   reorderWorkspaces as dbReorderWorkspaces,
+  deletePersistedTabsByWorkspace as dbDeletePersistedTabsByWorkspace,
   type Workspace,
   type CreateWorkspaceInput,
   type UpdateWorkspaceInput,
@@ -63,6 +64,7 @@ export interface WorkspaceDeps {
     ) => void;
     stopManagedWatcher?: (workspaceId: string) => void;
     reorderWorkspaces?: (db: Database, ids: string[]) => void;
+    deletePersistedTabsByWorkspace?: (db: Database, workspaceId: string) => void;
     discoverRepos?: (
       workspaceCwd: string,
       maxDepth?: number,
@@ -101,6 +103,8 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
   const doStartWatcher = _mocks?.startManagedWatcher ?? startManagedWatcher;
   const doStopWatcher = _mocks?.stopManagedWatcher ?? stopManagedWatcher;
   const doReorder = _mocks?.reorderWorkspaces ?? dbReorderWorkspaces;
+  const doDeletePersistedTabs =
+    _mocks?.deletePersistedTabsByWorkspace ?? dbDeletePersistedTabsByWorkspace;
   const doDiscoverRepos = _mocks?.discoverRepos ?? nativeDiscoverRepos;
 
   const { gitStatusWatcher, watchedGitDirs } = deps;
@@ -288,6 +292,9 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       doStopWatcher(payload.id);
       await stopGitWatchersForWorkspace(payload.id);
     }
+
+    // Clean up orphaned persisted tabs for this workspace
+    doDeletePersistedTabs(persistentDb, payload.id);
 
     const deleted = doDelete(persistentDb, payload.id);
 

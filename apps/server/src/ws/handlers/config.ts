@@ -15,6 +15,12 @@ import { getConfigValue, setConfigValue } from '../../db/persistent';
 
 const PROTECTED_CONFIG_KEYS = new Set(['jwt_signing_secret']);
 
+/** Maximum allowed value length for config.set. */
+const MAX_CONFIG_VALUE_LENGTH = 4096;
+
+/** Allowed config key pattern: lowercase alphanumeric with dots, dashes, underscores. */
+const CONFIG_KEY_PATTERN = /^[a-z0-9._-]+$/;
+
 // ---------------------------------------------------------------------------
 // Dependencies
 // ---------------------------------------------------------------------------
@@ -61,6 +67,17 @@ export function registerConfigHandlers(router: MessageRouter, deps: ConfigDeps):
       return;
     }
 
+    if (!CONFIG_KEY_PATTERN.test(payload.key)) {
+      conn.send(
+        createError(
+          req,
+          ErrorCodes.INVALID_MESSAGE,
+          'Invalid key format: must be lowercase alphanumeric with dots, dashes, or underscores',
+        ),
+      );
+      return;
+    }
+
     const result = doGetConfigValue(deps.persistentDb, payload.key);
 
     const resp: ResponseEnvelope<ConfigGetResponse> = createResponse(req, {
@@ -92,9 +109,31 @@ export function registerConfigHandlers(router: MessageRouter, deps: ConfigDeps):
       return;
     }
 
+    if (!CONFIG_KEY_PATTERN.test(payload.key)) {
+      conn.send(
+        createError(
+          req,
+          ErrorCodes.INVALID_MESSAGE,
+          'Invalid key format: must be lowercase alphanumeric with dots, dashes, or underscores',
+        ),
+      );
+      return;
+    }
+
     if (PROTECTED_CONFIG_KEYS.has(payload.key)) {
       conn.send(
         createError(req, ErrorCodes.PERMISSION_DENIED, 'Cannot modify protected config key'),
+      );
+      return;
+    }
+
+    if (payload.value.length > MAX_CONFIG_VALUE_LENGTH) {
+      conn.send(
+        createError(
+          req,
+          ErrorCodes.INVALID_MESSAGE,
+          `Value exceeds maximum length of ${MAX_CONFIG_VALUE_LENGTH} characters`,
+        ),
       );
       return;
     }

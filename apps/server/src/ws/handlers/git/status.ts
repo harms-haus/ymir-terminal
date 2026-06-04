@@ -21,7 +21,6 @@ import { resolveSafeRepoPath } from './shared';
 
 export function registerStatusHandlers(router: MessageRouter, deps: ResolvedGitDeps): void {
   const {
-    doGetGitStatus,
     doGetGitStatusEnhanced,
     doGetGitLog,
     doGetWorkspace,
@@ -112,9 +111,7 @@ export function registerStatusHandlers(router: MessageRouter, deps: ResolvedGitD
     }
 
     // 4. Fallback — direct fetch (no cache or watcher unavailable)
-    const result = payload.repoPath
-      ? await doGetGitStatusEnhanced(gitDir)
-      : await doGetGitStatus(gitDir);
+    const result = await doGetGitStatusEnhanced(gitDir);
 
     if (result) {
       gitStatusCache.set(gitDir, result);

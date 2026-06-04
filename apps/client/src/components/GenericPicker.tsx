@@ -99,7 +99,7 @@ export function GenericPicker({
       setHighlightedIndex(0);
     }
     prevOpenRef.current = open;
-  });
+  }, [open]);
 
   // Auto-focus input when dialog opens
   useEffect(() => {

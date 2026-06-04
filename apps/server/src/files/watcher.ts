@@ -61,7 +61,8 @@ export function stopWatcher(dirPath: string): void {
 }
 
 export function stopAllWatchers(): void {
-  for (const [path] of activeWatchers) {
+  const paths = [...activeWatchers.keys()];
+  for (const path of paths) {
     stopWatcher(path);
   }
   activeWatchersByWorkspace.clear();

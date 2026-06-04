@@ -18,7 +18,12 @@ import {
   type GitCommitDetailsResponse,
   type GitCommitDiffResponse,
 } from '@ymir/shared';
-import { mockConn, request } from '../../test-helpers/mock-utils';
+import {
+  mockConn,
+  request,
+  makeGetWorkspaceMock,
+  expectSuccessResponse,
+} from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerGitHandlers } from './git';
 import type { GitDeps } from './git';
@@ -38,27 +43,10 @@ describe('registerGitHandlers', () => {
     router = new MessageRouter();
     conn = mockConn();
 
-    getWorkspaceFn = mock((_db: unknown, id: string) => {
-      if (id === 'ws-1') {
-        return {
-          id: 'ws-1',
-          name: 'Test',
-          cwd: '/home/dev/project',
-          color: '#007acc',
-          sort_order: 0,
-        };
-      }
-      if (id === 'ws-nongit') {
-        return {
-          id: 'ws-nongit',
-          name: 'No Git',
-          cwd: '/tmp/plain',
-          color: '#007acc',
-          sort_order: 0,
-        };
-      }
-      return null;
-    });
+    getWorkspaceFn = makeGetWorkspaceMock(
+      { id: 'ws-1', cwd: '/home/dev/project' },
+      { id: 'ws-nongit', name: 'No Git', cwd: '/tmp/plain' },
+    );
 
     const fakeCommits: GitLogItem[] = [
       {
@@ -126,11 +114,7 @@ describe('registerGitHandlers', () => {
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.id).toBe(req.id);
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitStatusResponse;
+      const payload = expectSuccessResponse<GitStatusResponse>(resp, req.id);
       expect(payload.branch).toBe('main');
       expect(payload.changes).toEqual([
         { path: 'src/foo.ts', status: 'M' },
@@ -148,10 +132,7 @@ describe('registerGitHandlers', () => {
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitStatusResponse;
+      const payload = expectSuccessResponse<GitStatusResponse>(resp);
       expect(payload.branch).toBeNull();
       expect(payload.changes).toEqual([]);
       expect(payload.staged).toEqual([]);
@@ -205,10 +186,7 @@ describe('registerGitHandlers', () => {
       );
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitStatusResponse;
+      const payload = expectSuccessResponse<GitStatusResponse>(resp);
       expect(payload.branch).toBe('feature');
       expect(payload.repoPath).toBe('subdir/repo');
     });
@@ -257,25 +235,14 @@ describe('registerGitHandlers', () => {
         behind: 0,
       }));
 
-      const getWsFn = mock((_db: unknown, id: string) => {
-        if (id === 'ws-abs') {
-          return {
-            id: 'ws-abs',
-            name: 'Abs',
-            cwd: '/home/dev/project',
-            color: '#007acc',
-            sort_order: 0,
-          };
-        }
-        return null;
-      });
+      const getWsFn = makeGetWorkspaceMock({ id: 'ws-abs', name: 'Abs', cwd: '/home/dev/project' });
 
       const localRouter = new MessageRouter();
       const localConn = mockConn();
       const localDeps: GitDeps = {
         persistentDb: {} as any,
         _mocks: {
-          getWorkspace: getWsFn as any,
+          getWorkspace: getWsFn,
           getGitStatus: getGitStatusFn,
           getGitStatusEnhanced: getGitStatusEnhancedFn as any,
         },
@@ -295,10 +262,7 @@ describe('registerGitHandlers', () => {
       );
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitStatusResponse;
+      const payload = expectSuccessResponse<GitStatusResponse>(resp);
       expect(payload.branch).toBe('develop');
     });
   });
@@ -307,30 +271,6 @@ describe('registerGitHandlers', () => {
   // git.log tests
   // -----------------------------------------------------------------------
   describe('git.log', () => {
-    const fakeCommits: GitLogItem[] = [
-      {
-        id: 'aaa',
-        message: 'third commit',
-        author: 'Alice <alice@example.com>',
-        date: 1700000003,
-        parents: ['bbb'],
-      },
-      {
-        id: 'bbb',
-        message: 'second commit',
-        author: 'Bob <bob@example.com>',
-        date: 1700000002,
-        parents: ['ccc'],
-      },
-      {
-        id: 'ccc',
-        message: 'first commit',
-        author: 'Alice <alice@example.com>',
-        date: 1700000001,
-        parents: [],
-      },
-    ];
-
     it('returns commits with id, message, author, date for a valid workspace', async () => {
       const req = request('git.log', { workspaceId: 'ws-1', skip: 0, limit: 10 });
       await router.route(conn, req);
@@ -343,12 +283,32 @@ describe('registerGitHandlers', () => {
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.id).toBe(req.id);
-      expect(resp.error).toBeUndefined();
+      const payload = expectSuccessResponse<GitLogResponse>(resp, req.id);
+      expect(payload.commits).toHaveLength(3);
 
-      const payload = resp.payload as GitLogResponse;
-      expect(payload.commits).toEqual(fakeCommits);
+      // Verify each commit's fields individually to ensure the handler
+      // preserves data correctly rather than comparing to mock internals.
+      const first = payload.commits[0];
+      expect(first.id).toBe('aaa');
+      expect(first.message).toBe('third commit');
+      expect(first.author).toBe('Alice <alice@example.com>');
+      expect(first.date).toBe(1700000003);
+      expect(first.parents).toEqual(['bbb']);
+
+      const second = payload.commits[1];
+      expect(second.id).toBe('bbb');
+      expect(second.message).toBe('second commit');
+      expect(second.author).toBe('Bob <bob@example.com>');
+      expect(second.date).toBe(1700000002);
+      expect(second.parents).toEqual(['ccc']);
+
+      const third = payload.commits[2];
+      expect(third.id).toBe('ccc');
+      expect(third.message).toBe('first commit');
+      expect(third.author).toBe('Alice <alice@example.com>');
+      expect(third.date).toBe(1700000001);
+      expect(third.parents).toEqual([]);
+
       expect(payload.hasMore).toBe(false); // 3 commits < limit 10
     });
 
@@ -362,10 +322,13 @@ describe('registerGitHandlers', () => {
 
       const resp = conn.sent[0] as Record<string, unknown>;
       const payload = resp.payload as GitLogResponse;
-      // fakeCommits.slice(2, 3) → [{ id: 'ccc', ... }]
+      // The mock returns fakeCommits.slice(2, 3) → the third commit
       expect(payload.commits).toHaveLength(1);
       expect(payload.commits[0].id).toBe('ccc');
       expect(payload.commits[0].message).toBe('first commit');
+      expect(payload.commits[0].author).toBe('Alice <alice@example.com>');
+      expect(payload.commits[0].date).toBe(1700000001);
+      expect(payload.commits[0].parents).toEqual([]);
       // hasMore: commits.length (1) === limit (1) → true
       expect(payload.hasMore).toBe(true);
     });
@@ -384,9 +347,7 @@ describe('registerGitHandlers', () => {
       await router.route(conn, req);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitLogResponse;
+      const payload = expectSuccessResponse<GitLogResponse>(resp);
       expect(payload.commits).toEqual([]);
       expect(payload.hasMore).toBe(false);
     });
@@ -411,7 +372,7 @@ describe('registerGitHandlers', () => {
       expect(getGitLogFn.mock.calls[0][2]).toBe(1);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('clamps limit=1000 to 100', async () => {
@@ -423,7 +384,7 @@ describe('registerGitHandlers', () => {
       expect(getGitLogFn.mock.calls[0][2]).toBe(100);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('clamps skip=-1 to 0', async () => {
@@ -437,7 +398,7 @@ describe('registerGitHandlers', () => {
       expect(getGitLogFn.mock.calls[0][2]).toBe(10);
 
       const resp = conn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
   });
 
@@ -475,10 +436,7 @@ describe('registerGitHandlers', () => {
       expect(discoverReposFn.mock.calls[0][0]).toBe('/home/dev/project');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { repos: GitRepoInfo[] };
+      const payload = expectSuccessResponse<{ repos: GitRepoInfo[] }>(resp);
       expect(payload.repos).toHaveLength(2);
       expect(payload.repos[0].path).toBe('.');
       expect(payload.repos[1].name).toBe('sub');
@@ -571,9 +529,7 @@ describe('registerGitHandlers', () => {
 
       // Final response
       const resp = localConn.sent[2] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-      const respPayload = resp.payload as { repos: GitRepoInfo[] };
+      const respPayload = expectSuccessResponse<{ repos: GitRepoInfo[] }>(resp);
       expect(respPayload.repos).toEqual([repoA, repoB]);
     });
 
@@ -605,8 +561,7 @@ describe('registerGitHandlers', () => {
       // Only the final response should be sent — no progress events
       expect(localConn.sent.length).toBe(1);
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('includes correct workspaceId in progress events', async () => {
@@ -650,7 +605,7 @@ describe('registerGitHandlers', () => {
 
       // Second message is the final response
       const resp = localConn.sent[1] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
+      expectSuccessResponse(resp);
     });
   });
 
@@ -681,8 +636,7 @@ describe('registerGitHandlers', () => {
       expect(stageFilesFn.mock.calls[0][1]).toEqual(['src/a.ts', 'src/b.ts']);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE for missing files or empty files array', async () => {
@@ -743,8 +697,7 @@ describe('registerGitHandlers', () => {
       expect(unstageFilesFn.mock.calls[0][1]).toEqual(['src/a.ts']);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE for missing files or empty files array', async () => {
@@ -801,8 +754,7 @@ describe('registerGitHandlers', () => {
       expect(discardChangesFn.mock.calls[0][1]).toEqual(['src/a.ts']);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INVALID_MESSAGE for missing files or empty files array', async () => {
@@ -859,10 +811,7 @@ describe('registerGitHandlers', () => {
       expect(commitChangesFn.mock.calls[0][1]).toBe('fix: correct typo');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { commitHash: string };
+      const payload = expectSuccessResponse<{ commitHash: string }>(resp);
       expect(payload.commitHash).toBe('abc123def');
     });
 
@@ -921,10 +870,9 @@ describe('registerGitHandlers', () => {
       expect(listBranchesFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as { branches: GitBranch[]; current: string | null };
+      const payload = expectSuccessResponse<{ branches: GitBranch[]; current: string | null }>(
+        resp,
+      );
       expect(payload.branches).toEqual(fakeBranches);
       expect(payload.current).toBe('main');
     });
@@ -971,8 +919,7 @@ describe('registerGitHandlers', () => {
       expect(createBranchFn).toHaveBeenCalledTimes(0);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('calls createBranch when createNew is true', async () => {
@@ -1005,8 +952,7 @@ describe('registerGitHandlers', () => {
       expect(checkoutBranchFn).toHaveBeenCalledTimes(0);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
@@ -1049,8 +995,7 @@ describe('registerGitHandlers', () => {
       expect(pushBranchFn.mock.calls[0][1]).toBe('main');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
@@ -1091,8 +1036,7 @@ describe('registerGitHandlers', () => {
       expect(fetchRemoteFn.mock.calls[0][0]).toBe(resolve('/home/dev/project'));
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns WORKSPACE_NOT_FOUND for unknown workspaceId', async () => {
@@ -1138,10 +1082,7 @@ describe('registerGitHandlers', () => {
       expect(listWorktreesFn.mock.calls[0][0]).toBe('/home/dev/project');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitWorktreeListResponse;
+      const payload = expectSuccessResponse<GitWorktreeListResponse>(resp);
       expect(payload.worktrees).toEqual(fakeWorktrees);
     });
 
@@ -1160,9 +1101,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitWorktreeListResponse;
+      const payload = expectSuccessResponse<GitWorktreeListResponse>(resp);
       expect(payload.worktrees).toEqual([]);
     });
 
@@ -1222,10 +1161,7 @@ describe('registerGitHandlers', () => {
       expect(createWorktreeFn.mock.calls[0][1]).toBe('feature');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitWorktreeCreateResponse;
+      const payload = expectSuccessResponse<GitWorktreeCreateResponse>(resp);
       expect(payload.worktree).toEqual(createdWorktree);
     });
 
@@ -1296,9 +1232,7 @@ describe('registerGitHandlers', () => {
       expect(copyFileFn.mock.calls.length).toBeGreaterThanOrEqual(2);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitWorktreeCreateResponse;
+      const payload = expectSuccessResponse<GitWorktreeCreateResponse>(resp);
       expect(payload.worktree).toEqual(createdWorktree);
     });
 
@@ -1388,8 +1322,7 @@ describe('registerGitHandlers', () => {
       expect(removeWorktreeFn.mock.calls[0][2]).toBe(true);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
+      expectSuccessResponse(resp);
     });
 
     it('returns INTERNAL_ERROR when removeWorktree throws', async () => {
@@ -1493,10 +1426,7 @@ describe('registerGitHandlers', () => {
       expect(mergeWorktreeFn.mock.calls[0][1]).toMatch(/\.worktrees[\\/]feat$/);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitWorktreeMergeResponse;
+      const payload = expectSuccessResponse<GitWorktreeMergeResponse>(resp);
       expect(payload.success).toBe(true);
       expect(payload.message).toBe('Merged successfully');
       expect(payload.worktreeRemoved).toBe(true);
@@ -1535,9 +1465,7 @@ describe('registerGitHandlers', () => {
       expect(copyFileFn.mock.calls.length).toBeGreaterThanOrEqual(1);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitWorktreeMergeResponse;
+      const payload = expectSuccessResponse<GitWorktreeMergeResponse>(resp);
       expect(payload.success).toBe(true);
     });
 
@@ -1597,10 +1525,7 @@ describe('registerGitHandlers', () => {
       expect(readConfigFn).toHaveBeenCalledTimes(1);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitWorktreeCopyFilesResponse;
+      const payload = expectSuccessResponse<GitWorktreeCopyFilesResponse>(resp);
       expect(payload.untrackedFiles).toEqual(['src/new-file.ts', '.env']);
       expect(payload.configuredFiles).toEqual(['.env', 'config.json']);
     });
@@ -1656,10 +1581,7 @@ describe('registerGitHandlers', () => {
       expect(getDiffDataFn.mock.calls[0][2]).toBe(true);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitDiffDataResponse;
+      const payload = expectSuccessResponse<GitDiffDataResponse>(resp);
       expect(payload.originalContent).toBe('old line\n');
       expect(payload.modifiedContent).toBe('new line\n');
       expect(payload.additions).toBe(1);
@@ -1749,10 +1671,7 @@ describe('registerGitHandlers', () => {
       expect(getCommitDetailsFn.mock.calls[0][1]).toBe('abc123def456');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitCommitDetailsResponse;
+      const payload = expectSuccessResponse<GitCommitDetailsResponse>(resp);
       expect(payload.commitSha).toBe('abc123def456');
       expect(payload.body).toContain('add new feature');
       expect(payload.files).toHaveLength(2);
@@ -1849,10 +1768,7 @@ describe('registerGitHandlers', () => {
       expect(getCommitFileDiffFn.mock.calls[0][3]).toBe('src/foo.ts');
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.type).toBe('response');
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitCommitDiffResponse;
+      const payload = expectSuccessResponse<GitCommitDiffResponse>(resp);
       expect(payload.originalContent).toBe('old\n');
       expect(payload.modifiedContent).toBe('new\n');
       expect(payload.additions).toBe(1);
@@ -1927,9 +1843,7 @@ describe('registerGitHandlers', () => {
       await localRouter.route(localConn, req);
 
       const resp = localConn.sent[0] as Record<string, unknown>;
-      expect(resp.error).toBeUndefined();
-
-      const payload = resp.payload as GitCommitDiffResponse;
+      const payload = expectSuccessResponse<GitCommitDiffResponse>(resp);
       expect(payload.filePath).toBe('README.md');
     });
 

@@ -1,20 +1,11 @@
 import { AppContextMenu } from './AppContextMenu';
 import type { ContextMenuItem } from './AppContextMenu';
 import { useConfirm } from '../hooks/useDialog';
+import { useFileTreeContext } from './FileTreeContext';
 
 interface FileTreeContextMenuProps {
   path: string;
   isDirectory: boolean;
-  onNewFile?: (parentDir: string) => void;
-  onNewFolder?: (parentDir: string) => void;
-  onRename?: (path: string) => void;
-  onDelete?: (path: string) => void;
-  onOpenEditor?: (path: string) => void;
-  onCut?: (path: string) => void;
-  onCopy?: (path: string) => void;
-  onPaste?: (targetDir: string) => void;
-  clipboardHasItem?: boolean;
-  workspaceCwd?: string;
   children: React.ReactNode;
 }
 
@@ -22,22 +13,20 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(na
 const mod = isMac ? '⌘' : 'Ctrl+';
 const shift = isMac ? '⇧' : 'Shift+';
 
-export function FileTreeContextMenu({
-  path,
-  isDirectory,
-  onNewFile,
-  onNewFolder,
-  onRename,
-  onDelete,
-  onOpenEditor,
-  onCut,
-  onCopy,
-  onPaste,
-  clipboardHasItem,
-  workspaceCwd,
-  children,
-}: FileTreeContextMenuProps) {
+export function FileTreeContextMenu({ path, isDirectory, children }: FileTreeContextMenuProps) {
   const confirm = useConfirm();
+  const {
+    onNewFile,
+    onNewFolder,
+    onRename,
+    onDelete,
+    onOpenEditor,
+    onCut,
+    onCopy,
+    onPaste,
+    clipboardHasItem,
+    workspaceCwd,
+  } = useFileTreeContext();
   const items: ContextMenuItem[] = [];
 
   /* Directory-specific items */
