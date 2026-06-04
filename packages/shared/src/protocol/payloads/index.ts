@@ -27,6 +27,8 @@ import type {
   WorkspaceUpdateRequest,
   WorkspaceDeleteRequest,
   WorkspaceReorderRequest,
+  WorkspaceSubscribeRequest,
+  WorkspaceUnsubscribeRequest,
 } from './workspace';
 import type {
   FileTreeRequest,
@@ -114,6 +116,8 @@ export const REQUEST_TYPES = [
   'workspace.update',
   'workspace.delete',
   'workspace.reorder',
+  'workspace.subscribe',
+  'workspace.unsubscribe',
   'file.tree',
   'file.read',
   'file.write',
@@ -206,6 +210,8 @@ export type RequestPayload =
   | WorkspaceUpdateRequest
   | WorkspaceDeleteRequest
   | WorkspaceReorderRequest
+  | WorkspaceSubscribeRequest
+  | WorkspaceUnsubscribeRequest
   | FileTreeRequest
   | FileReadRequest
   | FileWriteRequest

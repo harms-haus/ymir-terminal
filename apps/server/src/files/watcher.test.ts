@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from 'bun:test';
-import { mkdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startWatcher, stopWatcher, stopAllWatchers } from './watcher';
@@ -83,5 +83,44 @@ describe('File watcher', () => {
 
     expect(m1.dirPath).toBe(dir1);
     expect(m2.dirPath).toBe(dir2);
+  });
+
+  test('chokidar events map to correct FileChangeEvent kinds', async () => {
+    const dirPath = join(TEST_DIR, 'event-map-test');
+    mkdirSync(dirPath, { recursive: true });
+
+    const events: Array<{ kind: string; path: string }> = [];
+
+    const watcherReady = new Promise<void>((resolve) => {
+      const managed = startWatcher(dirPath, (event) => {
+        events.push({ kind: event.kind, path: event.path });
+      });
+      managed.watcher.on('ready', () => resolve());
+    });
+
+    // Wait for chokidar to finish initial scanning
+    await watcherReady;
+
+    const testFile = join(dirPath, 'test.txt');
+
+    // Create a file
+    writeFileSync(testFile, 'hello');
+    await Bun.sleep(300);
+
+    // Modify the file
+    writeFileSync(testFile, 'world');
+    await Bun.sleep(300);
+
+    // Delete the file
+    rmSync(testFile);
+    await Bun.sleep(300);
+
+    const createEvents = events.filter((e) => e.kind === 'create' && e.path === testFile);
+    const modifyEvents = events.filter((e) => e.kind === 'modify' && e.path === testFile);
+    const deleteEvents = events.filter((e) => e.kind === 'delete' && e.path === testFile);
+
+    expect(createEvents.length).toBe(1);
+    expect(modifyEvents.length).toBe(1);
+    expect(deleteEvents.length).toBe(1);
   });
 });

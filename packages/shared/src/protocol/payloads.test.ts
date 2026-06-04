@@ -18,6 +18,8 @@ import {
   type WorkspaceUpdateRequest,
   type WorkspaceDeleteRequest,
   type WorkspaceReorderRequest,
+  type WorkspaceSubscribeRequest,
+  type WorkspaceUnsubscribeRequest,
   // File
   type FileTreeRequest,
   type FileReadRequest,
@@ -110,6 +112,8 @@ describe('REQUEST_TYPES', () => {
     'workspace.update',
     'workspace.delete',
     'workspace.reorder',
+    'workspace.subscribe',
+    'workspace.unsubscribe',
     'file.tree',
     'file.read',
     'file.write',
@@ -178,8 +182,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 72 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(72);
+  it('has exactly 74 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(74);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -346,6 +350,8 @@ describe('RequestPayload union', () => {
       } satisfies GitRemoteRemoveRequest,
       { workspaceId: 'ws-1', repoPath: '.' } satisfies GitRemoteListRequest,
       { workspaceIds: ['ws-1', 'ws-2'] } satisfies WorkspaceReorderRequest,
+      { workspaceId: 'ws-1' } satisfies WorkspaceSubscribeRequest,
+      { workspaceId: 'ws-1' } satisfies WorkspaceUnsubscribeRequest,
       { key: 'theme' } satisfies ConfigGetRequest,
       { key: 'theme', value: 'dark' } satisfies ConfigSetRequest,
       { workspaceId: 'ws-1' } satisfies TabListRequest,

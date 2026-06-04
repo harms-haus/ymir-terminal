@@ -1,6 +1,6 @@
-import { watch, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
-import type { GitStatusResponse } from '@ymir/shared';
+import chokidar, { type FSWatcher } from 'chokidar';
+import type { GitFileChange, GitStatusResponse } from '@ymir/shared';
 import type { GitStatusCache } from './status-cache';
 
 /** Directories to ignore when watching the working tree. */
@@ -48,19 +48,19 @@ export interface GitStatusWatcherOptions {
 }
 
 /**
- * Element-by-element comparison for two readonly arrays.
+ * Deep field-by-field comparison for two GitFileChange arrays.
  */
-function arraysEqual<T>(a: readonly T[], b: readonly T[]): boolean {
+function changesEqual(a: readonly GitFileChange[], b: readonly GitFileChange[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
+    if (a[i].path !== b[i].path || a[i].status !== b[i].status) return false;
   }
   return true;
 }
 
 /**
  * Cheap equality check for two GitStatusResponse values.
- * Scalar fields are compared first; arrays are compared element-by-element.
+ * Scalar fields are compared first; arrays are compared field-by-field.
  */
 function statusChanged(a: GitStatusResponse | null, b: GitStatusResponse): boolean {
   if (a === null) return true;
@@ -71,7 +71,7 @@ function statusChanged(a: GitStatusResponse | null, b: GitStatusResponse): boole
     a.hasRemote !== b.hasRemote
   )
     return true;
-  return !arraysEqual(a.changes, b.changes) || !arraysEqual(a.staged, b.staged);
+  return !changesEqual(a.changes, b.changes) || !changesEqual(a.staged, b.staged);
 }
 
 export class GitStatusWatcher {
@@ -130,24 +130,33 @@ export class GitStatusWatcher {
 
     // Watch .git/HEAD — fires on branch switches and commits
     const headPath = join(gitDir, 'HEAD');
-    const headWatcher = watch(headPath, () => {
+    const headWatcher = chokidar.watch(headPath).on('change', () => {
       this.scheduleRefresh(repoRootKey);
     });
     state.watchers.push(headWatcher);
 
     // Watch .git/refs/ — fires on new commits and tag creation
     const refsPath = join(gitDir, 'refs');
-    const refsWatcher = watch(refsPath, { recursive: true }, () => {
-      this.scheduleRefresh(repoRootKey);
-    });
+    const refsWatcher = chokidar
+      .watch(refsPath, { depth: 10, ignoreInitial: true })
+      .on('all', () => {
+        this.scheduleRefresh(repoRootKey);
+      });
     state.watchers.push(refsWatcher);
 
-    // Watch the working tree for file-level changes
-    const rootWatcher = watch(repoRootPath, { recursive: true }, (_eventType, filename) => {
-      if (!filename) return;
-      if (this.isExcluded(filename)) return;
+    // Watch .git/index — fires when git stages/unstages changes
+    const indexPath = join(gitDir, 'index');
+    const indexWatcher = chokidar.watch(indexPath).on('change', () => {
       this.scheduleRefresh(repoRootKey);
     });
+    state.watchers.push(indexWatcher);
+
+    // Watch the working tree for file-level changes
+    const rootWatcher = chokidar
+      .watch(repoRootPath, { ignored: EXCLUDED_PATTERN, ignoreInitial: true })
+      .on('all', (_event, _path) => {
+        this.scheduleRefresh(repoRootKey);
+      });
     state.watchers.push(rootWatcher);
 
     this.repos.set(repoRootKey, state);
@@ -223,7 +232,7 @@ export class GitStatusWatcher {
   /**
    * Stop watching a specific repo: close all watchers and clear timers.
    */
-  unwatchRepo(absoluteGitDir: string): void {
+  async unwatchRepo(absoluteGitDir: string): Promise<void> {
     const state = this.repos.get(absoluteGitDir);
     if (!state) return;
 
@@ -231,9 +240,7 @@ export class GitStatusWatcher {
       clearTimeout(state.debounceTimer);
     }
 
-    for (const w of state.watchers) {
-      w.close();
-    }
+    await Promise.all(state.watchers.map((w) => w.close()));
 
     this.repos.delete(absoluteGitDir);
     this.cache.invalidate(absoluteGitDir);
@@ -247,9 +254,9 @@ export class GitStatusWatcher {
   /**
    * Stop all watchers, clear all timers, and stop the safety poll.
    */
-  unwatchAll(): void {
+  async unwatchAll(): Promise<void> {
     for (const [gitDir] of this.repos) {
-      this.unwatchRepo(gitDir);
+      await this.unwatchRepo(gitDir);
     }
     this.stopSafetyPoll();
   }
@@ -258,13 +265,8 @@ export class GitStatusWatcher {
   // Internals
   // -------------------------------------------------------------------
 
-  /**
-   * Returns `true` if the given filename should be excluded from
-   * working-tree watch events.
-   */
-  private isExcluded(filename: string): boolean {
-    return EXCLUDED_PATTERN.test(filename);
-  }
+  /** Guard flag to prevent overlapping safety-poll batches. */
+  private safetyPollRunning = false;
 
   /** Start the safety-poll interval if it isn't already running. */
   private ensureSafetyPoll(): void {
@@ -272,7 +274,11 @@ export class GitStatusWatcher {
     if (this.safetyPollTimer !== null) return;
 
     this.safetyPollTimer = setInterval(() => {
-      void this.runSafetyPollBatch();
+      if (this.safetyPollRunning) return;
+      this.safetyPollRunning = true;
+      void this.runSafetyPollBatch().finally(() => {
+        this.safetyPollRunning = false;
+      });
     }, this.safetyPollMs);
   }
 

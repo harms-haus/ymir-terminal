@@ -1,5 +1,4 @@
-import { watch, existsSync, type FSWatcher } from 'node:fs';
-import { join } from 'node:path';
+import chokidar from 'chokidar';
 
 export interface FileChangeEvent {
   path: string;
@@ -7,17 +6,22 @@ export interface FileChangeEvent {
 }
 
 export interface ManagedWatcher {
-  watcher: FSWatcher;
+  watcher: InstanceType<typeof chokidar.FSWatcher>;
   dirPath: string;
   close: () => void;
 }
 
+const MAX_FILE_WATCHERS = 200;
 const activeWatchers = new Map<string, ManagedWatcher>();
 
 export function startWatcher(
   dirPath: string,
   callback: (event: FileChangeEvent) => void,
 ): ManagedWatcher {
+  if (activeWatchers.size >= MAX_FILE_WATCHERS) {
+    throw new Error(`Max file watchers (${MAX_FILE_WATCHERS}) reached`);
+  }
+
   // Close existing watcher for this path if any
   if (activeWatchers.has(dirPath)) {
     const existing = activeWatchers.get(dirPath)!;
@@ -25,21 +29,25 @@ export function startWatcher(
     activeWatchers.delete(dirPath);
   }
 
-  // NOTE: recursive fs.watch is only reliable on macOS/Windows.
-  // On Linux, this silently fails for nested directories.
-  // TODO: Implement manual recursive watching or use a library like chokidar for Linux support.
-  const watcher = watch(dirPath, { recursive: true }, (eventType, filename) => {
-    if (!filename) return;
-    const fullPath = join(dirPath, filename);
-    let kind: 'create' | 'modify' | 'delete';
-    if (eventType === 'rename') {
-      kind = existsSync(fullPath) ? 'create' : 'delete';
-    } else {
-      kind = 'modify';
-    }
-    callback({ path: fullPath, kind });
+  const watcher = chokidar.watch(dirPath, {
+    ignoreInitial: true,
+    depth: 20,
+    ignored: /node_modules|\.git/,
   });
-  const managed = { watcher, dirPath, close: () => watcher.close() };
+
+  watcher.on('add', (path) => callback({ path, kind: 'create' }));
+  watcher.on('change', (path) => callback({ path, kind: 'modify' }));
+  watcher.on('unlink', (path) => callback({ path, kind: 'delete' }));
+  watcher.on('addDir', (path) => callback({ path, kind: 'create' }));
+  watcher.on('unlinkDir', (path) => callback({ path, kind: 'delete' }));
+
+  const managed = {
+    watcher,
+    dirPath,
+    close: () => {
+      watcher.close();
+    },
+  };
   activeWatchers.set(dirPath, managed);
   return managed;
 }

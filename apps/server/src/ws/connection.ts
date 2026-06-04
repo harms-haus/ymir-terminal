@@ -19,10 +19,26 @@ export class ClientConnection {
   lastActive = new Date();
 
   #ws: WsLike;
+  #openWorkspaces = new Set<string>();
 
   constructor(ws: WsLike) {
     this.#ws = ws;
     this.sessionId = crypto.randomUUID();
+  }
+
+  /** Register interest in a workspace (receives broadcast events for it). */
+  addWorkspace(id: string): void {
+    this.#openWorkspaces.add(id);
+  }
+
+  /** Unsubscribe from a workspace (stops receiving broadcast events). */
+  removeWorkspace(id: string): void {
+    this.#openWorkspaces.delete(id);
+  }
+
+  /** Whether this connection is subscribed to the given workspace. */
+  hasWorkspace(id: string): boolean {
+    return this.#openWorkspaces.has(id);
   }
 
   /** Serialize an envelope to JSON and send it over the wire. */

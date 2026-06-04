@@ -36,3 +36,11 @@ export interface WorkspaceDeleteRequest {
 export interface WorkspaceReorderRequest {
   workspaceIds: string[];
 }
+
+export interface WorkspaceSubscribeRequest {
+  workspaceId: string;
+}
+
+export interface WorkspaceUnsubscribeRequest {
+  workspaceId: string;
+}

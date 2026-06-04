@@ -70,9 +70,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   // Track git dirs to workspace metadata for the status change handler
   const watchedGitDirs = new Map<string, { workspaceId: string; repoPath: string }>();
 
-  // When git status changes, broadcast to all authenticated clients.
-  // TODO: Only broadcast to connections that have access to this workspace
-  // (same issue exists for file.change broadcasts in workspace handlers).
+  // When git status changes, broadcast only to connections subscribed to the workspace.
   gitStatusWatcher.setStatusChangeHandler((absoluteGitDir, status) => {
     const info = watchedGitDirs.get(absoluteGitDir);
     if (info) {
@@ -83,7 +81,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
       } satisfies GitStatusChangeEvent);
       const msg = JSON.stringify(event);
       for (const conn of connections.values()) {
-        if (conn.isAuthenticated) {
+        if (conn.isAuthenticated && conn.hasWorkspace(info.workspaceId)) {
           conn.sendRaw(msg);
         }
       }
@@ -107,11 +105,15 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     persistentDb: db,
   });
 
-  // Shared broadcast function
+  // Shared broadcast function — only sends to connections subscribed to the workspace
+  // identified in the event payload (if any). Events without a workspaceId are
+  // broadcast to all authenticated connections.
   const broadcastEvent = (event: EventEnvelope) => {
     const msg = JSON.stringify(event);
+    const payload = event.payload as { workspaceId?: string } | null | undefined;
+    const workspaceId = payload?.workspaceId;
     for (const conn of connections.values()) {
-      if (conn.isAuthenticated) {
+      if (conn.isAuthenticated && (!workspaceId || conn.hasWorkspace(workspaceId))) {
         conn.sendRaw(msg);
       }
     }
@@ -194,7 +196,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     stopAllWatchers();
 
     // Stop all git status watchers
-    gitStatusWatcher.unwatchAll();
+    await gitStatusWatcher.unwatchAll();
 
     // Close all WebSocket connections
     for (const conn of connections.values()) {

@@ -11,7 +11,9 @@ import {
   type WorkspaceDeleteRequest,
   type WorkspaceListResponse,
   type WorkspaceReorderRequest,
+  type WorkspaceSubscribeRequest,
   type WorkspaceSummary,
+  type WorkspaceUnsubscribeRequest,
   type WorkspaceUpdateRequest,
 } from '@ymir/shared';
 import { resolve, join } from 'node:path';
@@ -137,7 +139,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
    * entries from the reverse mapping.  Also cancels any in-flight discovery
    * so that watchers are not started for a deleted workspace.
    */
-  function stopGitWatchersForWorkspace(workspaceId: string): void {
+  async function stopGitWatchersForWorkspace(workspaceId: string): Promise<void> {
     cancelledDiscovery.set(workspaceId, true);
     if (!gitStatusWatcher || !watchedGitDirs) return;
     // Collect keys first, then iterate to avoid mutation-while-iterating issues
@@ -148,7 +150,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       }
     }
     for (const repoRootKey of toRemove) {
-      gitStatusWatcher.unwatchRepo(repoRootKey);
+      await gitStatusWatcher.unwatchRepo(repoRootKey);
       watchedGitDirs.delete(repoRootKey);
     }
   }
@@ -195,6 +197,9 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       cwd: normalizedCwd,
       color: payload.color,
     });
+
+    // Auto-subscribe the creator to the new workspace
+    conn.addWorkspace(workspace.id);
 
     doStartWatcher(workspace.id, workspace.cwd, deps.broadcastEvent);
 
@@ -251,7 +256,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
       doStartWatcher(payload.id, workspace.cwd, deps.broadcastEvent);
 
       // Restart git watchers for the new cwd
-      stopGitWatchersForWorkspace(payload.id);
+      await stopGitWatchersForWorkspace(payload.id);
       startGitWatchersForWorkspace(payload.id, workspace.cwd);
     }
 
@@ -281,7 +286,7 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
     const existing = doGet(persistentDb, payload.id);
     if (existing) {
       doStopWatcher(payload.id);
-      stopGitWatchersForWorkspace(payload.id);
+      await stopGitWatchersForWorkspace(payload.id);
     }
 
     const deleted = doDelete(persistentDb, payload.id);
@@ -327,4 +332,60 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
     const resp: ResponseEnvelope = createResponse(req, null);
     conn.send(resp);
   });
+
+  // --- workspace.subscribe -------------------------------------------------
+  router.handle(
+    'workspace.subscribe',
+    async (conn: ClientConnection, envelope: MessageEnvelope) => {
+      const req = envelope as RequestEnvelope<WorkspaceSubscribeRequest>;
+      const payload = req.payload;
+
+      if (
+        payload == null ||
+        typeof payload !== 'object' ||
+        typeof payload.workspaceId !== 'string'
+      ) {
+        const err: ResponseEnvelope = createError(
+          { id: req.id, channel: req.channel ?? 'workspace.subscribe' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing required field: workspaceId',
+        );
+        conn.send(err);
+        return;
+      }
+
+      conn.addWorkspace(payload.workspaceId);
+
+      const resp: ResponseEnvelope = createResponse(req, null);
+      conn.send(resp);
+    },
+  );
+
+  // --- workspace.unsubscribe -----------------------------------------------
+  router.handle(
+    'workspace.unsubscribe',
+    async (conn: ClientConnection, envelope: MessageEnvelope) => {
+      const req = envelope as RequestEnvelope<WorkspaceUnsubscribeRequest>;
+      const payload = req.payload;
+
+      if (
+        payload == null ||
+        typeof payload !== 'object' ||
+        typeof payload.workspaceId !== 'string'
+      ) {
+        const err: ResponseEnvelope = createError(
+          { id: req.id, channel: req.channel ?? 'workspace.unsubscribe' },
+          ErrorCodes.INVALID_MESSAGE,
+          'Missing required field: workspaceId',
+        );
+        conn.send(err);
+        return;
+      }
+
+      conn.removeWorkspace(payload.workspaceId);
+
+      const resp: ResponseEnvelope = createResponse(req, null);
+      conn.send(resp);
+    },
+  );
 }
