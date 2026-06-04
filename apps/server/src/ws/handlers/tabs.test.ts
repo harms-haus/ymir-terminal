@@ -1,5 +1,5 @@
 import { resolve as pathResolve } from 'node:path';
-import { describe, expect, it, beforeEach, mock, type Mock } from 'bun:test';
+import { describe, expect, it, beforeEach } from 'bun:test';
 import {
   ErrorCodes,
   type ResponseEnvelope,
@@ -15,29 +15,6 @@ import { initSessionDb, createSession, type Database } from '../../db/session';
 import { initDatabase as initPersistentDb } from '../../db/persistent';
 import { PTYManager } from '../../pty/manager';
 
-/**
- * Build a simple mock that satisfies the AgentStatusTracker interface
- * methods used by the tab restore handler.
- */
-function mockStatusTracker() {
-  return {
-    updateFromOSC777: mock(() => null) as Mock<(...args: unknown[]) => string | null>,
-    clearTerminal: mock(() => {}) as Mock<(terminalId: string) => void>,
-    getAllStatuses: mock(() => new Map()) as Mock<() => Map<string, unknown>>,
-  };
-}
-
-/**
- * Build a simple mock that satisfies the ProcessMonitor interface
- * methods used by the tab restore handler.
- */
-function mockProcessMonitor() {
-  return {
-    trackTerminal: mock(() => {}) as Mock<(terminalId: string, pid: number) => void>,
-    untrackTerminal: mock(() => {}) as Mock<(terminalId: string) => void>,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -49,8 +26,6 @@ describe('registerTabHandlers', () => {
   let persistentDb: Database;
   let sessionId: string;
   let ptyManager: PTYManager;
-  let statusTracker: ReturnType<typeof mockStatusTracker>;
-  let processMonitor: ReturnType<typeof mockProcessMonitor>;
   let deps: TabDeps;
 
   beforeEach(() => {
@@ -62,9 +37,7 @@ describe('registerTabHandlers', () => {
     ptyManager = new PTYManager('linux', {
       existsSync: () => true,
     });
-    statusTracker = mockStatusTracker();
-    processMonitor = mockProcessMonitor();
-    deps = { sessionDb, persistentDb, ptyManager, statusTracker, processMonitor };
+    deps = { sessionDb, persistentDb, ptyManager };
     sessionId = createSession(sessionDb);
     conn.sessionId = sessionId;
   });

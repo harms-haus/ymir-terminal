@@ -126,8 +126,6 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type'> {
 | `tab.reorder`                | request   | Reorder tabs by ID array                                                                                 |
 | `tab.restore`                | request   | Restore persisted tabs for a workspace, creating new PTYs for terminal tabs                              |
 | `git.statusChange`           | event     | Git status updated (`GitStatusChangeEvent` with `workspaceId`, `repoPath`, `status: GitStatusResponse`)  |
-| `agent.status`               | event     | AI agent status change in a terminal (`AgentStatusEvent`)                                                |
-| `agent.statusQuery`          | request   | Query current agent statuses for all terminals in a workspace                                            |
 | `connection.status`          | event     | Connection status change                                                                                 |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
@@ -314,68 +312,6 @@ interface PersistedTabInfo {
   terminalId: string | null;
 }
 ```
-
-## Agent Status Channel Type Reference
-
-Agent status tracking monitors AI agent processes (Claude, OpenCode, Aider, etc.) running inside terminals and exposes their operational state to clients.
-
-### Types
-
-```typescript
-type AgentStatus = 'working' | 'halted' | 'done';
-
-type AgentType = 'claude' | 'opencode' | 'pi' | 'aider' | 'codex' | string;
-```
-
-### Agent Status Event
-
-Pushed from server → client whenever an agent's status changes.
-
-```typescript
-interface AgentStatusEvent {
-  terminalId: string;
-  status: AgentStatus;
-  agent?: string; // well-known agent identifier (e.g. 'claude')
-  sessionId?: string; // agent session ID from OSC 777
-  cwd?: string; // agent working directory from OSC 777
-}
-```
-
-### Agent Status Query
-
-Client → server request for the current status of all agents in a workspace.
-
-| Channel             | Request type         | Response type         | Fields                                                                        |
-| ------------------- | -------------------- | --------------------- | ----------------------------------------------------------------------------- |
-| `agent.statusQuery` | `AgentStatusRequest` | `AgentStatusResponse` | req: `workspaceId`; res: `statuses` (`Array<{ terminalId, status, agent? }>`) |
-
-Terminals with no recorded agent status are included with `status: 'done'`.
-
-### Detection Sources
-
-Agent status is determined from two sources with a priority system:
-
-1. **OSC 777 escape sequences** (authoritative) — Agents emit `\x1b]777;notify;warp://cli-agent;<JSON>\x07` sequences in PTY output, compatible with [Warp's cli-agent protocol](https://github.com/nickolay/agent-proxy/blob/main/protocol.md). The server parses these in real time from terminal output.
-
-2. **Process monitor** (fallback heuristic) — Server-side detection of whether an agent process is present and actively using CPU:
-   - Present + active → `working`
-   - Present + idle → `halted`
-   - Not present → `done`
-
-**OSC 777 takes priority** over process-monitor data. When a terminal has received an OSC 777 event within the last 30 seconds (the freshness window), process-monitor updates are ignored. This prevents stale heuristic data from overriding the agent's own status signalling.
-
-### OSC 777 Event → Status Mapping
-
-| OSC 777 event        | AgentStatus | Meaning                    |
-| -------------------- | ----------- | -------------------------- |
-| `session_start`      | `working`   | Agent session started      |
-| `prompt_submit`      | `working`   | User submitted a prompt    |
-| `tool_complete`      | `working`   | Tool execution finished    |
-| `permission_request` | `halted`    | Agent waiting for approval |
-| `idle_prompt`        | `halted`    | Agent idle at prompt       |
-| `stop`               | `done`      | Agent session ended        |
-
-Unknown OSC 777 events are ignored and do not produce status changes.
 
 ## Protocol Type Reference
 

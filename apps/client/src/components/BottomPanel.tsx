@@ -1,5 +1,4 @@
 import { useCallback, useEffect, forwardRef } from 'react';
-import type { AgentStatus } from '@ymir/shared';
 import { useTerminalPane } from '../hooks/useTerminalPane';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
@@ -18,7 +17,6 @@ export interface BottomPanelProps {
   onTerminalUnregistered?: (terminalId: string) => void;
   onActiveTabChange?: (activeTabId: string | null) => void;
   onMoveToPane?: (tabId: string) => void;
-  getAgentStatus?: (tabId: string) => AgentStatus | null;
 }
 
 export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(function BottomPanel(
@@ -31,7 +29,6 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
     onTerminalUnregistered,
     onActiveTabChange,
     onMoveToPane,
-    getAgentStatus,
   }: BottomPanelProps,
   ref,
 ) {
@@ -118,7 +115,6 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
         onCloseOthers={handleCloseOthers}
         onRename={handleRenameTab}
         onMoveToPane={onMoveToPane}
-        getAgentStatus={getAgentStatus}
         group="bottom"
       />
       {/* TerminalManager portals terminals into this container */}

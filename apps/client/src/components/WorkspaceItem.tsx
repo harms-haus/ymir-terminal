@@ -3,7 +3,6 @@ import { memo } from 'react';
 import { useDroppable } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { COLOR_ACCENT, COLOR_WORKSPACE_ACTIVE, COLOR_WORKSPACE_CWD } from '../lib/theme';
-import { StatusDot } from './StatusDot';
 import { WorktreeItem } from './WorktreeItem';
 import { WorktreeItemContextMenu } from './WorktreeItemContextMenu';
 import { WorkspaceItemContextMenu } from './WorkspaceItemContextMenu';
@@ -14,8 +13,6 @@ interface WorkspaceItemProps {
   isActive: boolean;
   worktrees: GitWorktreeInfo[];
   activeWorktreePath: string | null;
-  agentStatus?: 'working' | 'halted' | 'done' | null;
-  getAgentStatusForPath?: (path: string) => 'working' | 'halted' | 'done' | null;
   onSelect: (id: string) => void;
   onRename: (id: string, newName: string) => void;
   onSetCwd: (id: string, newCwd: string) => void;
@@ -39,8 +36,6 @@ const WorkspaceItem = memo(function WorkspaceItem({
   isActive,
   worktrees,
   activeWorktreePath,
-  agentStatus,
-  getAgentStatusForPath,
   onSelect,
   onRename,
   onSetCwd,
@@ -144,7 +139,6 @@ const WorkspaceItem = memo(function WorkspaceItem({
               {workspace.cwd}
             </div>
           </div>
-          <StatusDot status={agentStatus ?? null} />
         </div>
       </WorkspaceItemContextMenu>
       {isExpanded && hasLinkedWorktrees && (
@@ -173,7 +167,6 @@ const WorkspaceItem = memo(function WorkspaceItem({
                 workspaceId={workspace.id}
                 wtIndex={index}
                 isActive={activeWorktreePath === wt.path}
-                agentStatus={getAgentStatusForPath?.(wt.path)}
                 onClick={() => onWorktreeSelect(wt.path)}
                 onCopyPath={() => onCopyWorktreePath(wt.path)}
                 onRemove={(force) => onRemoveWorktree(wt.path, force)}
@@ -197,7 +190,6 @@ function areEqual(prevProps: WorkspaceItemProps, nextProps: WorkspaceItemProps):
   if (prevProps.wsIndex !== nextProps.wsIndex) return false;
   if (prevProps.isActive !== nextProps.isActive) return false;
   if (prevProps.activeWorktreePath !== nextProps.activeWorktreePath) return false;
-  if (prevProps.agentStatus !== nextProps.agentStatus) return false;
 
   // Compare linked (non-main) worktrees
   const prevLinked = prevProps.worktrees.filter((w) => !w.isMain);

@@ -24,7 +24,6 @@ type MockPty = {
   kill: Mock<(id: string) => void>;
   has: Mock<(id: string) => boolean>;
   killAll: Mock<() => void>;
-  getTerminalPids: Mock<() => Map<string, number>>;
 };
 
 // ---------------------------------------------------------------------------
@@ -43,35 +42,7 @@ function mockPtyManager(): MockPty & PTYManager {
     kill: mock(() => {}) as Mock<(id: string) => void>,
     has: mock(() => true) as Mock<(id: string) => boolean>,
     killAll: mock(() => {}) as Mock<() => void>,
-    getTerminalPids: mock(() => new Map<string, number>()) as Mock<() => Map<string, number>>,
   } as MockPty & PTYManager;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers – mock deps
-// ---------------------------------------------------------------------------
-
-/**
- * Build a simple mock that satisfies the AgentStatusTracker interface
- * methods used by the terminal handler.
- */
-function mockStatusTracker() {
-  return {
-    updateFromOSC777: mock(() => null) as Mock<(...args: unknown[]) => string | null>,
-    clearTerminal: mock(() => {}) as Mock<(terminalId: string) => void>,
-    getAllStatuses: mock(() => new Map()) as Mock<() => Map<string, unknown>>,
-  };
-}
-
-/**
- * Build a simple mock that satisfies the ProcessMonitor interface
- * methods used by the terminal handler.
- */
-function mockProcessMonitor() {
-  return {
-    trackTerminal: mock(() => {}) as Mock<(terminalId: string, pid: number) => void>,
-    untrackTerminal: mock(() => {}) as Mock<(terminalId: string) => void>,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +55,6 @@ describe('registerTerminalHandlers', () => {
   let ptyManager: ReturnType<typeof mockPtyManager>;
   let sessionDb: Database;
   let persistentDb: Database;
-  let statusTracker: ReturnType<typeof mockStatusTracker>;
-  let processMonitor: ReturnType<typeof mockProcessMonitor>;
 
   let sessionId: string;
 
@@ -95,8 +64,6 @@ describe('registerTerminalHandlers', () => {
     ptyManager = mockPtyManager();
     sessionDb = initSessionDb();
     persistentDb = initPersistentDb(':memory:');
-    statusTracker = mockStatusTracker();
-    processMonitor = mockProcessMonitor();
     // Create a client session so foreign keys are satisfied
     sessionId = createSession(sessionDb);
     conn.sessionId = sessionId;
@@ -112,8 +79,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       const req = request<TerminalCreateRequest>('terminal.create', {
@@ -149,8 +114,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       const req = request<TerminalCreateRequest>('terminal.create', {
@@ -176,8 +139,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       // First create a terminal so there's something to write to
@@ -222,8 +183,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       // First create a terminal
@@ -275,8 +234,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       // First create a terminal
@@ -330,8 +287,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       const inputReq = request<TerminalInputRequest>('terminal.input', {
@@ -354,8 +309,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       const resizeReq = request<TerminalResizeRequest>('terminal.resize', {
@@ -376,8 +329,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       const closeReq = request<TerminalCloseRequest>('terminal.close', {
@@ -402,8 +353,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       // Create a terminal under the current session
@@ -439,8 +388,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       // Create a terminal under the current session
@@ -477,8 +424,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       // Create a terminal under the current session
@@ -519,8 +464,6 @@ describe('registerTerminalHandlers', () => {
         ptyManager,
         sessionDb,
         persistentDb,
-        statusTracker,
-        processMonitor,
       });
 
       // Capture the onData callback passed to ptyManager.create

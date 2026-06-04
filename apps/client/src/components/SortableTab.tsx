@@ -12,7 +12,6 @@ import {
   TITLE_BAR_HEIGHT,
 } from '../lib/theme';
 import { TabContextMenu } from './TabContextMenu';
-import { StatusDot } from './StatusDot';
 import { useSortable } from '@dnd-kit/react/sortable';
 
 export const SortableTab = React.memo(function SortableTab({
@@ -40,7 +39,6 @@ export const SortableTab = React.memo(function SortableTab({
   onSplitDown,
   onClosePane,
   canClosePane,
-  agentStatus,
 }: {
   tab: Tab;
   tabs: Tab[];
@@ -66,7 +64,6 @@ export const SortableTab = React.memo(function SortableTab({
   onSplitDown?: () => void;
   onClosePane?: () => void;
   canClosePane?: boolean;
-  agentStatus?: 'working' | 'halted' | 'done' | null;
 }) {
   const renameMountTimeRef = useRef(0);
   const isRenaming = tab.id === renamingTabId;
@@ -200,7 +197,6 @@ export const SortableTab = React.memo(function SortableTab({
           opacity: isDragging ? 0.4 : undefined,
         }}
       >
-        <StatusDot status={agentStatus ?? null} size={8} />
         {tab.id === renamingTabId ? (
           <input
             ref={renameInputRef}

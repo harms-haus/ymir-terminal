@@ -89,9 +89,6 @@ import {
   type TabDeleteRequest,
   type TabReorderRequest,
   type TabRestoreRequest,
-  // Agent
-  type AgentStatusEvent,
-  type AgentStatusRequest,
   // Unions
   type RequestPayload,
   type EventPayload,
@@ -103,7 +100,6 @@ import {
 
 describe('REQUEST_TYPES', () => {
   const expected: readonly string[] = [
-    'agent.statusQuery',
     'auth',
     'terminal.create',
     'terminal.input',
@@ -183,7 +179,7 @@ describe('REQUEST_TYPES', () => {
   });
 
   it('has exactly 72 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(73);
+    expect(REQUEST_TYPES).toHaveLength(72);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -199,7 +195,6 @@ describe('REQUEST_TYPES', () => {
 
 describe('EVENT_TYPES', () => {
   const expected: readonly string[] = [
-    'agent.status',
     'terminal.output',
     'terminal.exit',
     'file.change',
@@ -212,8 +207,8 @@ describe('EVENT_TYPES', () => {
     expect(EVENT_TYPES).toEqual(expected);
   });
 
-  it('has exactly 7 entries', () => {
-    expect(EVENT_TYPES).toHaveLength(7);
+  it('has exactly 6 entries', () => {
+    expect(EVENT_TYPES).toHaveLength(6);
   });
 });
 
@@ -364,7 +359,6 @@ describe('RequestPayload union', () => {
       { tabId: 'tab-1' } satisfies TabDeleteRequest,
       { tabIds: ['tab-1', 'tab-2'] } satisfies TabReorderRequest,
       { workspaceId: 'ws-1' } satisfies TabRestoreRequest,
-      { workspaceId: 'ws-1' } satisfies AgentStatusRequest,
     ];
 
     // Ensure they all survive a JSON round-trip
@@ -403,10 +397,6 @@ describe('EventPayload union', () => {
         depth: 0,
         done: false,
       } satisfies GitRepoDiscoveryProgressEvent,
-      {
-        terminalId: 't-1',
-        status: 'working' as const,
-      } satisfies AgentStatusEvent,
     ];
 
     for (const p of payloads) {

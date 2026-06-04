@@ -14,8 +14,6 @@ import { registerGitHandlers } from './ws/handlers/git';
 import { registerConfigHandlers } from './ws/handlers/config';
 import { registerTabHandlers } from './ws/handlers/tabs';
 import { PTYManager } from './pty/manager';
-import { AgentStatusTracker } from './agent/status-tracker';
-import { ProcessMonitor } from './agent/process-monitor';
 import { stopAllWatchers } from './files/watcher';
 import * as fileScanner from './files/scanner';
 import * as fileOperations from './files/operations';
@@ -23,12 +21,7 @@ import { GitStatusCache } from './git/status-cache';
 import { GitStatusWatcher } from './git/status-watcher';
 import { getGitStatusEnhanced } from './git/status';
 import { createEvent } from './ws/router';
-import {
-  getDbPath,
-  type EventEnvelope,
-  type GitStatusChangeEvent,
-  type AgentStatusEvent,
-} from '@ymir/shared';
+import { getDbPath, type EventEnvelope, type GitStatusChangeEvent } from '@ymir/shared';
 
 export interface StartServerOptions {
   password: string;
@@ -59,34 +52,7 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   // 5. Create PTY manager
   const ptyManager = new PTYManager();
 
-  // 5a. Create agent status tracker and process monitor
-  const statusTracker = new AgentStatusTracker();
-  const processMonitor = new ProcessMonitor((terminalId, present, active, agentName) => {
-    statusTracker.updateFromProcessMonitor(terminalId, present, active, agentName);
-  }, 2000);
-
-  // Subscribe to agent status changes and broadcast to the owning connection
-  const unsubscribeStatus = statusTracker.onStatusChange((terminalId, state) => {
-    const row = sessionDb
-      .prepare('SELECT session_id FROM terminal_instances WHERE id = ?')
-      .get(terminalId) as { session_id: string } | undefined;
-    if (row) {
-      const conn = connections.get(row.session_id);
-      if (conn) {
-        conn.send(
-          createEvent('agent.status', {
-            terminalId,
-            status: state.status,
-            agent: state.agent,
-            sessionId: state.sessionId,
-            cwd: state.cwd,
-          } satisfies AgentStatusEvent),
-        );
-      }
-    }
-  });
-
-  // 5b. Create GitStatusCache and GitStatusWatcher (must be before handler registration)
+  // 5a. Create GitStatusCache and GitStatusWatcher (must be before handler registration)
   const gitStatusCache = new GitStatusCache();
   const gitStatusWatcher = new GitStatusWatcher({
     cache: gitStatusCache,
@@ -132,29 +98,6 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     passwordHash,
     signingSecret,
     sessionDb,
-    onAuthenticated: (sessionId) => {
-      // Send initial agent status events for all terminals in this session
-      const conn = connections.get(sessionId);
-      if (!conn) return;
-      const terminals = sessionDb
-        .prepare('SELECT id FROM terminal_instances WHERE session_id = ?')
-        .all(sessionId) as { id: string }[];
-      const allStatuses = statusTracker.getAllStatuses();
-      for (const { id } of terminals) {
-        const state = allStatuses.get(id);
-        if (state) {
-          conn.send(
-            createEvent('agent.status', {
-              terminalId: id,
-              status: state.status,
-              agent: state.agent,
-              sessionId: state.sessionId,
-              cwd: state.cwd,
-            } satisfies AgentStatusEvent),
-          );
-        }
-      }
-    },
   });
 
   // 6b. Terminal handlers
@@ -162,8 +105,6 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     ptyManager,
     sessionDb,
     persistentDb: db,
-    statusTracker,
-    processMonitor,
   });
 
   // Shared broadcast function
@@ -208,8 +149,6 @@ export async function startServer(options: StartServerOptions): Promise<void> {
     sessionDb,
     persistentDb: db,
     ptyManager,
-    statusTracker,
-    processMonitor,
   });
 
   // 7. Start WebSocket server with router as message dispatcher
@@ -229,8 +168,6 @@ export async function startServer(options: StartServerOptions): Promise<void> {
         .all(conn.sessionId) as { id: string }[];
       for (const { id } of terminals) {
         ptyManager.kill(id);
-        processMonitor.untrackTerminal(id);
-        statusTracker.clearTerminal(id);
       }
       // Remove all session DB rows (tabs, panes, terminal_instances, etc.)
       cleanupSession(sessionDb, conn.sessionId);
@@ -239,9 +176,6 @@ export async function startServer(options: StartServerOptions): Promise<void> {
 
   // 8. Log startup info
   console.log(`Ymir server listening on ${host}:${server.port}`);
-
-  // 9. Start process monitor (polls for agent processes)
-  processMonitor.start();
 
   // 9. Graceful shutdown on SIGINT / SIGTERM
   let shuttingDown = false;
@@ -252,12 +186,6 @@ export async function startServer(options: StartServerOptions): Promise<void> {
 
     // Stop auth cleanup timer
     cleanupAuth();
-
-    // Unsubscribe from agent status changes
-    unsubscribeStatus();
-
-    // Stop process monitor
-    processMonitor.stop();
 
     // Kill all PTY processes
     ptyManager.killAll();

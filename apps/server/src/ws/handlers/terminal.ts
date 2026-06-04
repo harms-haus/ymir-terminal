@@ -10,12 +10,8 @@ import {
   type TerminalCloseRequest,
   type TerminalOutputEvent,
   type TerminalExitEvent,
-  type AgentStatusResponse,
-  type AgentStatusRequest,
   DEFAULT_COLS,
   DEFAULT_ROWS,
-  fromBase64,
-  toBase64,
 } from '@ymir/shared';
 import type { PTYManager } from '../../pty/manager';
 import type { ClientConnection } from '../connection';
@@ -30,16 +26,11 @@ import { resolve } from 'node:path';
 import { getWorkspace } from '../../db/persistent';
 import { listWorktrees } from '../../git/worktrees';
 import { validateTerminalOwnership, safePath } from '../../lib/handler-validation';
-import { OSC777ByteStreamParser, hasOSC777Prefix } from '../../agent/osc777-parser';
-import type { AgentStatusTracker } from '../../agent/status-tracker';
-import type { ProcessMonitor } from '../../agent/process-monitor';
 
 export interface TerminalDeps {
   ptyManager: PTYManager;
   sessionDb: Database;
   persistentDb: Database;
-  statusTracker: AgentStatusTracker;
-  processMonitor: ProcessMonitor;
 }
 
 /**
@@ -65,14 +56,11 @@ function requireTerminalId(
   return terminalId;
 }
 
-/** Per-terminal OSC 777 byte stream parsers. */
-const oscByteParsers = new Map<string, OSC777ByteStreamParser>();
-
 /**
  * Register WebSocket handlers for all terminal.* channels.
  */
 export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDeps): void {
-  const { ptyManager, sessionDb, statusTracker, processMonitor } = deps;
+  const { ptyManager, sessionDb } = deps;
 
   // --- terminal.create ----------------------------------------------------
   router.handle('terminal.create', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -145,10 +133,6 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
       cwd = workspaceCwd;
     }
 
-    // Create parser for OSC 777 agent notifications
-    const parser = new OSC777ByteStreamParser();
-    oscByteParsers.set(terminalId, parser);
-
     // Create the PTY process
     try {
       ptyManager.create(terminalId, {
@@ -156,27 +140,9 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
         cols,
         rows,
         onData: (b64Data: string) => {
-          let outputData = b64Data;
-          const p = oscByteParsers.get(terminalId);
-          if (p && (hasOSC777Prefix(b64Data) || p.hasPartial())) {
-            const rawBytes = fromBase64(b64Data);
-            const result = p.feed(rawBytes);
-
-            // Process any agent events
-            for (const event of result.events) {
-              statusTracker.updateFromOSC777(terminalId, event);
-              // If status actually changed, the onStatusChange listener in
-              // server.ts will broadcast the agent.status event to the client.
-              // No need to send it from here.
-            }
-
-            // Use the cleaned data (with OSC 777 sequences stripped)
-            outputData = toBase64(result.cleanedData);
-          }
-
           const evt = createEvent('terminal.output', {
             terminalId,
-            data: outputData,
+            data: b64Data,
           } satisfies TerminalOutputEvent);
           conn.send(evt);
         },
@@ -187,14 +153,10 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
           } satisfies TerminalExitEvent);
           conn.send(evt);
           deleteTerminalInstance(sessionDb, terminalId);
-          oscByteParsers.delete(terminalId);
-          processMonitor.untrackTerminal(terminalId);
-          statusTracker.clearTerminal(terminalId);
         },
       });
     } catch (err: unknown) {
-      // Clean up the DB record and parser if PTY creation fails
-      oscByteParsers.delete(terminalId);
+      // Clean up the DB record if PTY creation fails
       deleteTerminalInstance(sessionDb, terminalId);
       const message = err instanceof Error ? err.message : String(err);
       const errResp: ResponseEnvelope = createError(
@@ -204,13 +166,6 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
       );
       conn.send(errResp);
       return;
-    }
-
-    // Track the shell PID for process monitoring
-    const pids = ptyManager.getTerminalPids();
-    const pid = pids.get(terminalId);
-    if (pid !== undefined) {
-      processMonitor.trackTerminal(terminalId, pid);
     }
 
     const resp: ResponseEnvelope<TerminalCreateResponse> = createResponse(req, {
@@ -279,58 +234,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     // Remove from DB
     deleteTerminalInstance(sessionDb, terminalId);
 
-    // Clean up agent tracking
-    processMonitor.untrackTerminal(terminalId);
-    statusTracker.clearTerminal(terminalId);
-    oscByteParsers.delete(terminalId);
-
     const resp: ResponseEnvelope = createResponse(req, null);
-    conn.send(resp);
-  });
-
-  // --- agent.statusQuery ---------------------------------------------------
-  router.handle('agent.statusQuery', async (conn: ClientConnection, envelope: MessageEnvelope) => {
-    const req = envelope as RequestEnvelope<AgentStatusRequest>;
-    const workspaceId = req.payload?.workspaceId;
-
-    if (!workspaceId || typeof workspaceId !== 'string') {
-      const err: ResponseEnvelope = createError(
-        { id: req.id, channel: req.channel ?? 'agent.statusQuery' },
-        ErrorCodes.INVALID_MESSAGE,
-        'Missing or invalid workspaceId',
-      );
-      conn.send(err);
-      return;
-    }
-
-    // Get all terminals belonging to this session + workspace
-    const terminals = sessionDb
-      .prepare('SELECT id FROM terminal_instances WHERE session_id = ? AND workspace_id = ?')
-      .all(conn.sessionId, workspaceId) as { id: string }[];
-
-    const allStatuses = statusTracker.getAllStatuses();
-    const statuses: AgentStatusResponse['statuses'] = [];
-
-    for (const { id } of terminals) {
-      const state = allStatuses.get(id);
-      if (state) {
-        statuses.push({
-          terminalId: id,
-          status: state.status,
-          agent: state.agent,
-        });
-      } else {
-        // Terminal exists but has no agent status yet — default to 'done'
-        statuses.push({
-          terminalId: id,
-          status: 'done',
-        });
-      }
-    }
-
-    const resp: ResponseEnvelope<AgentStatusResponse> = createResponse(req, {
-      statuses,
-    } satisfies AgentStatusResponse);
     conn.send(resp);
   });
 }

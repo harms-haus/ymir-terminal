@@ -10,7 +10,6 @@ export * from './git';
 export * from './config';
 export * from './session';
 export * from './tab';
-export * from './agent';
 
 // Import types explicitly for union definitions below
 import type { AuthRequest } from './auth';
@@ -100,14 +99,11 @@ import type {
   TabReorderRequest,
   TabRestoreRequest,
 } from './tab';
-import type { AgentStatusEvent, AgentStatusRequest } from './agent';
-
 // ---------------------------------------------------------------------------
 // Request & event type constants
 // ---------------------------------------------------------------------------
 
 export const REQUEST_TYPES = [
-  'agent.statusQuery',
   'auth',
   'terminal.create',
   'terminal.input',
@@ -185,7 +181,6 @@ export const REQUEST_TYPES = [
 export type RequestType = (typeof REQUEST_TYPES)[number];
 
 export const EVENT_TYPES = [
-  'agent.status',
   'terminal.output',
   'terminal.exit',
   'file.change',
@@ -272,8 +267,7 @@ export type RequestPayload =
   | TabUpdateRequest
   | TabDeleteRequest
   | TabReorderRequest
-  | TabRestoreRequest
-  | AgentStatusRequest;
+  | TabRestoreRequest;
 
 export type EventPayload =
   | TerminalOutputEvent
@@ -281,5 +275,4 @@ export type EventPayload =
   | FileChangeEvent
   | ConnectionStatusEvent
   | GitStatusChangeEvent
-  | GitRepoDiscoveryProgressEvent
-  | AgentStatusEvent;
+  | GitRepoDiscoveryProgressEvent;

@@ -1,7 +1,6 @@
 import type { GitWorktreeInfo } from '@ymir/shared';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { COLOR_WORKSPACE_ACTIVE } from '../lib/theme';
-import { StatusDot } from './StatusDot';
 import { WorktreeItemContextMenu } from './WorktreeItemContextMenu';
 
 interface WorktreeItemProps {
@@ -9,7 +8,6 @@ interface WorktreeItemProps {
   workspaceId: string;
   wtIndex: number;
   isActive: boolean;
-  agentStatus?: 'working' | 'halted' | 'done' | null;
   onClick: () => void;
   onCopyPath: () => void;
   onRemove: (force: boolean) => void;
@@ -26,7 +24,6 @@ export function WorktreeItem({
   workspaceId,
   wtIndex,
   isActive,
-  agentStatus,
   onClick,
   onCopyPath,
   onRemove,
@@ -91,7 +88,6 @@ export function WorktreeItem({
           >
             {worktree.isDetached ? 'detached' : worktree.branch}
           </span>
-          <StatusDot status={agentStatus ?? null} />
         </div>
       </div>
     </WorktreeItemContextMenu>

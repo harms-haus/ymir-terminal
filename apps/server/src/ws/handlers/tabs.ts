@@ -16,8 +16,6 @@ import {
   type PersistedTabInfo,
   DEFAULT_COLS,
   DEFAULT_ROWS,
-  fromBase64,
-  toBase64,
 } from '@ymir/shared';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, createEvent, type MessageRouter } from '../router';
@@ -44,12 +42,6 @@ import { resolve } from 'node:path';
 import { validateTabOwnership, safePath } from '../../lib/handler-validation';
 import { listWorktrees } from '../../git/worktrees';
 import type { PTYManager } from '../../pty/manager';
-import { OSC777ByteStreamParser, hasOSC777Prefix } from '../../agent/osc777-parser';
-import type { AgentStatusTracker } from '../../agent/status-tracker';
-import type { ProcessMonitor } from '../../agent/process-monitor';
-
-/** Per-terminal OSC 777 byte stream parsers. */
-const oscByteParsers = new Map<string, OSC777ByteStreamParser>();
 
 // ---------------------------------------------------------------------------
 // Dependencies
@@ -59,8 +51,6 @@ export interface TabDeps {
   sessionDb: Database;
   persistentDb: Database;
   ptyManager: PTYManager;
-  statusTracker: AgentStatusTracker;
-  processMonitor: ProcessMonitor;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +58,7 @@ export interface TabDeps {
 // ---------------------------------------------------------------------------
 
 export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void {
-  const { sessionDb, persistentDb, ptyManager, statusTracker, processMonitor } = deps;
+  const { sessionDb, persistentDb, ptyManager } = deps;
 
   // --- tab.list -----------------------------------------------------------
   router.handle('tab.list', async (conn: ClientConnection, envelope: MessageEnvelope) => {
@@ -493,34 +483,15 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
           rows: DEFAULT_ROWS,
         });
 
-        // Create parser for OSC 777 agent notifications
-        const parser = new OSC777ByteStreamParser();
-        oscByteParsers.set(newTerminalId, parser);
-
         try {
           ptyManager.create(newTerminalId, {
             cwd,
             cols: DEFAULT_COLS,
             rows: DEFAULT_ROWS,
             onData: (b64Data: string) => {
-              let outputData = b64Data;
-              const p = oscByteParsers.get(newTerminalId);
-              if (p && (hasOSC777Prefix(b64Data) || p.hasPartial())) {
-                const rawBytes = fromBase64(b64Data);
-                const result = p.feed(rawBytes);
-
-                // Process any agent events
-                for (const event of result.events) {
-                  statusTracker.updateFromOSC777(newTerminalId, event);
-                }
-
-                // Use the cleaned data (with OSC 777 sequences stripped)
-                outputData = toBase64(result.cleanedData);
-              }
-
               const evt = createEvent('terminal.output', {
                 terminalId: newTerminalId,
-                data: outputData,
+                data: b64Data,
               });
               conn.send(evt);
             },
@@ -531,22 +502,11 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
               });
               conn.send(evt);
               deleteTerminalInstance(sessionDb, newTerminalId);
-              oscByteParsers.delete(newTerminalId);
-              processMonitor.untrackTerminal(newTerminalId);
-              statusTracker.clearTerminal(newTerminalId);
             },
           });
         } catch {
           // If PTY creation fails, clean up the terminal instance but still restore the tab
-          oscByteParsers.delete(newTerminalId);
           deleteTerminalInstance(sessionDb, newTerminalId);
-        }
-
-        // Track the shell PID for process monitoring
-        const pids = ptyManager.getTerminalPids();
-        const pid = pids.get(newTerminalId);
-        if (pid !== undefined) {
-          processMonitor.trackTerminal(newTerminalId, pid);
         }
 
         // Create pane association

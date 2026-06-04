@@ -22,7 +22,6 @@ import { usePaneBounds } from '../hooks/usePaneBounds';
 import { useTerminalRegistry } from '../hooks/useTerminalRegistry';
 import { useWorkspaceSelection, parseScopeKey } from '../hooks/useWorkspaceSelection';
 import { useSplitLayout } from '../hooks/useSplitLayout';
-import { useAgentStatus } from '../hooks/useAgentStatus';
 import { collectPaneIds } from '../lib/pane-tree';
 import { sendRequest } from '../lib/send-request';
 import type { PersistedTabInfo, TabRestoreResponse } from '@ymir/shared';
@@ -186,8 +185,6 @@ function WorkspaceViewInner() {
     bottomPanelRef,
     activeWorkspaceId,
   });
-
-  const { getStatusForTab, getStatusesForPath } = useAgentStatus({ terminalRegistry });
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const source = event.operation.source;
@@ -509,7 +506,6 @@ function WorkspaceViewInner() {
               activeWorkspaceId={activeWorkspaceId}
               worktreesByWorkspace={worktreesByWorkspace}
               activeWorktreePath={activeWorktreePath}
-              getAgentStatusForPath={getStatusesForPath}
               onWorkspaceSelect={handleWorkspaceSelect}
               onAddWorkspace={handleAddWorkspace}
               onRenameWorkspace={handleRenameWorkspace}
@@ -544,7 +540,6 @@ function WorkspaceViewInner() {
               onTerminalUnregistered={handleTerminalUnregistered}
               onActiveTabChange={(tabId) => setActiveTabForPane('bottom', tabId)}
               onMoveToPane={(tabId) => handleMoveToPane(tabId, 'bottom')}
-              getAgentStatus={getStatusForTab}
             />
           }
         >
@@ -570,7 +565,6 @@ function WorkspaceViewInner() {
             paneHandleRefs={paneHandleRefs}
             paneContainerRefs={paneContainerRefs}
             onLayoutChanged={updateBounds}
-            getAgentStatus={getStatusForTab}
           />
           <CreateWorkspaceDialog
             open={isDialogOpen}
