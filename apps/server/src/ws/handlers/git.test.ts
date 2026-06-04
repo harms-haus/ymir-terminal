@@ -7,6 +7,7 @@ import {
   type GitLogResponse,
   type GitLogItem,
   type GitRepoInfo,
+  type GitRepoDiscoveryProgressEvent,
   type GitBranch,
   type GitWorktreeInfo,
   type GitWorktreeListResponse,
@@ -446,7 +447,11 @@ describe('registerGitHandlers', () => {
   describe('git.repoDiscovery', () => {
     it('returns repos for valid workspace', async () => {
       const discoverReposFn = mock(
-        async (_cwd: string): Promise<GitRepoInfo[]> => [
+        async (
+          _cwd: string,
+          _maxDepth?: number,
+          _onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
+        ): Promise<GitRepoInfo[]> => [
           { path: '.', name: 'project', branch: 'main', hasRemote: true, ahead: 0, behind: 0 },
           { path: 'libs/sub', name: 'sub', branch: 'dev', hasRemote: false, ahead: 1, behind: 2 },
         ],
@@ -493,6 +498,159 @@ describe('registerGitHandlers', () => {
 
       const resp = conn.sent[0] as Record<string, unknown>;
       expect((resp.error as Record<string, unknown>).code).toBe(ErrorCodes.WORKSPACE_NOT_FOUND);
+    });
+
+    it('emits progress events per depth during discovery', async () => {
+      const repoA: GitRepoInfo = {
+        path: '.',
+        name: 'root',
+        branch: 'main',
+        hasRemote: true,
+        ahead: 0,
+        behind: 0,
+      };
+      const repoB: GitRepoInfo = {
+        path: 'sub',
+        name: 'sub',
+        branch: 'dev',
+        hasRemote: false,
+        ahead: 1,
+        behind: 2,
+      };
+
+      let _capturedOnDepth: ((repos: GitRepoInfo[], depth: number) => void) | undefined;
+      const discoverReposFn = mock(
+        async (
+          _cwd: string,
+          _maxDepth?: number,
+          onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
+        ): Promise<GitRepoInfo[]> => {
+          _capturedOnDepth = onDepthComplete;
+          if (onDepthComplete) {
+            onDepthComplete([repoA], 0);
+            onDepthComplete([repoB], 1);
+          }
+          return [repoA, repoB];
+        },
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          discoverRepos: discoverReposFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.repoDiscovery', { workspaceId: 'ws-1' });
+      await localRouter.route(localConn, req);
+
+      // Expect 2 progress events followed by 1 response = 3 total
+      expect(localConn.sent.length).toBe(3);
+
+      // First event: depth 0
+      const evt0 = localConn.sent[0] as Record<string, unknown>;
+      expect(evt0.type).toBe('event');
+      expect(evt0.channel).toBe('git.repoDiscovery.progress');
+      const pl0 = evt0.payload as GitRepoDiscoveryProgressEvent;
+      expect(pl0.depth).toBe(0);
+      expect(pl0.done).toBe(false);
+      expect(pl0.repos).toEqual([repoA]);
+
+      // Second event: depth 1
+      const evt1 = localConn.sent[1] as Record<string, unknown>;
+      expect(evt1.type).toBe('event');
+      expect(evt1.channel).toBe('git.repoDiscovery.progress');
+      const pl1 = evt1.payload as GitRepoDiscoveryProgressEvent;
+      expect(pl1.depth).toBe(1);
+      expect(pl1.done).toBe(false);
+      expect(pl1.repos).toEqual([repoB]);
+
+      // Final response
+      const resp = localConn.sent[2] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+      const respPayload = resp.payload as { repos: GitRepoInfo[] };
+      expect(respPayload.repos).toEqual([repoA, repoB]);
+    });
+
+    it('does not emit progress events when onDepthComplete is not invoked', async () => {
+      const discoverReposFn = mock(
+        async (
+          _cwd: string,
+          _maxDepth?: number,
+          _onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
+        ): Promise<GitRepoInfo[]> => [
+          { path: '.', name: 'root', branch: 'main', hasRemote: true, ahead: 0, behind: 0 },
+        ],
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          discoverRepos: discoverReposFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.repoDiscovery', { workspaceId: 'ws-1' });
+      await localRouter.route(localConn, req);
+
+      // Only the final response should be sent — no progress events
+      expect(localConn.sent.length).toBe(1);
+      const resp = localConn.sent[0] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
+      expect(resp.error).toBeUndefined();
+    });
+
+    it('includes correct workspaceId in progress events', async () => {
+      const discoverReposFn = mock(
+        async (
+          _cwd: string,
+          _maxDepth?: number,
+          onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
+        ): Promise<GitRepoInfo[]> => {
+          if (onDepthComplete) {
+            onDepthComplete(
+              [{ path: '.', name: 'root', branch: 'main', hasRemote: true, ahead: 0, behind: 0 }],
+              0,
+            );
+          }
+          return [
+            { path: '.', name: 'root', branch: 'main', hasRemote: true, ahead: 0, behind: 0 },
+          ];
+        },
+      );
+
+      const localRouter = new MessageRouter();
+      const localConn = mockConn();
+      const localDeps: GitDeps = {
+        persistentDb: {} as any,
+        _mocks: {
+          getWorkspace: getWorkspaceFn,
+          discoverRepos: discoverReposFn,
+        },
+      };
+      registerGitHandlers(localRouter, localDeps);
+
+      const req = request('git.repoDiscovery', { workspaceId: 'ws-1' });
+      await localRouter.route(localConn, req);
+
+      // First message should be a progress event with correct workspaceId
+      const evt = localConn.sent[0] as Record<string, unknown>;
+      expect(evt.type).toBe('event');
+      const pl = evt.payload as GitRepoDiscoveryProgressEvent;
+      expect(pl.workspaceId).toBe('ws-1');
+
+      // Second message is the final response
+      const resp = localConn.sent[1] as Record<string, unknown>;
+      expect(resp.type).toBe('response');
     });
   });
 

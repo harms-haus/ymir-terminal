@@ -8,9 +8,10 @@ import {
   type GitLogResponse,
   type GitRepoDiscoveryRequest,
   type GitRepoDiscoveryResponse,
+  type GitRepoDiscoveryProgressEvent,
 } from '@ymir/shared';
 import type { ClientConnection } from '../../connection';
-import { createError, createResponse, type MessageRouter } from '../../router';
+import { createError, createEvent, createResponse, type MessageRouter } from '../../router';
 import type { ResolvedGitDeps } from './index';
 import { resolveSafeRepoPath } from './shared';
 
@@ -218,7 +219,19 @@ export function registerStatusHandlers(router: MessageRouter, deps: ResolvedGitD
       'git.repoDiscovery',
     );
     if (baseDir === null) return;
-    const repos = await doDiscoverRepos(baseDir);
+    const repos = await doDiscoverRepos(baseDir, undefined, (depthRepos, depth) => {
+      try {
+        const event = createEvent('git.repoDiscovery.progress', {
+          workspaceId: payload.workspaceId,
+          repos: depthRepos,
+          depth,
+          done: false,
+        } satisfies GitRepoDiscoveryProgressEvent);
+        conn.send(event);
+      } catch {
+        // Connection may have closed mid-discovery; continue discovering
+      }
+    });
     const resp = createResponse(req, { repos } satisfies GitRepoDiscoveryResponse);
     conn.send(resp);
   });

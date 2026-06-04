@@ -15,7 +15,6 @@ import {
   type WorkspaceUpdateRequest,
 } from '@ymir/shared';
 import { resolve, join } from 'node:path';
-import { existsSync } from 'node:fs';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
 import {
@@ -62,7 +61,11 @@ export interface WorkspaceDeps {
     ) => void;
     stopManagedWatcher?: (workspaceId: string) => void;
     reorderWorkspaces?: (db: Database, ids: string[]) => void;
-    discoverRepos?: (workspaceCwd: string, maxDepth?: number) => Promise<GitRepoInfo[]>;
+    discoverRepos?: (
+      workspaceCwd: string,
+      maxDepth?: number,
+      onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
+    ) => Promise<GitRepoInfo[]>;
   };
 }
 
@@ -111,21 +114,17 @@ export function registerWorkspaceHandlers(router: MessageRouter, deps: Workspace
   function startGitWatchersForWorkspace(workspaceId: string, cwd: string): void {
     if (!gitStatusWatcher || !watchedGitDirs) return;
     cancelledDiscovery.delete(workspaceId);
-    doDiscoverRepos(cwd)
-      .then((repos) => {
-        if (cancelledDiscovery.get(workspaceId)) {
-          cancelledDiscovery.delete(workspaceId);
-          return;
-        }
-        for (const repo of repos) {
-          const repoRoot = join(cwd, repo.path);
-          const gitDirPath = join(repoRoot, '.git');
-          if (existsSync(gitDirPath)) {
-            // Use repo-root as the canonical key throughout the watcher/cache/broadcast system
-            gitStatusWatcher.watchRepo(repoRoot, repoRoot);
-            watchedGitDirs.set(repoRoot, { workspaceId, repoPath: repo.path });
-          }
-        }
+    doDiscoverRepos(cwd, undefined, (depthRepos, _depth) => {
+      if (cancelledDiscovery.get(workspaceId)) return;
+      for (const repo of depthRepos) {
+        const repoRoot = join(cwd, repo.path);
+        // Use repo-root as the canonical key throughout the watcher/cache/broadcast system
+        gitStatusWatcher.watchRepo(repoRoot, repoRoot);
+        watchedGitDirs.set(repoRoot, { workspaceId, repoPath: repo.path });
+      }
+    })
+      .then(() => {
+        cancelledDiscovery.delete(workspaceId);
       })
       .catch((err: unknown) => {
         cancelledDiscovery.delete(workspaceId);

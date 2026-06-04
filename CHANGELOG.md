@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - OSC 777 escape sequence parsing (Warp cli-agent protocol compatible) for agent-self-reported status
   - Server-side process monitor polling for agent process detection with CPU-activity heuristics
   - `agent.status` WebSocket event and `agent.statusQuery` WebSocket request channels
+- BFS git repo discovery: progressive async repo discovery with per-depth WebSocket progress events (`git.repoDiscovery.progress`)
+- `GitRepoDiscoveryProgressEvent` protocol type for incremental discovery results
+- Progressive git watcher startup: watchers start per BFS depth rather than after full discovery completes
+- Client-side progressive repo loading: `useGitRepos` subscribes to discovery progress events to show repos incrementally as they're found
 
 ### Changed
 

@@ -58,6 +58,13 @@ export interface GitRepoDiscoveryResponse {
   repos: GitRepoInfo[];
 }
 
+export interface GitRepoDiscoveryProgressEvent {
+  workspaceId: string;
+  repos: GitRepoInfo[];
+  depth: number;
+  done: boolean;
+}
+
 export interface GitStageRequest {
   workspaceId: string;
   repoPath: string;

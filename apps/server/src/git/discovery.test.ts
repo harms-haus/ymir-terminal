@@ -124,4 +124,85 @@ describe('discoverRepos', () => {
     expect(repos).toHaveLength(1);
     expect(repos[0].hasRemote).toBe(true);
   });
+
+  // ---------------------------------------------------------------------------
+  // BFS / onDepthComplete callback tests
+  // ---------------------------------------------------------------------------
+
+  it('delivers repos in BFS depth order via onDepthComplete callback', async () => {
+    // Repos at depths 0, 1, and 2
+    initRepo(testDir); // depth 0
+    const depth1 = join(testDir, 'level-one');
+    initRepo(depth1); // depth 1
+    const depth2 = join(depth1, 'level-two');
+    initRepo(depth2); // depth 2
+
+    const calls: { depth: number; paths: string[] }[] = [];
+
+    await discoverRepos(testDir, 5, (repos, depth) => {
+      calls.push({
+        depth,
+        paths: repos.map((r) => r.path).sort(),
+      });
+    });
+
+    expect(calls).toHaveLength(3);
+    // Depth 0 repos arrive first
+    expect(calls[0].depth).toBe(0);
+    expect(calls[0].paths).toEqual(['.']);
+    // Depth 1 repos arrive second
+    expect(calls[1].depth).toBe(1);
+    expect(calls[1].paths).toEqual(['level-one']);
+    // Depth 2 repos arrive third
+    expect(calls[2].depth).toBe(2);
+    expect(calls[2].paths).toEqual([`level-one${sep}level-two`]);
+  });
+
+  it('does not call onDepthComplete for depths without any repos', async () => {
+    // Depth 0: root is a repo
+    initRepo(testDir);
+
+    // Depth 1: a directory that is NOT a repo but contains a subdirectory
+    const intermediate = join(testDir, 'intermediate');
+    mkdirSync(intermediate, { recursive: true });
+
+    // Depth 2: a repo inside intermediate
+    const inner = join(intermediate, 'sub-repo');
+    initRepo(inner);
+
+    const calls: { depth: number; count: number }[] = [];
+
+    await discoverRepos(testDir, 5, (repos, depth) => {
+      calls.push({ depth, count: repos.length });
+    });
+
+    // Should be called for depth 0 and depth 2, but NOT depth 1
+    expect(calls).toHaveLength(2);
+    expect(calls[0].depth).toBe(0);
+    expect(calls[0].count).toBe(1);
+    expect(calls[1].depth).toBe(2);
+    expect(calls[1].count).toBe(1);
+  });
+
+  it('final result is sorted even when per-depth repos are unsorted', async () => {
+    // Several repos at the same depth in a non-alphabetical order
+    // The per-depth callback sees them in whatever order they're discovered,
+    // but the final returned array is sorted alphabetically.
+    const dirC = join(testDir, 'c-project');
+    const dirA = join(testDir, 'a-project');
+    const dirB = join(testDir, 'b-project');
+    initRepo(dirC);
+    initRepo(dirA);
+    initRepo(dirB);
+
+    const perDepthCalls: string[][] = [];
+
+    const repos = await discoverRepos(testDir, 5, (repos, _depth) => {
+      perDepthCalls.push(repos.map((r) => r.path));
+    });
+
+    // Final result should always be sorted: a-project, b-project, c-project
+    const paths = repos.map((r) => r.path);
+    expect(paths).toEqual(['a-project', 'b-project', 'c-project']);
+  });
 });

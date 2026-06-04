@@ -127,24 +127,38 @@ The change tree logic lives in `lib/git-change-tree.ts`:
 
 The `useGitRepos` hook manages all git state for the `GitPanel`. It accepts `workspaceId` and `workspaceCwd` and provides:
 
-| Field / Method   | Description                                                                       |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `repos`          | Discovered repository list with paths and relative paths                          |
-| `repoStatuses`   | Map of repo path → `GitStatusResponse` (including `hasRemote`, `ahead`, `behind`) |
-| `repoBranches`   | Map of repo path → branch list                                                    |
-| `loading`        | Whether initial repo discovery and status loading is in progress                  |
-| `error`          | Error message string if the last operation failed, or `null`                      |
-| `stageFiles`     | Stage files in a repo (`git.stage`)                                               |
-| `unstageFiles`   | Unstage files in a repo (`git.unstage`)                                           |
-| `discardChanges` | Discard unstaged changes (`git.discard`)                                          |
-| `commit`         | Commit staged changes (`git.commit`); returns commit hash                         |
-| `checkout`       | Switch or create a branch (`git.checkout`)                                        |
-| `push`           | Push to remote (`git.push`)                                                       |
-| `fetch`          | Fetch from remote (`git.fetch`)                                                   |
-| `refresh`        | Re-discover repos and refresh all status/branch data                              |
-| `refreshRepo`    | Refresh status (and optionally branches) for a single repo                        |
-| `pushLoading`    | Map of repo path → boolean push-in-progress state                                 |
-| `fetchLoading`   | Map of repo path → boolean fetch-in-progress state                                |
+| Field / Method   | Description                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `repos`          | Discovered repository list with paths and relative paths; populated progressively as repos are discovered during BFS traversal      |
+| `repoStatuses`   | Map of repo path → `GitStatusResponse` (including `hasRemote`, `ahead`, `behind`); updated incrementally as each repo is discovered |
+| `repoBranches`   | Map of repo path → branch list; updated incrementally alongside repo statuses                                                       |
+| `loading`        | Whether repo discovery is in progress; repos appear incrementally while `true` rather than all at once after completion             |
+| `error`          | Error message string if the last operation failed, or `null`                                                                        |
+| `stageFiles`     | Stage files in a repo (`git.stage`)                                                                                                 |
+| `unstageFiles`   | Unstage files in a repo (`git.unstage`)                                                                                             |
+| `discardChanges` | Discard unstaged changes (`git.discard`)                                                                                            |
+| `commit`         | Commit staged changes (`git.commit`); returns commit hash                                                                           |
+| `checkout`       | Switch or create a branch (`git.checkout`)                                                                                          |
+| `push`           | Push to remote (`git.push`)                                                                                                         |
+| `fetch`          | Fetch from remote (`git.fetch`)                                                                                                     |
+| `refresh`        | Re-discover repos and refresh all status/branch data                                                                                |
+| `refreshRepo`    | Refresh status (and optionally branches) for a single repo                                                                          |
+| `pushLoading`    | Map of repo path → boolean push-in-progress state                                                                                   |
+| `fetchLoading`   | Map of repo path → boolean fetch-in-progress state                                                                                  |
+
+#### Progressive Repo Discovery
+
+Repos are not loaded in a single batch. Instead, discovery uses a two-phase approach:
+
+1. **Progressive loading via `git.repoDiscovery.progress` events** — the hook subscribes to these WebSocket events (filtered by channel and `workspaceId`) via `wsClient.onMessage`. As the server's BFS traversal completes each depth level, it emits a progress event containing newly discovered repos. The hook:
+   - Appends new repos to the `repos` array immediately (skipping duplicates via an `existingPaths` set)
+   - Fetches `git.status` and `git.branches` for each new repo in parallel using the current `AbortController` signal
+   - Updates `repoStatuses` and `repoBranches` maps as each response arrives
+2. **Reconciliation via `git.repoDiscovery` response** — the final discovery response returns the complete sorted repo list. The hook sets `repos` to this canonical list and fetches status/branches only for repos not already covered by progress events (tracked via `fetchedRepoPathsRef`)
+
+**State protection:** A `generationRef` counter increments on each discovery cycle. All state updates and async responses are guarded against the current generation — stale responses from a previous workspace context are silently discarded. A `discoveryCompleteRef` flag prevents late-arriving progress events from corrupting state after the final reconciliation.
+
+**Visual effect:** The `GitPanel` renders repos as they appear in the list, so users see repos populate incrementally while `loading` is `true`. Empty-state messages ("Not a git repository", "Loading…") are only shown when `repos.length === 0`.
 
 ### `useGitStatusSubscription` Hook
 

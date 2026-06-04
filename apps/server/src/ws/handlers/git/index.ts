@@ -114,7 +114,11 @@ export interface GitDeps {
     >;
     getGitLog?: (dirPath: string, skip: number, limit: number) => Promise<GitLogItem[]>;
     getWorkspace?: (db: Database, id: string) => Workspace | null;
-    discoverRepos?: (workspaceCwd: string, maxDepth?: number) => Promise<GitRepoInfo[]>;
+    discoverRepos?: (
+      workspaceCwd: string,
+      maxDepth?: number,
+      onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
+    ) => Promise<GitRepoInfo[]>;
     stageFiles?: (dirPath: string, files: string[]) => Promise<void>;
     unstageFiles?: (dirPath: string, files: string[]) => Promise<void>;
     discardChanges?: (dirPath: string, files: string[]) => Promise<void>;
@@ -222,7 +226,11 @@ export interface ResolvedGitDeps {
   ) => Promise<(GitStatusResponse & { hasRemote: boolean; ahead: number; behind: number }) | null>;
   doGetGitLog: (dirPath: string, skip: number, limit: number) => Promise<GitLogItem[]>;
   doGetWorkspace: (db: Database, id: string) => Workspace | null;
-  doDiscoverRepos: (workspaceCwd: string, maxDepth?: number) => Promise<GitRepoInfo[]>;
+  doDiscoverRepos: (
+    workspaceCwd: string,
+    maxDepth?: number,
+    onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
+  ) => Promise<GitRepoInfo[]>;
   doStageFiles: (dirPath: string, files: string[]) => Promise<void>;
   doUnstageFiles: (dirPath: string, files: string[]) => Promise<void>;
   doDiscardChanges: (dirPath: string, files: string[]) => Promise<void>;

@@ -47,87 +47,88 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type'> {
 
 ## Channel Reference
 
-| Channel                  | Direction | Description                                                                                             |
-| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------- |
-| `auth`                   | request   | Authenticate with password                                                                              |
-| `terminal.create`        | request   | Spawn a new PTY                                                                                         |
-| `terminal.input`         | request   | Send keystrokes (base64)                                                                                |
-| `terminal.resize`        | request   | Resize terminal dimensions                                                                              |
-| `terminal.close`         | request   | Kill a PTY                                                                                              |
-| `terminal.output`        | event     | PTY output (base64)                                                                                     |
-| `terminal.exit`          | event     | PTY process exited (with exit code)                                                                     |
-| `workspace.list`         | request   | List saved workspaces                                                                                   |
-| `workspace.create`       | request   | Create a workspace                                                                                      |
-| `workspace.update`       | request   | Update workspace settings                                                                               |
-| `workspace.delete`       | request   | Delete a workspace                                                                                      |
-| `workspace.reorder`      | request   | Reorder workspaces by ID array                                                                          |
-| `file.tree`              | request   | Get directory listing                                                                                   |
-| `file.read`              | request   | Read file contents                                                                                      |
-| `file.write`             | request   | Write file contents                                                                                     |
-| `file.create`            | request   | Create file or directory                                                                                |
-| `file.delete`            | request   | Delete file or directory                                                                                |
-| `file.rename`            | request   | Rename/move a file                                                                                      |
-| `file.copy`              | request   | Copy a file or directory to a target directory (auto-renames on conflict)                               |
-| `file.move`              | request   | Move a file or directory to a target directory (auto-renames on conflict)                               |
-| `file.change`            | event     | Filesystem change notification                                                                          |
-| `git.status`             | request   | Get git status for a path; optional `repoPath`, returns `hasRemote`, `ahead`, `behind`                  |
-| `git.log`                | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`); optional `repoPath`  |
-| `git.repoDiscovery`      | request   | Discover all git repositories in a workspace directory                                                  |
-| `git.stage`              | request   | Stage files in a git repository                                                                         |
-| `git.unstage`            | request   | Unstage files in a git repository                                                                       |
-| `git.discard`            | request   | Discard unstaged changes to files                                                                       |
-| `git.commit`             | request   | Commit staged changes                                                                                   |
-| `git.branches`           | request   | List branches in a git repository                                                                       |
-| `git.checkout`           | request   | Switch or create a branch                                                                               |
-| `git.push`               | request   | Push branch to origin                                                                                   |
-| `git.fetch`              | request   | Fetch from remote                                                                                       |
-| `git.diffData`           | request   | Get diff for a file (staged or unstaged)                                                                |
-| `git.commitDetails`      | request   | Get commit body and changed files                                                                       |
-| `git.commitDiff`         | request   | Get diff of a specific file between a commit and its parent                                             |
-| `git.worktreeList`       | request   | List git worktrees for a workspace                                                                      |
-| `git.worktreeCreate`     | request   | Create a new git worktree                                                                               |
-| `git.worktreeRemove`     | request   | Remove a git worktree                                                                                   |
-| `git.worktreeMerge`      | request   | Merge a worktree branch back into a target branch                                                       |
-| `git.worktreeCopyFiles`  | request   | List untracked files and configured copy files for worktree setup                                       |
-| `git.stashPush`          | request   | Stash current changes                                                                                   |
-| `git.stashList`          | request   | List stash entries                                                                                      |
-| `git.stashApply`         | request   | Apply a stash without removing it                                                                       |
-| `git.stashPop`           | request   | Apply a stash and remove it                                                                             |
-| `git.stashDrop`          | request   | Drop a specific stash entry                                                                             |
-| `git.stashClear`         | request   | Clear all stash entries                                                                                 |
-| `git.pull`               | request   | Pull from remote (optionally with rebase)                                                               |
-| `git.sync`               | request   | Sync: stash, pull, and pop                                                                              |
-| `git.merge`              | request   | Merge a branch into the current branch                                                                  |
-| `git.rebase`             | request   | Rebase current branch onto target                                                                       |
-| `git.rebaseAbort`        | request   | Abort an in-progress rebase                                                                             |
-| `git.rebaseStatus`       | request   | Check if a rebase is in progress                                                                        |
-| `git.commitAmend`        | request   | Amend the last commit                                                                                   |
-| `git.commitAll`          | request   | Stage all changes and commit in one step                                                                |
-| `git.resetSoft`          | request   | Soft reset to a ref (keeps changes staged)                                                              |
-| `git.stageAll`           | request   | Stage all changes                                                                                       |
-| `git.unstageAll`         | request   | Unstage all changes                                                                                     |
-| `git.discardAll`         | request   | Discard all unstaged changes                                                                            |
-| `git.branchRename`       | request   | Rename a branch                                                                                         |
-| `git.branchDelete`       | request   | Delete a local branch                                                                                   |
-| `git.branchDeleteRemote` | request   | Delete a remote branch                                                                                  |
-| `git.branchPublish`      | request   | Publish current branch to remote                                                                        |
-| `git.branchesRemote`     | request   | List remote branches                                                                                    |
-| `git.branchCreateFrom`   | request   | Create a new branch from a specific start point                                                         |
-| `git.remoteAdd`          | request   | Add a remote                                                                                            |
-| `git.remoteRemove`       | request   | Remove a remote                                                                                         |
-| `git.remoteList`         | request   | List remotes                                                                                            |
-| `config.get`             | request   | Get a config value from server_config table                                                             |
-| `config.set`             | request   | Set a config value in server_config table                                                               |
-| `tab.list`               | request   | List tabs for a workspace (with terminal liveness); optional `pane` filter                              |
-| `tab.create`             | request   | Create a tab (terminal, editor, diff, or git-tree)                                                      |
-| `tab.update`             | request   | Update tab properties (active, title, sort order)                                                       |
-| `tab.delete`             | request   | Delete a tab                                                                                            |
-| `tab.reorder`            | request   | Reorder tabs by ID array                                                                                |
-| `tab.restore`            | request   | Restore persisted tabs for a workspace, creating new PTYs for terminal tabs                             |
-| `git.statusChange`       | event     | Git status updated (`GitStatusChangeEvent` with `workspaceId`, `repoPath`, `status: GitStatusResponse`) |
-| `agent.status`           | event     | AI agent status change in a terminal (`AgentStatusEvent`)                                               |
-| `agent.statusQuery`      | request   | Query current agent statuses for all terminals in a workspace                                           |
-| `connection.status`      | event     | Connection status change                                                                                |
+| Channel                      | Direction | Description                                                                                              |
+| ---------------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `auth`                       | request   | Authenticate with password                                                                               |
+| `terminal.create`            | request   | Spawn a new PTY                                                                                          |
+| `terminal.input`             | request   | Send keystrokes (base64)                                                                                 |
+| `terminal.resize`            | request   | Resize terminal dimensions                                                                               |
+| `terminal.close`             | request   | Kill a PTY                                                                                               |
+| `terminal.output`            | event     | PTY output (base64)                                                                                      |
+| `terminal.exit`              | event     | PTY process exited (with exit code)                                                                      |
+| `workspace.list`             | request   | List saved workspaces                                                                                    |
+| `workspace.create`           | request   | Create a workspace                                                                                       |
+| `workspace.update`           | request   | Update workspace settings                                                                                |
+| `workspace.delete`           | request   | Delete a workspace                                                                                       |
+| `workspace.reorder`          | request   | Reorder workspaces by ID array                                                                           |
+| `file.tree`                  | request   | Get directory listing                                                                                    |
+| `file.read`                  | request   | Read file contents                                                                                       |
+| `file.write`                 | request   | Write file contents                                                                                      |
+| `file.create`                | request   | Create file or directory                                                                                 |
+| `file.delete`                | request   | Delete file or directory                                                                                 |
+| `file.rename`                | request   | Rename/move a file                                                                                       |
+| `file.copy`                  | request   | Copy a file or directory to a target directory (auto-renames on conflict)                                |
+| `file.move`                  | request   | Move a file or directory to a target directory (auto-renames on conflict)                                |
+| `file.change`                | event     | Filesystem change notification                                                                           |
+| `git.status`                 | request   | Get git status for a path; optional `repoPath`, returns `hasRemote`, `ahead`, `behind`                   |
+| `git.log`                    | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`); optional `repoPath`   |
+| `git.repoDiscovery`          | request   | Discover git repositories in a workspace directory (optional `repoPath` scopes to a subdirectory)        |
+| `git.repoDiscovery.progress` | event     | Incremental repo discovery results — emitted per BFS depth during `git.repoDiscovery` request processing |
+| `git.stage`                  | request   | Stage files in a git repository                                                                          |
+| `git.unstage`                | request   | Unstage files in a git repository                                                                        |
+| `git.discard`                | request   | Discard unstaged changes to files                                                                        |
+| `git.commit`                 | request   | Commit staged changes                                                                                    |
+| `git.branches`               | request   | List branches in a git repository                                                                        |
+| `git.checkout`               | request   | Switch or create a branch                                                                                |
+| `git.push`                   | request   | Push branch to origin                                                                                    |
+| `git.fetch`                  | request   | Fetch from remote                                                                                        |
+| `git.diffData`               | request   | Get diff for a file (staged or unstaged)                                                                 |
+| `git.commitDetails`          | request   | Get commit body and changed files                                                                        |
+| `git.commitDiff`             | request   | Get diff of a specific file between a commit and its parent                                              |
+| `git.worktreeList`           | request   | List git worktrees for a workspace                                                                       |
+| `git.worktreeCreate`         | request   | Create a new git worktree                                                                                |
+| `git.worktreeRemove`         | request   | Remove a git worktree                                                                                    |
+| `git.worktreeMerge`          | request   | Merge a worktree branch back into a target branch                                                        |
+| `git.worktreeCopyFiles`      | request   | List untracked files and configured copy files for worktree setup                                        |
+| `git.stashPush`              | request   | Stash current changes                                                                                    |
+| `git.stashList`              | request   | List stash entries                                                                                       |
+| `git.stashApply`             | request   | Apply a stash without removing it                                                                        |
+| `git.stashPop`               | request   | Apply a stash and remove it                                                                              |
+| `git.stashDrop`              | request   | Drop a specific stash entry                                                                              |
+| `git.stashClear`             | request   | Clear all stash entries                                                                                  |
+| `git.pull`                   | request   | Pull from remote (optionally with rebase)                                                                |
+| `git.sync`                   | request   | Sync: stash, pull, and pop                                                                               |
+| `git.merge`                  | request   | Merge a branch into the current branch                                                                   |
+| `git.rebase`                 | request   | Rebase current branch onto target                                                                        |
+| `git.rebaseAbort`            | request   | Abort an in-progress rebase                                                                              |
+| `git.rebaseStatus`           | request   | Check if a rebase is in progress                                                                         |
+| `git.commitAmend`            | request   | Amend the last commit                                                                                    |
+| `git.commitAll`              | request   | Stage all changes and commit in one step                                                                 |
+| `git.resetSoft`              | request   | Soft reset to a ref (keeps changes staged)                                                               |
+| `git.stageAll`               | request   | Stage all changes                                                                                        |
+| `git.unstageAll`             | request   | Unstage all changes                                                                                      |
+| `git.discardAll`             | request   | Discard all unstaged changes                                                                             |
+| `git.branchRename`           | request   | Rename a branch                                                                                          |
+| `git.branchDelete`           | request   | Delete a local branch                                                                                    |
+| `git.branchDeleteRemote`     | request   | Delete a remote branch                                                                                   |
+| `git.branchPublish`          | request   | Publish current branch to remote                                                                         |
+| `git.branchesRemote`         | request   | List remote branches                                                                                     |
+| `git.branchCreateFrom`       | request   | Create a new branch from a specific start point                                                          |
+| `git.remoteAdd`              | request   | Add a remote                                                                                             |
+| `git.remoteRemove`           | request   | Remove a remote                                                                                          |
+| `git.remoteList`             | request   | List remotes                                                                                             |
+| `config.get`                 | request   | Get a config value from server_config table                                                              |
+| `config.set`                 | request   | Set a config value in server_config table                                                                |
+| `tab.list`                   | request   | List tabs for a workspace (with terminal liveness); optional `pane` filter                               |
+| `tab.create`                 | request   | Create a tab (terminal, editor, diff, or git-tree)                                                       |
+| `tab.update`                 | request   | Update tab properties (active, title, sort order)                                                        |
+| `tab.delete`                 | request   | Delete a tab                                                                                             |
+| `tab.reorder`                | request   | Reorder tabs by ID array                                                                                 |
+| `tab.restore`                | request   | Restore persisted tabs for a workspace, creating new PTYs for terminal tabs                              |
+| `git.statusChange`           | event     | Git status updated (`GitStatusChangeEvent` with `workspaceId`, `repoPath`, `status: GitStatusResponse`)  |
+| `agent.status`               | event     | AI agent status change in a terminal (`AgentStatusEvent`)                                                |
+| `agent.statusQuery`          | request   | Query current agent statuses for all terminals in a workspace                                            |
+| `connection.status`          | event     | Connection status change                                                                                 |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 
@@ -211,6 +212,34 @@ Only the distinguishing fields are listed below.
 | Channel            | Event type             | Fields                                                                           |
 | ------------------ | ---------------------- | -------------------------------------------------------------------------------- |
 | `git.statusChange` | `GitStatusChangeEvent` | `workspaceId`, `repoPath`, `status` (`GitStatusResponse` — full status snapshot) |
+
+### Repo Discovery Progress Event
+
+| Channel                      | Event type                      | Fields                                                                                    |
+| ---------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `git.repoDiscovery.progress` | `GitRepoDiscoveryProgressEvent` | `workspaceId`, `repos` (`GitRepoInfo[]`), `depth` (BFS level, 0 = root), `done` (boolean) |
+
+```typescript
+interface GitRepoDiscoveryProgressEvent {
+  workspaceId: string; // workspace being scanned
+  repos: GitRepoInfo[]; // repos discovered at this depth
+  depth: number; // BFS level (0 = workspace root)
+  done: boolean; // Always false; completion is signaled by the final git.repoDiscovery response
+}
+```
+
+### Repo Discovery Request / Response
+
+| Channel             | Request type              | Response type              | Fields                                           |
+| ------------------- | ------------------------- | -------------------------- | ------------------------------------------------ |
+| `git.repoDiscovery` | `GitRepoDiscoveryRequest` | `GitRepoDiscoveryResponse` | req: `repoPath?`; res: `repos` (`GitRepoInfo[]`) |
+
+Full type signatures:
+
+- `GitRepoDiscoveryRequest { workspaceId: string, repoPath?: string }`
+- `GitRepoDiscoveryResponse { repos: GitRepoInfo[] }`
+
+When a client sends a `git.repoDiscovery` request, the server emits `git.repoDiscovery.progress` events (one per BFS depth that contains repos) before sending the final response with the complete sorted list. Clients subscribe to these events via `wsClient.onMessage` filtering by channel and `workspaceId` for progressive display.
 
 ### Worktree Extended Operations
 
