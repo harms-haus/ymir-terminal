@@ -890,6 +890,12 @@ describe('registerTabHandlers', () => {
     });
 
     it('tab.create persists cwd and customTitle when provided', async () => {
+      // Seed a workspace so path validation can resolve relative paths
+      const wsCwd = '/tmp/test-workspace';
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', wsCwd, '#007acc');
+
       registerTabHandlers(router, deps);
 
       const _tabId = await createTabViaHandler({
@@ -906,7 +912,7 @@ describe('registerTabHandlers', () => {
         tabType: 'editor',
         title: 'Editor',
         pane: 'content',
-        cwd: '/some/cwd',
+        cwd: 'src',
         customTitle: 'My Custom',
       });
       await router.route(conn, req);
@@ -916,7 +922,7 @@ describe('registerTabHandlers', () => {
       const row = persistentDb
         .prepare('SELECT * FROM persisted_tabs WHERE id = ?')
         .get(editorTabId) as Record<string, unknown>;
-      expect(row.cwd).toBe('/some/cwd');
+      expect(row.cwd).toBe(`${wsCwd}/src`);
       expect(row.custom_title).toBe('My Custom');
     });
 
@@ -1076,6 +1082,282 @@ describe('registerTabHandlers', () => {
 
       const resp = conn.sent[0] as ResponseEnvelope<TabRestoreResponse>;
       expect(resp.payload!.tabs[0].title).toBe('Custom Name');
+    });
+  });
+
+  // =========================================================================
+  // 18. worktree_path support in tab handlers
+  // =========================================================================
+
+  describe('worktree_path in tab.create', () => {
+    it('creates a tab with worktree_path set in the session DB', async () => {
+      // Seed a workspace so path validation can resolve relative paths
+      const wsCwd = '/tmp/test-workspace';
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', wsCwd, '#007acc');
+
+      registerTabHandlers(router, deps);
+
+      const req = request('tab.create', {
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Worktree Editor',
+        pane: 'content',
+        worktreePath: 'worktrees/feature',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabCreateResponse>;
+      expect(resp.error).toBeUndefined();
+      const tabId = resp.payload!.tabId;
+
+      const row = sessionDb.prepare('SELECT worktree_path FROM tabs WHERE id = ?').get(tabId) as {
+        worktree_path: string | null;
+      } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBe(`${wsCwd}/worktrees/feature`);
+    });
+
+    it('creates a tab with NULL worktree_path when not provided', async () => {
+      registerTabHandlers(router, deps);
+
+      const req = request('tab.create', {
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Root Terminal',
+        pane: 'content',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabCreateResponse>;
+      expect(resp.error).toBeUndefined();
+      const tabId = resp.payload!.tabId;
+
+      const row = sessionDb.prepare('SELECT worktree_path FROM tabs WHERE id = ?').get(tabId) as {
+        worktree_path: string | null;
+      } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBeNull();
+    });
+
+    it('persists worktree_path to the persistent DB', async () => {
+      // Seed a workspace so path validation can resolve relative paths
+      const wsCwd = '/tmp/test-workspace';
+      persistentDb
+        .prepare('INSERT INTO workspaces (id, name, cwd, color) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'Test', wsCwd, '#007acc');
+
+      registerTabHandlers(router, deps);
+
+      const req = request('tab.create', {
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Worktree Editor',
+        pane: 'content',
+        worktreePath: 'worktrees/feature',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabCreateResponse>;
+      const tabId = resp.payload!.tabId;
+
+      const row = persistentDb
+        .prepare('SELECT worktree_path FROM persisted_tabs WHERE id = ?')
+        .get(tabId) as { worktree_path: string | null } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBe(`${wsCwd}/worktrees/feature`);
+    });
+  });
+
+  describe('tab.list with worktreePath', () => {
+    it('returns only tabs matching the worktreePath filter', async () => {
+      registerTabHandlers(router, deps);
+
+      // Create a tab in worktree A
+      await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Feature Terminal',
+        pane: 'content',
+      });
+      // Manually set worktree_path on the tab (simulating the feature that will exist)
+      const featureTabId = conn.sent[0] as ResponseEnvelope<TabCreateResponse>;
+      sessionDb
+        .prepare('UPDATE tabs SET worktree_path = ? WHERE id = ?')
+        .run('/repos/repo/worktrees/feature', featureTabId.payload!.tabId);
+
+      // Create a non-worktree tab
+      await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Root Editor',
+        pane: 'content',
+      });
+
+      conn.sent.length = 0;
+
+      // List with worktreePath filter
+      const req = request('tab.list', {
+        workspaceId: 'ws-1',
+        worktreePath: '/repos/repo/worktrees/feature',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabListResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.tabs).toHaveLength(1);
+      expect(resp.payload!.tabs[0].title).toBe('Feature Terminal');
+    });
+
+    it('returns only non-worktree tabs when worktreePath is omitted', async () => {
+      registerTabHandlers(router, deps);
+
+      // Create a tab in a worktree
+      await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Feature Terminal',
+        pane: 'content',
+      });
+      // Manually set worktree_path
+      const featureTabId = conn.sent[0] as ResponseEnvelope<TabCreateResponse>;
+      sessionDb
+        .prepare('UPDATE tabs SET worktree_path = ? WHERE id = ?')
+        .run('/repos/repo/worktrees/feature', featureTabId.payload!.tabId);
+
+      // Create a non-worktree tab
+      await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Root Editor',
+        pane: 'content',
+      });
+
+      conn.sent.length = 0;
+
+      // List without worktreePath — should exclude worktree tabs
+      const req = request('tab.list', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabListResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.tabs).toHaveLength(1);
+      expect(resp.payload!.tabs[0].title).toBe('Root Editor');
+    });
+
+    it('returns only non-worktree tabs when worktreePath is explicitly null', async () => {
+      registerTabHandlers(router, deps);
+
+      // Create a tab in a worktree
+      await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Feature Terminal',
+        pane: 'content',
+      });
+      // Manually set worktree_path
+      const featureTabId = conn.sent[0] as ResponseEnvelope<TabCreateResponse>;
+      sessionDb
+        .prepare('UPDATE tabs SET worktree_path = ? WHERE id = ?')
+        .run('/repos/repo/worktrees/feature', featureTabId.payload!.tabId);
+
+      // Create a non-worktree tab
+      await createTabViaHandler({
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Root Editor',
+        pane: 'content',
+      });
+
+      conn.sent.length = 0;
+
+      // List with explicit null worktreePath — should exclude worktree tabs
+      const req = request('tab.list', {
+        workspaceId: 'ws-1',
+        worktreePath: null,
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabListResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.tabs).toHaveLength(1);
+      expect(resp.payload!.tabs[0].title).toBe('Root Editor');
+    });
+  });
+
+  describe('tab.restore with worktreePath', () => {
+    it('restores only persisted tabs matching the worktreePath', async () => {
+      registerTabHandlers(router, deps);
+
+      // Seed persisted tabs with different worktree_paths
+      persistentDb
+        .prepare(
+          `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, file_path, pane, sort_order, worktree_path)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          'ptab-wf1',
+          'ws-1',
+          'editor',
+          'feature.ts',
+          'src/feature.ts',
+          'content',
+          0,
+          '/repos/repo/worktrees/feature',
+        );
+      persistentDb
+        .prepare(
+          `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, file_path, pane, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run('ptab-root', 'ws-1', 'editor', 'root.ts', 'src/root.ts', 'content', 1);
+
+      const req = request('tab.restore', {
+        workspaceId: 'ws-1',
+        worktreePath: '/repos/repo/worktrees/feature',
+      });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabRestoreResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.tabs).toHaveLength(1);
+      expect(resp.payload!.tabs[0].title).toBe('feature.ts');
+    });
+
+    it('restores only non-worktree persisted tabs when worktreePath is omitted', async () => {
+      registerTabHandlers(router, deps);
+
+      // Seed persisted tabs with different worktree_paths
+      persistentDb
+        .prepare(
+          `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, file_path, pane, sort_order, worktree_path)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          'ptab-wf2',
+          'ws-1',
+          'editor',
+          'feature.ts',
+          'src/feature.ts',
+          'content',
+          0,
+          '/repos/repo/worktrees/feature',
+        );
+      persistentDb
+        .prepare(
+          `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, file_path, pane, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run('ptab-root2', 'ws-1', 'editor', 'root.ts', 'src/root.ts', 'content', 1);
+
+      const req = request('tab.restore', { workspaceId: 'ws-1' });
+      await router.route(conn, req);
+
+      const resp = conn.sent[0] as ResponseEnvelope<TabRestoreResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.tabs).toHaveLength(1);
+      expect(resp.payload!.tabs[0].title).toBe('root.ts');
     });
   });
 });

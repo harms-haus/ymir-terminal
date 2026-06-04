@@ -38,7 +38,9 @@ import {
   updatePersistedTabTitle,
   listPersistedTabsByWorkspace,
 } from '../../db/persistent';
+import { resolve } from 'node:path';
 import { validateTabOwnership, safePath } from '../../lib/handler-validation';
+import { listWorktrees } from '../../git/worktrees';
 import type { PTYManager } from '../../pty/manager';
 
 // ---------------------------------------------------------------------------
@@ -76,18 +78,26 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
 
     // JOIN with panes to get terminal_id (tabs table doesn't have it)
     const pane = payload?.pane;
-    let rows: Record<string, unknown>[];
+    const worktreePath = payload?.worktreePath;
+
+    let query =
+      'SELECT t.*, p.terminal_id FROM tabs t LEFT JOIN panes p ON p.tab_id = t.id WHERE t.session_id = ? AND t.workspace_id = ?';
+    const queryParams: (string | number)[] = [conn.sessionId, workspaceId];
+
     if (pane) {
-      const stmt = sessionDb.prepare(
-        'SELECT t.*, p.terminal_id FROM tabs t LEFT JOIN panes p ON p.tab_id = t.id WHERE t.session_id = ? AND t.workspace_id = ? AND t.pane = ? ORDER BY t.sort_order ASC',
-      );
-      rows = stmt.all(conn.sessionId, workspaceId, pane) as Record<string, unknown>[];
-    } else {
-      const stmt = sessionDb.prepare(
-        'SELECT t.*, p.terminal_id FROM tabs t LEFT JOIN panes p ON p.tab_id = t.id WHERE t.session_id = ? AND t.workspace_id = ? ORDER BY t.sort_order ASC',
-      );
-      rows = stmt.all(conn.sessionId, workspaceId) as Record<string, unknown>[];
+      query += ' AND t.pane = ?';
+      queryParams.push(pane);
     }
+
+    if (worktreePath !== undefined && worktreePath !== null) {
+      query += ' AND t.worktree_path = ?';
+      queryParams.push(worktreePath);
+    } else {
+      query += ' AND t.worktree_path IS NULL';
+    }
+
+    query += ' ORDER BY t.sort_order ASC';
+    const rows = sessionDb.prepare(query).all(...queryParams) as Record<string, unknown>[];
 
     // Batch-check terminal liveness (avoids N+1 per-row queries)
     const terminalIds = rows.map((r) => r.terminal_id as string | null).filter(Boolean) as string[];
@@ -114,6 +124,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
         active: !!row.active,
         sortOrder: row.sort_order as number,
         ...(terminalAlive !== undefined ? { terminalAlive } : {}),
+        worktreePath: (row.worktree_path as string | null) ?? undefined,
         diffRef: (row.diff_ref as 'staged' | 'unstaged' | 'commit' | null) ?? undefined,
         repoPath: (row.repo_path as string | null) ?? undefined,
         commitSha: (row.commit_sha as string | null) ?? undefined,
@@ -177,12 +188,44 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       }
     }
 
+    // Validate additional path fields against the workspace
+    const ws = getWorkspace(persistentDb, payload.workspaceId);
+    const workspaceCwd = ws?.cwd ?? process.cwd();
+
+    let validatedWorktreePath: string | undefined = payload.worktreePath ?? undefined;
+    if (validatedWorktreePath != null && typeof validatedWorktreePath === 'string') {
+      try {
+        validatedWorktreePath = safePath(workspaceCwd, validatedWorktreePath);
+      } catch {
+        validatedWorktreePath = undefined;
+      }
+    }
+
+    let validatedCwd: string | undefined = payload.cwd ?? undefined;
+    if (validatedCwd != null && typeof validatedCwd === 'string') {
+      try {
+        validatedCwd = safePath(workspaceCwd, validatedCwd);
+      } catch {
+        validatedCwd = undefined;
+      }
+    }
+
+    const rawRepoPath: string | undefined = payload.diffRepoPath ?? payload.repoPath ?? undefined;
+    let validatedRepoPath = rawRepoPath;
+    if (validatedRepoPath != null && typeof validatedRepoPath === 'string') {
+      try {
+        validatedRepoPath = safePath(workspaceCwd, validatedRepoPath);
+      } catch {
+        validatedRepoPath = undefined;
+      }
+    }
+
     // Determine next sort order
     const maxOrder = sessionDb
       .prepare(
-        'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM tabs WHERE session_id = ? AND workspace_id = ? AND pane = ?',
+        'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM tabs WHERE session_id = ? AND workspace_id = ? AND pane = ? AND worktree_path IS ?',
       )
-      .get(conn.sessionId, payload.workspaceId, payload.pane) as {
+      .get(conn.sessionId, payload.workspaceId, payload.pane, validatedWorktreePath ?? null) as {
       max_order: number;
     };
     const order = maxOrder.max_order + 1;
@@ -196,9 +239,10 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       pane: payload.pane,
       order,
       diffRef: payload.diffRef,
-      repoPath: payload.diffRepoPath ?? payload.repoPath,
+      repoPath: validatedRepoPath,
       commitSha: payload.commitSha,
       parentSha: payload.parentSha,
+      worktreePath: validatedWorktreePath,
     });
 
     // Create pane association if terminalId is provided
@@ -216,11 +260,12 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       pane: payload.pane,
       sortOrder: order,
       diffRef: payload.diffRef,
-      repoPath: payload.diffRepoPath ?? payload.repoPath,
+      repoPath: validatedRepoPath,
       commitSha: payload.commitSha,
       parentSha: payload.parentSha,
-      cwd: payload.cwd,
+      cwd: validatedCwd,
       customTitle: payload.customTitle,
+      worktreePath: validatedWorktreePath,
     });
 
     const resp: ResponseEnvelope<TabCreateResponse> = createResponse(req, { tabId });
@@ -372,7 +417,8 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     }
 
     const workspaceId = payload.workspaceId;
-    const persistedTabs = listPersistedTabsByWorkspace(persistentDb, workspaceId);
+    const worktreePath = payload?.worktreePath;
+    const persistedTabs = listPersistedTabsByWorkspace(persistentDb, workspaceId, worktreePath);
 
     const restoredTabs: PersistedTabInfo[] = [];
 
@@ -380,9 +426,11 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       // Determine next sort order in session DB for this pane
       const maxOrder = sessionDb
         .prepare(
-          'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM tabs WHERE session_id = ? AND workspace_id = ? AND pane = ?',
+          'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM tabs WHERE session_id = ? AND workspace_id = ? AND pane = ? AND worktree_path IS ?',
         )
-        .get(conn.sessionId, workspaceId, ptab.pane) as { max_order: number };
+        .get(conn.sessionId, workspaceId, ptab.pane, ptab.worktree_path ?? null) as {
+        max_order: number;
+      };
       const order = maxOrder.max_order + 1;
 
       // Create the tab in the session DB
@@ -398,6 +446,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
         repoPath: ptab.repo_path ?? undefined,
         commitSha: ptab.commit_sha ?? undefined,
         parentSha: ptab.parent_sha ?? undefined,
+        worktreePath: ptab.worktree_path ?? undefined,
       });
 
       let terminalId: string | null = null;
@@ -406,7 +455,26 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
       if (ptab.tab_type === 'terminal') {
         const workspace = getWorkspace(persistentDb, workspaceId);
         const workspaceCwd = workspace?.cwd ?? process.cwd();
-        const cwd = ptab.cwd ?? workspaceCwd;
+        const candidateCwd = ptab.cwd ?? ptab.worktree_path ?? workspaceCwd;
+
+        let cwd: string;
+        try {
+          cwd = safePath(workspaceCwd, candidateCwd);
+        } catch {
+          // Not within workspace — check if it's a known git worktree
+          try {
+            const resolvedCandidate = resolve(candidateCwd);
+            const worktrees = await listWorktrees(workspaceCwd);
+            const isKnownWorktree = worktrees.some((w) => resolve(w.path) === resolvedCandidate);
+            if (isKnownWorktree) {
+              cwd = resolvedCandidate;
+            } else {
+              cwd = workspaceCwd;
+            }
+          } catch {
+            cwd = workspaceCwd;
+          }
+        }
 
         const newTerminalId = createTerminalInstance(sessionDb, {
           sessionId: conn.sessionId,
@@ -461,6 +529,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
         parentSha: ptab.parent_sha,
         cwd: ptab.cwd,
         customTitle: ptab.custom_title,
+        worktreePath: ptab.worktree_path,
       });
 
       // Delete old persisted record if ID changed
@@ -482,6 +551,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
         cwd: ptab.cwd,
         customTitle: ptab.custom_title,
         terminalId,
+        worktreePath: ptab.worktree_path ?? undefined,
       });
     }
 

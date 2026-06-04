@@ -441,4 +441,215 @@ describe('session database', () => {
       db.query('SELECT id FROM bottom_panel_tabs WHERE session_id = ?').all(sessionId).length,
     ).toBe(0);
   });
+
+  // =========================================================================
+  // worktree_path support
+  // =========================================================================
+
+  describe('worktree_path in tabs', () => {
+    test('createTab with worktreePath stores worktree_path correctly', () => {
+      const sessionId = createSession(db);
+      const tabId = createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Worktree Tab',
+        order: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature-branch',
+      });
+
+      const row = db.query('SELECT worktree_path FROM tabs WHERE id = ?').get(tabId) as {
+        worktree_path: string | null;
+      } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBe('/repos/my-repo/worktrees/feature-branch');
+    });
+
+    test('createTab without worktreePath stores NULL', () => {
+      const sessionId = createSession(db);
+      const tabId = createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Non-Worktree Tab',
+        order: 0,
+      });
+
+      const row = db.query('SELECT worktree_path FROM tabs WHERE id = ?').get(tabId) as {
+        worktree_path: string | null;
+      } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBeNull();
+    });
+
+    test('listTabs with worktreePath filter returns only matching tabs', () => {
+      const sessionId = createSession(db);
+
+      // Create a tab WITH worktree_path
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Worktree Tab',
+        order: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature',
+      });
+
+      // Create a tab WITHOUT worktree_path
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'editor',
+        title: 'Non-Worktree Tab',
+        order: 1,
+      });
+
+      // Create a tab with a DIFFERENT worktree_path
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Other Worktree Tab',
+        order: 2,
+        worktreePath: '/repos/my-repo/worktrees/hotfix',
+      });
+
+      const filtered = listTabs(
+        db,
+        sessionId,
+        'ws1',
+        undefined,
+        '/repos/my-repo/worktrees/feature',
+      ) as Record<string, unknown>[];
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].title).toBe('Worktree Tab');
+    });
+
+    test('listTabs without worktreePath filter returns only tabs where worktree_path IS NULL', () => {
+      const sessionId = createSession(db);
+
+      // Create a tab WITH worktree_path
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Worktree Tab',
+        order: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature',
+      });
+
+      // Create a tab WITHOUT worktree_path
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'editor',
+        title: 'Non-Worktree Tab',
+        order: 1,
+      });
+
+      const filtered = listTabs(db, sessionId, 'ws1') as Record<string, unknown>[];
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].title).toBe('Non-Worktree Tab');
+    });
+
+    test('listTabs correctly filters mixed worktree and non-worktree tabs', () => {
+      const sessionId = createSession(db);
+
+      // Non-worktree tab
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'editor',
+        title: 'Root Editor',
+        order: 0,
+      });
+
+      // Worktree A tab
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Feature Terminal',
+        order: 1,
+        worktreePath: '/repos/repo/worktrees/feature',
+      });
+
+      // Worktree B tab
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Hotfix Terminal',
+        order: 2,
+        worktreePath: '/repos/repo/worktrees/hotfix',
+      });
+
+      // Another non-worktree tab
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'editor',
+        title: 'Root Diff',
+        order: 3,
+      });
+
+      // Filter: no worktreePath → should get only NULL worktree_path tabs
+      const nullFiltered = listTabs(db, sessionId, 'ws1') as Record<string, unknown>[];
+      expect(nullFiltered).toHaveLength(2);
+      expect(nullFiltered.map((t) => t.title)).toEqual(['Root Editor', 'Root Diff']);
+
+      // Filter: worktree A → only feature tab
+      const featureFiltered = listTabs(
+        db,
+        sessionId,
+        'ws1',
+        undefined,
+        '/repos/repo/worktrees/feature',
+      ) as Record<string, unknown>[];
+      expect(featureFiltered).toHaveLength(1);
+      expect(featureFiltered[0].title).toBe('Feature Terminal');
+
+      // Filter: worktree B → only hotfix tab
+      const hotfixFiltered = listTabs(
+        db,
+        sessionId,
+        'ws1',
+        undefined,
+        '/repos/repo/worktrees/hotfix',
+      ) as Record<string, unknown>[];
+      expect(hotfixFiltered).toHaveLength(1);
+      expect(hotfixFiltered[0].title).toBe('Hotfix Terminal');
+    });
+
+    test('listTabs with explicit null worktreePath returns only non-worktree tabs', () => {
+      const sessionId = createSession(db);
+
+      // Create a tab WITH worktree_path
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'terminal',
+        title: 'Worktree Tab',
+        order: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature',
+      });
+
+      // Create a tab WITHOUT worktree_path
+      createTab(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        tabType: 'editor',
+        title: 'Non-Worktree Tab',
+        order: 1,
+      });
+
+      // Pass null explicitly — should behave like undefined (IS NULL filter)
+      const filtered = listTabs(db, sessionId, 'ws1', undefined, null) as Record<string, unknown>[];
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].title).toBe('Non-Worktree Tab');
+    });
+  });
 });

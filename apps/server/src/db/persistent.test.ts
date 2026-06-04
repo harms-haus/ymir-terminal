@@ -9,6 +9,8 @@ import {
   deleteWorkspace,
   getConfigValue,
   setConfigValue,
+  savePersistedTab,
+  listPersistedTabsByWorkspace,
 } from './persistent';
 
 describe('persistent database', () => {
@@ -168,5 +170,135 @@ describe('persistent database', () => {
 
     setConfigValue(db, 'theme', 'light');
     expect(getConfigValue(db, 'theme')).toBe('light');
+  });
+
+  // =========================================================================
+  // worktree_path support in persisted tabs
+  // =========================================================================
+
+  describe('worktree_path in persisted tabs', () => {
+    it('savePersistedTab with worktreePath stores worktree_path correctly', () => {
+      savePersistedTab(db, {
+        id: 'ptab-1',
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Worktree Tab',
+        pane: 'content',
+        sortOrder: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature-branch',
+      } as Parameters<typeof savePersistedTab>[1]);
+
+      const row = db
+        .query('SELECT worktree_path FROM persisted_tabs WHERE id = ?')
+        .get('ptab-1') as { worktree_path: string | null } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBe('/repos/my-repo/worktrees/feature-branch');
+    });
+
+    it('savePersistedTab without worktreePath stores NULL', () => {
+      savePersistedTab(db, {
+        id: 'ptab-2',
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Non-Worktree Tab',
+        pane: 'content',
+        sortOrder: 0,
+      });
+
+      const row = db
+        .query('SELECT worktree_path FROM persisted_tabs WHERE id = ?')
+        .get('ptab-2') as { worktree_path: string | null } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBeNull();
+    });
+
+    it('listPersistedTabsByWorkspace with worktreePath filter returns only matching tabs', () => {
+      savePersistedTab(db, {
+        id: 'ptab-3',
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Feature Tab',
+        pane: 'content',
+        sortOrder: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature',
+      } as Parameters<typeof savePersistedTab>[1]);
+
+      savePersistedTab(db, {
+        id: 'ptab-4',
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Root Tab',
+        pane: 'content',
+        sortOrder: 1,
+      });
+
+      savePersistedTab(db, {
+        id: 'ptab-5',
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Hotfix Tab',
+        pane: 'content',
+        sortOrder: 2,
+        worktreePath: '/repos/my-repo/worktrees/hotfix',
+      } as Parameters<typeof savePersistedTab>[1]);
+
+      const filtered = listPersistedTabsByWorkspace(db, 'ws-1', '/repos/my-repo/worktrees/feature');
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].title).toBe('Feature Tab');
+    });
+
+    it('listPersistedTabsByWorkspace without worktreePath filter returns only NULL worktree_path tabs', () => {
+      savePersistedTab(db, {
+        id: 'ptab-6',
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Feature Tab',
+        pane: 'content',
+        sortOrder: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature',
+      } as Parameters<typeof savePersistedTab>[1]);
+
+      savePersistedTab(db, {
+        id: 'ptab-7',
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Root Tab',
+        pane: 'content',
+        sortOrder: 1,
+      });
+
+      const filtered = listPersistedTabsByWorkspace(db, 'ws-1');
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].title).toBe('Root Tab');
+    });
+
+    it('listPersistedTabsByWorkspace with explicit null worktreePath returns only NULL worktree_path tabs', () => {
+      savePersistedTab(db, {
+        id: 'ptab-8',
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Feature Tab',
+        pane: 'content',
+        sortOrder: 0,
+        worktreePath: '/repos/my-repo/worktrees/feature',
+      } as Parameters<typeof savePersistedTab>[1]);
+
+      savePersistedTab(db, {
+        id: 'ptab-9',
+        workspaceId: 'ws-1',
+        tabType: 'editor',
+        title: 'Root Tab',
+        pane: 'content',
+        sortOrder: 1,
+      });
+
+      // Pass null explicitly — should behave like undefined (IS NULL filter)
+      const filtered = listPersistedTabsByWorkspace(db, 'ws-1', null);
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].title).toBe('Root Tab');
+    });
   });
 });

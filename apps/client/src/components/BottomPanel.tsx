@@ -11,6 +11,7 @@ export type { TerminalPanelHandle as BottomPanelHandle };
 
 export interface BottomPanelProps {
   workspaceId: string | null;
+  scopeKey?: string | null;
   effectiveCwd?: string;
   terminalContainerRef?: React.Ref<HTMLDivElement>;
   onTerminalRegistered?: (terminalId: string, tabId: string, workspaceId: string) => void;
@@ -23,6 +24,7 @@ export interface BottomPanelProps {
 export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(function BottomPanel(
   {
     workspaceId,
+    scopeKey,
     effectiveCwd,
     terminalContainerRef,
     onTerminalRegistered,
@@ -52,6 +54,7 @@ export const BottomPanel = forwardRef<TerminalPanelHandle, BottomPanelProps>(fun
     getActiveTabId,
   } = useTerminalPane({
     workspaceId,
+    scopeKey: scopeKey ?? null,
     pane: 'bottom',
     onTerminalRegistered,
     onTerminalUnregistered,

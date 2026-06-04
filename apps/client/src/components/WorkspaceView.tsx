@@ -20,7 +20,7 @@ import { move } from '@dnd-kit/helpers';
 import { FileClipboardProvider } from '../contexts/FileClipboardContext';
 import { usePaneBounds } from '../hooks/usePaneBounds';
 import { useTerminalRegistry } from '../hooks/useTerminalRegistry';
-import { useWorkspaceSelection } from '../hooks/useWorkspaceSelection';
+import { useWorkspaceSelection, parseScopeKey } from '../hooks/useWorkspaceSelection';
 import { useSplitLayout } from '../hooks/useSplitLayout';
 import { useAgentStatus } from '../hooks/useAgentStatus';
 import { collectPaneIds } from '../lib/pane-tree';
@@ -44,6 +44,7 @@ function WorkspaceViewInner() {
 
   const {
     activeWorkspaceId,
+    activeScopeKey,
     activeWorkspace,
     effectiveCwd,
     activeWorktreePath,
@@ -83,7 +84,7 @@ function WorkspaceViewInner() {
   const registeredElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const { layout, paneIds, splitPane, removePane, focusedPaneId, setFocusedPaneId, loadLayout } =
-    useSplitLayout(activeWorkspaceId);
+    useSplitLayout(activeScopeKey);
 
   // Ref to read the latest layout in requestAnimationFrame callbacks without stale closures
   const layoutRef = useRef(layout);
@@ -121,20 +122,25 @@ function WorkspaceViewInner() {
     }
   }, [paneIds, registerContainer]);
 
-  // Load persisted layout when workspace changes
+  // Load persisted layout when scope changes
   useEffect(() => {
-    loadLayout(activeWorkspaceId);
-  }, [activeWorkspaceId, loadLayout]);
+    loadLayout(activeScopeKey);
+  }, [activeScopeKey, loadLayout]);
 
-  // --- Restore tabs from persisted session on workspace switch ---
+  // --- Restore tabs from persisted session on scope change ---
   const restoredWorkspacesRef = useRef(new Set<string>());
 
-  const handleRestoreTabs = useCallback(async (workspaceId: string) => {
-    if (restoredWorkspacesRef.current.has(workspaceId)) return;
-    restoredWorkspacesRef.current.add(workspaceId);
+  const handleRestoreTabs = useCallback(async (scopeKey: string) => {
+    if (restoredWorkspacesRef.current.has(scopeKey)) return;
+    restoredWorkspacesRef.current.add(scopeKey);
+
+    const { workspaceId: realWsId, worktreePath } = parseScopeKey(scopeKey);
 
     try {
-      const res = await sendRequest<TabRestoreResponse>('tab.restore', { workspaceId });
+      const res = await sendRequest<TabRestoreResponse>('tab.restore', {
+        workspaceId: realWsId,
+        worktreePath,
+      });
       if (!res.tabs || res.tabs.length === 0) return;
 
       // Group tabs by pane
@@ -152,7 +158,7 @@ function WorkspaceViewInner() {
         const handle = paneHandleRefs.current.get(paneId);
         if (!handle) continue;
 
-        handle.loadRestoredTabs(workspaceId, tabs);
+        handle.loadRestoredTabs(scopeKey, tabs);
       }
     } catch {
       // Silent fail – restoration is best-effort
@@ -160,10 +166,10 @@ function WorkspaceViewInner() {
   }, []);
 
   useEffect(() => {
-    if (activeWorkspaceId) {
-      handleRestoreTabs(activeWorkspaceId);
+    if (activeScopeKey) {
+      handleRestoreTabs(activeScopeKey);
     }
-  }, [activeWorkspaceId, handleRestoreTabs]);
+  }, [activeScopeKey, handleRestoreTabs]);
 
   const {
     terminalRegistry,
@@ -531,6 +537,7 @@ function WorkspaceViewInner() {
             <BottomPanel
               ref={bottomPanelRef}
               workspaceId={activeWorkspaceId}
+              scopeKey={activeScopeKey}
               effectiveCwd={effectiveCwd}
               terminalContainerRef={bottomTerminalRef}
               onTerminalRegistered={handleBottomTerminalRegistered}
@@ -545,6 +552,7 @@ function WorkspaceViewInner() {
             layout={layout}
             focusedPaneId={focusedPaneId}
             workspaceId={activeWorkspaceId}
+            scopeKey={activeScopeKey}
             effectiveCwd={effectiveCwd}
             fileToOpen={fileToOpen}
             onFileOpened={handleFileOpened}

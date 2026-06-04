@@ -29,18 +29,18 @@ export interface UseSplitLayoutResult {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult {
+export function useSplitLayout(scopeKey: string | null): UseSplitLayoutResult {
   const [layout, setLayoutState] = useState<LayoutNode>(createDefaultLayout);
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
 
   // Refs for stale-closure-safe reads inside callbacks and timers
-  const workspaceIdRef = useRef<string | null>(workspaceId);
+  const scopeKeyRef = useRef<string | null>(scopeKey);
   const layoutRef = useRef<LayoutNode>(layout);
   const focusedPaneIdRef = useRef<string | null>(focusedPaneId);
 
   useEffect(() => {
-    workspaceIdRef.current = workspaceId;
-  }, [workspaceId]);
+    scopeKeyRef.current = scopeKey;
+  }, [scopeKey]);
 
   useLayoutEffect(() => {
     layoutRef.current = layout;
@@ -60,7 +60,7 @@ export function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult
   // Debounced persistence
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (workspaceId == null) return;
+    if (scopeKey == null) return;
 
     if (saveTimerRef.current != null) {
       clearTimeout(saveTimerRef.current);
@@ -69,7 +69,7 @@ export function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
       sendRequest('config.set', {
-        key: `pane_layout_${workspaceIdRef.current}`,
+        key: `pane_layout_${scopeKeyRef.current}`,
         value: serializeLayout(layoutRef.current),
       }).catch(() => {
         // Silently ignore save failures
@@ -82,7 +82,7 @@ export function useSplitLayout(workspaceId: string | null): UseSplitLayoutResult
         saveTimerRef.current = null;
       }
     };
-  }, [layout, workspaceId]);
+  }, [layout, scopeKey]);
 
   // ---------------------------------------------------------------------------
   // splitPane

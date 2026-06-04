@@ -14,6 +14,7 @@ import { pathBasename } from '../lib/path-utils';
 export interface SplitLeafPaneProps {
   paneId: string;
   workspaceId: string | null;
+  scopeKey?: string | null;
   effectiveCwd?: string;
   fileToOpen?: string | null;
   onFileOpened?: () => void;
@@ -42,6 +43,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
     {
       paneId,
       workspaceId,
+      scopeKey,
       effectiveCwd,
       fileToOpen,
       onFileOpened,
@@ -85,6 +87,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
       getActiveTabId,
     } = useTerminalPane({
       workspaceId,
+      scopeKey: scopeKey ?? null,
       pane: paneId,
       dirtyFiles: externalDirtyFiles ?? dirtyFiles,
       onTerminalRegistered,

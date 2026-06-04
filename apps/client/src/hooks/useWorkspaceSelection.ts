@@ -51,6 +51,14 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
   // otherwise fall back to the workspace's default cwd (or undefined for server default)
   const effectiveCwd = activeWorktreePath ?? undefined;
 
+  // Composite scope key for tab/layout isolation — "workspaceId:worktreePath" when a worktree
+  // is active, or just "workspaceId" when on the base workspace
+  const activeScopeKey = useMemo(() => {
+    if (!activeWorkspaceId) return null;
+    if (activeWorktreePath) return `${activeWorkspaceId}:${activeWorktreePath}`;
+    return activeWorkspaceId;
+  }, [activeWorkspaceId, activeWorktreePath]);
+
   // Fetch worktrees for ALL workspaces eagerly (avoids chicken-and-egg deadlock
   // where expandedWorkspaces starts empty so data never loads)
   const allWorkspaceIds = useMemo(
@@ -181,6 +189,7 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
     // State
     selectedWorkspaceId,
     activeWorkspaceId,
+    activeScopeKey,
     activeWorkspace,
     effectiveCwd,
     activeWorktreePath,
@@ -213,5 +222,21 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
     setIsCreateWorktreeDialogOpen,
     setCreateWorktreeForWsId,
     setSelectedWorkspaceId,
+  };
+}
+
+/**
+ * Parse a composite scope key into its workspaceId and optional worktreePath.
+ * The key is split on the FIRST colon only to handle Windows paths like "C:\...".
+ */
+export function parseScopeKey(scopeKey: string): {
+  workspaceId: string;
+  worktreePath: string | null;
+} {
+  const colonIndex = scopeKey.indexOf(':');
+  if (colonIndex === -1) return { workspaceId: scopeKey, worktreePath: null };
+  return {
+    workspaceId: scopeKey.slice(0, colonIndex),
+    worktreePath: scopeKey.slice(colonIndex + 1),
   };
 }

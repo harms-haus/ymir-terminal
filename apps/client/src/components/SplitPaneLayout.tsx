@@ -11,6 +11,7 @@ export interface SplitPaneLayoutProps {
   layout: LayoutNode;
   focusedPaneId: string | null;
   workspaceId: string | null;
+  scopeKey?: string | null;
   effectiveCwd?: string;
   fileToOpen?: string | null;
   onFileOpened?: () => void;
@@ -41,6 +42,7 @@ export function SplitPaneLayout({
   layout,
   focusedPaneId,
   workspaceId,
+  scopeKey,
   effectiveCwd,
   fileToOpen,
   onFileOpened,
@@ -75,6 +77,7 @@ export function SplitPaneLayout({
         }}
         paneId={paneId}
         workspaceId={workspaceId}
+        scopeKey={scopeKey}
         effectiveCwd={effectiveCwd}
         fileToOpen={fileToOpen}
         onFileOpened={onFileOpened}

@@ -1,6 +1,7 @@
 export interface TabListRequest {
   workspaceId: string;
   pane?: string;
+  worktreePath?: string | null;
 }
 
 export interface TabInfo {
@@ -18,6 +19,7 @@ export interface TabInfo {
   parentSha?: string | null;
   cwd?: string | null;
   customTitle?: string | null;
+  worktreePath?: string | null;
 }
 
 export interface TabListResponse {
@@ -38,6 +40,7 @@ export interface TabCreateRequest {
   parentSha?: string;
   cwd?: string;
   customTitle?: string;
+  worktreePath?: string | null;
 }
 
 export interface TabCreateResponse {
@@ -73,10 +76,12 @@ export interface PersistedTabInfo {
   cwd: string | null;
   customTitle: string | null;
   terminalId: string | null;
+  worktreePath?: string | null;
 }
 
 export interface TabRestoreRequest {
   workspaceId: string;
+  worktreePath?: string | null;
 }
 
 export interface TabRestoreResponse {

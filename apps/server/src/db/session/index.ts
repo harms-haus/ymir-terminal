@@ -49,6 +49,7 @@ export function initSessionDb(): Database {
       repo_path TEXT,
       commit_sha TEXT,
       parent_sha TEXT,
+      worktree_path TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

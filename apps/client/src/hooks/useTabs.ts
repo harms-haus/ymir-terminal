@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { TabInfo } from '@ymir/shared';
+import { parseScopeKey } from './useWorkspaceSelection';
 
 export interface Tab {
   id: string;
@@ -48,51 +49,54 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   });
 
   const [workspaceStates, setWorkspaceStates] = useState<Map<string, WorkspaceTabState>>(new Map());
-  const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(null);
+  const [currentScopeKey, setCurrentScopeKey] = useState<string | null>(null);
 
   // Refs for stale-closure-safe reads inside callbacks
-  const currentWorkspaceIdRef = useRef<string | null>(null);
+  const currentScopeKeyRef = useRef<string | null>(null);
+  const realWorkspaceIdRef = useRef<string | null>(null);
   const tabsRef = useRef<Tab[]>([]);
   const activeTabIdRef = useRef<string | null>(null);
 
-  // Derive public state from current workspace
-  const currentWsState = currentWorkspaceId ? workspaceStates.get(currentWorkspaceId) : undefined;
+  // Derive public state from current scope
+  const currentWsState = currentScopeKey ? workspaceStates.get(currentScopeKey) : undefined;
   const tabs = useMemo(() => currentWsState?.tabs ?? [], [currentWsState]);
   const activeTabId = useMemo(() => currentWsState?.activeTabId ?? null, [currentWsState]);
 
   // Sync refs after render
   useEffect(() => {
-    currentWorkspaceIdRef.current = currentWorkspaceId;
+    currentScopeKeyRef.current = currentScopeKey;
     tabsRef.current = tabs;
     activeTabIdRef.current = activeTabId;
-  }, [currentWorkspaceId, tabs, activeTabId]);
+  }, [currentScopeKey, tabs, activeTabId]);
 
   // ---------------------------------------------------------------------------
-  // switchWorkspace
+  // switchWorkspace — accepts a scopeKey ("workspaceId:worktreePath" or plain "workspaceId")
   // ---------------------------------------------------------------------------
-  const switchWorkspace = useCallback((workspaceId: string | null) => {
-    if (workspaceId) {
+  const switchWorkspace = useCallback((scopeKey: string | null) => {
+    if (scopeKey) {
       setWorkspaceStates((prev) => {
-        if (prev.has(workspaceId)) return prev;
+        if (prev.has(scopeKey)) return prev;
         const newMap = new Map(prev);
-        newMap.set(workspaceId, { tabs: [], activeTabId: null });
+        newMap.set(scopeKey, { tabs: [], activeTabId: null });
         return newMap;
       });
     }
-    currentWorkspaceIdRef.current = workspaceId;
-    setCurrentWorkspaceId(workspaceId);
+    currentScopeKeyRef.current = scopeKey;
+    realWorkspaceIdRef.current = scopeKey ? parseScopeKey(scopeKey).workspaceId : null;
+    setCurrentScopeKey(scopeKey);
   }, []);
 
   // ---------------------------------------------------------------------------
-  // loadTabs
+  // loadTabs — scopeKey is the Map key; workspaceId on each Tab is the real ID
   // ---------------------------------------------------------------------------
-  const loadTabs = useCallback((workspaceId: string, serverTabs: TabInfo[]) => {
+  const loadTabs = useCallback((scopeKey: string, serverTabs: TabInfo[]) => {
+    const { workspaceId: realWorkspaceId } = parseScopeKey(scopeKey);
     const sorted = [...serverTabs].sort((a, b) => a.sortOrder - b.sortOrder);
     const mappedTabs: Tab[] = sorted.map((st) => ({
       id: st.id,
       type: st.tabType,
       title: st.title ?? '',
-      workspaceId,
+      workspaceId: realWorkspaceId,
       terminalId: st.terminalId ?? undefined,
       filePath: st.filePath ?? undefined,
       diffRef: st.diffRef ?? undefined,
@@ -106,19 +110,19 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
 
     setWorkspaceStates((prev) => {
       const newMap = new Map(prev);
-      newMap.set(workspaceId, { tabs: mappedTabs, activeTabId: newActiveTabId });
+      newMap.set(scopeKey, { tabs: mappedTabs, activeTabId: newActiveTabId });
       return newMap;
     });
 
     // Sync refs immediately if this is the current workspace
-    if (currentWorkspaceIdRef.current === workspaceId) {
+    if (currentScopeKeyRef.current === scopeKey) {
       tabsRef.current = mappedTabs;
       activeTabIdRef.current = newActiveTabId;
     }
   }, []);
 
   // ---------------------------------------------------------------------------
-  // createTab
+  // createTab — Map keyed by scopeKey, Tab.workspaceId is the real workspace ID
   // ---------------------------------------------------------------------------
   const createTab = useCallback(
     (opts: {
@@ -134,15 +138,16 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
       commitSha?: string;
       parentSha?: string;
     }) => {
-      const wsId = currentWorkspaceIdRef.current;
-      if (!wsId) return '';
+      const scopeKey = currentScopeKeyRef.current;
+      if (!scopeKey) return '';
+      const { workspaceId: realWorkspaceId } = parseScopeKey(scopeKey);
       const id = crypto.randomUUID();
-      const tab: Tab = { id, workspaceId: wsId, ...opts };
+      const tab: Tab = { id, workspaceId: realWorkspaceId, ...opts };
       setWorkspaceStates((prev) => {
         const newMap = new Map(prev);
-        const existing = newMap.get(wsId) ?? { tabs: [], activeTabId: null };
+        const existing = newMap.get(scopeKey) ?? { tabs: [], activeTabId: null };
         const newTabs = [...existing.tabs, tab];
-        newMap.set(wsId, { tabs: newTabs, activeTabId: id });
+        newMap.set(scopeKey, { tabs: newTabs, activeTabId: id });
         tabsRef.current = newTabs;
         activeTabIdRef.current = id;
         return newMap;
@@ -150,7 +155,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
       onTabChangeRef.current?.({
         type: 'create',
         tabId: id,
-        workspaceId: wsId,
+        workspaceId: realWorkspaceId,
         tabType: opts.type,
         title: opts.title,
         filePath: opts.filePath,
@@ -170,11 +175,11 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // closeTab
   // ---------------------------------------------------------------------------
   const closeTab = useCallback((tabId: string) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
     const wasActive = activeTabIdRef.current === tabId;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const idx = wsState.tabs.findIndex((t) => t.id === tabId);
       const newTabs = wsState.tabs.filter((t) => t.id !== tabId);
@@ -183,7 +188,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
         newActiveId = newTabs[Math.max(0, idx - 1)]?.id ?? newTabs[0]?.id ?? null;
       }
       const newMap = new Map(prev);
-      newMap.set(wsId, { tabs: newTabs, activeTabId: newActiveId });
+      newMap.set(scopeKey, { tabs: newTabs, activeTabId: newActiveId });
       tabsRef.current = newTabs;
       activeTabIdRef.current = newActiveId;
       return newMap;
@@ -195,14 +200,14 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // updateTabTitle
   // ---------------------------------------------------------------------------
   const updateTabTitle = useCallback((tabId: string, title: string) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const newTabs = wsState.tabs.map((t) => (t.id === tabId ? { ...t, title } : t));
       const newMap = new Map(prev);
-      newMap.set(wsId, { ...wsState, tabs: newTabs });
+      newMap.set(scopeKey, { ...wsState, tabs: newTabs });
       tabsRef.current = newTabs;
       return newMap;
     });
@@ -212,14 +217,14 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // updateTabCwd
   // ---------------------------------------------------------------------------
   const updateTabCwd = useCallback((tabId: string, cwd: string) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const newTabs = wsState.tabs.map((t) => (t.id === tabId ? { ...t, cwd } : t));
       const newMap = new Map(prev);
-      newMap.set(wsId, { ...wsState, tabs: newTabs });
+      newMap.set(scopeKey, { ...wsState, tabs: newTabs });
       tabsRef.current = newTabs;
       return newMap;
     });
@@ -229,23 +234,24 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // reorderTabs
   // ---------------------------------------------------------------------------
   const reorderTabs = useCallback((fromIndex: number, toIndex: number) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
+    const realWorkspaceId = realWorkspaceIdRef.current;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const next = [...wsState.tabs];
       const [moved] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, moved);
       const newMap = new Map(prev);
-      newMap.set(wsId, { ...wsState, tabs: next });
+      newMap.set(scopeKey, { ...wsState, tabs: next });
       tabsRef.current = next;
       return newMap;
     });
     // Fire reorder event with the new order — read from ref after updater runs
     onTabChangeRef.current?.({
       type: 'reorder',
-      workspaceId: wsId,
+      workspaceId: realWorkspaceId ?? '',
       tabIds: tabsRef.current.map((t) => t.id),
     });
   }, []);
@@ -254,10 +260,10 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // closeTabsRight
   // ---------------------------------------------------------------------------
   const closeTabsRight = useCallback((tabId: string) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const idx = wsState.tabs.findIndex((t) => t.id === tabId);
       if (idx === -1) return prev;
@@ -268,7 +274,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
         newActiveId = tabId;
       }
       const newMap = new Map(prev);
-      newMap.set(wsId, { tabs: kept, activeTabId: newActiveId });
+      newMap.set(scopeKey, { tabs: kept, activeTabId: newActiveId });
       tabsRef.current = kept;
       activeTabIdRef.current = newActiveId;
       return newMap;
@@ -279,10 +285,10 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // closeOtherTabs
   // ---------------------------------------------------------------------------
   const closeOtherTabs = useCallback((tabId: string) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const remaining = wsState.tabs.filter((t) => t.id === tabId);
       let newActiveId = wsState.activeTabId;
@@ -293,7 +299,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
         newActiveId = tabId;
       }
       const newMap = new Map(prev);
-      newMap.set(wsId, { tabs: remaining, activeTabId: newActiveId });
+      newMap.set(scopeKey, { tabs: remaining, activeTabId: newActiveId });
       tabsRef.current = remaining;
       activeTabIdRef.current = newActiveId;
       return newMap;
@@ -304,27 +310,28 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // activateTab
   // ---------------------------------------------------------------------------
   const activateTab = useCallback((tabId: string) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
+    const realWorkspaceId = realWorkspaceIdRef.current;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const newMap = new Map(prev);
-      newMap.set(wsId, { ...wsState, activeTabId: tabId });
+      newMap.set(scopeKey, { ...wsState, activeTabId: tabId });
       activeTabIdRef.current = tabId;
       return newMap;
     });
-    onTabChangeRef.current?.({ type: 'activate', tabId, workspaceId: wsId });
+    onTabChangeRef.current?.({ type: 'activate', tabId, workspaceId: realWorkspaceId ?? '' });
   }, []);
 
   // ---------------------------------------------------------------------------
   // setDisplayTitle
   // ---------------------------------------------------------------------------
   const setDisplayTitle = useCallback((tabId: string, customTitle: string | undefined) => {
-    const wsId = currentWorkspaceIdRef.current;
-    if (!wsId) return;
+    const scopeKey = currentScopeKeyRef.current;
+    if (!scopeKey) return;
     setWorkspaceStates((prev) => {
-      const wsState = prev.get(wsId);
+      const wsState = prev.get(scopeKey);
       if (!wsState) return prev;
       const newTabs = wsState.tabs.map((t) => {
         if (t.id !== tabId) return t;
@@ -336,8 +343,21 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
         return { ...t, customTitle: trimmed };
       });
       const newMap = new Map(prev);
-      newMap.set(wsId, { ...wsState, tabs: newTabs });
+      newMap.set(scopeKey, { ...wsState, tabs: newTabs });
       tabsRef.current = newTabs;
+      return newMap;
+    });
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // cleanupScope — remove a scope key's entry from the Map to prevent unbounded
+  // growth when worktrees or workspaces are deleted.
+  // ---------------------------------------------------------------------------
+  const cleanupScope = useCallback((scopeKey: string) => {
+    setWorkspaceStates((prev) => {
+      if (!prev.has(scopeKey)) return prev;
+      const newMap = new Map(prev);
+      newMap.delete(scopeKey);
       return newMap;
     });
   }, []);
@@ -356,5 +376,6 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
     setDisplayTitle,
     switchWorkspace,
     loadTabs,
+    cleanupScope,
   };
 }

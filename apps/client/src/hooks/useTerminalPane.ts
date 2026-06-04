@@ -4,9 +4,11 @@ import type { TabInfo, PersistedTabInfo } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 import { useConfirm } from './useDialog';
 import { pathBasename } from '../lib/path-utils';
+import { parseScopeKey } from './useWorkspaceSelection';
 
 export interface UseTerminalPaneOptions {
   workspaceId?: string | null;
+  scopeKey?: string | null;
   pane?: string;
   dirtyFiles?: Set<string>;
   confirmMultipleText?: string;
@@ -17,6 +19,7 @@ export interface UseTerminalPaneOptions {
 export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
   const {
     workspaceId,
+    scopeKey: scopeKeyProp,
     pane = 'content',
     dirtyFiles,
     confirmMultipleText,
@@ -24,22 +27,30 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     onTerminalUnregistered,
   } = options;
 
+  // Backward compatibility: if no scopeKey provided, fall back to workspaceId
+  const scopeKey = scopeKeyProp ?? workspaceId ?? null;
+
   const confirm = useConfirm();
 
-  // Track which workspaces have already been loaded from server
+  // Track which scope keys have already been loaded from server
   const loadedWorkspacesRef = useRef<Set<string>>(new Set());
 
-  // Track which workspaces have been restored via loadRestoredTabs –
+  // Track which scope keys have been restored via loadRestoredTabs –
   // prevents an in-flight tab.list response from overwriting them.
   const restoredWorkspacesRef = useRef<Set<string>>(new Set());
 
   // Refs for options to avoid stale closures in callbacks
   const paneRef = useRef(pane);
+  const scopeKeyRef = useRef<string | null>(scopeKey);
   const onTerminalRegisteredRef = useRef(onTerminalRegistered);
 
   useEffect(() => {
     paneRef.current = pane;
   }, [pane]);
+
+  useEffect(() => {
+    scopeKeyRef.current = scopeKey;
+  }, [scopeKey]);
 
   useEffect(() => {
     onTerminalRegisteredRef.current = onTerminalRegistered;
@@ -59,10 +70,15 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     setDisplayTitle,
     switchWorkspace,
     loadTabs,
+    cleanupScope,
   } = useTabs({
     onTabChange: (evt) => {
       switch (evt.type) {
         case 'create': {
+          const currentScopeKey = scopeKeyRef.current;
+          const worktreePath = currentScopeKey
+            ? parseScopeKey(currentScopeKey).worktreePath
+            : undefined;
           const payload: Record<string, unknown> = {
             workspaceId: evt.workspaceId,
             pane: paneRef.current,
@@ -70,6 +86,7 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
             title: evt.title,
             filePath: evt.filePath,
             terminalId: evt.terminalId,
+            worktreePath,
           };
           if (evt.diffRef !== undefined) payload.diffRef = evt.diffRef;
           if (evt.diffRepoPath !== undefined) payload.diffRepoPath = evt.diffRepoPath;
@@ -105,37 +122,43 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
   }, [activeTabId]);
 
   // ---------------------------------------------------------------------------
-  // Switch workspace + load tabs from server
+  // Switch workspace + load tabs from server (keyed by scopeKey)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    switchWorkspace(workspaceId ?? null);
+    switchWorkspace(scopeKey ?? null);
 
-    if (workspaceId && !loadedWorkspacesRef.current.has(workspaceId)) {
-      loadedWorkspacesRef.current.add(workspaceId);
+    if (scopeKey && !loadedWorkspacesRef.current.has(scopeKey)) {
+      loadedWorkspacesRef.current.add(scopeKey);
 
       // Skip tab.list if tabs were already restored via loadRestoredTabs
-      if (restoredWorkspacesRef.current.has(workspaceId)) return;
+      if (restoredWorkspacesRef.current.has(scopeKey)) return;
 
-      sendRequest<{ tabs: TabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
+      const { workspaceId: realWsId, worktreePath } = parseScopeKey(scopeKey);
+
+      sendRequest<{ tabs: TabInfo[] }>('tab.list', {
+        workspaceId: realWsId,
+        pane: paneRef.current,
+        worktreePath,
+      })
         .then((response) => {
           // Ref-based guards — always read current values, no stale closures
-          if (restoredWorkspacesRef.current.has(workspaceId)) return;
+          if (restoredWorkspacesRef.current.has(scopeKey)) return;
           if (tabsRef.current.length > 0) return;
 
           // Filter out dead terminals
           const liveTabs = response.tabs.filter((t) => t.terminalAlive !== false);
-          loadTabs(workspaceId, liveTabs);
+          loadTabs(scopeKey, liveTabs);
 
           // Register terminal tabs with parent
           for (const t of liveTabs) {
             if (t.terminalId) {
-              onTerminalRegisteredRef.current?.(t.terminalId, t.id, workspaceId);
+              onTerminalRegisteredRef.current?.(t.terminalId, t.id, realWsId);
             }
           }
         })
         .catch(console.error);
     }
-  }, [workspaceId, switchWorkspace, loadTabs]);
+  }, [scopeKey, switchWorkspace, loadTabs]);
 
   // --- Shared handle logic ---
 
@@ -283,10 +306,12 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
   const getActiveTabId = useCallback(() => activeTabIdRef.current ?? null, []);
 
   // --- Restore tabs from persisted session (called by parent via imperative handle) ---
+  // wsId is now the scope key ("workspaceId:worktreePath" or plain "workspaceId")
 
   const loadRestoredTabs = useCallback(
-    (wsId: string, restored: PersistedTabInfo[]) => {
-      restoredWorkspacesRef.current.add(wsId);
+    (scopeKeyParam: string, restored: PersistedTabInfo[]) => {
+      restoredWorkspacesRef.current.add(scopeKeyParam);
+      const { workspaceId: realWsId } = parseScopeKey(scopeKeyParam);
       const mapped: TabInfo[] = restored.map((t, idx) => ({
         id: t.id,
         tabType: t.tabType,
@@ -303,12 +328,12 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
         commitSha: t.commitSha,
         parentSha: t.parentSha,
       }));
-      loadTabs(wsId, mapped);
+      loadTabs(scopeKeyParam, mapped);
 
       // Register terminal tabs with parent
       for (const t of mapped) {
         if (t.terminalId) {
-          onTerminalRegisteredRef.current?.(t.terminalId, t.id, wsId);
+          onTerminalRegisteredRef.current?.(t.terminalId, t.id, realWsId);
         }
       }
     },
@@ -348,5 +373,8 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
     loadRestoredTabs,
     getTabs,
     getActiveTabId,
+
+    // Scope cleanup
+    cleanupScope,
   };
 }

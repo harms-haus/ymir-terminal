@@ -66,6 +66,7 @@ export function initDatabase(dbPath: string): Database {
       parent_sha TEXT,
       cwd TEXT,
       custom_title TEXT,
+      worktree_path TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
@@ -182,6 +183,7 @@ export interface PersistedTab {
   parent_sha: string | null;
   cwd: string | null;
   custom_title: string | null;
+  worktree_path: string | null;
   created_at: string;
 }
 
@@ -199,14 +201,15 @@ export interface SavePersistedTabInput {
   parentSha?: string | null;
   cwd?: string | null;
   customTitle?: string | null;
+  worktreePath?: string | null;
 }
 
 export function savePersistedTab(db: Database, input: SavePersistedTabInput): void {
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO persisted_tabs
-      (id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha, cwd, custom_title)
+      (id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha, cwd, custom_title, worktree_path)
     VALUES
-      ($id, $workspaceId, $tabType, $title, $filePath, $pane, $sortOrder, $diffRef, $repoPath, $commitSha, $parentSha, $cwd, $customTitle)
+      ($id, $workspaceId, $tabType, $title, $filePath, $pane, $sortOrder, $diffRef, $repoPath, $commitSha, $parentSha, $cwd, $customTitle, $worktreePath)
   `);
   stmt.run({
     $id: input.id,
@@ -222,6 +225,7 @@ export function savePersistedTab(db: Database, input: SavePersistedTabInput): vo
     $parentSha: input.parentSha ?? null,
     $cwd: input.cwd ?? null,
     $customTitle: input.customTitle ?? null,
+    $worktreePath: input.worktreePath ?? null,
   });
 }
 
@@ -245,11 +249,24 @@ export function updatePersistedTabTitle(db: Database, tabId: string, title: stri
   db.prepare('UPDATE persisted_tabs SET custom_title = ? WHERE id = ?').run(title, tabId);
 }
 
-export function listPersistedTabsByWorkspace(db: Database, workspaceId: string): PersistedTab[] {
-  const stmt = db.prepare(
-    'SELECT * FROM persisted_tabs WHERE workspace_id = ? ORDER BY sort_order ASC',
-  );
-  return stmt.all(workspaceId) as PersistedTab[];
+export function listPersistedTabsByWorkspace(
+  db: Database,
+  workspaceId: string,
+  worktreePath?: string | null,
+): PersistedTab[] {
+  let query = 'SELECT * FROM persisted_tabs WHERE workspace_id = ?';
+  const params: string[] = [workspaceId];
+
+  if (worktreePath !== undefined && worktreePath !== null) {
+    query += ' AND worktree_path = ?';
+    params.push(worktreePath);
+  } else {
+    query += ' AND worktree_path IS NULL';
+  }
+
+  query += ' ORDER BY sort_order ASC';
+  const stmt = db.prepare(query);
+  return stmt.all(...params) as PersistedTab[];
 }
 
 export function deletePersistedTabsByWorkspace(db: Database, workspaceId: string): void {

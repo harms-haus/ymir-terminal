@@ -15,11 +15,12 @@ export function createTab(
     repoPath?: string;
     commitSha?: string;
     parentSha?: string;
+    worktreePath?: string | null;
   },
 ): string {
   const id = randomUUID();
   const stmt = db.prepare(
-    'INSERT INTO tabs (id, session_id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO tabs (id, session_id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha, worktree_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
   stmt.run(
     id,
@@ -34,6 +35,7 @@ export function createTab(
     opts.repoPath ?? null,
     opts.commitSha ?? null,
     opts.parentSha ?? null,
+    opts.worktreePath ?? null,
   );
   return id;
 }
@@ -43,17 +45,26 @@ export function listTabs(
   sessionId: string,
   workspaceId: string,
   pane?: string,
+  worktreePath?: string | null,
 ): Record<string, unknown>[] {
+  let query = 'SELECT * FROM tabs WHERE session_id = ? AND workspace_id = ?';
+  const params: (string | number)[] = [sessionId, workspaceId];
+
   if (pane !== undefined) {
-    const stmt = db.prepare(
-      'SELECT * FROM tabs WHERE session_id = ? AND workspace_id = ? AND pane = ? ORDER BY sort_order ASC',
-    );
-    return stmt.all(sessionId, workspaceId, pane) as Record<string, unknown>[];
+    query += ' AND pane = ?';
+    params.push(pane);
   }
-  const stmt = db.prepare(
-    'SELECT * FROM tabs WHERE session_id = ? AND workspace_id = ? ORDER BY sort_order ASC',
-  );
-  return stmt.all(sessionId, workspaceId) as Record<string, unknown>[];
+
+  if (worktreePath !== undefined && worktreePath !== null) {
+    query += ' AND worktree_path = ?';
+    params.push(worktreePath);
+  } else {
+    query += ' AND worktree_path IS NULL';
+  }
+
+  query += ' ORDER BY sort_order ASC';
+  const stmt = db.prepare(query);
+  return stmt.all(...params) as Record<string, unknown>[];
 }
 
 export function getTab(db: Database, tabId: string): Record<string, unknown> | null {
