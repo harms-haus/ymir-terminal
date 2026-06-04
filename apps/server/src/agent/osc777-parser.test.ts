@@ -5,9 +5,12 @@
 import { describe, expect, it } from 'bun:test';
 import {
   hasOSC777Prefix,
+  hasOSC777PrefixBytes,
   osc777EventToStatus,
+  OSC777ByteStreamParser,
   OSC777StreamParser,
   parseOSC777,
+  parseOSC777Bytes,
 } from './osc777-parser';
 
 // ---------------------------------------------------------------------------
@@ -314,6 +317,387 @@ describe('osc777EventToStatus', () => {
     expect(osc777EventToStatus('unknown_event')).toBeNull();
     expect(osc777EventToStatus('')).toBeNull();
     expect(osc777EventToStatus('session_end')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasOSC777PrefixBytes
+// ---------------------------------------------------------------------------
+
+describe('hasOSC777PrefixBytes', () => {
+  it('returns true when raw bytes start with \\x1b]777', () => {
+    expect(hasOSC777PrefixBytes(new Uint8Array([0x1b, 0x5d, 0x37, 0x37, 0x37]))).toBeTrue();
+    expect(hasOSC777PrefixBytes(new Uint8Array([0x1b, 0x5d, 0x37, 0x37, 0x37, 0x3b]))).toBeTrue();
+  });
+
+  it('returns false when raw bytes do not start with \\x1b]777', () => {
+    expect(hasOSC777PrefixBytes(new Uint8Array([]))).toBeFalse();
+    expect(hasOSC777PrefixBytes(new Uint8Array([0x1b, 0x5d, 0x37, 0x37]))).toBeFalse(); // too short
+    expect(hasOSC777PrefixBytes(new Uint8Array([0x1b, 0x5d, 0x41, 0x42, 0x43]))).toBeFalse(); // different
+    expect(hasOSC777PrefixBytes(new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f]))).toBeFalse(); // "Hello"
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseOSC777Bytes
+// ---------------------------------------------------------------------------
+
+describe('parseOSC777Bytes', () => {
+  it('extracts event from a valid complete sequence (BEL terminator)', () => {
+    const json = JSON.stringify({
+      v: 1,
+      agent: 'claude',
+      event: 'stop',
+      session_id: 'sess-1',
+      cwd: '/home/user',
+      project: 'my-project',
+    });
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const seq = new Uint8Array([...prefix, ...enc.encode(json), 0x07]);
+
+    const result = parseOSC777Bytes(seq);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toEqual({
+      v: 1,
+      agent: 'claude',
+      event: 'stop',
+      session_id: 'sess-1',
+      cwd: '/home/user',
+      project: 'my-project',
+    });
+    expect(result.cleanedData).toEqual(new Uint8Array(0));
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('extracts event from a valid complete sequence (ST terminator)', () => {
+    const json = JSON.stringify({
+      v: 1,
+      agent: 'opencode',
+      event: 'session_start',
+      session_id: 'sess-2',
+      cwd: '/workspace',
+      project: 'test',
+    });
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const seq = new Uint8Array([...prefix, ...enc.encode(json), 0x1b, 0x5c]);
+
+    const result = parseOSC777Bytes(seq);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].event).toBe('session_start');
+    expect(result.events[0].agent).toBe('opencode');
+    expect(result.cleanedData).toEqual(new Uint8Array(0));
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('extracts multiple sequences in one chunk', () => {
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+
+    const json1 = JSON.stringify({
+      v: 1,
+      agent: 'pi',
+      event: 'session_start',
+      session_id: 's1',
+      cwd: '/x',
+      project: 'p1',
+    });
+    const json2 = JSON.stringify({
+      v: 1,
+      agent: 'aide',
+      event: 'tool_complete',
+      session_id: 's2',
+      cwd: '/y',
+      project: 'p2',
+    });
+
+    const seq1 = new Uint8Array([...prefix, ...enc.encode(json1), 0x07]);
+    const seq2 = new Uint8Array([...prefix, ...enc.encode(json2), 0x1b, 0x5c]);
+
+    const between = enc.encode(' between ');
+    const before = enc.encode('before ');
+    const after = enc.encode(' after');
+
+    const input = new Uint8Array([...before, ...seq1, ...between, ...seq2, ...after]);
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].event).toBe('session_start');
+    expect(result.events[0].agent).toBe('pi');
+    expect(result.events[1].event).toBe('tool_complete');
+    expect(result.events[1].agent).toBe('aide');
+    expect(Array.from(result.cleanedData)).toEqual([
+      ...Array.from(before),
+      ...Array.from(between),
+      ...Array.from(after),
+    ]);
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('preserves non-UTF-8 binary data in cleaned output', () => {
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const json = JSON.stringify({ event: 'stop', v: 1 });
+    const seq = new Uint8Array([...prefix, ...enc.encode(json), 0x07]);
+
+    // Binary bytes before and after the sequence — bytes 0x80-0xFF are not
+    // valid standalone UTF-8 but must be preserved in the cleaned output.
+    const binaryBefore = new Uint8Array([0x80, 0xff, 0x00]);
+    const binaryAfter = new Uint8Array([0x90, 0xa0, 0xc0]);
+    const input = new Uint8Array([...binaryBefore, ...seq, ...binaryAfter]);
+
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].event).toBe('stop');
+    expect(Array.from(result.cleanedData)).toEqual([0x80, 0xff, 0x00, 0x90, 0xa0, 0xc0]);
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('preserves text when no OSC 777 sequences present', () => {
+    const enc = new TextEncoder();
+    const input = enc.encode('hello world\nnormal terminal output');
+
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.cleanedData).toEqual(input);
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('strips sequence but produces no event when JSON is malformed', () => {
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const seq = new Uint8Array([...prefix, ...enc.encode('{invalid}'), 0x07]);
+    const leading = enc.encode('leading ');
+    const trailing = enc.encode(' trailing');
+    const input = new Uint8Array([...leading, ...seq, ...trailing]);
+
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(0);
+    expect(new TextDecoder().decode(result.cleanedData)).toBe('leading  trailing');
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('strips sequence but produces no event when parsed object lacks event field', () => {
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const seq = new Uint8Array([...prefix, ...enc.encode('{"foo":"bar"}'), 0x07]);
+    const x = enc.encode('x');
+    const y = enc.encode('y');
+    const input = new Uint8Array([...x, ...seq, ...y]);
+
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.cleanedData).toEqual(new Uint8Array([...x, ...y]));
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('handles partial sequence at the end of a chunk', () => {
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const partialPayload = enc.encode('{"v":1,"agent":"claude","ev');
+    const partial = new Uint8Array([...prefix, ...partialPayload]);
+    const leading = enc.encode('start ');
+    const input = new Uint8Array([...leading, ...partial]);
+
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.cleanedData).toEqual(leading);
+    expect(result.partialTrailing).toEqual(partial);
+  });
+
+  it('handles multiple sequences with partial at the end', () => {
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+
+    const json1 = JSON.stringify({ event: 'stop', v: 1 });
+    const seq1 = new Uint8Array([...prefix, ...enc.encode(json1), 0x07]);
+
+    const partial = new Uint8Array([...prefix, ...enc.encode('{"event":"too')]);
+
+    const a = enc.encode('a');
+    const b = enc.encode('b');
+    const input = new Uint8Array([...a, ...seq1, ...b, ...partial]);
+
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].event).toBe('stop');
+    expect(result.cleanedData).toEqual(new Uint8Array([...a, ...b]));
+    expect(result.partialTrailing).toEqual(partial);
+  });
+
+  it('handles empty input', () => {
+    const result = parseOSC777Bytes(new Uint8Array(0));
+
+    expect(result.events).toHaveLength(0);
+    expect(result.cleanedData).toEqual(new Uint8Array(0));
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('does not treat a non-OSC-777 escape as a partial', () => {
+    const enc = new TextEncoder();
+    const input = enc.encode('some text \x1b[31mred\x1b[0m');
+
+    const result = parseOSC777Bytes(input);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.cleanedData).toEqual(input);
+    expect(result.partialTrailing).toBeNull();
+  });
+
+  it('handles sequence with only required event field in JSON', () => {
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const json = JSON.stringify({ event: 'stop' });
+    const seq = new Uint8Array([...prefix, ...enc.encode(json), 0x07]);
+
+    const result = parseOSC777Bytes(seq);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].event).toBe('stop');
+    expect(result.events[0].v).toBe(1);
+    expect(result.events[0].agent).toBe('');
+    expect(result.events[0].session_id).toBe('');
+    expect(result.events[0].cwd).toBe('');
+    expect(result.events[0].project).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OSC777ByteStreamParser
+// ---------------------------------------------------------------------------
+
+describe('OSC777ByteStreamParser', () => {
+  it('accumulates across chunks to yield a complete event', () => {
+    const parser = new OSC777ByteStreamParser();
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+
+    // First chunk ends in the middle of JSON
+    const chunk1 = new Uint8Array([
+      ...enc.encode('leading '),
+      ...prefix,
+      ...enc.encode('{"v":1,"agent":"pi","event":"too'),
+    ]);
+    const result1 = parser.feed(chunk1);
+
+    expect(result1.events).toHaveLength(0);
+    expect(result1.cleanedData).toEqual(enc.encode('leading '));
+    expect(parser.hasPartial()).toBeTrue();
+
+    // Second chunk completes the sequence
+    const chunk2 = new Uint8Array([
+      ...enc.encode('l_complete","session_id":"s1","cwd":"/x","project":"p"}'),
+      0x07,
+      ...enc.encode(' trailing'),
+    ]);
+    const result2 = parser.feed(chunk2);
+
+    expect(result2.events).toHaveLength(1);
+    expect(result2.events[0].event).toBe('tool_complete');
+    expect(result2.events[0].agent).toBe('pi');
+    expect(result2.cleanedData).toEqual(enc.encode(' trailing'));
+    expect(parser.hasPartial()).toBeFalse();
+  });
+
+  it('handles three chunks for one sequence', () => {
+    const parser = new OSC777ByteStreamParser();
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+
+    const r1 = parser.feed(new Uint8Array([...prefix, ...enc.encode('{"event":')]));
+    expect(r1.events).toHaveLength(0);
+    expect(parser.hasPartial()).toBeTrue();
+
+    const r2 = parser.feed(enc.encode('"session_start","agent":"aide'));
+    expect(r2.events).toHaveLength(0);
+    expect(parser.hasPartial()).toBeTrue();
+
+    const r3 = parser.feed(new Uint8Array([...enc.encode('r"}'), 0x07, ...enc.encode(' done')]));
+    expect(r3.events).toHaveLength(1);
+    expect(r3.events[0].event).toBe('session_start');
+    expect(r3.events[0].agent).toBe('aider');
+    expect(r3.cleanedData).toEqual(enc.encode(' done'));
+    expect(parser.hasPartial()).toBeFalse();
+  });
+
+  it('accumulates partial buffer across chunks until terminator arrives', () => {
+    const parser = new OSC777ByteStreamParser();
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+
+    parser.feed(new Uint8Array([...prefix, ...enc.encode('{"event":"')]));
+    expect(parser.hasPartial()).toBeTrue();
+
+    // Second chunk looks like unrelated text but is accumulated as partial
+    const r2 = parser.feed(enc.encode('hello'));
+    expect(r2.events).toHaveLength(0);
+    expect(parser.hasPartial()).toBeTrue();
+
+    // Third chunk completes the sequence
+    const r3 = parser.feed(new Uint8Array([...enc.encode('stop"}'), 0x07]));
+    expect(r3.events).toHaveLength(1);
+    expect(r3.events[0].event).toBe('hellostop');
+  });
+
+  it('reset() clears the partial buffer', () => {
+    const parser = new OSC777ByteStreamParser();
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+
+    parser.feed(new Uint8Array([...prefix, ...enc.encode('{"event":"')]));
+    expect(parser.hasPartial()).toBeTrue();
+
+    parser.reset();
+    expect(parser.hasPartial()).toBeFalse();
+
+    // After reset, new partial can be accumulated
+    parser.feed(new Uint8Array([...prefix, ...enc.encode('{"event":"stop')]));
+    expect(parser.hasPartial()).toBeTrue();
+  });
+
+  it('handles empty feed calls', () => {
+    const parser = new OSC777ByteStreamParser();
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+    const json = JSON.stringify({ event: 'stop', v: 1, agent: 'test' });
+
+    const r1 = parser.feed(new Uint8Array(0));
+    expect(r1.events).toHaveLength(0);
+    expect(r1.cleanedData).toEqual(new Uint8Array(0));
+    expect(parser.hasPartial()).toBeFalse();
+
+    const seq = new Uint8Array([...prefix, ...enc.encode(json), 0x07]);
+    const r2 = parser.feed(seq);
+    expect(r2.events).toHaveLength(1);
+    expect(parser.hasPartial()).toBeFalse();
+
+    const r3 = parser.feed(new Uint8Array(0));
+    expect(r3.events).toHaveLength(0);
+    expect(r3.cleanedData).toEqual(new Uint8Array(0));
+    expect(parser.hasPartial()).toBeFalse();
+  });
+
+  it('hasPartial returns false after reset', () => {
+    const parser = new OSC777ByteStreamParser();
+    const enc = new TextEncoder();
+    const prefix = enc.encode('\x1b]777;notify;warp://cli-agent;');
+
+    expect(parser.hasPartial()).toBeFalse();
+
+    parser.feed(new Uint8Array([...prefix, ...enc.encode('{"event":"')]));
+    expect(parser.hasPartial()).toBeTrue();
+
+    parser.reset();
+    expect(parser.hasPartial()).toBeFalse();
   });
 });
 

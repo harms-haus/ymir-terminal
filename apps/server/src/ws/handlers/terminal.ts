@@ -30,7 +30,7 @@ import { resolve } from 'node:path';
 import { getWorkspace } from '../../db/persistent';
 import { listWorktrees } from '../../git/worktrees';
 import { validateTerminalOwnership, safePath } from '../../lib/handler-validation';
-import { OSC777StreamParser, hasOSC777Prefix } from '../../agent/osc777-parser';
+import { OSC777ByteStreamParser, hasOSC777Prefix } from '../../agent/osc777-parser';
 import type { AgentStatusTracker } from '../../agent/status-tracker';
 import type { ProcessMonitor } from '../../agent/process-monitor';
 
@@ -65,8 +65,8 @@ function requireTerminalId(
   return terminalId;
 }
 
-/** Per-terminal OSC 777 stream parsers. */
-const oscParsers = new Map<string, OSC777StreamParser>();
+/** Per-terminal OSC 777 byte stream parsers. */
+const oscByteParsers = new Map<string, OSC777ByteStreamParser>();
 
 /**
  * Register WebSocket handlers for all terminal.* channels.
@@ -146,8 +146,8 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     }
 
     // Create parser for OSC 777 agent notifications
-    const parser = new OSC777StreamParser();
-    oscParsers.set(terminalId, parser);
+    const parser = new OSC777ByteStreamParser();
+    oscByteParsers.set(terminalId, parser);
 
     // Create the PTY process
     try {
@@ -157,26 +157,21 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
         rows,
         onData: (b64Data: string) => {
           let outputData = b64Data;
+          const p = oscByteParsers.get(terminalId);
+          if (p && (hasOSC777Prefix(b64Data) || p.hasPartial())) {
+            const rawBytes = fromBase64(b64Data);
+            const result = p.feed(rawBytes);
 
-          // Quick-check for OSC 777 escape sequences
-          if (hasOSC777Prefix(b64Data)) {
-            const decodedBytes = fromBase64(b64Data);
-            const decodedStr = new TextDecoder().decode(decodedBytes);
-            const p = oscParsers.get(terminalId);
-            if (p) {
-              const result = p.feed(decodedStr);
-
-              // Process any agent events
-              for (const event of result.events) {
-                statusTracker.updateFromOSC777(terminalId, event);
-                // If status actually changed, the onStatusChange listener in
-                // server.ts will broadcast the agent.status event to the client.
-                // No need to send it from here.
-              }
-
-              // Use the cleaned data (with OSC 777 sequences stripped)
-              outputData = toBase64(result.cleanedData);
+            // Process any agent events
+            for (const event of result.events) {
+              statusTracker.updateFromOSC777(terminalId, event);
+              // If status actually changed, the onStatusChange listener in
+              // server.ts will broadcast the agent.status event to the client.
+              // No need to send it from here.
             }
+
+            // Use the cleaned data (with OSC 777 sequences stripped)
+            outputData = toBase64(result.cleanedData);
           }
 
           const evt = createEvent('terminal.output', {
@@ -192,14 +187,14 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
           } satisfies TerminalExitEvent);
           conn.send(evt);
           deleteTerminalInstance(sessionDb, terminalId);
-          oscParsers.delete(terminalId);
+          oscByteParsers.delete(terminalId);
           processMonitor.untrackTerminal(terminalId);
           statusTracker.clearTerminal(terminalId);
         },
       });
     } catch (err: unknown) {
       // Clean up the DB record and parser if PTY creation fails
-      oscParsers.delete(terminalId);
+      oscByteParsers.delete(terminalId);
       deleteTerminalInstance(sessionDb, terminalId);
       const message = err instanceof Error ? err.message : String(err);
       const errResp: ResponseEnvelope = createError(
@@ -287,7 +282,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     // Clean up agent tracking
     processMonitor.untrackTerminal(terminalId);
     statusTracker.clearTerminal(terminalId);
-    oscParsers.delete(terminalId);
+    oscByteParsers.delete(terminalId);
 
     const resp: ResponseEnvelope = createResponse(req, null);
     conn.send(resp);

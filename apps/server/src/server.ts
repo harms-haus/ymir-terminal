@@ -204,7 +204,13 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   registerConfigHandlers(router, { persistentDb: db });
 
   // 6g. Tab handlers
-  registerTabHandlers(router, { sessionDb, persistentDb: db, ptyManager });
+  registerTabHandlers(router, {
+    sessionDb,
+    persistentDb: db,
+    ptyManager,
+    statusTracker,
+    processMonitor,
+  });
 
   // 7. Start WebSocket server with router as message dispatcher
   const server: Server<unknown> = await startWebSocketServer({
