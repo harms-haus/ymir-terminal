@@ -352,9 +352,9 @@ describe('persistent database', () => {
       );
 
       // Verify the old row exists
-      const oldRow = oldDb
-        .query('SELECT id FROM persisted_tabs WHERE id = ?')
-        .get('old-tab-1') as { id: string } | null;
+      const oldRow = oldDb.query('SELECT id FROM persisted_tabs WHERE id = ?').get('old-tab-1') as {
+        id: string;
+      } | null;
       expect(oldRow).not.toBeNull();
       expect(oldRow!.id).toBe('old-tab-1');
 
@@ -365,9 +365,7 @@ describe('persistent database', () => {
       const db = initDatabase(tempDbPath);
 
       // 5. Verify worktree_path column now exists in persisted_tabs
-      const columns = db
-        .query("PRAGMA table_info(persisted_tabs)")
-        .all() as { name: string }[];
+      const columns = db.query('PRAGMA table_info(persisted_tabs)').all() as { name: string }[];
       const hasWorktreePath = columns.some((col) => col.name === 'worktree_path');
       expect(hasWorktreePath).toBe(true);
 
