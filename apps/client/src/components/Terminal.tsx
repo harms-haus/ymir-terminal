@@ -20,7 +20,6 @@ export const Terminal = forwardRef(function Terminal(
   const termRef = useRef<GhosttyTerminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
-  const rafRef = useRef(0);
   const ioCleanupRef = useRef<(() => void) | null>(null);
   const onTitleChangeRef = useRef(onTitleChange);
   onTitleChangeRef.current = onTitleChange;
@@ -79,10 +78,7 @@ export const Terminal = forwardRef(function Terminal(
       const observer = new ResizeObserver(() => {
         // Don't fit when hidden (display:none → 0×0)
         if (!containerRef.current || containerRef.current.offsetWidth === 0) return;
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(() => {
-          fit.fit();
-        });
+        fit.fit();
       });
       observer.observe(containerRef.current!);
       observerRef.current = observer;
@@ -99,7 +95,6 @@ export const Terminal = forwardRef(function Terminal(
 
     return () => {
       disposed = true;
-      cancelAnimationFrame(rafRef.current);
       ioCleanupRef.current?.();
       ioCleanupRef.current = null;
       observerRef.current?.disconnect();

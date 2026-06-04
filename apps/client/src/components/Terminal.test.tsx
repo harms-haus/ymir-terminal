@@ -403,7 +403,6 @@ describe('Terminal', () => {
 
     // -------------------------------------------------------------------
     // 4. ResizeObserver still calls fit.fit() on container resize
-    //    (debounced via requestAnimationFrame)
     // -------------------------------------------------------------------
     test('ResizeObserver calls fit.fit() on container resize', async () => {
       await setupResizeTest();
@@ -411,11 +410,7 @@ describe('Terminal', () => {
       const fitCallCount = mockFit.mock.calls.length;
       resizeObserverCallback!([], {} as ResizeObserver);
 
-      // The observer debounces fit() with requestAnimationFrame, so we
-      // must wait for the rAF to flush before checking the call count.
-      await waitFor(() => {
-        expect(mockFit).toHaveBeenCalledTimes(fitCallCount + 1);
-      });
+      expect(mockFit).toHaveBeenCalledTimes(fitCallCount + 1);
     });
   });
 });

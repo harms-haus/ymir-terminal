@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export function dullColor(hex: string): string {
   const h = hex.replace('#', '');
@@ -76,15 +76,11 @@ export function useTheme() {
     applyToDom(accentColor);
   }, [applyToDom, accentColor]);
 
-  const themeVars = useMemo(
-    () =>
-      ({
-        '--accent': accentColor,
-        '--accent-hover': accentColor + 'cc',
-        '--accent-dim': dullColor(accentColor),
-      }) as React.CSSProperties,
-    [accentColor],
-  );
+  const themeVars = {
+    '--accent': accentColor,
+    '--accent-hover': accentColor + 'cc',
+    '--accent-dim': dullColor(accentColor),
+  } as React.CSSProperties;
 
   return { accentColor, setAccentColor, themeVars };
 }

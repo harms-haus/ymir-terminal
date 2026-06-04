@@ -16,15 +16,11 @@ class WSClient {
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private messageHandlers: ((envelope: MessageEnvelope) => void)[] = [];
-  private requestHandlers = new Map<string, (envelope: MessageEnvelope) => void>();
   private statusHandlers: ((status: ConnectionStatus) => void)[] = [];
   private token: string | null = null;
   private status: ConnectionStatus = 'disconnected';
   private intentionalClose = false;
   private pendingMessages: MessageEnvelope[] = [];
-  private messageBuffer: MessageEnvelope[] = [];
-  private rafHandle: number | null = null;
-  private highFreqChannels = new Set(['terminal.output', 'file.change', 'git.statusChange']);
 
   connect(url: string): void {
     this.url = url;
@@ -53,14 +49,6 @@ class WSClient {
     };
   }
 
-  addRequestHandler(id: string, handler: (envelope: MessageEnvelope) => void): void {
-    this.requestHandlers.set(id, handler);
-  }
-
-  removeRequestHandler(id: string): void {
-    this.requestHandlers.delete(id);
-  }
-
   onStatusChange(handler: (status: ConnectionStatus) => void): () => void {
     this.statusHandlers.push(handler);
     return () => {
@@ -77,7 +65,6 @@ class WSClient {
     this.clearReconnectTimer();
     this.reconnectAttempts = 0;
     this.pendingMessages = [];
-    this.cancelRaf();
 
     if (this.ws) {
       this.ws.close();
@@ -93,7 +80,6 @@ class WSClient {
 
   private createConnection(): void {
     // Tear down any prior connection before opening a new one.
-    this.cancelRaf();
     if (this.ws) {
       this.ws.onopen = null;
       this.ws.onmessage = null;
@@ -118,7 +104,9 @@ class WSClient {
           console.warn(`Received message with unsupported protocol version: ${envelope.v}`);
           return;
         }
-        this.handleIncoming(envelope);
+        for (const handler of this.messageHandlers) {
+          handler(envelope);
+        }
       } catch {
         // Ignore malformed messages
       }
@@ -133,62 +121,6 @@ class WSClient {
       this.notifyStatus('disconnected');
       this.attemptReconnect();
     };
-  }
-
-  private handleIncoming(envelope: MessageEnvelope): void {
-    // 1. Request handlers first (immediate, never batched)
-    if (envelope.id && this.requestHandlers.has(envelope.id)) {
-      const handler = this.requestHandlers.get(envelope.id)!;
-      handler(envelope);
-      return;
-    }
-
-    // 2. High-frequency channels: buffer for rAF dispatch
-    if (envelope.channel && this.highFreqChannels.has(envelope.channel)) {
-      this.messageBuffer.push(envelope);
-      if (this.rafHandle === null) {
-        this.rafHandle = globalThis.requestAnimationFrame?.(() => this.flushBuffer()) ?? null;
-      }
-      return;
-    }
-
-    // 3. All other messages: immediate dispatch
-    for (const handler of this.messageHandlers) {
-      handler(envelope);
-    }
-  }
-
-  private flushBuffer(): void {
-    this.rafHandle = null;
-    const batch = this.messageBuffer;
-    this.messageBuffer = [];
-    for (const envelope of batch) {
-      for (const handler of this.messageHandlers) {
-        handler(envelope);
-      }
-    }
-  }
-
-  /**
-   * Immediately process any buffered high-frequency messages.
-   * Intended for testing; safe to call from production code as well.
-   */
-  flushSync(): void {
-    if (this.rafHandle !== null) {
-      globalThis.cancelAnimationFrame?.(this.rafHandle);
-      this.rafHandle = null;
-    }
-    if (this.messageBuffer.length > 0) {
-      this.flushBuffer();
-    }
-  }
-
-  private cancelRaf(): void {
-    if (this.rafHandle !== null) {
-      globalThis.cancelAnimationFrame?.(this.rafHandle);
-      this.rafHandle = null;
-    }
-    this.messageBuffer = [];
   }
 
   private attemptReconnect(): void {

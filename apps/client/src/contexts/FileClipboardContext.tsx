@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { sendRequest } from '../lib/send-request';
 
 interface ClipboardState {
@@ -56,12 +56,11 @@ export function FileClipboardProvider({ children }: { children: ReactNode }) {
     [clipboard],
   );
 
-  const value = useMemo(
-    () => ({ clipboard, cut, copy, clear, paste }),
-    [clipboard, cut, copy, clear, paste],
+  return (
+    <FileClipboardContext.Provider value={{ clipboard, cut, copy, clear, paste }}>
+      {children}
+    </FileClipboardContext.Provider>
   );
-
-  return <FileClipboardContext.Provider value={value}>{children}</FileClipboardContext.Provider>;
 }
 
 export function useFileClipboard(): FileClipboardContextValue {

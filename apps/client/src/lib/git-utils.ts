@@ -77,7 +77,6 @@ export function mergeDeletedFiles(
 ): FileNode[] {
   if (!gitStatus) return tree;
 
-  // Collect all paths with status 'D' (deleted) from both unstaged and staged
   const deletedPaths = new Set<string>();
   for (const change of gitStatus.changes) {
     if (change.status === 'D') deletedPaths.add(change.path);
@@ -88,92 +87,44 @@ export function mergeDeletedFiles(
 
   if (deletedPaths.size === 0) return tree;
 
-  // Group deleted files by their parent directory's relative path
-  // so we can process all children of a directory in one pass.
-  const parents = new Map<string, { name: string; absolutePath: string }[]>();
+  const result: FileNode[] = JSON.parse(JSON.stringify(tree));
+
   for (const relativePath of deletedPaths) {
     const absolutePath = workspaceRoot + '/' + relativePath;
     const segments = relativePath.split('/');
     const fileName = segments.pop()!;
-    const parentKey = segments.join('/');
-    let list = parents.get(parentKey);
-    if (!list) {
-      list = [];
-      parents.set(parentKey, list);
+
+    let siblings: FileNode[] = result;
+
+    for (const segment of segments) {
+      const dir = siblings.find((n) => n.isDirectory && n.name === segment);
+      if (!dir || !dir.children) {
+        siblings = [];
+        break;
+      }
+      siblings = dir.children;
     }
-    list.push({ name: fileName, absolutePath });
-  }
 
-  // ── recursive walk with structural sharing ──────────────────────────────
-  // Walk the tree top-down, reusing unchanged subtrees.  Returns a new array
-  // only when synthetic nodes are inserted or a child subtree changed.
-  function walk(nodes: FileNode[], parentKey: string): FileNode[] {
-    let changed = false;
-    const result: FileNode[] = [];
+    if (siblings.length === 0 && segments.length > 0) continue;
 
-    for (const node of nodes) {
-      if (node.isDirectory) {
-        const childKey = parentKey ? parentKey + '/' + node.name : node.name;
-        let newChildren: FileNode[] | undefined = node.children;
+    const alreadyExists = siblings.some((n) => n.name === fileName);
+    if (alreadyExists) continue;
 
-        if (node.children) {
-          const walked = walk(node.children, childKey);
-          if (walked !== node.children) {
-            newChildren = walked;
-          }
-        }
+    const syntheticNode: FileNode = {
+      name: fileName,
+      path: absolutePath,
+      isDirectory: false,
+    };
 
-        // Insert any synthetic deleted-file nodes into this directory
-        const synths = parents.get(childKey);
-        if (synths !== undefined && synths.length > 0) {
-          changed = true;
-          const merged = newChildren ? [...newChildren] : [];
-          const seen = new Set(merged.map((n) => n.name));
-          for (const synth of synths) {
-            if (seen.has(synth.name)) continue;
-            seen.add(synth.name);
-            merged.push({
-              name: synth.name,
-              path: synth.absolutePath,
-              isDirectory: false,
-            });
-          }
-          merged.sort((a, b) => a.name.localeCompare(b.name));
-          result.push({ ...node, children: merged });
-        } else if (newChildren !== node.children) {
-          changed = true;
-          result.push({ ...node, children: newChildren });
-        } else {
-          // Reuse the original directory node (including its children) unchanged
-          result.push(node);
-        }
-      } else {
-        // Leaf node – never changes, just reuse the reference
-        result.push(node);
+    // Insert in alphabetical order
+    let insertIndex = siblings.length;
+    for (let i = 0; i < siblings.length; i++) {
+      if (fileName.localeCompare(siblings[i].name) < 0) {
+        insertIndex = i;
+        break;
       }
     }
-
-    return changed ? result : nodes;
-  }
-
-  const result = walk(tree, '');
-
-  // Handle root-level deleted files
-  const rootSynths = parents.get('');
-  if (rootSynths !== undefined && rootSynths.length > 0) {
-    const newResult = result === tree ? [...result] : result;
-    const seen = new Set(newResult.map((n) => n.name));
-    for (const synth of rootSynths) {
-      if (seen.has(synth.name)) continue;
-      seen.add(synth.name);
-      newResult.push({
-        name: synth.name,
-        path: synth.absolutePath,
-        isDirectory: false,
-      });
-    }
-    newResult.sort((a, b) => a.name.localeCompare(b.name));
-    return newResult;
+    siblings.splice(insertIndex, 0, syntheticNode);
   }
 
   return result;

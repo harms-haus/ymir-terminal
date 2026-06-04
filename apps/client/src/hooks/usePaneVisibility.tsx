@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  useMemo,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { sendRequest } from '../lib/send-request';
 
 // ---------------------------------------------------------------------------
@@ -110,12 +102,13 @@ export function PaneVisibilityProvider({ children }: { children: ReactNode }) {
     setVisibility((prev) => ({ ...prev, bottom: !prev.bottom }));
   }, []);
 
-  const value = useMemo(
-    () => ({ ...visibility, toggleLeft, toggleRight, toggleBottom, loading }),
-    [visibility, toggleLeft, toggleRight, toggleBottom, loading],
+  return (
+    <PaneVisibilityContext.Provider
+      value={{ ...visibility, toggleLeft, toggleRight, toggleBottom, loading }}
+    >
+      {children}
+    </PaneVisibilityContext.Provider>
   );
-
-  return <PaneVisibilityContext.Provider value={value}>{children}</PaneVisibilityContext.Provider>;
 }
 
 // ---------------------------------------------------------------------------
