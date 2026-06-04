@@ -1,0 +1,15 @@
+Add connection manager popover to replace static status dot
+
+Replace the 10px connection indicator dot in TopBar with a clickable
+ConnectionManagerPopover (Radix Popover) that shows status dot + host:port.
+Clicking opens a popover with current connection info, connect/disconnect
+controls, favorites list, and recent connections. Includes 'Connect to Local
+Server' button for Tauri mode and confirmation dialog before deleting favorites.
+
+New files:
+- connection-storage.ts: localStorage-backed favorites/recent CRUD
+- useConnectionManager.ts: hook for connection lifecycle management
+- ConnectionManagerPopover.tsx: Radix Popover UI component
+- Tests: 91 new tests across 5 files
+
+Also adds getUrl() to WSClient, Radix popover mock, and theme constants.

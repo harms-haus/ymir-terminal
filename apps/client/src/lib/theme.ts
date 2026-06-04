@@ -232,6 +232,40 @@ export const COLOR_TOPBAR_HOVER_BG = 'rgba(255,255,255,0.08)';
 export const COLOR_TOPBAR_ACTIVE_BG = 'rgba(255,255,255,0.15)';
 
 // ---------------------------------------------------------------------------
+// Connection manager
+// ---------------------------------------------------------------------------
+
+/** Connection-manager popover background */
+export const COLOR_CONN_POPOVER_BG = COLOR_BG_SECONDARY;
+
+/** Connection-manager popover border */
+export const COLOR_CONN_POPOVER_BORDER = '#444';
+
+/** Hover background for connection-manager items */
+export const COLOR_CONN_ITEM_HOVER_BG = COLOR_HOVER_BG;
+
+/** Active/selected background for connection-manager items */
+export const COLOR_CONN_ITEM_ACTIVE_BG = 'rgba(255,255,255,0.08)';
+
+/** Section header text in the connection-manager popover */
+export const COLOR_CONN_SECTION_HEADER = COLOR_TEXT_MUTED;
+
+/** Item body text in the connection-manager popover */
+export const COLOR_CONN_ITEM_TEXT = COLOR_TEXT;
+
+/** Item label (name) text in the connection-manager popover */
+export const COLOR_CONN_ITEM_LABEL = COLOR_TEXT_BRIGHT;
+
+/** Max width of the connection-manager trigger button */
+export const CONN_TRIGGER_MAX_WIDTH = 200;
+
+/** Min width of the connection-manager popover */
+export const CONN_POPOVER_MIN_WIDTH = 280;
+
+/** Max height of the connection-manager popover */
+export const CONN_POPOVER_MAX_HEIGHT = 400;
+
+// ---------------------------------------------------------------------------
 // Command bar
 // ---------------------------------------------------------------------------
 
@@ -283,6 +317,9 @@ export const Z_INDEX_TOPBAR = 10;
 
 /** Dropdown menus, popovers, and floating pickers */
 export const Z_INDEX_DROPDOWN = 1000;
+
+/** Z-index layer for the connection-manager popover */
+export const Z_INDEX_CONN_POPOVER = Z_INDEX_DROPDOWN;
 
 /** Right-click context menus */
 export const Z_INDEX_CONTEXT_MENU = 1000;

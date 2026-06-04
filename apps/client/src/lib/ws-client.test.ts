@@ -680,6 +680,29 @@ describe('WSClient', () => {
   });
 
   // -----------------------------------------------------------------------
+  // getUrl() returns empty string before connecting
+  // -----------------------------------------------------------------------
+  test('getUrl() returns empty string before connecting', async () => {
+    teardownMockWS();
+    setupMockWS();
+    const freshMod = await import(`./ws-client?_getUrlEmpty=${Date.now()}`);
+    expect(freshMod.wsClient.getUrl()).toBe('');
+    freshMod.wsClient.disconnect();
+    teardownMockWS();
+    setupMockWS();
+  });
+
+  // -----------------------------------------------------------------------
+  // getUrl() returns the URL passed to connect()
+  // -----------------------------------------------------------------------
+  test('getUrl() returns the URL passed to connect()', () => {
+    const { wsClient } = wsClientModule;
+    wsClient.connect('ws://example.com/ws');
+
+    expect(wsClient.getUrl()).toBe('ws://example.com/ws');
+  });
+
+  // -----------------------------------------------------------------------
   // Malformed JSON in onmessage does not crash and no handler is called
   // -----------------------------------------------------------------------
   test('malformed JSON in onmessage does not crash and no handler is called', () => {

@@ -1,17 +1,9 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { usePaneVisibility } from '../hooks/usePaneVisibility';
+import { ConnectionManagerPopover } from './ConnectionManagerPopover';
 import { PaneToggleButtons } from './PaneToggleButtons';
 import { WindowControls } from './WindowControls';
-import {
-  COLOR_TOPBAR_BG,
-  COLOR_TOPBAR_BORDER,
-  COLOR_STATUS_CONNECTED,
-  COLOR_STATUS_DISCONNECTED,
-  COLOR_STATUS_RECONNECTING,
-  TOP_BAR_HEIGHT,
-  Z_INDEX_TOPBAR,
-} from '../lib/theme';
+import { COLOR_TOPBAR_BG, COLOR_TOPBAR_BORDER, TOP_BAR_HEIGHT, Z_INDEX_TOPBAR } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,7 +18,6 @@ interface TopBarProps {
 // ---------------------------------------------------------------------------
 
 export function TopBar({ commandBar }: TopBarProps) {
-  const { isConnected, isReconnecting } = useConnectionStatus();
   const { left, right, bottom, toggleLeft, toggleRight, toggleBottom } = usePaneVisibility();
 
   const [isTauri, setIsTauri] = useState(false);
@@ -37,28 +28,6 @@ export function TopBar({ commandBar }: TopBarProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsTauri(tauriDetected);
   }, []);
-
-  // Connection dot colour & animation
-  let dotBackground: string;
-  let dotAnimation: string | undefined;
-
-  if (isConnected) {
-    dotBackground = COLOR_STATUS_CONNECTED;
-    dotAnimation = undefined;
-  } else if (isReconnecting) {
-    dotBackground = COLOR_STATUS_RECONNECTING;
-    dotAnimation = 'topbar-pulse-reconnecting 2s ease-in-out infinite';
-  } else {
-    dotBackground = COLOR_STATUS_DISCONNECTED;
-    dotAnimation = 'topbar-pulse-disconnected 1.5s ease-in-out infinite';
-  }
-
-  // Accessible connection state label
-  const connectionLabel = isConnected
-    ? 'Connected'
-    : isReconnecting
-      ? 'Reconnecting...'
-      : 'Disconnected';
 
   const handleMaximize = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,38 +54,16 @@ export function TopBar({ commandBar }: TopBarProps) {
         userSelect: 'none',
       }}
     >
-      {/* Pulse animation keyframes */}
       <style>{`
-        @keyframes topbar-pulse-disconnected {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-        @keyframes topbar-pulse-reconnecting {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
         .topbar-toggle-btn:focus-visible {
           outline: 1px solid var(--accent, #007acc);
           outline-offset: -1px;
         }
       `}</style>
 
-      {/* Left — Connection indicator */}
-      <div style={{ flex: '0 0 auto', marginRight: '16px', pointerEvents: 'auto' as const }}>
-        <div
-          data-testid="connection-indicator"
-          role="status"
-          aria-label={connectionLabel}
-          title={connectionLabel}
-          className="topbar-connection-pulse"
-          style={{
-            width: '10px',
-            height: '10px',
-            borderRadius: '50%',
-            background: dotBackground,
-            animation: dotAnimation,
-          }}
-        />
+      {/* Left — Connection manager */}
+      <div style={{ flex: '0 0 auto', marginRight: '8px', pointerEvents: 'auto' as const }}>
+        <ConnectionManagerPopover />
       </div>
 
       {/* Center — Command bar slot */}

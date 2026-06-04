@@ -41,6 +41,19 @@ In Tauri mode, the `useTauri` hook detects the environment and the `useAuth` hoo
 2. Calls `login(password)` to authenticate with the sidecar server
 3. The JWT token is stored in localStorage for subsequent requests
 
+#### Sidecar Port Global
+
+The Rust backend injects `window.__YMIR_SIDECAR_PORT` into the webview after the sidecar starts. This global is used by:
+
+- `useAuth` — to construct the WebSocket URL for auto-login
+- `useConnectionManager` — to provide a "Connect to Local Server" button in the Connection Manager popover
+
+The port value comes from parsing the sidecar's stdout for the pattern `"Ymir server listening on 127.0.0.1:{port}"`.
+
+#### Connect to Local Server
+
+The Connection Manager popover provides a "Connect to Local Server" button (visible only in Tauri mode) that allows users to reconnect to the local sidecar after disconnecting. It reads the sidecar port from `window.__YMIR_SIDECAR_PORT` or falls back to `getTauriConfig()` IPC call.
+
 ## Tauri Files
 
 | File                                  | Purpose                                                                                 |
@@ -53,9 +66,9 @@ In Tauri mode, the `useTauri` hook detects the environment and the `useAuth` hoo
 
 ## Frontend Files
 
-| File                                    | Purpose                                                             |
-| --------------------------------------- | ------------------------------------------------------------------- |
-| `apps/client/src/hooks/useTauri.ts`     | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`) |
-| `apps/client/src/hooks/useAuth.ts`      | Auto-login when `isTauri` is true                                   |
-| `apps/client/src/components/TopBar.tsx` | Drag region, window controls (conditional on `isTauri`)             |
-| `apps/client/src/lib/theme.ts`          | Window control theme constants                                      |
+| File                                    | Purpose                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `apps/client/src/hooks/useTauri.ts`     | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`)                                          |
+| `apps/client/src/hooks/useAuth.ts`      | Auto-login when `isTauri` is true                                                                            |
+| `apps/client/src/components/TopBar.tsx` | Drag region, ConnectionManagerPopover (left), command bar (center), window controls and pane toggles (right) |
+| `apps/client/src/lib/theme.ts`          | Window control theme constants                                                                               |

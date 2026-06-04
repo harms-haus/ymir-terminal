@@ -11,14 +11,6 @@ import React from 'react';
 // Mock hooks
 // ---------------------------------------------------------------------------
 
-let mockConnectionState = {
-  status: 'connected' as const,
-  isConnected: true,
-  isReconnecting: false,
-};
-
-const mockUseConnectionStatus = mock(() => ({ ...mockConnectionState }));
-
 let mockPaneState = {
   left: true,
   right: true,
@@ -30,8 +22,9 @@ let mockPaneState = {
 
 const mockUsePaneVisibility = mock(() => ({ ...mockPaneState }));
 
-mock.module('../hooks/useConnectionStatus', () => ({
-  useConnectionStatus: mockUseConnectionStatus,
+mock.module('./ConnectionManagerPopover', () => ({
+  ConnectionManagerPopover: () =>
+    React.createElement('div', { 'data-testid': 'connection-manager' }),
 }));
 
 mock.module('../hooks/usePaneVisibility', () => ({
@@ -63,11 +56,6 @@ afterAll(() => {
 
 describe('TopBar', () => {
   beforeEach(() => {
-    mockConnectionState = {
-      status: 'connected',
-      isConnected: true,
-      isReconnecting: false,
-    };
     mockPaneState = {
       left: true,
       right: true,
@@ -91,16 +79,13 @@ describe('TopBar', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 2. Connection indicator is displayed
+  // 2. Connection manager component is rendered
   // -----------------------------------------------------------------------
-  test('displays connection indicator with correct status', () => {
+  test('renders connection manager component', () => {
     const { getByTestId } = renderTopBar();
 
-    const indicator = getByTestId('connection-indicator');
-    expect(indicator).toBeTruthy();
-    expect(indicator.getAttribute('role')).toBe('status');
-    expect(indicator.getAttribute('aria-label')).toBe('Connected');
-    expect(indicator.getAttribute('title')).toBe('Connected');
+    const manager = getByTestId('connection-manager');
+    expect(manager).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
