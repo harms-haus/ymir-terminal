@@ -15,7 +15,7 @@ import {
   deleteTerminalInstance,
   cleanupSession,
 } from './session';
-import { createBottomPanelTab, listBottomPanelTabs } from './bottom-panel';
+import { createBottomPanelTab, listBottomPanelTabs } from './session/bottom-panel';
 
 describe('session database', () => {
   let db: Database;

@@ -36,6 +36,7 @@ describe('registerGitHandlers', () => {
   let router: MessageRouter;
   let conn: ReturnType<typeof mockConn>;
   let getGitStatusFn: ReturnType<typeof mock>;
+  let getGitStatusEnhancedFn: ReturnType<typeof mock>;
   let getGitLogFn: ReturnType<typeof mock>;
   let getWorkspaceFn: ReturnType<typeof mock>;
 
@@ -89,10 +90,26 @@ describe('registerGitHandlers', () => {
       };
     });
 
+    getGitStatusEnhancedFn = mock(async (_dirPath: string) => {
+      if (_dirPath === '/tmp/plain') return null;
+      return {
+        branch: 'main',
+        changes: [
+          { path: 'src/foo.ts', status: 'M' },
+          { path: 'README.md', status: '??' },
+        ],
+        staged: [{ path: 'src/bar.ts', status: 'A' }],
+        hasRemote: true,
+        ahead: 0,
+        behind: 1,
+      };
+    });
+
     const deps: GitDeps = {
       persistentDb: {} as any,
       _mocks: {
         getGitStatus: getGitStatusFn,
+        getGitStatusEnhanced: getGitStatusEnhancedFn,
         getGitLog: getGitLogFn,
         getWorkspace: getWorkspaceFn,
       },
@@ -109,8 +126,8 @@ describe('registerGitHandlers', () => {
       const req = request('git.status', { workspaceId: 'ws-1' });
       await router.route(conn, req);
 
-      expect(getGitStatusFn).toHaveBeenCalledTimes(1);
-      expect(getGitStatusFn.mock.calls[0][0]).toBe('/home/dev/project');
+      expect(getGitStatusEnhancedFn).toHaveBeenCalledTimes(1);
+      expect(getGitStatusEnhancedFn.mock.calls[0][0]).toBe('/home/dev/project');
 
       expect(conn.sent.length).toBe(1);
       const resp = conn.sent[0] as Record<string, unknown>;
@@ -118,7 +135,7 @@ describe('registerGitHandlers', () => {
       expect(payload.branch).toBe('main');
       expect(payload.changes).toEqual([
         { path: 'src/foo.ts', status: 'M' },
-        { path: 'README.md', status: '?' },
+        { path: 'README.md', status: '??' },
       ]);
       expect(payload.staged).toEqual([{ path: 'src/bar.ts', status: 'A' }]);
     });
