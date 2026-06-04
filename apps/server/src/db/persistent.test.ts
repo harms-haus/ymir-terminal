@@ -319,7 +319,20 @@ describe('persistent database', () => {
     });
 
     afterEach(() => {
-      rmSync(tmpDir, { recursive: true, force: true });
+      // On Windows, SQLite WAL/SHM files may still be locked briefly after db.close().
+      // Retry removal with a small delay to handle EBUSY errors.
+      let retries = 0;
+      while (retries < 10) {
+        try {
+          rmSync(tmpDir, { recursive: true, force: true });
+          break;
+        } catch {
+          retries++;
+          // Synchronous busy-wait is fine in tests
+          const end = Date.now() + 50;
+          while (Date.now() < end) {}
+        }
+      }
     });
 
     it('upgrades an old persisted_tabs table (without worktree_path) via initDatabase', () => {
