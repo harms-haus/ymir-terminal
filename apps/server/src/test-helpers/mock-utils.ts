@@ -141,6 +141,7 @@ export function createMockSessionDb(): Database {
       repo_path TEXT,
       commit_sha TEXT,
       parent_sha TEXT,
+      worktree_path TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -219,6 +220,7 @@ export function createMockPersistentDb(): Database {
       parent_sha TEXT,
       cwd TEXT,
       custom_title TEXT,
+      worktree_path TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);

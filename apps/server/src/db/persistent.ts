@@ -71,6 +71,13 @@ export function initDatabase(dbPath: string): Database {
     );
   `);
 
+  // Idempotent migration: add worktree_path column if it doesn't exist
+  const tabColumns = db.prepare('PRAGMA table_info(persisted_tabs)').all() as { name: string }[];
+  const hasWorktreePath = tabColumns.some((col) => col.name === 'worktree_path');
+  if (!hasWorktreePath) {
+    db.run('ALTER TABLE persisted_tabs ADD COLUMN worktree_path TEXT');
+  }
+
   db.run(`
     CREATE TABLE IF NOT EXISTS server_config (
       key TEXT PRIMARY KEY,

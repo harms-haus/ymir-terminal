@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
-import type { Database } from 'bun:sqlite';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { Database } from 'bun:sqlite';
 import {
   initDatabase,
   createWorkspace,
@@ -299,6 +302,111 @@ describe('persistent database', () => {
 
       expect(filtered).toHaveLength(1);
       expect(filtered[0].title).toBe('Root Tab');
+    });
+  });
+
+  // =========================================================================
+  // worktree_path migration from old DB schema
+  // =========================================================================
+
+  describe('worktree_path migration', () => {
+    let tmpDir: string;
+    let tempDbPath: string;
+
+    beforeEach(() => {
+      tmpDir = mkdtempSync(join(tmpdir(), 'persistent-test-'));
+      tempDbPath = join(tmpDir, 'test.db');
+    });
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('upgrades an old persisted_tabs table (without worktree_path) via initDatabase', () => {
+      // 1. Create an old-style persisted_tabs table (no worktree_path column)
+      const oldDb = new Database(tempDbPath);
+      oldDb.run(`
+        CREATE TABLE persisted_tabs (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+          title TEXT,
+          file_path TEXT,
+          pane TEXT DEFAULT 'content',
+          sort_order INTEGER DEFAULT 0,
+          diff_ref TEXT,
+          repo_path TEXT,
+          commit_sha TEXT,
+          parent_sha TEXT,
+          cwd TEXT,
+          custom_title TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+
+      // 2. Insert a row using the old schema (no worktree_path)
+      oldDb.run(
+        `INSERT INTO persisted_tabs (id, workspace_id, tab_type, title, pane, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        ['old-tab-1', 'ws-1', 'terminal', 'Legacy Tab', 'content', 0],
+      );
+
+      // Verify the old row exists
+      const oldRow = oldDb
+        .query('SELECT id FROM persisted_tabs WHERE id = ?')
+        .get('old-tab-1') as { id: string } | null;
+      expect(oldRow).not.toBeNull();
+      expect(oldRow!.id).toBe('old-tab-1');
+
+      // 3. Close the old DB
+      oldDb.close();
+
+      // 4. Open with initDatabase — this should detect the missing column and add it
+      const db = initDatabase(tempDbPath);
+
+      // 5. Verify worktree_path column now exists in persisted_tabs
+      const columns = db
+        .query("PRAGMA table_info(persisted_tabs)")
+        .all() as { name: string }[];
+      const hasWorktreePath = columns.some((col) => col.name === 'worktree_path');
+      expect(hasWorktreePath).toBe(true);
+
+      // 6. Verify the old row survived the migration
+      const migratedRow = db
+        .query('SELECT id, title FROM persisted_tabs WHERE id = ?')
+        .get('old-tab-1') as { id: string; title: string } | null;
+      expect(migratedRow).not.toBeNull();
+      expect(migratedRow!.id).toBe('old-tab-1');
+      expect(migratedRow!.title).toBe('Legacy Tab');
+
+      // 7. Verify savePersistedTab with worktreePath succeeds without error
+      savePersistedTab(db, {
+        id: 'new-tab-1',
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        title: 'Worktree Tab',
+        pane: 'content',
+        sortOrder: 1,
+        worktreePath: '/repos/my-repo/worktrees/feature',
+      } as Parameters<typeof savePersistedTab>[1]);
+
+      const newRow = db
+        .query('SELECT id, worktree_path FROM persisted_tabs WHERE id = ?')
+        .get('new-tab-1') as { id: string; worktree_path: string | null } | null;
+      expect(newRow).not.toBeNull();
+      expect(newRow!.worktree_path).toBe('/repos/my-repo/worktrees/feature');
+
+      // 8. Verify listPersistedTabsByWorkspace with worktreePath filter works
+      const filtered = listPersistedTabsByWorkspace(db, 'ws-1', '/repos/my-repo/worktrees/feature');
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('new-tab-1');
+      expect(filtered[0].title).toBe('Worktree Tab');
+
+      // 9. Verify the old row (no worktree_path) is returned when querying without filter
+      const rootTabs = listPersistedTabsByWorkspace(db, 'ws-1');
+      expect(rootTabs).toHaveLength(1);
+      expect(rootTabs[0].id).toBe('old-tab-1');
+      expect(rootTabs[0].title).toBe('Legacy Tab');
     });
   });
 });
