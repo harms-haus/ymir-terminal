@@ -78,6 +78,10 @@ class WSClient {
     return this.status;
   }
 
+  getUrl(): string {
+    return this.url;
+  }
+
   private createConnection(): void {
     // Tear down any prior connection before opening a new one.
     if (this.ws) {

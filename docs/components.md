@@ -32,7 +32,8 @@
 | `TabContextMenu`           | Right-click context menu (Close, Close Others, Close to the Right, Rename)                                                                                                                                                                                                                                                                                                                                                                                 |
 | `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation                                                                                                                                                                                                                                                                                                                                      |
 | `WorkspaceView`            | Top-level workspace view wrapped in `DialogProvider` as the outermost shell, then `ToastProvider`, `PaneVisibilityProvider`, and `FileClipboardProvider`; uses inner component pattern (`WorkspaceViewInner`) to consume pane visibility context; composes `TopBar` with `CommandBar`; `DragDropProvider` for cross-pane terminal tab DnD; orchestrates split-pane layout via `useSplitLayout`, cross-pane tab transfer, and terminal lifecycle management |
-| `TopBar`                   | Top bar with connection indicator (left), command bar slot (center), pane toggle buttons (right)                                                                                                                                                                                                                                                                                                                                                           |
+| `TopBar`                   | Top bar with `ConnectionManagerPopover` (left), command bar slot (center), pane toggle buttons (right)                                                                                                                                                                                                                                                                                                                                                     |
+| `ConnectionManagerPopover` | Radix Popover-based connection manager. Displays a status dot with host:port in the top bar. Clicking opens a popover with: current connection status, connect/disconnect controls, favorites list, recent connections list, and a "Connect to Local Server" button (Tauri only). Uses `useConnectionManager` hook and `@radix-ui/react-popover`                                                                                                           |
 | `WindowControls`           | Extracted Tauri window control buttons (minimize, maximize, close) with hover states; lazily loads `@tauri-apps/api/window`; no-ops when not running in Tauri                                                                                                                                                                                                                                                                                              |
 | `PaneToggleButtons`        | Extracted pane toggle buttons (workspace/terminal/explorer) with active/hover states; consumed by `TopBar`                                                                                                                                                                                                                                                                                                                                                 |
 | `Dialog`                   | Generic dialog shell rendered via `createPortal` at `document.body`, with focus trap (Tab cycling), auto-focus, focus restoration on close, Escape/backdrop-click close, body scroll lock, and optional `role` prop (`'dialog'` \| `'alertdialog'`) for ARIA semantics. Used by `CreateWorkspaceDialog`, `CreateWorktreeDialog`, and `DialogProvider`                                                                                                      |
@@ -244,6 +245,81 @@ Unified imperative handle exposed by `SplitLeafPane` (and `BottomPanel`) via `fo
 | `isOnlyPane`          | Checks if a pane ID is the sole pane in the tree                                       |
 | `serializeLayout`     | Serializes the tree to JSON                                                            |
 | `deserializeLayout`   | Deserializes JSON to a `LayoutNode` with validation; returns `null` on invalid input   |
+
+## Connection Manager
+
+The `ConnectionManagerPopover` lives in the top bar's left slot. It provides a compact status indicator and a popover for managing WebSocket connections.
+
+### Trigger Button
+
+A small button showing a colored **status dot** (green = connected, amber = reconnecting, accent = connecting, grey = disconnected) followed by the current `host:port` (or "Disconnected" text). The trigger uses `aria-label` that reflects the current status and connection details.
+
+### Popover Sections
+
+The popover (`@radix-ui/react-popover`) is divided into four sections separated by horizontal rules:
+
+1. **Current Connection** — Status label and `host:port` detail. When connected, shows a "★ Save as Favorite" button (hidden if already favorited) and a "Disconnect" button.
+2. **Connect to Server** — Host and port inputs with a "Connect" button. Validates that host matches `/^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/` and port is a positive integer. On Tauri, also shows a "Connect to Local Server" button that connects to `127.0.0.1` using the sidecar port from `window.__YMIR_SIDECAR_PORT` or the Tauri config.
+3. **Favorites** — Scrollable list of saved connections (`ConnectionEntry[]`). Each item has a connect button (→) and a delete button (×) with confirmation via `useConfirm`. Section is hidden when empty.
+4. **Recent** — Scrollable list of up to 10 recent connections (`RecentConnection[]`), sorted by `lastConnectedAt` descending. Each item has a connect button (→). A "Clear" button removes all recent entries. Section is hidden when empty.
+
+### `useConnectionManager` Hook
+
+Orchestrates the full connection lifecycle. Composes `useConnectionStatus` and `useTauri`.
+
+| Return field        | Description                                                                                          |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `currentUrl`        | Full WebSocket URL (`ws://host:port/ws`) or `null`                                                   |
+| `currentHost`       | Parsed hostname from the current URL                                                                 |
+| `currentPort`       | Parsed port number from the current URL                                                              |
+| `status`            | Current `ConnectionStatus` (`'connected'` \| `'disconnected'` \| `'connecting'` \| `'reconnecting'`) |
+| `favorites`         | `ConnectionEntry[]` from localStorage                                                                |
+| `recentConnections` | `RecentConnection[]` from localStorage (max 10)                                                      |
+| `addFavorite`       | `(label, host, port) => void` — deduplicates by host+port                                            |
+| `removeFavorite`    | `(id) => void`                                                                                       |
+| `updateFavorite`    | `(id, updates) => void`                                                                              |
+| `clearRecent`       | `() => void`                                                                                         |
+| `connect`           | `(host, port) => void` — disconnects current, connects to new URL, adds to recent                    |
+| `disconnect`        | `() => void` — disconnects and clears current URL                                                    |
+| `connectToLocal`    | `() => void` — connects to `127.0.0.1` via sidecar port or Tauri config fallback                     |
+| `isFavorite`        | `(host, port) => boolean`                                                                            |
+| `isTauri`           | Whether the app is running inside Tauri                                                              |
+| `localPort`         | Sidecar port number from `__YMIR_SIDECAR_PORT`, or `null`                                            |
+
+### `useConnectionStatus` Hook
+
+Low-level hook that subscribes to `wsClient.onStatusChange` events.
+
+```tsx
+const { status, isConnected, isReconnecting } = useConnectionStatus();
+```
+
+- `status` — current `ConnectionStatus` from `wsClient`
+- `isConnected` — `true` when `status === 'connected'`
+- `isReconnecting` — `true` when `status === 'reconnecting'`
+
+### `connection-storage.ts`
+
+localStorage-backed utility for managing connection favorites and recent connections.
+
+**Keys:** `ymir-connection-favorites`, `ymir-connection-recent`
+
+| Export                   | Purpose                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| `getFavorites`           | Returns `ConnectionEntry[]` from localStorage                                               |
+| `saveFavorites`          | Writes `ConnectionEntry[]` to localStorage                                                  |
+| `addFavorite`            | Adds a favorite (deduplicates by host+port, updates label if exists)                        |
+| `removeFavorite`         | Removes a favorite by ID                                                                    |
+| `updateFavorite`         | Updates label/host/port fields on an existing favorite                                      |
+| `isFavorite`             | Checks if a host+port combination exists in favorites                                       |
+| `getRecentConnections`   | Returns `RecentConnection[]` from localStorage                                              |
+| `addRecentConnection`    | Adds or updates a recent connection (deduplicates by host+port), sorts by `lastConnectedAt` |
+| `clearRecentConnections` | Removes the entire recent connections key from localStorage                                 |
+
+**Types:**
+
+- `ConnectionEntry` — `{ id, label, host, port, createdAt }`
+- `RecentConnection` — extends `ConnectionEntry` with `lastConnectedAt`
 
 ## Accessibility
 

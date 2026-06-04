@@ -222,6 +222,8 @@ export function createMockWorkspacesState(
  *
  * Mocked modules:
  * - `@radix-ui/react-context-menu` — functional components rendering children
+ * - `@radix-ui/react-dropdown-menu` — functional components rendering children
+ * - `@radix-ui/react-popover` — functional components rendering children
  * - `@dnd-kit/react` — `DndContext` as div-with-children
  * - `@dnd-kit/react/sortable` — pass-through
  * - `@dnd-kit/helpers` — empty object
@@ -375,6 +377,55 @@ export function setupAllMocks(): void {
       SubContent: DdmSubContent,
       Label: DdmLabel,
       Group: DdmGroup,
+    };
+  });
+
+  // --- @radix-ui/react-popover ----------------------------------------------
+  bunMock.module('@radix-ui/react-popover', () => {
+    const PopoverRoot = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children);
+
+    const PopoverTrigger = ({
+      children,
+      asChild,
+    }: {
+      children: React.ReactNode;
+      asChild?: boolean;
+      [key: string]: unknown;
+    }) =>
+      asChild
+        ? children
+        : React.createElement('div', { 'data-testid': 'popover-trigger' }, children);
+
+    const PopoverPortal = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children);
+
+    const PopoverContent = ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement('div', props, children);
+
+    const PopoverClose = ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode;
+      [key: string]: unknown;
+    }) => React.createElement('button', props, children);
+
+    const PopoverAnchor = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children);
+
+    return {
+      Root: PopoverRoot,
+      Trigger: PopoverTrigger,
+      Portal: PopoverPortal,
+      Content: PopoverContent,
+      Close: PopoverClose,
+      Anchor: PopoverAnchor,
     };
   });
 
