@@ -405,6 +405,8 @@ describe('persistent database', () => {
       expect(rootTabs).toHaveLength(1);
       expect(rootTabs[0].id).toBe('old-tab-1');
       expect(rootTabs[0].title).toBe('Legacy Tab');
+
+      db.close();
     });
   });
 });
