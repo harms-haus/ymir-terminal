@@ -30,16 +30,14 @@ export function sendRequest<T>(
       reject(new Error('Request timeout'));
     }, options?.timeout ?? 10_000);
 
-    const unsub = wsClient.onMessage((envelope: MessageEnvelope) => {
-      if (envelope.id === id) {
-        cleanup();
+    wsClient.addRequestHandler(id, (envelope: MessageEnvelope) => {
+      cleanup();
 
-        const resp = envelope as ResponseEnvelope;
-        if (resp.error) {
-          reject(new Error(resp.error.message));
-        } else {
-          resolve(envelope.payload as T);
-        }
+      const resp = envelope as ResponseEnvelope;
+      if (resp.error) {
+        reject(new Error(resp.error.message));
+      } else {
+        resolve(envelope.payload as T);
       }
     });
 
@@ -50,7 +48,7 @@ export function sendRequest<T>(
 
     function cleanup() {
       clearTimeout(timeout);
-      unsub();
+      wsClient.removeRequestHandler(id);
       options?.signal?.removeEventListener('abort', onAbort);
     }
 

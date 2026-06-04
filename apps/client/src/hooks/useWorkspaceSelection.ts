@@ -70,12 +70,8 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
     })),
   });
 
-  // Create a stable key from the data to avoid recompute on every render
-  const worktreeDataKey = worktreeResults
-    .map((r) => (r.data ? JSON.stringify(r.data) : 'null'))
-    .join('|');
-
-  /* eslint-disable react-hooks/exhaustive-deps -- worktreeDataKey is the stable fingerprint of worktreeResults */
+  // worktreeResults from useQueries uses react-query's structural sharing, so
+  // worktreeResults[i].data is referentially stable when data hasn't changed.
   const worktreesByWorkspace = useMemo<Record<string, GitWorktreeInfo[]>>(() => {
     const result: Record<string, GitWorktreeInfo[]> = {};
     for (let i = 0; i < allWorkspaceIds.length; i++) {
@@ -83,8 +79,7 @@ export function useWorkspaceSelection({ setAccentColor }: UseWorkspaceSelectionP
       if (data) result[allWorkspaceIds[i]] = data;
     }
     return result;
-  }, [allWorkspaceIds, worktreeDataKey]);
-  /* eslint-enable react-hooks/exhaustive-deps */
+  }, [allWorkspaceIds, worktreeResults]);
 
   // --- Handlers ---
 

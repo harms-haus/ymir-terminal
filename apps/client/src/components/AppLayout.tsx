@@ -37,6 +37,7 @@ export function AppLayout({
   const horizontalGroupRef = useRef<GroupImperativeHandle>(null);
   const verticalGroupRef = useRef<GroupImperativeHandle>(null);
   const sizesLoadedRef = useRef(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (paneVisibility.left) leftPanelRef.current?.expand();
@@ -72,16 +73,34 @@ export function AppLayout({
       });
   }, [paneVisibility.left, paneVisibility.right, paneVisibility.bottom]);
 
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current != null) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const handleLayoutChanged = useCallback((_layout: { [id: string]: number }) => {
     if (!sizesLoadedRef.current) return;
     if (Object.values(_layout).some((v) => v < 1)) return;
-    sendRequest('config.set', {
-      key: 'ui_panel_sizes',
-      value: JSON.stringify({
-        horizontal: horizontalGroupRef.current?.getLayout() ?? {},
-        vertical: verticalGroupRef.current?.getLayout() ?? {},
-      }),
-    }).catch(() => {});
+
+    if (saveTimeoutRef.current != null) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      sendRequest('config.set', {
+        key: 'ui_panel_sizes',
+        value: JSON.stringify({
+          horizontal: horizontalGroupRef.current?.getLayout() ?? {},
+          vertical: verticalGroupRef.current?.getLayout() ?? {},
+        }),
+      }).catch(() => {});
+    }, 300);
   }, []);
 
   if (!isAuthenticated) return <LoginPage />;

@@ -231,12 +231,16 @@ export function GitTreeTab({
 
   const parentRef = useRef<HTMLDivElement>(null);
   const highlightPendingRef = useRef(false);
+  const detailsCacheRef = useRef(detailsCache);
+  detailsCacheRef.current = detailsCache;
+  const detailsLoadingRef = useRef(detailsLoading);
+  detailsLoadingRef.current = detailsLoading;
 
   // ── loadCommitDetails ─────────────────────────────────────────────────
 
   const loadCommitDetails = useCallback(
     async (sha: string) => {
-      if (detailsCache.has(sha) || detailsLoading.has(sha)) return;
+      if (detailsCacheRef.current.has(sha) || detailsLoadingRef.current.has(sha)) return;
       setDetailsLoading((prev) => {
         const next = new Set(prev);
         next.add(sha);
@@ -273,11 +277,8 @@ export function GitTreeTab({
         });
       }
     },
-    [workspaceId, repoPath, detailsCache, detailsLoading],
+    [workspaceId, repoPath],
   );
-
-  const loadCommitDetailsRef = useRef(loadCommitDetails);
-  loadCommitDetailsRef.current = loadCommitDetails;
 
   // ── Reset details on workspaceId / repoPath change ─────────────────
 
@@ -292,9 +293,9 @@ export function GitTreeTab({
 
   useEffect(() => {
     if (expandedSha) {
-      loadCommitDetailsRef.current(expandedSha);
+      loadCommitDetails(expandedSha);
     }
-  }, [expandedSha]);
+  }, [expandedSha, loadCommitDetails]);
 
   // ── highlightCommitSha ───────────────────────────────────────────────
 
@@ -330,7 +331,7 @@ export function GitTreeTab({
     if (!highlightCommitSha) return;
     highlightPendingRef.current = true;
     setExpandedSha(highlightCommitSha);
-    loadCommitDetailsRef.current(highlightCommitSha);
+    loadCommitDetails(highlightCommitSha);
 
     // Try immediate scroll
     const idx = commits.findIndex((c) => c.id === highlightCommitSha);
@@ -341,7 +342,7 @@ export function GitTreeTab({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightCommitSha]);
+  }, [highlightCommitSha, loadCommitDetails]);
 
   // Scroll when highlighted commit first appears after pagination
   useEffect(() => {
@@ -451,7 +452,7 @@ export function GitTreeTab({
                   parentSha={parentSha}
                   onToggle={toggleExpand}
                   onOpenCommitDiff={onOpenCommitDiff}
-                  onRetryDetails={loadCommitDetailsRef.current}
+                  onRetryDetails={loadCommitDetails}
                 />
               </div>
             );

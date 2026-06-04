@@ -8,10 +8,12 @@ import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 
 type MessageHandler = (envelope: MessageEnvelope) => void;
 
+let requestHandlers = new Map<string, MessageHandler>();
 let messageHandlers: MessageHandler[] = [];
 let sentEnvelopes: MessageEnvelope[] = [];
 
 function resetMock() {
+  requestHandlers = new Map();
   messageHandlers = [];
   sentEnvelopes = [];
 }
@@ -19,6 +21,12 @@ function resetMock() {
 mock.module('./ws-client', () => {
   return {
     wsClient: {
+      addRequestHandler(id: string, handler: MessageHandler) {
+        requestHandlers.set(id, handler);
+      },
+      removeRequestHandler(id: string) {
+        requestHandlers.delete(id);
+      },
       onMessage(handler: MessageHandler) {
         messageHandlers.push(handler);
         return () => {
@@ -41,6 +49,13 @@ mock.module('./ws-client', () => {
  * WSClient does internally when it receives a WebSocket message).
  */
 function simulateIncoming(envelope: MessageEnvelope) {
+  // First check for a registered request handler (matches ws-client priority)
+  if (envelope.id && requestHandlers.has(envelope.id)) {
+    const handler = requestHandlers.get(envelope.id)!;
+    handler(envelope);
+    return;
+  }
+  // Fall through to broadcast handlers
   for (const handler of [...messageHandlers]) {
     handler(envelope);
   }
@@ -195,9 +210,9 @@ describe('sendRequest', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Unsubscribes from onMessage after resolution
+  // Removes request handler after resolution
   // -----------------------------------------------------------------------
-  test('unsubscribes from wsClient.onMessage after resolving', async () => {
+  test('removes request handler after resolving', async () => {
     const promise = sendRequest('test-channel', { action: 'cleanup' });
     const sent = sentEnvelopes[0];
 
@@ -210,8 +225,8 @@ describe('sendRequest', () => {
 
     await promise;
 
-    // After resolution, no handlers should be registered
-    expect(messageHandlers.length).toBe(0);
+    // After resolution, the request handler should be removed
+    expect(requestHandlers.size).toBe(0);
   });
 
   // -----------------------------------------------------------------------
@@ -251,8 +266,8 @@ describe('sendRequest', () => {
 
       await expect(promise).rejects.toThrow('Request timeout');
 
-      // After timeout, handlers should be cleaned up
-      expect(messageHandlers.length).toBe(0);
+      // After timeout, request handler should be cleaned up
+      expect(requestHandlers.size).toBe(0);
     } finally {
       globalThis.setTimeout = originalSetTimeout;
       globalThis.clearTimeout = originalClearTimeout;

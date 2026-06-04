@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useStableCallback } from './useStableCallback';
 import { toast } from 'sonner';
 import type { AgentStatus, AgentStatusEvent } from '@ymir/shared';
 import { wsClient } from '../lib/ws-client';
@@ -22,6 +23,7 @@ export function useAgentStatus(options: UseAgentStatusOptions) {
   // Previous status for each terminal — used to detect transitions
   const prevStatusRef = useRef<Map<string, AgentStatus>>(new Map());
   // Version counter to trigger re-renders when status changes
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -68,49 +70,36 @@ export function useAgentStatus(options: UseAgentStatusOptions) {
     return unsub;
   }, []);
 
-  const getStatusForTerminal = useCallback(
-    (terminalId: string): AgentStatus | null => {
-      return statusMapRef.current.get(terminalId) ?? null;
-    },
-    // version is read to make this callback re-create when statuses change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [version],
-  );
+  const getStatusForTerminal = useStableCallback((terminalId: string): AgentStatus | null => {
+    return statusMapRef.current.get(terminalId) ?? null;
+  });
 
-  const getStatusForTab = useCallback(
-    (tabId: string): AgentStatus | null => {
-      const entry = terminalRegistry.find((e) => e.tabId === tabId);
-      if (!entry) return null;
-      return statusMapRef.current.get(entry.terminalId) ?? null;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [terminalRegistry, version],
-  );
+  const getStatusForTab = useStableCallback((tabId: string): AgentStatus | null => {
+    const entry = terminalRegistry.find((e) => e.tabId === tabId);
+    if (!entry) return null;
+    return statusMapRef.current.get(entry.terminalId) ?? null;
+  });
 
-  const getStatusesForPath = useCallback(
-    (absolutePath: string): AgentStatus | null => {
-      const matching = terminalRegistry.filter((e) => e.cwd && absolutePath.startsWith(e.cwd));
-      if (matching.length === 0) return null;
+  const getStatusesForPath = useStableCallback((absolutePath: string): AgentStatus | null => {
+    const matching = terminalRegistry.filter((e) => e.cwd && absolutePath.startsWith(e.cwd));
+    if (matching.length === 0) return null;
 
-      let worst: AgentStatus | null = null;
-      let worstPriority = Infinity;
+    let worst: AgentStatus | null = null;
+    let worstPriority = Infinity;
 
-      for (const entry of matching) {
-        const status = statusMapRef.current.get(entry.terminalId) ?? null;
-        if (status !== null) {
-          const priority = STATUS_PRIORITY[status];
-          if (priority < worstPriority) {
-            worstPriority = priority;
-            worst = status;
-          }
+    for (const entry of matching) {
+      const status = statusMapRef.current.get(entry.terminalId) ?? null;
+      if (status !== null) {
+        const priority = STATUS_PRIORITY[status];
+        if (priority < worstPriority) {
+          worstPriority = priority;
+          worst = status;
         }
       }
+    }
 
-      return worst;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [terminalRegistry, version],
-  );
+    return worst;
+  });
 
   return {
     getStatusForTerminal,

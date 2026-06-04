@@ -1,4 +1,5 @@
 import type { GitWorktreeInfo } from '@ymir/shared';
+import { memo } from 'react';
 import { useDroppable } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { COLOR_ACCENT, COLOR_WORKSPACE_ACTIVE, COLOR_WORKSPACE_CWD } from '../lib/theme';
@@ -32,7 +33,7 @@ interface WorkspaceItemProps {
   onCreateWorktree?: () => void;
 }
 
-export function WorkspaceItem({
+const WorkspaceItem = memo(function WorkspaceItem({
   workspace,
   wsIndex,
   isActive,
@@ -184,4 +185,33 @@ export function WorkspaceItem({
       )}
     </>
   );
+}, areEqual);
+
+export { WorkspaceItem };
+
+function areEqual(prevProps: WorkspaceItemProps, nextProps: WorkspaceItemProps): boolean {
+  if (prevProps.workspace.id !== nextProps.workspace.id) return false;
+  if (prevProps.workspace.name !== nextProps.workspace.name) return false;
+  if (prevProps.workspace.cwd !== nextProps.workspace.cwd) return false;
+  if (prevProps.workspace.color !== nextProps.workspace.color) return false;
+  if (prevProps.wsIndex !== nextProps.wsIndex) return false;
+  if (prevProps.isActive !== nextProps.isActive) return false;
+  if (prevProps.activeWorktreePath !== nextProps.activeWorktreePath) return false;
+  if (prevProps.agentStatus !== nextProps.agentStatus) return false;
+
+  // Compare linked (non-main) worktrees
+  const prevLinked = prevProps.worktrees.filter((w) => !w.isMain);
+  const nextLinked = nextProps.worktrees.filter((w) => !w.isMain);
+  if (prevLinked.length !== nextLinked.length) return false;
+  for (let i = 0; i < prevLinked.length; i++) {
+    if (
+      prevLinked[i].path !== nextLinked[i].path ||
+      prevLinked[i].branch !== nextLinked[i].branch ||
+      prevLinked[i].isDetached !== nextLinked[i].isDetached
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }

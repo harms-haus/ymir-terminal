@@ -149,6 +149,10 @@ export function computeLanes(commits: GitLogItem[]): LaneInfo[] {
  * For each row, determines which lanes pass through (vertical lines from a
  * commit above to a parent below that aren't the current row's own lane).
  * Used to draw pass-through vertical lines in the per-row SVG.
+ *
+ * Uses a sweep-line approach: records interval boundaries (start/end rows)
+ * for each lane segment, then makes a single pass over all rows.
+ * This reduces complexity from O(n * total_segments) to O(n + total_segments).
  */
 export function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
   const n = laneData.length;
@@ -177,12 +181,12 @@ export function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
     }
   }
 
-  // For each commit at index i, look at each parent. The parent appears at
-  // some index j where j > i (commits are newest-first, parents are older).
-  // The line segment from i to j means both lanes (fromLane & toLane) are
-  // active for rows i+1 .. j-1.
-  const rowSets: Set<number>[] = new Array(n);
-  for (let i = 0; i < n; i++) rowSets[i] = new Set();
+  // Record interval boundaries for each lane segment.
+  // For each segment from commit i to parent j (j > i), the lanes are
+  // active for rows i+1 .. j inclusive. We record starts at row i+1 and
+  // ends at row j+1 (the first row where the lanes are no longer active).
+  const laneStarts: Map<number, number[]> = new Map();
+  const laneEnds: Map<number, number[]> = new Map();
 
   for (let i = 0; i < n; i++) {
     const info = laneData[i];
@@ -192,17 +196,60 @@ export function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
       if (j === undefined) continue; // parent not in visible range
 
       const seg = info.linesDown[p];
-      for (let r = i + 1; r <= j; r++) {
-        rowSets[r].add(seg.fromLane);
-        rowSets[r].add(seg.toLane);
+      const startRow = i + 1;
+      const endRow = j + 1;
+
+      // Collect unique lanes for this segment (fromLane and toLane
+      // may be the same — only add once per segment)
+      const segmentLanes =
+        seg.fromLane === seg.toLane ? [seg.fromLane] : [seg.fromLane, seg.toLane];
+
+      for (const lane of segmentLanes) {
+        let arr = laneStarts.get(startRow);
+        if (!arr) {
+          arr = [];
+          laneStarts.set(startRow, arr);
+        }
+        arr.push(lane);
+
+        arr = laneEnds.get(endRow);
+        if (!arr) {
+          arr = [];
+          laneEnds.set(endRow, arr);
+        }
+        arr.push(lane);
       }
     }
   }
 
-  // Convert sets to ActiveLane arrays
-  for (let i = 0; i < n; i++) {
-    const lanes = Array.from(rowSets[i]);
-    active[i] = lanes.map((l) => ({
+  // Sweep line: single pass through all rows
+  const activeCounts = new Map<number, number>();
+
+  for (let r = 0; r < n; r++) {
+    // Process removals first — a lane removed by one interval ending
+    // at row r can be re-added by another interval starting at row r
+    const ends = laneEnds.get(r);
+    if (ends) {
+      for (const lane of ends) {
+        const prev = activeCounts.get(lane)!;
+        if (prev <= 1) {
+          activeCounts.delete(lane);
+        } else {
+          activeCounts.set(lane, prev - 1);
+        }
+      }
+    }
+
+    const starts = laneStarts.get(r);
+    if (starts) {
+      for (const lane of starts) {
+        activeCounts.set(lane, (activeCounts.get(lane) ?? 0) + 1);
+      }
+    }
+
+    // Convert current active lanes to array
+    const lanes = Array.from(activeCounts.keys());
+    active[r] = lanes.map((l) => ({
       lane: l,
       colorIndex: laneColorMap.get(l) ?? 0,
     }));

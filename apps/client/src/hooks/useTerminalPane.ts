@@ -108,33 +108,41 @@ export function useTerminalPane(options: UseTerminalPaneOptions = {}) {
   // Switch workspace + load tabs from server
   // ---------------------------------------------------------------------------
   useEffect(() => {
+    let cancelled = false;
     switchWorkspace(workspaceId ?? null);
 
     if (workspaceId && !loadedWorkspacesRef.current.has(workspaceId)) {
       loadedWorkspacesRef.current.add(workspaceId);
 
       // Skip tab.list if tabs were already restored via loadRestoredTabs
-      if (restoredWorkspacesRef.current.has(workspaceId)) return;
+      if (!restoredWorkspacesRef.current.has(workspaceId)) {
+        sendRequest<{ tabs: TabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
+          .then((response) => {
+            // Ignore stale responses from a previous workspace switch
+            if (cancelled) return;
 
-      sendRequest<{ tabs: TabInfo[] }>('tab.list', { workspaceId, pane: paneRef.current })
-        .then((response) => {
-          // Ref-based guards — always read current values, no stale closures
-          if (restoredWorkspacesRef.current.has(workspaceId)) return;
-          if (tabsRef.current.length > 0) return;
+            // Ref-based guards — always read current values, no stale closures
+            if (restoredWorkspacesRef.current.has(workspaceId)) return;
+            if (tabsRef.current.length > 0) return;
 
-          // Filter out dead terminals
-          const liveTabs = response.tabs.filter((t) => t.terminalAlive !== false);
-          loadTabs(workspaceId, liveTabs);
+            // Filter out dead terminals
+            const liveTabs = response.tabs.filter((t) => t.terminalAlive !== false);
+            loadTabs(workspaceId, liveTabs);
 
-          // Register terminal tabs with parent
-          for (const t of liveTabs) {
-            if (t.terminalId) {
-              onTerminalRegisteredRef.current?.(t.terminalId, t.id, workspaceId);
+            // Register terminal tabs with parent
+            for (const t of liveTabs) {
+              if (t.terminalId) {
+                onTerminalRegisteredRef.current?.(t.terminalId, t.id, workspaceId);
+              }
             }
-          }
-        })
-        .catch(console.error);
+          })
+          .catch(console.error);
+      }
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [workspaceId, switchWorkspace, loadTabs]);
 
   // --- Shared handle logic ---

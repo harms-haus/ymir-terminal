@@ -60,11 +60,15 @@ const sampleTree = [
 
 function renderFileTree(tree = sampleTree, onFileSelect: (path: string) => void = mock(() => {})) {
   return render(
-    React.createElement(FileTree, {
-      tree,
-      onFileSelect,
-      workspaceId: 'ws-1',
-    }),
+    React.createElement(
+      'div',
+      { style: { height: '500px' } },
+      React.createElement(FileTree, {
+        tree,
+        onFileSelect,
+        workspaceId: 'ws-1',
+      }),
+    ),
   );
 }
 
@@ -79,13 +83,17 @@ function renderFileTreeWithGitStatus(
   onFileSelect: (path: string) => void = mock(() => {}),
 ) {
   return render(
-    React.createElement(FileTree, {
-      tree,
-      onFileSelect,
-      workspaceId: 'ws-1',
-      gitStatus: gitStatus as Parameters<typeof FileTree>[0]['gitStatus'],
-      workspaceRoot,
-    }),
+    React.createElement(
+      'div',
+      { style: { height: '500px' } },
+      React.createElement(FileTree, {
+        tree,
+        onFileSelect,
+        workspaceId: 'ws-1',
+        gitStatus: gitStatus as Parameters<typeof FileTree>[0]['gitStatus'],
+        workspaceRoot,
+      }),
+    ),
   );
 }
 
