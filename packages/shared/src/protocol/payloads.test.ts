@@ -76,6 +76,7 @@ import {
   type GitRemoteRemoveRequest,
   type GitRemoteListRequest,
   type GitStatusChangeEvent,
+  type GitRepoDiscoveryProgressEvent,
   // Config
   type ConfigGetRequest,
   type ConfigSetRequest,
@@ -204,14 +205,15 @@ describe('EVENT_TYPES', () => {
     'file.change',
     'connection.status',
     'git.statusChange',
+    'git.repoDiscovery.progress',
   ];
 
   it('contains all expected event types', () => {
     expect(EVENT_TYPES).toEqual(expected);
   });
 
-  it('has exactly 6 entries', () => {
-    expect(EVENT_TYPES).toHaveLength(6);
+  it('has exactly 7 entries', () => {
+    expect(EVENT_TYPES).toHaveLength(7);
   });
 });
 
@@ -395,6 +397,12 @@ describe('EventPayload union', () => {
           behind: 0,
         },
       } satisfies GitStatusChangeEvent,
+      {
+        workspaceId: 'ws-1',
+        repos: [],
+        depth: 0,
+        done: false,
+      } satisfies GitRepoDiscoveryProgressEvent,
       {
         terminalId: 't-1',
         status: 'working' as const,
