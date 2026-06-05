@@ -40,11 +40,13 @@ export interface MockWsClientShape {
   connect: ReturnType<MockFn>;
   send: ReturnType<MockFn>;
   disconnect: ReturnType<MockFn>;
+  disconnectAndRejectPending: ReturnType<MockFn>;
   setToken: ReturnType<MockFn>;
   onMessage: ReturnType<MockFn>;
   onStatusChange: ReturnType<MockFn>;
   getStatus: ReturnType<MockFn>;
   getUrl: ReturnType<MockFn>;
+  getDisconnectEpoch: ReturnType<MockFn>;
 }
 
 /** The return value of {@link createMockWsClient}. */
@@ -262,17 +264,48 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     getUrlCalls = [];
   };
 
+  // -- Additional mocks (simple, no complex tracking needed) ----------------
+
+  let disconnectEpoch = 0;
+  let disconnectAndRejectPendingCalls: unknown[][] = [];
+
+  const mockGetDisconnectEpoch = () => {
+    return disconnectEpoch;
+  };
+  mockGetDisconnectEpoch.mock = {
+    get calls() {
+      return [];
+    },
+  };
+  mockGetDisconnectEpoch.mockClear = () => {};
+
+  const mockDisconnectAndRejectPending = (...args: unknown[]) => {
+    disconnectAndRejectPendingCalls.push(args);
+    disconnectEpoch++;
+    mockDisconnect();
+  };
+  mockDisconnectAndRejectPending.mock = {
+    get calls() {
+      return disconnectAndRejectPendingCalls;
+    },
+  };
+  mockDisconnectAndRejectPending.mockClear = () => {
+    disconnectAndRejectPendingCalls = [];
+  };
+
   // -- wsClient object -----------------------------------------------------
 
   const wsClient: MockWsClientShape = {
     connect: mockConnect,
     send: mockSend,
     disconnect: mockDisconnect,
+    disconnectAndRejectPending: mockDisconnectAndRejectPending,
     setToken: mockSetToken,
     onMessage: mockOnMessage,
     onStatusChange: mockOnStatusChange,
     getStatus: mockGetStatus,
     getUrl: mockGetUrl,
+    getDisconnectEpoch: mockGetDisconnectEpoch,
   };
 
   // -- Helpers -------------------------------------------------------------
@@ -321,6 +354,7 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     sentEnvelopes = [];
     currentStatus = options.initialStatus ?? 'disconnected';
     currentUrl = options.initialUrl ?? '';
+    disconnectEpoch = 0;
     mockConnect.mockClear();
     mockSend.mockClear();
     mockDisconnect.mockClear();

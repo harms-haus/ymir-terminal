@@ -226,7 +226,7 @@ describe('recent connections', () => {
     addRecentConnection('9.9.9.9', 9090);
 
     const recent = getRecentConnections();
-    expect(recent[0].label).toBeUndefined();
+    expect(recent[0].label).toBe('9.9.9.9:9090');
   });
 });
 

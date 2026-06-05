@@ -23,6 +23,7 @@ const mockOnMessage = mock((handler: MessageHandler) => {
 mock.module('../../lib/ws-client', () => ({
   wsClient: {
     onMessage: mockOnMessage,
+    getDisconnectEpoch: () => 0,
   },
 }));
 

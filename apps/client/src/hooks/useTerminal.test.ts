@@ -24,6 +24,7 @@ mock.module('../lib/ws-client', () => ({
   wsClient: {
     send: mockSend,
     onMessage: mockOnMessage,
+    getDisconnectEpoch: () => 0,
   },
 }));
 

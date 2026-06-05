@@ -1,7 +1,7 @@
 import { IS_WINDOWS, CONFIG_DIR, DB_FILE, YMIR_HOME_DIR_NAME } from './constants';
 // Node.js modules — only available in server/CLI context, not in browser
-let _os = null;
-let _path = null;
+let _os = null; // eslint-disable-line @typescript-eslint/consistent-type-imports
+let _path = null; // eslint-disable-line @typescript-eslint/consistent-type-imports
 function getOs() {
   if (!_os) {
     try {
@@ -39,7 +39,6 @@ export function generateId() {
   } catch {
     // Fall through to fallback
   }
-
   // Fallback: generate v4 UUID using crypto.getRandomValues
   try {
     if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
@@ -55,7 +54,6 @@ export function generateId() {
   } catch {
     // Fall through to Math.random fallback
   }
-
   throw new Error(
     'generateId(): No cryptographically secure random number generator available. ' +
       'This environment does not support crypto.randomUUID() or crypto.getRandomValues().',

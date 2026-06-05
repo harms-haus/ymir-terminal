@@ -38,6 +38,7 @@ mock.module('../lib/ws-client', () => ({
     onMessage: mockOnMessage,
     getStatus: mockGetStatus,
     onStatusChange: mockOnStatusChange,
+    getDisconnectEpoch: () => 0,
   },
 }));
 
