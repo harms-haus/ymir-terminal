@@ -40,10 +40,29 @@ export function useTerminalRegistry({
   // Terminal lifecycle callbacks
   const handleTerminalRegistered = useCallback(
     (terminalId: string, tabId: string, pane: string, workspaceId: string, cwd?: string) => {
-      setTerminalRegistry((prev) => [
-        ...prev,
-        { terminalId, tabId, owningPane: pane, workspaceId, cwd },
-      ]);
+      setTerminalRegistry((prev) => {
+        const existingIdx = prev.findIndex((t) => t.terminalId === terminalId);
+        if (existingIdx !== -1) {
+          const old = prev[existingIdx];
+          // Skip update if nothing changed
+          if (
+            old.tabId === tabId &&
+            old.owningPane === pane &&
+            old.workspaceId === workspaceId &&
+            old.cwd === cwd
+          ) {
+            return prev;
+          }
+          // Invalidate cache when tabId or owningPane changes
+          if (old.tabId !== tabId || old.owningPane !== pane) {
+            callbackCacheRef.current.delete(old.tabId);
+          }
+          const next = [...prev];
+          next[existingIdx] = { terminalId, tabId, owningPane: pane, workspaceId, cwd };
+          return next;
+        }
+        return [...prev, { terminalId, tabId, owningPane: pane, workspaceId, cwd }];
+      });
     },
     [],
   );
