@@ -175,28 +175,6 @@ export function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
     arr.push(lane);
   };
 
-  // Register lanes for branches that enter from off-screen (no visible children)
-  const hasVisibleChild = new Set<string>();
-  for (const info of laneData) {
-    for (const parentId of info.commit.parents) {
-      if (hashToIndex.has(parentId)) {
-        hasVisibleChild.add(parentId);
-      }
-    }
-  }
-
-  for (let i = 0; i < n; i++) {
-    const info = laneData[i];
-    if (!hasVisibleChild.has(info.commit.id)) {
-      // Limit off-screen pass-through to the commit's own row only.
-      // This prevents false visual connections when lanes are reused
-      // by unrelated branches, while still seamlessly connecting to
-      // normal edge events for genealogically related commits.
-      addEvent(startEvents, i, info.lane);
-      addEvent(endEvents, i + 1, info.lane);
-    }
-  }
-
   for (let i = 0; i < n; i++) {
     const info = laneData[i];
     for (let p = 0; p < info.commit.parents.length; p++) {
