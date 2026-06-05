@@ -28,6 +28,7 @@ const mockOnStatusChange = mock((handler: StatusHandler) => {
     statusHandlers = statusHandlers.filter((h) => h !== handler);
   };
 });
+const mockDisconnectAndRejectPending = mock(() => {});
 
 mock.module('../lib/ws-client', () => ({
   wsClient: {
@@ -37,6 +38,7 @@ mock.module('../lib/ws-client', () => ({
     getUrl: mockGetUrl,
     getStatus: mockGetStatus,
     onStatusChange: mockOnStatusChange,
+    disconnectAndRejectPending: mockDisconnectAndRejectPending,
   },
 }));
 
@@ -157,12 +159,52 @@ mock.module('./useTauri', () => ({
   }),
 }));
 
-// Import after all mocks
-const { useConnectionManager } = await import('./useConnectionManager');
+// ---------------------------------------------------------------------------
+// Mock @tanstack/react-query
+// ---------------------------------------------------------------------------
+
+const mockQueryClientClear = mock(() => {});
+
+mock.module('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    clear: mockQueryClientClear,
+  }),
+}));
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Mock useAuth hook
 // ---------------------------------------------------------------------------
+
+const mockClearToken = mock(() => {});
+const mockSuppressAutoLogin = mock(() => {});
+
+mock.module('./useAuth', () => ({
+  useAuth: () => ({
+    isAuthenticated: false,
+    token: null,
+    login: mock(async () => {}),
+    logout: mock(() => {}),
+    clearToken: mockClearToken,
+    suppressAutoLogin: mockSuppressAutoLogin,
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock ConnectionUrlContext
+// ---------------------------------------------------------------------------
+
+let mockConnectionUrlValue: string | null = null;
+const mockSetConnectionUrlFn = mock((_url: string | null) => {
+  mockConnectionUrlValue = _url;
+});
+
+mock.module('../contexts/ConnectionUrlContext', () => ({
+  useConnectionUrl: () => mockConnectionUrlValue,
+  useSetConnectionUrl: () => mockSetConnectionUrlFn,
+}));
+
+// Import after all mocks
+const { useConnectionManager } = await import('./useConnectionManager');
 
 // ---------------------------------------------------------------------------
 // Cleanup
@@ -184,6 +226,7 @@ describe('useConnectionManager', () => {
     statusHandlers = [];
     storedFavorites = [];
     storedRecent = [];
+    mockConnectionUrlValue = null;
 
     mockConnect.mockClear();
     mockDisconnect.mockClear();
@@ -191,6 +234,7 @@ describe('useConnectionManager', () => {
     mockGetUrl.mockClear();
     mockGetStatus.mockClear();
     mockOnStatusChange.mockClear();
+    mockDisconnectAndRejectPending.mockClear();
     mockGetFavorites.mockClear();
     mockSaveFavorites.mockClear();
     mockAddFavorite.mockClear();
@@ -201,15 +245,23 @@ describe('useConnectionManager', () => {
     mockAddRecentConnection.mockClear();
     mockClearRecentConnections.mockClear();
     mockGetTauriConfig.mockClear();
+    mockQueryClientClear.mockClear();
+    mockClearToken.mockClear();
+    mockSuppressAutoLogin.mockClear();
+    mockSetConnectionUrlFn.mockClear();
   });
 
   afterEach(() => {
     statusHandlers = [];
   });
 
-  // 1. Returns correct initial state
-  test('returns correct initial state from wsClient', () => {
-    mockUrl = 'ws://192.168.1.1:8080/ws';
+  // -----------------------------------------------------------------------
+  // Existing tests (updated for new implementation)
+  // -----------------------------------------------------------------------
+
+  // 1. Returns correct initial state from context
+  test('returns correct initial state from context', () => {
+    mockConnectionUrlValue = 'ws://192.168.1.1:8080/ws';
     const { result } = renderHook(() => useConnectionManager());
 
     expect(result.current.currentUrl).toBe('ws://192.168.1.1:8080/ws');
@@ -220,7 +272,7 @@ describe('useConnectionManager', () => {
     expect(result.current.recentConnections).toEqual([]);
   });
 
-  // 2. connect() updates currentUrl/host/port, calls wsClient.connect, clears token first
+  // 2. connect() updates currentUrl/host/port, calls wsClient, clears token, clears query cache
   test('connect() updates state and calls wsClient', () => {
     const { result } = renderHook(() => useConnectionManager());
 
@@ -228,18 +280,21 @@ describe('useConnectionManager', () => {
       result.current.connect('10.0.0.5', 4000);
     });
 
-    expect(mockSetToken).toHaveBeenCalledWith('');
-    expect(mockDisconnect).toHaveBeenCalled();
+    expect(mockQueryClientClear).toHaveBeenCalled();
+    expect(mockClearToken).toHaveBeenCalled();
+    expect(mockDisconnectAndRejectPending).toHaveBeenCalled();
     expect(mockConnect).toHaveBeenCalledWith('ws://10.0.0.5:4000/ws');
+    expect(mockSetConnectionUrlFn).toHaveBeenCalledWith('ws://10.0.0.5:4000/ws');
+    // Re-render from setRecentConnections picks up new connectionUrl
     expect(result.current.currentUrl).toBe('ws://10.0.0.5:4000/ws');
     expect(result.current.currentHost).toBe('10.0.0.5');
     expect(result.current.currentPort).toBe(4000);
   });
 
-  // 3. disconnect() clears currentUrl, calls wsClient.disconnect, clears token
+  // 3. disconnect() clears currentUrl, calls wsClient.disconnect, clears auth
   test('disconnect() clears state and calls wsClient', () => {
-    mockUrl = 'ws://10.0.0.5:4000/ws';
-    const { result } = renderHook(() => useConnectionManager());
+    mockConnectionUrlValue = 'ws://10.0.0.5:4000/ws';
+    const { result, rerender } = renderHook(() => useConnectionManager());
 
     expect(result.current.currentUrl).toBe('ws://10.0.0.5:4000/ws');
 
@@ -247,8 +302,13 @@ describe('useConnectionManager', () => {
       result.current.disconnect();
     });
 
+    expect(mockQueryClientClear).toHaveBeenCalled();
+    expect(mockClearToken).toHaveBeenCalled();
+    expect(mockSuppressAutoLogin).toHaveBeenCalled();
     expect(mockDisconnect).toHaveBeenCalled();
-    expect(mockSetToken).toHaveBeenCalledWith('');
+    expect(mockSetConnectionUrlFn).toHaveBeenCalledWith(null);
+    // No React state update in disconnect(), so we need to rerender
+    rerender();
     expect(result.current.currentUrl).toBeNull();
     expect(result.current.currentHost).toBeNull();
     expect(result.current.currentPort).toBeNull();
@@ -265,6 +325,12 @@ describe('useConnectionManager', () => {
     });
 
     expect(mockConnect).toHaveBeenCalledWith('ws://127.0.0.1:9999/ws');
+    expect(mockDisconnectAndRejectPending).toHaveBeenCalled();
+    expect(mockClearToken).toHaveBeenCalled();
+    expect(mockSetConnectionUrlFn).toHaveBeenCalledWith('ws://127.0.0.1:9999/ws');
+    // suppressAutoLogin should NOT be called for local servers
+    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
+    // Re-render from setRecentConnections picks up new connectionUrl
     expect(result.current.currentHost).toBe('127.0.0.1');
     expect(result.current.currentPort).toBe(9999);
 
@@ -388,7 +454,7 @@ describe('useConnectionManager', () => {
 
   // 11. URL parsing: ws:// extracts host and port
   test('URL parsing: ws://host:port/ws extracts host and port', () => {
-    mockUrl = 'ws://myhost:5555/ws';
+    mockConnectionUrlValue = 'ws://myhost:5555/ws';
     const { result } = renderHook(() => useConnectionManager());
 
     expect(result.current.currentUrl).toBe('ws://myhost:5555/ws');
@@ -399,7 +465,7 @@ describe('useConnectionManager', () => {
   // 12. URL parsing: wss:// extracts host and port
   test('URL parsing: wss://host:port/ws extracts host and port', () => {
     // Use a non-default port so URL.port returns the value (443 is default for wss:)
-    mockUrl = 'wss://secure.example.com:8443/ws';
+    mockConnectionUrlValue = 'wss://secure.example.com:8443/ws';
     const { result } = renderHook(() => useConnectionManager());
 
     expect(result.current.currentUrl).toBe('wss://secure.example.com:8443/ws');
@@ -433,5 +499,152 @@ describe('useConnectionManager', () => {
     expect(result.current.favorites[0].label).toBe('Fav1');
     expect(result.current.recentConnections.length).toBe(1);
     expect(result.current.recentConnections[0].host).toBe('2.2.2.2');
+  });
+
+  // -----------------------------------------------------------------------
+  // New tests for server switch cleanup
+  // -----------------------------------------------------------------------
+
+  // 15. connect() clears React Query cache
+  test('connect() clears query cache', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('10.0.0.5', 4000);
+    });
+
+    expect(mockQueryClientClear).toHaveBeenCalledTimes(1);
+  });
+
+  // 16. connect() clears auth token
+  test('connect() clears auth token', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('10.0.0.5', 4000);
+    });
+
+    expect(mockClearToken).toHaveBeenCalledTimes(1);
+  });
+
+  // 17. connect() updates connection URL context
+  test('connect() updates connection URL context', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('192.168.1.100', 9000);
+    });
+
+    expect(mockSetConnectionUrlFn).toHaveBeenCalledWith('ws://192.168.1.100:9000/ws');
+  });
+
+  // 18. connect() uses disconnectAndRejectPending instead of disconnect
+  test('connect() uses disconnectAndRejectPending', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('10.0.0.5', 4000);
+    });
+
+    expect(mockDisconnectAndRejectPending).toHaveBeenCalledTimes(1);
+    // disconnect() should NOT be called by connect() — only disconnectAndRejectPending
+    expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+
+  // 19. connect() suppresses Tauri auto-login for remote servers
+  test('connect() suppresses Tauri auto-login for remote servers', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('10.0.0.5', 4000);
+    });
+
+    expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
+  });
+
+  // 20. connect() does NOT suppress auto-login for 127.0.0.1
+  test('connect() does NOT suppress auto-login for local server (127.0.0.1)', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('127.0.0.1', 4000);
+    });
+
+    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
+  });
+
+  // 21. connect() does NOT suppress auto-login for localhost
+  test('connect() does NOT suppress auto-login for local server (localhost)', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('localhost', 4000);
+    });
+
+    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
+  });
+
+  // 22. disconnect() clears query cache and auth
+  test('disconnect() clears query cache and auth', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.disconnect();
+    });
+
+    expect(mockQueryClientClear).toHaveBeenCalledTimes(1);
+    expect(mockClearToken).toHaveBeenCalledTimes(1);
+    expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
+  });
+
+  // 23. disconnect() clears connection URL context
+  test('disconnect() clears connection URL', () => {
+    mockConnectionUrlValue = 'ws://10.0.0.5:4000/ws';
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.disconnect();
+    });
+
+    expect(mockSetConnectionUrlFn).toHaveBeenCalledWith(null);
+  });
+
+  // 24. connect() does not call regular wsClient.disconnect
+  test('connect() does not call regular wsClient.disconnect', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('10.0.0.5', 4000);
+    });
+
+    expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+
+  // 25. connect() with invalid hostname returns early
+  test('connect() with invalid hostname returns early', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('-invalid-host', 4000);
+    });
+
+    expect(mockQueryClientClear).not.toHaveBeenCalled();
+    expect(mockClearToken).not.toHaveBeenCalled();
+    expect(mockDisconnectAndRejectPending).not.toHaveBeenCalled();
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(mockSetConnectionUrlFn).not.toHaveBeenCalled();
+  });
+
+  // 26. connect() does not clear token or cache for empty hostname (fails validation)
+  test('connect() rejects empty hostname', () => {
+    const { result } = renderHook(() => useConnectionManager());
+
+    act(() => {
+      result.current.connect('', 4000);
+    });
+
+    // Empty string fails HOSTNAME_RE validation, so nothing should be called
+    expect(mockQueryClientClear).not.toHaveBeenCalled();
+    expect(mockConnect).not.toHaveBeenCalled();
   });
 });

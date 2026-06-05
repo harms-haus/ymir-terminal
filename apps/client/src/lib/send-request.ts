@@ -18,6 +18,7 @@ export function sendRequest<T>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = crypto.randomUUID();
+    const epoch = wsClient.getDisconnectEpoch();
 
     // If already aborted, reject immediately
     if (options?.signal?.aborted) {
@@ -27,11 +28,21 @@ export function sendRequest<T>(
 
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error('Request timeout'));
+      if (wsClient.getDisconnectEpoch() !== epoch) {
+        reject(new Error('Connection reset'));
+      } else {
+        reject(new Error('Request timeout'));
+      }
     }, options?.timeout ?? 10_000);
 
     const unsub = wsClient.onMessage((envelope: MessageEnvelope) => {
       if (envelope.id === id) {
+        if (wsClient.getDisconnectEpoch() !== epoch) {
+          cleanup();
+          reject(new Error('Connection reset'));
+          return;
+        }
+
         cleanup();
 
         const resp = envelope as ResponseEnvelope;

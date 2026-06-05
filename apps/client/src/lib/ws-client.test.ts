@@ -723,4 +723,115 @@ describe('WSClient', () => {
     // Client should still be connected and functional
     expect(wsClient.getStatus()).toBe('connected');
   });
+
+  // -----------------------------------------------------------------------
+  // getDisconnectEpoch() returns 0 initially
+  // -----------------------------------------------------------------------
+  test('getDisconnectEpoch() returns 0 initially', async () => {
+    teardownMockWS();
+    setupMockWS();
+    const freshMod = await import(`./ws-client?_epochInit=${Date.now()}`);
+    expect(freshMod.wsClient.getDisconnectEpoch()).toBe(0);
+    freshMod.wsClient.disconnect();
+    teardownMockWS();
+    setupMockWS();
+  });
+
+  // -----------------------------------------------------------------------
+  // disconnectAndRejectPending() increments the epoch counter
+  // -----------------------------------------------------------------------
+  test('disconnectAndRejectPending() increments the epoch counter', () => {
+    const { wsClient } = wsClientModule;
+
+    wsClient.connect('ws://localhost:8080');
+    expect(wsClient.getDisconnectEpoch()).toBe(0);
+
+    wsClient.disconnectAndRejectPending();
+    expect(wsClient.getDisconnectEpoch()).toBe(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // disconnect() does NOT increment the epoch counter
+  // -----------------------------------------------------------------------
+  test('disconnect() does NOT increment the epoch counter', async () => {
+    teardownMockWS();
+    setupMockWS();
+    const freshMod = await import(`./ws-client?_epochDisconnect=${Date.now()}`);
+
+    freshMod.wsClient.connect('ws://localhost:8080');
+    expect(freshMod.wsClient.getDisconnectEpoch()).toBe(0);
+
+    freshMod.wsClient.disconnect();
+    expect(freshMod.wsClient.getDisconnectEpoch()).toBe(0);
+
+    freshMod.wsClient.disconnect();
+    teardownMockWS();
+    setupMockWS();
+  });
+
+  // -----------------------------------------------------------------------
+  // disconnectAndRejectPending() calls through to disconnect
+  // -----------------------------------------------------------------------
+  test('disconnectAndRejectPending() calls through to disconnect (status becomes disconnected, WebSocket is closed)', () => {
+    const { wsClient } = wsClientModule;
+
+    wsClient.connect('ws://localhost:8080');
+    const ws = MockWebSocket.instances[0];
+    ws.simulateOpen();
+
+    expect(wsClient.getStatus()).toBe('connected');
+
+    wsClient.disconnectAndRejectPending();
+
+    // Status should be disconnected (same as disconnect())
+    expect(wsClient.getStatus()).toBe('disconnected');
+    // The underlying WebSocket should have been closed by disconnect()
+    expect(ws.readyState).toBe(MockWebSocket.CLOSED);
+  });
+
+  // -----------------------------------------------------------------------
+  // disconnectAndRejectPending() does NOT trigger reconnection
+  // -----------------------------------------------------------------------
+  test('disconnectAndRejectPending() does NOT trigger reconnection', () => {
+    const { wsClient } = wsClientModule;
+
+    wsClient.connect('ws://localhost:8080');
+    const ws = MockWebSocket.instances[0];
+    ws.simulateOpen();
+
+    wsClient.disconnectAndRejectPending();
+
+    // No new WebSocket instances should have been created (no reconnect)
+    expect(MockWebSocket.instances.length).toBe(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // Calling disconnectAndRejectPending() multiple times increments epoch each time
+  // -----------------------------------------------------------------------
+  test('calling disconnectAndRejectPending() multiple times increments epoch each time', async () => {
+    teardownMockWS();
+    setupMockWS();
+    const freshMod = await import(`./ws-client?_epochMulti=${Date.now()}`);
+    const client = freshMod.wsClient;
+
+    client.connect('ws://localhost:8080');
+    expect(client.getDisconnectEpoch()).toBe(0);
+
+    client.disconnectAndRejectPending();
+    expect(client.getDisconnectEpoch()).toBe(1);
+
+    // Reconnect and call again
+    client.connect('ws://localhost:8080');
+    client.disconnectAndRejectPending();
+    expect(client.getDisconnectEpoch()).toBe(2);
+
+    // And again
+    client.connect('ws://localhost:8080');
+    client.disconnectAndRejectPending();
+    expect(client.getDisconnectEpoch()).toBe(3);
+
+    client.disconnect();
+    teardownMockWS();
+    setupMockWS();
+  });
 });

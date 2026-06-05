@@ -6,6 +6,12 @@ setupAllMocks();
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
+
+mock.module('./ConnectionManagerPopover', () => ({
+  ConnectionManagerPopover: () =>
+    React.createElement('div', { 'data-testid': 'mock-connection-manager' }),
+}));
+
 import { AppLayout } from './AppLayout';
 import { AuthContext } from '../hooks/useAuth';
 
@@ -31,6 +37,8 @@ function renderAppLayout(
     token: isAuthenticated ? 'test-token' : null,
     login: mock(() => Promise.resolve()) as (password: string) => Promise<void>,
     logout: mock(() => {}),
+    clearToken: mock(() => {}),
+    suppressAutoLogin: mock(() => {}),
   };
 
   const result = render(

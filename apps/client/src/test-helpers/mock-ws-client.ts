@@ -44,6 +44,7 @@ export interface MockWsClientShape {
   onMessage: ReturnType<MockFn>;
   onStatusChange: ReturnType<MockFn>;
   getStatus: ReturnType<MockFn>;
+  getUrl: ReturnType<MockFn>;
 }
 
 /** The return value of {@link createMockWsClient}. */
@@ -61,6 +62,8 @@ export interface MockWsClientResult {
   mockOnStatusChange: ReturnType<MockFn>;
   /** Reference to the `getStatus` mock function. */
   mockGetStatus: ReturnType<MockFn>;
+  /** Reference to the `getUrl` mock function. */
+  mockGetUrl: ReturnType<MockFn>;
   /** Reference to the `connect` mock function. */
   mockConnect: ReturnType<MockFn>;
   /** Reference to the `disconnect` mock function. */
@@ -74,7 +77,7 @@ export interface MockWsClientResult {
   simulateMessage: (envelope: MessageEnvelope) => void;
 
   /** Simulate a status change by calling all registered `onStatusChange` handlers. */
-  simulateStatusChange: (status: ConnectionStatus) => void;
+  simulateStatusChange: (status: ConnectionStatus, url?: string) => void;
 
   /**
    * Simulate a server response whose `id` matches a previously-sent request.
@@ -117,6 +120,11 @@ export interface CreateMockWsClientOptions {
    * with `'connected'` (used by useAuth tests). Default: `false`.
    */
   autoConnect?: boolean;
+
+  /**
+   * Initial URL returned by `getUrl()`. Default: `''`.
+   */
+  initialUrl?: string;
 }
 
 /**
@@ -128,6 +136,7 @@ export interface CreateMockWsClientOptions {
  */
 export function createMockWsClient(options: CreateMockWsClientOptions = {}): MockWsClientResult {
   let currentStatus: ConnectionStatus = options.initialStatus ?? 'disconnected';
+  let currentUrl: string = options.initialUrl ?? '';
   let messageHandlers: Array<(envelope: MessageEnvelope) => void> = [];
   let statusHandlers: Array<(status: ConnectionStatus) => void> = [];
   let sentEnvelopes: MessageEnvelope[] = [];
@@ -141,6 +150,7 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
   let onMessageCalls: unknown[][] = [];
   let onStatusChangeCalls: unknown[][] = [];
   let getStatusCalls: unknown[][] = [];
+  let getUrlCalls: unknown[][] = [];
 
   const mockConnect = (...args: unknown[]) => {
     connectCalls.push(args);
@@ -239,6 +249,19 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     getStatusCalls = [];
   };
 
+  const mockGetUrl = () => {
+    getUrlCalls.push([]);
+    return currentUrl;
+  };
+  mockGetUrl.mock = {
+    get calls() {
+      return getUrlCalls;
+    },
+  };
+  mockGetUrl.mockClear = () => {
+    getUrlCalls = [];
+  };
+
   // -- wsClient object -----------------------------------------------------
 
   const wsClient: MockWsClientShape = {
@@ -249,6 +272,7 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     onMessage: mockOnMessage,
     onStatusChange: mockOnStatusChange,
     getStatus: mockGetStatus,
+    getUrl: mockGetUrl,
   };
 
   // -- Helpers -------------------------------------------------------------
@@ -259,8 +283,11 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     }
   }
 
-  function simulateStatusChange(status: ConnectionStatus) {
+  function simulateStatusChange(status: ConnectionStatus, url?: string) {
     currentStatus = status;
+    if (url !== undefined) {
+      currentUrl = url;
+    }
     for (const handler of [...statusHandlers]) {
       handler(status);
     }
@@ -293,6 +320,7 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     statusHandlers = [];
     sentEnvelopes = [];
     currentStatus = options.initialStatus ?? 'disconnected';
+    currentUrl = options.initialUrl ?? '';
     mockConnect.mockClear();
     mockSend.mockClear();
     mockDisconnect.mockClear();
@@ -300,6 +328,7 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     mockOnMessage.mockClear();
     mockOnStatusChange.mockClear();
     mockGetStatus.mockClear();
+    mockGetUrl.mockClear();
   }
 
   return {
@@ -308,6 +337,7 @@ export function createMockWsClient(options: CreateMockWsClientOptions = {}): Moc
     mockOnMessage,
     mockOnStatusChange,
     mockGetStatus,
+    mockGetUrl,
     mockConnect,
     mockDisconnect,
     mockSetToken,
