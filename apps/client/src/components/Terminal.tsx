@@ -76,7 +76,10 @@ export const Terminal = forwardRef(function Terminal(
       fit.fit();
 
       const observer = new ResizeObserver(() => {
-        // Don't fit when hidden (display:none → 0×0)
+        // Skip fit when the container is collapsed (display:none → 0×0).
+        // Note: TerminalManager uses visibility:hidden (not display:none) for inactive
+        // terminals, so this guard does not apply to normal scope switches. It only
+        // fires for terminals that never had bounds (the 0×0 fallback container).
         if (!containerRef.current || containerRef.current.offsetWidth === 0) return;
         fit.fit();
       });

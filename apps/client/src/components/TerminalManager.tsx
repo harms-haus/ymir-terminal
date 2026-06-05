@@ -43,6 +43,10 @@ export const TerminalManager = React.memo(function TerminalManager({
     () => new Map(),
   );
 
+  // Last-known bounds per pane: preserved when getPaneBounds temporarily returns null
+  // so terminals keep their previous dimensions instead of collapsing to 0×0.
+  const [lastBoundsMap] = useState<Map<string, PaneBounds>>(() => new Map());
+
   // Clean up stale entries for terminals no longer in the list
   useEffect(() => {
     const currentTabIds = new Set(terminals.map((t) => t.tabId));
@@ -52,7 +56,14 @@ export const TerminalManager = React.memo(function TerminalManager({
         refCallbackCache.delete(tabId);
       }
     }
-  }, [terminals, terminalRefs, refCallbackCache]);
+
+    const currentPaneIds = new Set(terminals.map((t) => t.owningPane));
+    for (const [paneId] of lastBoundsMap) {
+      if (!currentPaneIds.has(paneId)) {
+        lastBoundsMap.delete(paneId);
+      }
+    }
+  }, [terminals, terminalRefs, refCallbackCache, lastBoundsMap]);
 
   return (
     <div
@@ -66,6 +77,14 @@ export const TerminalManager = React.memo(function TerminalManager({
     >
       {terminals.map((t) => {
         const bounds = getPaneBounds(t.owningPane);
+        const effectiveBounds = bounds ?? lastBoundsMap.get(t.owningPane) ?? null;
+
+        // Intentional render-time mutation: we cache the latest bounds during render
+        // to avoid a one-frame flicker that useEffect would introduce. This is safe
+        // because Map.set is idempotent under Strict Mode's double-render.
+        if (bounds) {
+          lastBoundsMap.set(t.owningPane, bounds);
+        }
 
         // Get or create a stable ref callback for this tabId — must be
         // initialized before any early-return branch that uses it.
@@ -78,41 +97,28 @@ export const TerminalManager = React.memo(function TerminalManager({
           refCallbackCache.set(t.tabId, refCb);
         }
 
-        if (!bounds) {
-          return (
-            <div
-              key={t.terminalId}
-              style={{
-                position: 'absolute',
-                width: 0,
-                height: 0,
-                overflow: 'hidden',
-                pointerEvents: 'none',
-              }}
-              onMouseDown={() => onFocusPane?.(t.owningPane)}
-            >
-              <Terminal
-                terminalId={t.terminalId}
-                ref={refCb}
-                onTitleChange={t.onTitleChange}
-                onCwdChange={t.onCwdChange}
-              />
-            </div>
-          );
-        }
+        const wrapperStyle: React.CSSProperties = effectiveBounds
+          ? {
+              position: 'absolute',
+              top: effectiveBounds.top,
+              left: effectiveBounds.left,
+              width: effectiveBounds.width,
+              height: effectiveBounds.height,
+              visibility: t.isActive ? 'visible' : 'hidden',
+              pointerEvents: t.isActive ? 'auto' : 'none',
+            }
+          : {
+              position: 'absolute',
+              width: 0,
+              height: 0,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+            };
 
         return (
           <div
             key={t.terminalId}
-            style={{
-              position: 'absolute',
-              top: bounds.top,
-              left: bounds.left,
-              width: bounds.width,
-              height: bounds.height,
-              display: t.isActive ? 'block' : 'none',
-              pointerEvents: t.isActive ? 'auto' : 'none',
-            }}
+            style={wrapperStyle}
             onMouseDown={() => onFocusPane?.(t.owningPane)}
           >
             <Terminal
