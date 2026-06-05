@@ -106,8 +106,8 @@ describe('computeLanes', () => {
     // c has one lineDown: lane 0 → lane 0
     expect(result[0].linesDown).toEqual([{ fromLane: 0, toLane: 0, colorIndex: 0 }]);
 
-    // b has one lineDown: lane 1 → lane 1
-    expect(result[1].linesDown).toEqual([{ fromLane: 1, toLane: 1, colorIndex: 1 }]);
+    // b has one lineDown: lane 1 → lane 0 (parent a is on lane 0)
+    expect(result[1].linesDown).toEqual([{ fromLane: 1, toLane: 0, colorIndex: 0 }]);
 
     // a has no parents
     expect(result[2].linesDown).toEqual([]);
@@ -231,9 +231,8 @@ describe('computeLanes', () => {
 
     // c: should be on lane 1 (merge target lane)
     expect(result[1].lane).toBe(1);
-    expect(result[1].linesDown[0].toLane).toBe(1); // c → a stays on lane 1? No...
-    // c's parent is 'a'. c is on lane 1, first parent stays on same lane
-    // So c → a: fromLane 1, toLane 1
+    // c's parent is 'a' which is on lane 0, so c → a goes from lane 1 to lane 0
+    expect(result[1].linesDown[0].toLane).toBe(0);
 
     // b: lanes targeting b? d's first parent lineDown is lane 0 → lane 0 targeting b
     expect(result[2].lane).toBe(0);
@@ -297,6 +296,22 @@ describe('computeLanes', () => {
     // d: lane 1 (lane 1 targets d)
     expect(lanes(result)).toEqual([0, 1, 0, 1, 0, 1]);
   });
+
+  test('handles paginated view where parent is outside visible range', () => {
+    // Simulate paginated view: commits c,b visible, parent 'a' is missing (off-screen)
+    const commits = [commit('c', ['b']), commit('b', ['a'])];
+    const result = computeLanes(commits);
+    expect(result).toHaveLength(2);
+    // Both visible commits should have valid lane assignments
+    expect(result[0].lane).toBeGreaterThanOrEqual(0);
+    expect(result[1].lane).toBeGreaterThanOrEqual(0);
+    // b should have a lineDown to its missing parent 'a'
+    expect(result[1].linesDown.length).toBeGreaterThanOrEqual(1);
+    // The lineDown to 'a' should have a valid toLane
+    const lineToA = result[1].linesDown[0];
+    expect(lineToA.toLane).toBeGreaterThanOrEqual(0);
+    expect(lineToA.colorIndex).toBeGreaterThanOrEqual(0);
+  });
 });
 
 // ── computeActiveLanes ──────────────────────────────────────────────────────
@@ -306,13 +321,14 @@ describe('computeActiveLanes', () => {
     expect(computeActiveLanes([])).toEqual([]);
   });
 
-  test('single commit with no parents has empty active lanes for row 0', () => {
+  test('single commit with no parents has off-screen pass-through for row 0', () => {
     const result = computeLanes([commit('a')]);
     const active = computeActiveLanes(result);
 
     expect(active).toHaveLength(1);
-    // Row 0: no lines pass through (it's the only row)
-    expect(active[0]).toEqual([]);
+    // Row 0: commit 'a' has no visible children, so its lane gets a
+    // pass-through line from the top (branch enters from off-screen)
+    expect(active[0].map((a) => a.lane)).toContain(0);
   });
 
   test('linear chain: no intermediate pass-through lanes', () => {
@@ -325,8 +341,8 @@ describe('computeActiveLanes', () => {
     // Row 2 (a): line from b→a uses lane 0, lane 0 active
     expect(active).toHaveLength(3);
 
-    // Row 0 has no pass-through lines
-    expect(active[0]).toEqual([]);
+    // Row 0: commit c has no visible children → off-screen pass-through for lane 0
+    expect(active[0].map((a) => a.lane)).toContain(0);
     // Row 1: line from c(0)→b(0), both lanes are 0, active in row 1
     expect(active[1].map((a) => a.lane)).toContain(0);
     // Row 2: line from b(0)→a(0)
@@ -344,8 +360,8 @@ describe('computeActiveLanes', () => {
 
     expect(active).toHaveLength(4);
 
-    // Row 0 (d): empty
-    expect(active[0]).toEqual([]);
+    // Row 0 (d): d has no visible children → off-screen pass-through for lane 0
+    expect(active[0].map((a) => a.lane)).toContain(0);
 
     // Row 1 (c): lines from d→b (lane 0→0) and d→c (lane 0→lane for c)
     // Both lane 0 and c's lane should be active
@@ -363,14 +379,14 @@ describe('computeActiveLanes', () => {
 
     expect(active).toHaveLength(3);
 
-    // Row 0 (c): empty — no lines pass through above it
-    expect(active[0]).toEqual([]);
+    // Row 0 (c): c has no visible children → off-screen pass-through for lane 0
+    // (limited to its own row only; b's off-screen starts at row 1)
+    expect(active[0].map((a) => a.lane)).toContain(0);
 
-    // Row 1 (b): only lane 0 passes through (from c→a, which spans rows 1–2)
-    // Lane 1 starts at b itself (row 1), so it doesn't pass through row 1
+    // Row 1 (b): lane 0 from c→a (normal edge), lane 1 from b off-screen pass-through
     const row1Lanes = active[1].map((a) => a.lane);
     expect(row1Lanes).toContain(0);
-    expect(row1Lanes).not.toContain(1);
+    expect(row1Lanes).toContain(1);
 
     // Row 2 (a): both lanes active — lane 0 from c→a, lane 1 from b→a
     const row2Lanes = active[2].map((a) => a.lane);
@@ -384,9 +400,10 @@ describe('computeActiveLanes', () => {
     const result = computeLanes(commits);
     const active = computeActiveLanes(result);
 
-    // Only one commit, parent not in range → row 0 should be empty
+    // Only one commit, parent not in range. Commit has no visible children,
+    // so it gets an off-screen pass-through line from the top.
     expect(active).toHaveLength(1);
-    expect(active[0]).toEqual([]);
+    expect(active[0].map((a) => a.lane)).toContain(0);
   });
 
   test('active lanes include color indices from line segments', () => {
@@ -402,6 +419,72 @@ describe('computeActiveLanes', () => {
         }
       }
     }
+  });
+
+  test('draws pass-through lines from top for branches with off-screen children', () => {
+    // Simulate a paginated view where branch tips c and d have children off-screen.
+    // Only c, d, b, a are visible. c→b, d→b, b→a. a's parent is off-screen.
+    // c and d have no visible children (their children are off-screen).
+    const commits = [
+      commit('c', ['b']), // row 0 — branch tip, no visible children
+      commit('d', ['b']), // row 1 — branch tip, no visible children
+      commit('b', ['a']), // row 2 — has visible children c and d
+      commit('a', []), // row 3 — root, has visible child b
+    ];
+    const lanesResult = computeLanes(commits);
+    const active = computeActiveLanes(lanesResult);
+
+    // c and d have no visible children — their lanes should be active from row 0
+    // b has visible children — its lane comes from the normal edge processing
+
+    // Row 0: c's off-screen pass-through (lane 0, own row only), plus normal edge
+    // c→b starts at row 1. d's off-screen doesn't start until row 1.
+    expect(active[0].length).toBeGreaterThanOrEqual(1);
+    expect(active[0].map((a) => a.lane)).toContain(0);
+
+    // Row 1: d's off-screen pass-through (lane 1), c→b edge on lane 0,
+    // plus d's normal edge
+    expect(active[1].length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('off-screen lines skip over earlier commits on the same lane', () => {
+    // Construct data where two commits share lane 0, both without visible children.
+    // The second commit's off-screen line should start AFTER the first commit.
+    const laneData: LaneInfo[] = [
+      {
+        commit: { id: 'a', message: 'a', author: 'a', date: 3, parents: ['offscreen1'] },
+        lane: 0,
+        colorIndex: 0,
+        linesDown: [],
+      },
+      {
+        commit: { id: 'b', message: 'b', author: 'a', date: 2, parents: ['offscreen2'] },
+        lane: 1,
+        colorIndex: 1,
+        linesDown: [],
+      },
+      {
+        commit: { id: 'c', message: 'c', author: 'a', date: 1, parents: ['offscreen3'] },
+        lane: 0, // same lane as 'a'
+        colorIndex: 0,
+        linesDown: [],
+      },
+    ];
+    const active = computeActiveLanes(laneData);
+
+    // 'a' (row 0, lane 0): no visible children → off-screen from row 0 (its own row) to row 1
+    // 'b' (row 1, lane 1): no visible children → off-screen from row 1 (its own row) to row 2
+    // 'c' (row 2, lane 0): no visible children → off-screen from row 2 (its own row) to row 3
+
+    // Each off-screen pass-through is limited to its own row only.
+    // Row 0: lane 0 from 'a' (its own row)
+    expect(active[0]).toEqual([{ lane: 0, colorIndex: 0 }]);
+
+    // Row 1: lane 1 from 'b' (its own row)
+    expect(active[1]).toEqual([{ lane: 1, colorIndex: 1 }]);
+
+    // Row 2: lane 0 from 'c' (its own row)
+    expect(active[2]).toEqual([{ lane: 0, colorIndex: 0 }]);
   });
 });
 

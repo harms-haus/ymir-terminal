@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `usePaneBounds` refactored from fixed containers to dynamic registration
 - `TerminalManager` refactored for dynamic pane bounds lookup
 - DnD groups changed from hardcoded 'content'/'bottom' to dynamic pane IDs
+- Replace `computeLanes()` lane-assignment algorithm with topological-sort-based algorithm adapted from DoltHub `commit-graph` (Apache 2.0, vendored inline in `commit-graph-position.ts`); public API unchanged — no consumer code modified
+- Optimize `computeActiveLanes()` from O(n²) to O(n+E) using a sweep-line approach
 
 ### Refactoring
 

@@ -1,5 +1,6 @@
 import type { GitLogItem } from '@ymir/shared';
 import { GIT_GRAPH_COLORS } from './theme';
+import { computeGraphPosition, type CommitGraphNode } from './commit-graph-position';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -32,115 +33,96 @@ export const EMPTY_ACTIVE_LANES: ActiveLane[] = [];
 
 /**
  * Computes lane assignments and line segments for a git commit graph.
- * Processes commits newest→oldest (top to bottom, matching display order).
- * Each active lane tracks a single target parent hash; when a commit
- * appears it claims the lowest-numbered lane waiting for it, freeing
- * the rest. First parent stays on the commit's lane; additional parents
- * (merge targets) fan out to new lanes.
+ * Delegates column placement to the dolthub-derived `computeGraphPosition`
+ * algorithm, then maps its x-coordinates onto our LaneInfo structure.
  */
 export function computeLanes(commits: GitLogItem[]): LaneInfo[] {
   if (commits.length === 0) return [];
 
-  // Map: lane number → { targetHash, colorIndex }
-  // Represents lanes waiting for a specific parent commit to appear
-  const activeLanes = new Map<number, { targetHash: string; colorIndex: number }>();
+  // Visible commit hashes
+  const visibleHashes = new Set(commits.map((c) => c.id));
 
-  const freeLanes: number[] = [];
-  let nextLane = 0;
-  let nextColorIndex = 0;
-
-  const results: LaneInfo[] = [];
-
-  function takeFreeLane(): number {
-    if (freeLanes.length > 0) return freeLanes.shift()!;
-    return nextLane++;
+  // Build children map (only within visible set)
+  const childrenMap = new Map<string, string[]>();
+  for (const c of commits) {
+    for (const parentId of c.parents) {
+      if (visibleHashes.has(parentId)) {
+        let arr = childrenMap.get(parentId);
+        if (!arr) {
+          arr = [];
+          childrenMap.set(parentId, arr);
+        }
+        arr.push(c.id);
+      }
+    }
   }
 
-  for (const commit of commits) {
-    // Step 1: Find which active lanes target this commit
-    const targetingLanes: number[] = [];
-    for (const [lane, info] of activeLanes) {
-      if (info.targetHash === commit.id) {
-        targetingLanes.push(lane);
+  // Detect missing parents (parents not in the visible set) and
+  // track which visible commits reference each missing parent.
+  const missingParentHashes = new Set<string>();
+  const missingParentChildren = new Map<string, string[]>();
+  for (const c of commits) {
+    for (const parentId of c.parents) {
+      if (!visibleHashes.has(parentId)) {
+        missingParentHashes.add(parentId);
+        let arr = missingParentChildren.get(parentId);
+        if (!arr) {
+          arr = [];
+          missingParentChildren.set(parentId, arr);
+        }
+        arr.push(c.id);
       }
     }
-
-    // Step 2: Assign this commit a lane
-    let lane: number;
-    let colorIndex: number;
-
-    if (targetingLanes.length > 0) {
-      // Pick lowest-numbered targeting lane
-      targetingLanes.sort((a, b) => a - b);
-      lane = targetingLanes[0];
-      colorIndex = activeLanes.get(lane)!.colorIndex;
-
-      // Free other targeting lanes (they merge into this commit)
-      for (let i = 1; i < targetingLanes.length; i++) {
-        activeLanes.delete(targetingLanes[i]);
-        freeLanes.push(targetingLanes[i]);
-        freeLanes.sort((a, b) => a - b);
-      }
-
-      // Remove this lane from active (we'll re-add it for the parent below)
-      activeLanes.delete(lane);
-    } else {
-      // No child targeting this commit — it's a branch root or the first commit
-      lane = takeFreeLane();
-      colorIndex = nextColorIndex++ % GIT_GRAPH_COLORS.length;
-    }
-
-    // Step 3: For each parent, allocate a lane and add to activeLanes
-    const linesDown: LineSegment[] = [];
-    const parentLanes: {
-      parentId: string;
-      parentLane: number;
-      parentColor: number;
-    }[] = [];
-
-    for (let p = 0; p < commit.parents.length; p++) {
-      const parentId = commit.parents[p];
-
-      if (p === 0) {
-        // First parent stays on same lane
-        parentLanes.push({
-          parentId,
-          parentLane: lane,
-          parentColor: colorIndex,
-        });
-      } else {
-        // Additional parents (merge targets) get new lanes
-        const newLane = takeFreeLane();
-        const newColor = nextColorIndex++ % GIT_GRAPH_COLORS.length;
-        parentLanes.push({
-          parentId,
-          parentLane: newLane,
-          parentColor: newColor,
-        });
-      }
-    }
-
-    // Register parent lanes as active
-    for (const pl of parentLanes) {
-      activeLanes.set(pl.parentLane, {
-        targetHash: pl.parentId,
-        colorIndex: pl.parentColor,
-      });
-    }
-
-    // Build linesDown
-    for (const pl of parentLanes) {
-      linesDown.push({
-        fromLane: lane,
-        toLane: pl.parentLane,
-        colorIndex: pl.parentColor,
-      });
-    }
-
-    results.push({ commit, lane, colorIndex, linesDown });
   }
 
-  return results;
+  // Lookup map for O(1) commit access by id
+  const commitById = new Map(commits.map((c) => [c.id, c]));
+
+  // Create synthetic nodes for missing parents so the algorithm can
+  // still route edges to off-screen ancestors.
+  const syntheticNodes: CommitGraphNode[] = [];
+  for (const hash of missingParentHashes) {
+    const childIds = missingParentChildren.get(hash)!;
+    const earliestChildDate = Math.min(...childIds.map((id) => commitById.get(id)!.date));
+    syntheticNodes.push({
+      hash,
+      parents: [],
+      children: childIds,
+      commitDate: new Date(earliestChildDate * 1000 - 1),
+      x: -1,
+      y: -1,
+    });
+  }
+
+  // Create CommitGraphNode entries for visible commits
+  const visibleNodes: CommitGraphNode[] = commits.map((c) => ({
+    hash: c.id,
+    parents: c.parents,
+    children: childrenMap.get(c.id) ?? [],
+    commitDate: new Date(c.date * 1000),
+    x: -1,
+    y: -1,
+  }));
+
+  // Run the graph-position algorithm on the combined set
+  const allNodes = [...visibleNodes, ...syntheticNodes];
+  const { commitsMap } = computeGraphPosition(allNodes);
+
+  // Build LaneInfo[] for visible commits only, in ORIGINAL input order
+  return commits.map((commit) => {
+    const node = commitsMap.get(commit.id)!;
+    const lane = node.x;
+    const colorIndex = lane % GIT_GRAPH_COLORS.length;
+
+    const linesDown: LineSegment[] = commit.parents.map((parentId) => {
+      const parentNode = commitsMap.get(parentId);
+      const toLane = parentNode ? parentNode.x : lane;
+      const segColorIndex = toLane % GIT_GRAPH_COLORS.length;
+      return { fromLane: lane, toLane, colorIndex: segColorIndex };
+    });
+
+    return { commit, lane, colorIndex, linesDown };
+  });
 }
 
 // ── computeActiveLanes ──────────────────────────────────────────────────────
@@ -154,15 +136,13 @@ export function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
   const n = laneData.length;
   if (n === 0) return [];
 
-  const active: ActiveLane[][] = new Array(n);
-
-  // Build a map from hash → laneData index
+  // Map commit hash → row index
   const hashToIndex = new Map<string, number>();
   for (let i = 0; i < n; i++) {
     hashToIndex.set(laneData[i].commit.id, i);
   }
 
-  // Build lane → colorIndex map
+  // Map lane number → colorIndex (first-write-wins)
   const laneColorMap = new Map<number, number>();
   for (const info of laneData) {
     if (!laneColorMap.has(info.lane)) {
@@ -171,18 +151,51 @@ export function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
   }
   for (const info of laneData) {
     for (const seg of info.linesDown) {
+      if (!laneColorMap.has(seg.fromLane)) {
+        laneColorMap.set(seg.fromLane, seg.colorIndex);
+      }
       if (!laneColorMap.has(seg.toLane)) {
         laneColorMap.set(seg.toLane, seg.colorIndex);
       }
     }
   }
 
-  // For each commit at index i, look at each parent. The parent appears at
-  // some index j where j > i (commits are newest-first, parents are older).
-  // The line segment from i to j means both lanes (fromLane & toLane) are
-  // active for rows i+1 .. j-1.
-  const rowSets: Set<number>[] = new Array(n);
-  for (let i = 0; i < n; i++) rowSets[i] = new Set();
+  // Sweep-line: record start/end events per row instead of filling
+  // every intermediate row, reducing O(n²) to O(n + E) where E is the
+  // total number of edges.
+  const startEvents = new Map<number, number[]>();
+  const endEvents = new Map<number, number[]>();
+
+  const addEvent = (map: Map<number, number[]>, row: number, lane: number) => {
+    let arr = map.get(row);
+    if (!arr) {
+      arr = [];
+      map.set(row, arr);
+    }
+    arr.push(lane);
+  };
+
+  // Register lanes for branches that enter from off-screen (no visible children)
+  const hasVisibleChild = new Set<string>();
+  for (const info of laneData) {
+    for (const parentId of info.commit.parents) {
+      if (hashToIndex.has(parentId)) {
+        hasVisibleChild.add(parentId);
+      }
+    }
+  }
+
+  for (let i = 0; i < n; i++) {
+    const info = laneData[i];
+    if (!hasVisibleChild.has(info.commit.id)) {
+      // Limit off-screen pass-through to the commit's own row only.
+      // This prevents false visual connections when lanes are reused
+      // by unrelated branches, while still seamlessly connecting to
+      // normal edge events for genealogically related commits.
+      addEvent(startEvents, i, info.lane);
+      addEvent(endEvents, i + 1, info.lane);
+    }
+  }
 
   for (let i = 0; i < n; i++) {
     const info = laneData[i];
@@ -192,20 +205,37 @@ export function computeActiveLanes(laneData: LaneInfo[]): ActiveLane[][] {
       if (j === undefined) continue; // parent not in visible range
 
       const seg = info.linesDown[p];
-      for (let r = i + 1; r <= j; r++) {
-        rowSets[r].add(seg.fromLane);
-        rowSets[r].add(seg.toLane);
+      addEvent(startEvents, i + 1, seg.fromLane);
+      addEvent(endEvents, j + 1, seg.fromLane);
+      if (seg.toLane !== seg.fromLane) {
+        addEvent(startEvents, i + 1, seg.toLane);
+        addEvent(endEvents, j + 1, seg.toLane);
       }
     }
   }
 
-  // Convert sets to ActiveLane arrays
-  for (let i = 0; i < n; i++) {
-    const lanes = Array.from(rowSets[i]);
-    active[i] = lanes.map((l) => ({
-      lane: l,
-      colorIndex: laneColorMap.get(l) ?? 0,
-    }));
+  // Single sweep collecting active lanes via reference counts
+  const activeCounts = new Map<number, number>(); // lane → ref count
+  const active: ActiveLane[][] = new Array(n);
+
+  for (let r = 0; r < n; r++) {
+    // Process starts
+    for (const lane of startEvents.get(r) ?? []) {
+      activeCounts.set(lane, (activeCounts.get(lane) ?? 0) + 1);
+    }
+    // Process ends
+    for (const lane of endEvents.get(r) ?? []) {
+      const count = activeCounts.get(lane)! - 1;
+      if (count === 0) activeCounts.delete(lane);
+      else activeCounts.set(lane, count);
+    }
+    // Snapshot current active lanes
+    active[r] = [...activeCounts.keys()]
+      .sort((a, b) => a - b)
+      .map((lane) => ({
+        lane,
+        colorIndex: laneColorMap.get(lane) ?? 0,
+      }));
   }
 
   return active;
