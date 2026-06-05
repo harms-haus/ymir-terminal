@@ -21,6 +21,7 @@ class WSClient {
   private status: ConnectionStatus = 'disconnected';
   private intentionalClose = false;
   private pendingMessages: MessageEnvelope[] = [];
+  private disconnectEpoch = 0;
 
   connect(url: string): void {
     this.url = url;
@@ -74,12 +75,21 @@ class WSClient {
     this.notifyStatus('disconnected');
   }
 
+  getDisconnectEpoch(): number {
+    return this.disconnectEpoch;
+  }
+
   getStatus(): ConnectionStatus {
     return this.status;
   }
 
   getUrl(): string {
     return this.url;
+  }
+
+  disconnectAndRejectPending(): void {
+    this.disconnectEpoch++;
+    this.disconnect();
   }
 
   private createConnection(): void {

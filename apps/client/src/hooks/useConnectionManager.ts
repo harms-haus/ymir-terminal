@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { wsClient, type ConnectionStatus } from '../lib/ws-client';
 import {
   getFavorites,
@@ -14,6 +15,8 @@ import {
 } from '../lib/connection-storage';
 import { useConnectionStatus } from './useConnectionStatus';
 import { useTauri } from './useTauri';
+import { useAuth } from './useAuth';
+import { useConnectionUrl, useSetConnectionUrl } from '../contexts/ConnectionUrlContext';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -78,11 +81,10 @@ function getSidecarPort(): number | null {
 export function useConnectionManager(): UseConnectionManagerReturn {
   const { status } = useConnectionStatus();
   const { isTauri, getTauriConfig } = useTauri();
-
-  const [currentUrl, setCurrentUrl] = useState<string | null>(() => {
-    const url = wsClient.getUrl();
-    return url || null;
-  });
+  const queryClient = useQueryClient();
+  const { clearToken, suppressAutoLogin } = useAuth();
+  const currentUrl = useConnectionUrl();
+  const setConnectionUrl = useSetConnectionUrl();
 
   const [favorites, setFavorites] = useState<ConnectionEntry[]>(() => getFavorites());
 
@@ -101,22 +103,40 @@ export function useConnectionManager(): UseConnectionManagerReturn {
   // Connect / Disconnect
   // -----------------------------------------------------------------------
 
-  const connect = useCallback((host: string, port: number) => {
-    if (!HOSTNAME_RE.test(host)) return;
-    const url = `ws://${host}:${port}/ws`;
-    wsClient.setToken('');
-    wsClient.disconnect();
-    wsClient.connect(url);
-    setCurrentUrl(url);
-    storageAddRecentConnection(host, port);
-    setRecentConnections(getRecentConnections());
-  }, []);
+  const connect = useCallback(
+    (host: string, port: number) => {
+      if (!HOSTNAME_RE.test(host)) return;
+      const url = `ws://${host}:${port}/ws`;
+
+      // Clear all cached data from previous session
+      queryClient.clear();
+      clearToken();
+
+      // Suppress Tauri auto-login when switching to a non-local server
+      if (host !== '127.0.0.1' && host !== 'localhost') {
+        suppressAutoLogin();
+      }
+
+      // Tear down old connection and reject any pending requests
+      wsClient.disconnectAndRejectPending();
+
+      // Update shared connection URL context and connect
+      setConnectionUrl(url);
+      wsClient.connect(url);
+
+      storageAddRecentConnection(host, port);
+      setRecentConnections(getRecentConnections());
+    },
+    [queryClient, clearToken, suppressAutoLogin, setConnectionUrl],
+  );
 
   const disconnect = useCallback(() => {
+    queryClient.clear();
+    clearToken();
+    suppressAutoLogin();
     wsClient.disconnect();
-    wsClient.setToken('');
-    setCurrentUrl(null);
-  }, []);
+    setConnectionUrl(null);
+  }, [queryClient, clearToken, suppressAutoLogin, setConnectionUrl]);
 
   const connectToLocal = useCallback(async () => {
     const port = getSidecarPort();

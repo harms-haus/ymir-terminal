@@ -17,6 +17,7 @@ import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider } from '@dnd-kit/react';
 import { FileClipboardProvider } from '../contexts/FileClipboardContext';
+import { useConnectionUrl } from '../contexts/ConnectionUrlContext';
 import { usePaneBounds } from '../hooks/usePaneBounds';
 import { useTerminalRegistry } from '../hooks/useTerminalRegistry';
 import { useWorkspaceSelection } from '../hooks/useWorkspaceSelection';
@@ -346,12 +347,14 @@ function WorkspaceViewInner() {
 }
 
 export function WorkspaceView() {
+  const connectionUrl = useConnectionUrl();
+
   return (
     <DialogProvider>
       <ToastProvider>
         <PaneVisibilityProvider>
           <FileClipboardProvider>
-            <WorkspaceViewInner />
+            <WorkspaceViewInner key={connectionUrl} />
           </FileClipboardProvider>
         </PaneVisibilityProvider>
       </ToastProvider>

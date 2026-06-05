@@ -6,6 +6,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { Route as rootRoute } from './routes/__root';
 import { Route as indexRoute } from './routes/index';
 import { AuthProvider } from './hooks/useAuth';
+import { ConnectionUrlProvider } from './contexts/ConnectionUrlContext';
 
 const routeTree = rootRoute.addChildren([indexRoute]);
 
@@ -104,11 +105,13 @@ const rootElement = document.getElementById('root')!;
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppErrorBoundary>
-          <RouterProvider router={router} />
-        </AppErrorBoundary>
-      </AuthProvider>
+      <ConnectionUrlProvider>
+        <AuthProvider>
+          <AppErrorBoundary>
+            <RouterProvider router={router} />
+          </AppErrorBoundary>
+        </AuthProvider>
+      </ConnectionUrlProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

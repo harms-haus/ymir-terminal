@@ -38,14 +38,19 @@ The window has `decorations: false` — no native title bar. Instead:
 In Tauri mode, the `useTauri` hook detects the environment and the `useAuth` hook automatically:
 
 1. Calls `get_tauri_config` Tauri command to get the auto-generated password
-2. Calls `login(password)` to authenticate with the sidecar server
-3. The JWT token is stored in localStorage for subsequent requests
+2. Stores the sidecar port on `window.__YMIR_SIDECAR_PORT`
+3. Calls `login(password)` to authenticate with the sidecar server
+4. The JWT token is stored in localStorage for subsequent requests
+
+The WebSocket URL used during login comes from `ConnectionUrlContext` (via `useConnectionUrl()`), **not** constructed directly inside `useAuth`. In Tauri mode, the context is populated from the sidecar port; in browser mode, it falls back to `window.location`.
+
+Auto-login is suppressed when `suppressAutoLogin()` is called — this sets an internal ref that prevents the Tauri auto-login effect from firing. This is used when the user switches to a non-local server (e.g. a remote host), so the app doesn't immediately reconnect to the local sidecar.
 
 #### Sidecar Port Global
 
 The Rust backend injects `window.__YMIR_SIDECAR_PORT` into the webview after the sidecar starts. This global is used by:
 
-- `useAuth` — to construct the WebSocket URL for auto-login
+- `useAuth` — stores the port for reference during auto-login
 - `useConnectionManager` — to provide a "Connect to Local Server" button in the Connection Manager popover
 
 The port value comes from parsing the sidecar's stdout for the pattern `"Ymir server listening on 127.0.0.1:{port}"`.
@@ -66,9 +71,10 @@ The Connection Manager popover provides a "Connect to Local Server" button (visi
 
 ## Frontend Files
 
-| File                                    | Purpose                                                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `apps/client/src/hooks/useTauri.ts`     | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`)                                          |
-| `apps/client/src/hooks/useAuth.ts`      | Auto-login when `isTauri` is true                                                                            |
-| `apps/client/src/components/TopBar.tsx` | Drag region, ConnectionManagerPopover (left), command bar (center), window controls and pane toggles (right) |
-| `apps/client/src/lib/theme.ts`          | Window control theme constants                                                                               |
+| File                                                | Purpose                                                                                                                                                        |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/client/src/hooks/useTauri.ts`                 | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`)                                                                                            |
+| `apps/client/src/hooks/useAuth.ts`                  | Auto-login when `isTauri` is true; reads WebSocket URL from `ConnectionUrlContext`; supports `suppressAutoLogin()` to skip auto-login on server switch         |
+| `apps/client/src/components/TopBar.tsx`             | Drag region, ConnectionManagerPopover (left), command bar (center), window controls and pane toggles (right)                                                   |
+| `apps/client/src/contexts/ConnectionUrlContext.tsx` | Shared context for tracking the active WebSocket connection URL. Used by `AuthProvider` for auto-reconnect and by `WorkspaceView` for remount-on-server-switch |
+| `apps/client/src/lib/theme.ts`                      | Window control theme constants                                                                                                                                 |

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ConnectionUrlContext` — shared React context for tracking active connection URL across the app
+- `clearToken()` and `suppressAutoLogin()` to AuthProvider — enables proper auth state management during server switches
+- `disconnectAndRejectPending()` to WSClient — rejects in-flight requests when switching servers
+- Stale request rejection in `sendRequest()` — uses epoch counter to detect connection resets
+- Connection manager popover on login page — users can switch servers before authenticating
 - Pane splitting: recursive binary tree layout with dynamic left/right and top/bottom splits
 - `SplitPaneLayout` and `SplitLeafPane` components for recursive pane rendering
 - `useSplitLayout` hook with debounced layout persistence per workspace
@@ -36,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- WorkspaceViewInner remounts on server switch via `key={connectionUrl}` — ensures all state is properly reset
+- useConnectionManager now clears React Query cache and auth state when connecting to a new server
+- AuthProvider uses ConnectionUrlContext instead of page origin for WebSocket URL resolution
 - Pane type changed from `'content' | 'bottom'` to dynamic string IDs
 - `useTerminalRegistry` refactored from 2-pane to N-pane model
 - `usePaneBounds` refactored from fixed containers to dynamic registration
@@ -65,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix file handler error propagation
 - Fix `stopAllWatchers` Map mutation during iteration
 - Fix auth session leak on reconnect
+- Fix server switching not properly re-initializing application state like a fresh start
 - Fix `useCreateTerminalTab` stale `tabs.length` closure
 - Fix hardcoded `isRebaseInProgress` and merge target
 - Fix `FileTree` listener churn and `useTheme` memo
@@ -92,6 +101,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add arrow-key navigation to `FileTree`
 - Make `TabBar` context menu keyboard accessible
 - Expand `Dialog` focus trap to include `select`/`textarea`/`a[href]`
+
+### Removed
+
+- `getWsUrl()` function from useAuth (replaced by ConnectionUrlContext)
 
 ### Dead Code Removal
 

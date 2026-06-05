@@ -10,10 +10,12 @@ type MessageHandler = (envelope: MessageEnvelope) => void;
 
 let messageHandlers: MessageHandler[] = [];
 let sentEnvelopes: MessageEnvelope[] = [];
+let disconnectEpoch = 0;
 
 function resetMock() {
   messageHandlers = [];
   sentEnvelopes = [];
+  disconnectEpoch = 0;
 }
 
 mock.module('./ws-client', () => {
@@ -27,6 +29,9 @@ mock.module('./ws-client', () => {
       },
       send(envelope: MessageEnvelope) {
         sentEnvelopes.push(envelope);
+      },
+      getDisconnectEpoch() {
+        return disconnectEpoch;
       },
     },
   };
@@ -257,6 +262,144 @@ describe('sendRequest', () => {
       globalThis.setTimeout = originalSetTimeout;
       globalThis.clearTimeout = originalClearTimeout;
     }
+  });
+
+  // -----------------------------------------------------------------------
+  // Epoch change: rejects stale in-flight request with 'Connection reset'
+  // -----------------------------------------------------------------------
+  test('rejects with Connection reset when disconnectEpoch changes during in-flight request', async () => {
+    // Use fake timers so we can control when the timeout fires
+    const fakeTimers: Array<{ cb: () => void; delay: number }> = [];
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+
+    globalThis.setTimeout = ((cb: () => void, delay?: number) => {
+      fakeTimers.push({ cb, delay: delay ?? 0 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return fakeTimers.length as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    globalThis.clearTimeout = (() => {}) as any;
+
+    try {
+      const mod = await import(`./send-request?_t=${Date.now()}`);
+      const sendRequestFresh = mod.sendRequest;
+
+      // Epoch starts at 0 (from resetMock)
+      const promise = sendRequestFresh('test-channel', { action: 'stale' });
+      expect(sentEnvelopes.length).toBe(1);
+      const sent = sentEnvelopes[0];
+
+      // Epoch increments (simulates disconnectAndRejectPending)
+      disconnectEpoch++;
+
+      // Simulate a late response arriving (now epoch has changed)
+      simulateIncoming({
+        v: PROTOCOL_VERSION,
+        type: 'response',
+        id: sent.id,
+        payload: { result: 'old-data' },
+      });
+
+      await expect(promise).rejects.toThrow('Connection reset');
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // Epoch change: timeout also rejects with Connection reset if epoch changed
+  // -----------------------------------------------------------------------
+  test('rejects with Connection reset (not timeout) when epoch changes before timeout fires', async () => {
+    const fakeTimers: Array<{ cb: () => void; delay: number }> = [];
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+
+    globalThis.setTimeout = ((cb: () => void, delay?: number) => {
+      fakeTimers.push({ cb, delay: delay ?? 0 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return fakeTimers.length as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    globalThis.clearTimeout = (() => {}) as any;
+
+    try {
+      const mod = await import(`./send-request?_t=${Date.now()}`);
+      const sendRequestFresh = mod.sendRequest;
+
+      const promise = sendRequestFresh('test-channel', { action: 'stale-timeout' });
+      expect(sentEnvelopes.length).toBe(1);
+
+      // Epoch increments before timeout fires
+      disconnectEpoch++;
+
+      // Fire the timeout handler — should reject with Connection reset, not timeout
+      fakeTimers[0].cb();
+
+      await expect(promise).rejects.toThrow('Connection reset');
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // No epoch change: normal timeout still works
+  // -----------------------------------------------------------------------
+  test('rejects with timeout error when epoch has not changed', async () => {
+    const fakeTimers: Array<{ cb: () => void; delay: number }> = [];
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+
+    globalThis.setTimeout = ((cb: () => void, delay?: number) => {
+      fakeTimers.push({ cb, delay: delay ?? 0 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return fakeTimers.length as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    globalThis.clearTimeout = (() => {}) as any;
+
+    try {
+      const mod = await import(`./send-request?_t=${Date.now()}`);
+      const sendRequestFresh = mod.sendRequest;
+
+      const promise = sendRequestFresh('test-channel', { action: 'normal-timeout' });
+      expect(sentEnvelopes.length).toBe(1);
+
+      // Epoch stays the same (0)
+      fakeTimers[0].cb();
+
+      await expect(promise).rejects.toThrow('Request timeout');
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+    }
+  });
+
+  // -----------------------------------------------------------------------
+  // Successful response before epoch change resolves normally
+  // -----------------------------------------------------------------------
+  test('resolves normally when response arrives before epoch change', async () => {
+    const promise = sendRequest<{ ok: boolean }>('test-channel', {
+      action: 'before-epoch',
+    });
+
+    const sent = sentEnvelopes[0];
+
+    // Simulate response while epoch is still 0
+    simulateIncoming({
+      v: PROTOCOL_VERSION,
+      type: 'response',
+      id: sent.id,
+      payload: { ok: true },
+    });
+
+    const result = await promise;
+    expect(result).toEqual({ ok: true });
   });
 
   // -----------------------------------------------------------------------
