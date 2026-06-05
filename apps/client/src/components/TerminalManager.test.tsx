@@ -230,9 +230,9 @@ describe('TerminalManager', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 5. Only renders active terminal as visible (display: block vs none)
+  // 5. Only renders active terminal as visible (visibility: visible vs hidden)
   // -----------------------------------------------------------------------
-  test('only the active terminal has display: block; inactive terminals have display: none', () => {
+  test('only the active terminal has visibility: visible; inactive terminals have visibility: hidden', () => {
     const active = makeTerminalEntry({
       terminalId: 'term-active',
       tabId: 'tab-active',
@@ -255,11 +255,13 @@ describe('TerminalManager', () => {
     });
 
     const activeWrapper = getByTestId('mock-terminal-term-active').parentElement!;
-    expect(activeWrapper.style.display).toBe('block');
+    expect(activeWrapper.style.display).not.toBe('none');
+    expect(activeWrapper.style.visibility).not.toBe('hidden');
     expect(activeWrapper.style.pointerEvents).toBe('auto');
 
     const inactiveWrapper = getByTestId('mock-terminal-term-inactive').parentElement!;
-    expect(inactiveWrapper.style.display).toBe('none');
+    expect(inactiveWrapper.style.display).not.toBe('none');
+    expect(inactiveWrapper.style.visibility).toBe('hidden');
     expect(inactiveWrapper.style.pointerEvents).toBe('none');
   });
 
@@ -344,5 +346,182 @@ describe('TerminalManager', () => {
     // tab-2 ref should be cleaned up
     expect(terminalRefs.has('tab-1')).toBe(true);
     expect(terminalRefs.has('tab-2')).toBe(false);
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. Uses last known bounds instead of 0×0 when pane bounds become null
+  // -----------------------------------------------------------------------
+  test('uses last known bounds instead of 0×0 when pane bounds become null', () => {
+    const entry = makeTerminalEntry({
+      terminalId: 'term-lkb',
+      tabId: 'tab-lkb',
+      owningPane: 'content',
+      isActive: true,
+    });
+
+    const { getByTestId, rerender } = renderManager({
+      terminals: [entry],
+      paneBounds: {
+        content: { top: 10, left: 20, width: 500, height: 400 },
+        bottom: null,
+      },
+    });
+
+    // Initially positioned at the real bounds
+    const wrapper = getByTestId('mock-terminal-term-lkb').parentElement!;
+    expect(wrapper.style.width).toBe('500px');
+    expect(wrapper.style.height).toBe('400px');
+    expect(wrapper.style.top).toBe('10px');
+    expect(wrapper.style.left).toBe('20px');
+
+    // Re-render with bounds returning null for 'content'
+    const getPaneBoundsNull = makeGetPaneBounds({
+      content: null,
+      bottom: null,
+    });
+    rerender(
+      React.createElement(TerminalManager, {
+        terminals: [entry],
+        getPaneBounds: getPaneBoundsNull,
+        terminalRefs: { current: capturedTerminalRefs! } as React.MutableRefObject<
+          Map<string, { focus(): void }>
+        >,
+      }),
+    );
+
+    // The wrapper should STILL have the last known bounds, not 0×0
+    const wrapperAfter = getByTestId('mock-terminal-term-lkb').parentElement!;
+    expect(wrapperAfter.style.width).toBe('500px');
+    expect(wrapperAfter.style.height).toBe('400px');
+    expect(wrapperAfter.style.top).toBe('10px');
+    expect(wrapperAfter.style.left).toBe('20px');
+  });
+
+  // -----------------------------------------------------------------------
+  // 10. Inactive terminal uses visibility:hidden instead of display:none
+  // -----------------------------------------------------------------------
+  test('inactive terminal uses visibility:hidden instead of display:none', () => {
+    const active = makeTerminalEntry({
+      terminalId: 'term-active-vis',
+      tabId: 'tab-active-vis',
+      owningPane: 'content',
+      isActive: true,
+    });
+    const inactive = makeTerminalEntry({
+      terminalId: 'term-inactive-vis',
+      tabId: 'tab-inactive-vis',
+      owningPane: 'content',
+      isActive: false,
+    });
+
+    const { getByTestId } = renderManager({
+      terminals: [active, inactive],
+      paneBounds: {
+        content: { top: 0, left: 0, width: 800, height: 600 },
+        bottom: null,
+      },
+    });
+
+    // Active terminal: visibility visible, no display:none
+    const activeWrapper = getByTestId('mock-terminal-term-active-vis').parentElement!;
+    expect(activeWrapper.style.display).not.toBe('none');
+    expect(activeWrapper.style.visibility).not.toBe('hidden');
+    expect(activeWrapper.style.width).toBe('800px');
+    expect(activeWrapper.style.height).toBe('600px');
+
+    // Inactive terminal: must use visibility:hidden, NOT display:none
+    const inactiveWrapper = getByTestId('mock-terminal-term-inactive-vis').parentElement!;
+    expect(inactiveWrapper.style.display).not.toBe('none');
+    expect(inactiveWrapper.style.visibility).toBe('hidden');
+    // The inactive terminal should still have correct dimensions
+    expect(inactiveWrapper.style.width).toBe('800px');
+    expect(inactiveWrapper.style.height).toBe('600px');
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. Terminal that never had bounds still renders in a 0×0 div as fallback
+  // -----------------------------------------------------------------------
+  test('terminal that never had bounds still renders in a 0×0 div as fallback', () => {
+    const entry = makeTerminalEntry({
+      terminalId: 'term-nobounds',
+      tabId: 'tab-nobounds',
+      owningPane: 'newpane',
+      isActive: true,
+    });
+
+    // 'newpane' is not in the bounds map at all — getPaneBounds returns null
+    const { queryByTestId } = renderManager({
+      terminals: [entry],
+      paneBounds: {
+        content: { top: 0, left: 0, width: 800, height: 600 },
+        bottom: null,
+      },
+    });
+
+    const terminal = queryByTestId('mock-terminal-term-nobounds');
+    expect(terminal).not.toBeNull();
+
+    const wrapper = terminal!.parentElement!;
+    // No prior render for 'newpane' → 0×0 fallback
+    expect(wrapper.style.width).toBe('0px');
+    expect(wrapper.style.height).toBe('0px');
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. Bounds are restored when a pane returns after being null
+  // -----------------------------------------------------------------------
+  test('bounds are restored when a pane returns after being null', () => {
+    const entry = makeTerminalEntry({
+      terminalId: 'term-restore',
+      tabId: 'tab-restore',
+      owningPane: 'content',
+      isActive: true,
+    });
+
+    const { getByTestId, rerender } = renderManager({
+      terminals: [entry],
+      paneBounds: {
+        content: { top: 0, left: 0, width: 800, height: 600 },
+        bottom: null,
+      },
+    });
+
+    // Phase 1: valid bounds
+    let wrapper = getByTestId('mock-terminal-term-restore').parentElement!;
+    expect(wrapper.style.width).toBe('800px');
+    expect(wrapper.style.height).toBe('600px');
+
+    // Phase 2: bounds become null → should preserve last known (800×600)
+    rerender(
+      React.createElement(TerminalManager, {
+        terminals: [entry],
+        getPaneBounds: makeGetPaneBounds({ content: null, bottom: null }),
+        terminalRefs: { current: capturedTerminalRefs! } as React.MutableRefObject<
+          Map<string, { focus(): void }>
+        >,
+      }),
+    );
+    wrapper = getByTestId('mock-terminal-term-restore').parentElement!;
+    expect(wrapper.style.width).toBe('800px');
+    expect(wrapper.style.height).toBe('600px');
+
+    // Phase 3: bounds come back with NEW dimensions → should use the new values
+    rerender(
+      React.createElement(TerminalManager, {
+        terminals: [entry],
+        getPaneBounds: makeGetPaneBounds({
+          content: { top: 50, left: 50, width: 700, height: 500 },
+          bottom: null,
+        }),
+        terminalRefs: { current: capturedTerminalRefs! } as React.MutableRefObject<
+          Map<string, { focus(): void }>
+        >,
+      }),
+    );
+    wrapper = getByTestId('mock-terminal-term-restore').parentElement!;
+    expect(wrapper.style.width).toBe('700px');
+    expect(wrapper.style.height).toBe('500px');
+    expect(wrapper.style.top).toBe('50px');
+    expect(wrapper.style.left).toBe('50px');
   });
 });
