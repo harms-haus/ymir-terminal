@@ -56,6 +56,16 @@ export function useSplitLayout(scopeKey: string | null): UseSplitLayoutResult {
   // Derived pane IDs
   const paneIds = useMemo(() => collectPaneIds(layout), [layout]);
 
+  // Helper to persist a layout snapshot to config
+  const persistLayout = useCallback((scope: string, node: LayoutNode) => {
+    sendRequest('config.set', {
+      key: `pane_layout_${scope}`,
+      value: serializeLayout(node),
+    }).catch(() => {
+      // Silently ignore save failures
+    });
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Debounced persistence
   // ---------------------------------------------------------------------------
@@ -68,21 +78,22 @@ export function useSplitLayout(scopeKey: string | null): UseSplitLayoutResult {
 
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
-      sendRequest('config.set', {
-        key: `pane_layout_${scopeKeyRef.current}`,
-        value: serializeLayout(layoutRef.current),
-      }).catch(() => {
-        // Silently ignore save failures
-      });
+      persistLayout(scopeKeyRef.current!, layoutRef.current);
     }, 300);
 
     return () => {
       if (saveTimerRef.current != null) {
+        // A save was pending but got cancelled by the cleanup. Immediately
+        // fire the save so the layout isn't silently dropped (e.g. when the
+        // user switches worktrees and later returns).
+        const pendingScopeKey = scopeKeyRef.current;
+        const pendingLayout = layoutRef.current;
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
+        if (pendingScopeKey != null) persistLayout(pendingScopeKey, pendingLayout);
       }
     };
-  }, [layout, scopeKey]);
+  }, [layout, scopeKey, persistLayout]);
 
   // ---------------------------------------------------------------------------
   // splitPane
