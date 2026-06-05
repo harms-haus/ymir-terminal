@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { TabInfo } from '@ymir/shared';
+import { generateId } from '@ymir/shared';
 import { parseScopeKey } from './useWorkspaceSelection';
 
 export interface Tab {
@@ -141,7 +142,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
       const scopeKey = currentScopeKeyRef.current;
       if (!scopeKey) return '';
       const { workspaceId: realWorkspaceId } = parseScopeKey(scopeKey);
-      const id = crypto.randomUUID();
+      const id = generateId();
       const tab: Tab = { id, workspaceId: realWorkspaceId, ...opts };
       setWorkspaceStates((prev) => {
         const newMap = new Map(prev);

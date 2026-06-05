@@ -834,4 +834,75 @@ describe('WSClient', () => {
     teardownMockWS();
     setupMockWS();
   });
+
+  // -----------------------------------------------------------------------
+  // BUG-FIX: disconnect() nullifies WebSocket event handlers before closing
+  // -----------------------------------------------------------------------
+  test('disconnect() nullifies WebSocket event handlers before closing', () => {
+    const { wsClient } = wsClientModule;
+    wsClient.connect('ws://localhost:8080');
+    const ws = MockWebSocket.instances[0];
+    ws.simulateOpen();
+
+    // Confirm handlers are set before disconnect
+    expect(ws.onopen).not.toBeNull();
+    expect(ws.onmessage).not.toBeNull();
+    expect(ws.onclose).not.toBeNull();
+
+    wsClient.disconnect();
+
+    // After disconnect, all event handlers on the WebSocket should be nulled
+    // to prevent stale callbacks from firing.
+    expect(ws.onopen).toBeNull();
+    expect(ws.onmessage).toBeNull();
+    expect(ws.onclose).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // BUG-FIX: stale onclose after disconnect() does not trigger reconnect
+  // -----------------------------------------------------------------------
+  test('stale onclose after disconnect() does not trigger reconnect', () => {
+    const { wsClient } = wsClientModule;
+
+    const originalSetTimeout = globalThis.setTimeout;
+    const timers: Array<{ cb: () => void; delay: number }> = [];
+    globalThis.setTimeout = ((cb: () => void, delay?: number) => {
+      const id = timers.length;
+      timers.push({ cb, delay: delay ?? 0 });
+      return id as any;
+    }) as any;
+
+    try {
+      // --- Phase 1: connect, open, capture stale handler ---
+      wsClient.connect('ws://localhost:8080');
+      const wsOld = MockWebSocket.instances[0];
+      wsOld.simulateOpen();
+
+      // Save a reference to the old socket's onclose handler
+      const staleOnClose = wsOld.onclose!;
+
+      // Disconnect — the fix should null the handler on wsOld
+      wsClient.disconnect();
+
+      // --- Phase 2: reconnect a fresh socket ---
+      wsClient.connect('ws://localhost:8080');
+      const wsNew = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+      wsNew.simulateOpen();
+      expect(wsClient.getStatus()).toBe('connected');
+      const instanceCountBefore = MockWebSocket.instances.length;
+
+      // --- Phase 3: fire the stale onclose from the OLD socket ---
+      // If handlers were properly nulled by disconnect(), staleOnClose is
+      // a no-op closure that does nothing.  If not, it still holds a live
+      // reference to the WSClient and will call attemptReconnect() because
+      // intentionalClose was reset to false by the new connect() call.
+      staleOnClose?.({});
+
+      // No ghost reconnect should have been triggered.
+      expect(MockWebSocket.instances.length).toBe(instanceCountBefore);
+      expect(wsClient.getStatus()).toBe('connected');
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
 });

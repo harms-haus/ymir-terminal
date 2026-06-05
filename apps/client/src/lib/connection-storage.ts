@@ -2,6 +2,8 @@
 // localStorage-backed storage for connection favorites & recent connections.
 // ---------------------------------------------------------------------------
 
+import { generateId } from '@ymir/shared';
+
 const FAVORITES_KEY = 'ymir-connection-favorites';
 const RECENT_KEY = 'ymir-connection-recent';
 const MAX_RECENT = 10;
@@ -67,7 +69,7 @@ export function addFavorite(entry: Omit<ConnectionEntry, 'id' | 'createdAt'>): C
   }
 
   const newEntry: ConnectionEntry = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     label: entry.label,
     host: entry.host,
     port: entry.port,
@@ -125,7 +127,7 @@ export function addRecentConnection(host: string, port: number, label?: string):
     if (label !== undefined) existing.label = label;
   } else {
     const entry: RecentConnection = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       label: label ?? `${host}:${port}`,
       host,
       port,

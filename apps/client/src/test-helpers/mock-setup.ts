@@ -21,6 +21,7 @@
  */
 
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
+import { generateId } from '@ymir/shared';
 import React from 'react';
 import { render, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -99,7 +100,7 @@ export function createMockTabsState(overrides?: Partial<MockTabsState>): MockTab
   return {
     tabs: [],
     activeTabId: null,
-    createTab: (_opts) => crypto.randomUUID(),
+    createTab: (_opts) => generateId(),
     closeTab: (_tabId) => {},
     activateTab: (_tabId) => {},
     updateTabTitle: (_tabId, _title) => {},
@@ -128,7 +129,7 @@ export function createMockTerminalState(overrides?: Partial<MockTerminalState>):
   return {
     sendData: (_data: string) => {},
     onOutput: (_handler: (data: string) => void) => () => {},
-    createTerminal: async (_workspaceId: string) => crypto.randomUUID(),
+    createTerminal: async (_workspaceId: string) => generateId(),
     closeTerminal: async () => {},
     resizeTerminal: (_cols: number, _rows: number) => {},
     ...overrides,

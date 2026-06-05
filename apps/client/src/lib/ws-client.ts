@@ -68,6 +68,9 @@ class WSClient {
     this.pendingMessages = [];
 
     if (this.ws) {
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onclose = null;
       this.ws.close();
       this.ws = null;
     }
@@ -103,15 +106,18 @@ class WSClient {
     }
 
     this.notifyStatus('connecting');
-    this.ws = new WebSocket(this.url);
+    const ws = new WebSocket(this.url);
+    this.ws = ws;
 
-    this.ws.onopen = () => {
+    ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.reconnectAttempts = 0;
       this.notifyStatus('connected');
       this.flushPendingMessages();
     };
 
-    this.ws.onmessage = (ev: MessageEvent) => {
+    ws.onmessage = (ev: MessageEvent) => {
+      if (this.ws !== ws) return;
       try {
         const envelope = JSON.parse(ev.data) as MessageEnvelope;
         if (envelope.v !== PROTOCOL_VERSION) {
@@ -127,7 +133,8 @@ class WSClient {
       }
     };
 
-    this.ws.onclose = () => {
+    ws.onclose = () => {
+      if (this.ws !== ws) return;
       if (this.intentionalClose) {
         this.notifyStatus('disconnected');
         return;

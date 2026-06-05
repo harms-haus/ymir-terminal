@@ -251,4 +251,35 @@ describe('ConnectionUrlContext', () => {
     });
     expect(result.current.url).toBe('ws://host-c:3000/ws');
   });
+
+  // 14. initializes URL from __YMIR_SIDECAR_PORT when available
+  test('initializes URL from __YMIR_SIDECAR_PORT when available', () => {
+    window.__YMIR_SIDECAR_PORT = 9999;
+    try {
+      const { result } = renderHook(() => useBoth(), { wrapper });
+      expect(result.current.url).toBe('ws://127.0.0.1:9999/ws');
+    } finally {
+      delete window.__YMIR_SIDECAR_PORT;
+    }
+  });
+
+  // 15. URL remains null when __YMIR_SIDECAR_PORT is not set and wsClient.getUrl() is empty
+  test('URL remains null when __YMIR_SIDECAR_PORT is not set and wsClient.getUrl() is empty', () => {
+    delete window.__YMIR_SIDECAR_PORT;
+    const { result } = renderHook(() => useBoth(), { wrapper });
+    expect(result.current.url).toBeNull();
+  });
+
+  // 16. wsClient.getUrl() takes precedence over __YMIR_SIDECAR_PORT
+  test('wsClient.getUrl() takes precedence over __YMIR_SIDECAR_PORT', () => {
+    window.__YMIR_SIDECAR_PORT = 9999;
+    try {
+      // Set the wsClient URL to a non-empty value so getUrl() returns it
+      mockWs.simulateStatusChange('disconnected', 'ws://other-host:5000/ws');
+      const { result } = renderHook(() => useBoth(), { wrapper });
+      expect(result.current.url).toBe('ws://other-host:5000/ws');
+    } finally {
+      delete window.__YMIR_SIDECAR_PORT;
+    }
+  });
 });

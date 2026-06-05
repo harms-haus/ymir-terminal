@@ -387,9 +387,9 @@ describe('useAuth', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 15. login() resets suppressAutoLogin so auto-login can work again
+  // 15. login() does NOT reset suppressAutoLogin (suppression persists)
   // -----------------------------------------------------------------------
-  test('login() resets suppressAutoLogin so auto-login works again', async () => {
+  test('login() does NOT reset suppressAutoLogin (suppression persists)', async () => {
     mockIsTauri = true;
     mockGetTauriConfig.mockResolvedValue({ port: 3000, password: 'test' });
     sendRequestResult = { token: 'auto-token', expiresIn: 3600 };
@@ -409,7 +409,7 @@ describe('useAuth', () => {
       result.current.suppressAutoLogin();
     });
 
-    // Clear mock
+    // Clear mock to track new calls
     mockGetTauriConfig.mockClear();
 
     // Trigger re-render by logging out — auto-login should be suppressed
@@ -421,7 +421,7 @@ describe('useAuth', () => {
     });
     expect(mockGetTauriConfig.mock.calls.length).toBe(0);
 
-    // Now login manually — this should reset the suppress flag
+    // Now login manually — this should NOT reset the suppress flag
     sendRequestResult = { token: 'manual-token', expiresIn: 3600 };
     await act(async () => {
       await result.current.login('password');
@@ -431,13 +431,13 @@ describe('useAuth', () => {
     // Clear mock
     mockGetTauriConfig.mockClear();
 
-    // Trigger re-render by logging out again — auto-login should fire now
+    // Trigger re-render by logging out again — auto-login should STILL be suppressed
     act(() => {
       result.current.logout();
     });
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(mockGetTauriConfig.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(mockGetTauriConfig.mock.calls.length).toBe(0);
   });
 });

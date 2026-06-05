@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { wsClient } from '../lib/ws-client';
 import { sendRequest } from '../lib/send-request';
+import { getSidecarUrl } from '../lib/sidecar';
 import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 import { useTauri } from './useTauri';
 import { useConnectionUrl } from '../contexts/ConnectionUrlContext';
@@ -81,7 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (password: string): Promise<void> => {
       if (isLoggingInRef.current) return;
       isLoggingInRef.current = true;
-      suppressAutoLoginRef.current = false;
 
       try {
         // Wait for connection to open — register the handler BEFORE calling
@@ -104,10 +104,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               reject(new Error('Connection timed out'));
             }, 5000);
 
-            // Use connectionUrl if available; fall back to window.location for
-            // browser mode (first launch with no saved connection).
+            // Use connectionUrl if available; fall back to sidecar port
+            // (Tauri), then to window.location for browser mode.
+            const sidecarUrl = getSidecarUrl();
             const url =
               connectionUrl ??
+              sidecarUrl ??
               (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
                 window.location.host +
                 '/ws';
@@ -160,7 +162,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearToken = useCallback(() => {
-    suppressAutoLoginRef.current = true;
     setToken(null);
     wsClient.setToken('');
     localStorage.removeItem(TOKEN_KEY);

@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
+import { generateId } from '@ymir/shared';
 await setupTestDom();
 setupAllMocks();
 
@@ -47,8 +48,8 @@ function makeTerminalEntry(
   }> = {},
 ) {
   return {
-    terminalId: overrides.terminalId ?? `term-${crypto.randomUUID().slice(0, 8)}`,
-    tabId: overrides.tabId ?? `tab-${crypto.randomUUID().slice(0, 8)}`,
+    terminalId: overrides.terminalId ?? `term-${generateId().slice(0, 8)}`,
+    tabId: overrides.tabId ?? `tab-${generateId().slice(0, 8)}`,
     owningPane: overrides.owningPane ?? ('content' as const),
     isActive: overrides.isActive ?? true,
     onTitleChange: mock(() => {}),

@@ -41,12 +41,18 @@ describe('expandTilde', () => {
 });
 
 describe('generateId', () => {
-  it('returns unique strings on each call', () => {
-    const a = generateId();
-    const b = generateId();
-    expect(typeof a).toBe('string');
-    expect(a.length).toBeGreaterThan(0);
-    expect(a).not.toBe(b);
+  const uuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it('returns a valid UUID v4 string', () => {
+    const id = generateId();
+    expect(typeof id).toBe('string');
+    expect(uuidV4.test(id)).toBe(true);
+  });
+
+  it('returns unique strings across many calls', () => {
+    const ids = Array.from({ length: 10 }, () => generateId());
+    const unique = new Set(ids);
+    expect(unique.size).toBe(10);
   });
 });
 

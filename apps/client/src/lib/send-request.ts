@@ -1,5 +1,5 @@
 import { wsClient } from './ws-client';
-import { PROTOCOL_VERSION } from '@ymir/shared';
+import { PROTOCOL_VERSION, generateId } from '@ymir/shared';
 import type { MessageEnvelope, ResponseEnvelope } from '@ymir/shared';
 
 /**
@@ -17,7 +17,7 @@ export function sendRequest<T>(
   options?: SendRequestOptions,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const id = crypto.randomUUID();
+    const id = generateId();
     const epoch = wsClient.getDisconnectEpoch();
 
     // If already aborted, reject immediately

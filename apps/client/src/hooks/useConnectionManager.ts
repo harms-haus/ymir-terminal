@@ -17,6 +17,7 @@ import { useConnectionStatus } from './useConnectionStatus';
 import { useTauri } from './useTauri';
 import { useAuth } from './useAuth';
 import { useConnectionUrl, useSetConnectionUrl } from '../contexts/ConnectionUrlContext';
+import { getSidecarPort } from '../lib/sidecar';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -64,16 +65,6 @@ function parseUrl(url: string): { host: string; port: number } | null {
   }
 }
 
-function getSidecarPort(): number | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sidecarPort = (window as any).__YMIR_SIDECAR_PORT;
-  if (sidecarPort) {
-    const port = Number(sidecarPort);
-    return Number.isFinite(port) && port > 0 ? port : null;
-  }
-  return null;
-}
-
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -112,10 +103,7 @@ export function useConnectionManager(): UseConnectionManagerReturn {
       queryClient.clear();
       clearToken();
 
-      // Suppress Tauri auto-login when switching to a non-local server
-      if (host !== '127.0.0.1' && host !== 'localhost') {
-        suppressAutoLogin();
-      }
+      suppressAutoLogin();
 
       // Tear down old connection and reject any pending requests
       wsClient.disconnectAndRejectPending();

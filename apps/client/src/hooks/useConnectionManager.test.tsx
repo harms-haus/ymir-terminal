@@ -328,8 +328,8 @@ describe('useConnectionManager', () => {
     expect(mockDisconnectAndRejectPending).toHaveBeenCalled();
     expect(mockClearToken).toHaveBeenCalled();
     expect(mockSetConnectionUrlFn).toHaveBeenCalledWith('ws://127.0.0.1:9999/ws');
-    // suppressAutoLogin should NOT be called for local servers
-    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
+    // suppressAutoLogin should be called for all connections
+    expect(mockSuppressAutoLogin).toHaveBeenCalled();
     // Re-render from setRecentConnections picks up new connectionUrl
     expect(result.current.currentHost).toBe('127.0.0.1');
     expect(result.current.currentPort).toBe(9999);
@@ -562,26 +562,26 @@ describe('useConnectionManager', () => {
     expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
   });
 
-  // 20. connect() does NOT suppress auto-login for 127.0.0.1
-  test('connect() does NOT suppress auto-login for local server (127.0.0.1)', () => {
+  // 20. connect() suppresses auto-login for 127.0.0.1
+  test('connect() suppresses auto-login for local server (127.0.0.1)', () => {
     const { result } = renderHook(() => useConnectionManager());
 
     act(() => {
       result.current.connect('127.0.0.1', 4000);
     });
 
-    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
+    expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
   });
 
-  // 21. connect() does NOT suppress auto-login for localhost
-  test('connect() does NOT suppress auto-login for local server (localhost)', () => {
+  // 21. connect() suppresses auto-login for localhost
+  test('connect() suppresses auto-login for local server (localhost)', () => {
     const { result } = renderHook(() => useConnectionManager());
 
     act(() => {
       result.current.connect('localhost', 4000);
     });
 
-    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
+    expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
   });
 
   // 22. disconnect() clears query cache and auth

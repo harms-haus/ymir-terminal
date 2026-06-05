@@ -7,6 +7,8 @@
  *   with exactly two children and percentage-based sizes (for react-resizable-panels v4).
  */
 
+import { generateId } from '@ymir/shared';
+
 export type SplitDirection = 'horizontal' | 'vertical';
 
 export interface PaneNode {
@@ -38,7 +40,7 @@ function isSplitNode(node: LayoutNode): node is SplitNode {
 
 /** Return a single-pane default layout. */
 export function createDefaultLayout(): PaneNode {
-  return { type: 'pane', id: crypto.randomUUID() };
+  return { type: 'pane', id: generateId() };
 }
 
 // ── Query ───────────────────────────────────────────────────────────────────
@@ -112,13 +114,13 @@ export function replaceNode(
 export function splitPane(root: LayoutNode, paneId: string, direction: SplitDirection): LayoutNode {
   const replacement: SplitNode = {
     type: 'split',
-    id: crypto.randomUUID(),
+    id: generateId(),
     direction,
     children: [
       // The original pane stays in place (its id is paneId)
       { type: 'pane', id: paneId },
       // A brand-new empty pane
-      { type: 'pane', id: crypto.randomUUID() },
+      { type: 'pane', id: generateId() },
     ],
     sizes: ['50%', '50%'],
   };

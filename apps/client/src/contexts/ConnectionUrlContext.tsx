@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { wsClient } from '../lib/ws-client';
+import { getSidecarUrl } from '../lib/sidecar';
 
 // ---------------------------------------------------------------------------
 // Context types
@@ -15,11 +16,28 @@ interface ConnectionUrlContextValue {
 const ConnectionUrlContext = createContext<ConnectionUrlContextValue | null>(null);
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive the initial WebSocket connection URL.
+ * 1. Use the wsClient URL if already set.
+ * 2. Fall back to the Tauri sidecar port if available.
+ * 3. Otherwise return null.
+ */
+function getInitialConnectionUrl(): string | null {
+  const existing = wsClient.getUrl();
+  if (existing) return existing;
+
+  return getSidecarUrl();
+}
+
+// ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
 
 export function ConnectionUrlProvider({ children }: { children: React.ReactNode }) {
-  const [connectionUrl, setConnectionUrl] = useState<string | null>(wsClient.getUrl() || null);
+  const [connectionUrl, setConnectionUrl] = useState<string | null>(getInitialConnectionUrl);
 
   useEffect(() => {
     const unsub = wsClient.onStatusChange((status) => {

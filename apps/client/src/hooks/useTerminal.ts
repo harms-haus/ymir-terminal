@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { wsClient } from '../lib/ws-client';
-import { toBase64, fromBase64, PROTOCOL_VERSION } from '@ymir/shared';
+import { toBase64, fromBase64, PROTOCOL_VERSION, generateId } from '@ymir/shared';
 import type { MessageEnvelope } from '@ymir/shared';
 import { sendRequest } from '../lib/send-request';
 
@@ -29,7 +29,7 @@ export function useTerminal(terminalId: string | null) {
       wsClient.send({
         v: PROTOCOL_VERSION,
         type: 'request',
-        id: crypto.randomUUID(),
+        id: generateId(),
         channel: 'terminal.input',
         payload: { terminalId, data: encoded },
       });
@@ -58,7 +58,7 @@ export function useTerminal(terminalId: string | null) {
       wsClient.send({
         v: PROTOCOL_VERSION,
         type: 'request',
-        id: crypto.randomUUID(),
+        id: generateId(),
         channel: 'terminal.resize',
         payload: { terminalId, cols, rows },
       });
