@@ -68,11 +68,11 @@ const checkboxLabelStyle: React.CSSProperties = {
 };
 
 const fileListContainerStyle: React.CSSProperties = {
-  maxHeight: '150px',
+  maxHeight: '250px',
   overflowY: 'auto' as const,
   border: `1px solid ${COLOR_BORDER_CARD}`,
   borderRadius: '6px',
-  padding: '8px',
+  padding: '4px',
   marginBottom: '24px',
   backgroundColor: COLOR_BG_CARD,
 };
@@ -81,8 +81,8 @@ const fileCheckboxRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  padding: '6px 0',
-  minHeight: '28px',
+  padding: '3px 0',
+  minHeight: '24px',
 };
 
 const fileCheckboxLabelStyle: React.CSSProperties = {
@@ -137,14 +137,9 @@ function MergeWorktreeForm({
   const untrackedFiles = useMemo(() => copyFiles?.untrackedFiles ?? [], [copyFiles]);
 
   // Initialize file selection once copyFiles data arrives
+  // Only configured files (.worktreecopy) start checked; untracked files start unchecked
   if (selectedFiles === null && copyFiles) {
-    if (configuredFiles.length > 0) {
-      setSelectedFiles(new Set(configuredFiles));
-    } else if (untrackedFiles.length > 0) {
-      setSelectedFiles(new Set(untrackedFiles));
-    } else {
-      setSelectedFiles(new Set());
-    }
+    setSelectedFiles(new Set(configuredFiles));
   }
 
   // Use empty set as fallback while loading

@@ -90,13 +90,10 @@ function CreateWorktreeForm({
   }
 
   // Initialize selected files from copy-files data (once per workspaceId)
+  // Only configured files (.worktreecopy) start checked; untracked files start unchecked
   if (copyFilesData && initializedFor !== workspaceId) {
     const initial = new Set<string>();
-    if (copyFilesData.configuredFiles.length > 0) {
-      copyFilesData.configuredFiles.forEach((f) => initial.add(f));
-    } else {
-      copyFilesData.untrackedFiles.forEach((f) => initial.add(f));
-    }
+    copyFilesData.configuredFiles.forEach((f) => initial.add(f));
     setSelectedFiles(initial);
     setInitializedFor(workspaceId);
   }
@@ -209,11 +206,11 @@ function CreateWorktreeForm({
           </label>
           <div
             style={{
-              maxHeight: '150px',
+              maxHeight: '250px',
               overflowY: 'auto' as const,
               border: `1px solid ${COLOR_BORDER}`,
               borderRadius: '6px',
-              padding: '4px 0',
+              padding: '2px 0',
             }}
           >
             {copyFilesLoading ? (
@@ -231,9 +228,9 @@ function CreateWorktreeForm({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    minHeight: '28px',
+                    gap: '6px',
+                    padding: '3px 8px',
+                    minHeight: '24px',
                     fontSize: '12px',
                     cursor: 'pointer',
                     color: COLOR_TEXT,
