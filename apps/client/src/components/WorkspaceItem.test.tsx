@@ -4,6 +4,7 @@ await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, afterEach, afterAll, mock } from 'bun:test';
+import type { CwdCompression } from '@ymir/shared';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 import type { GitWorktreeInfo } from '@ymir/shared';
@@ -70,7 +71,7 @@ const testWorkspace = {
   name: 'Project Alpha',
   cwd: '/home/user/alpha',
   color: '#ff0000',
-  cwdCompression: undefined as import('@ymir/shared').CwdCompression | undefined,
+  cwdCompression: undefined as CwdCompression | undefined,
 };
 
 const mainWorktree: GitWorktreeInfo = {

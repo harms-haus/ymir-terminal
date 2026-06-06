@@ -8,7 +8,6 @@ import {
   type WorkspaceListResponse,
   type WorkspaceCreateResponse,
   type FileChangeEvent as FileChangePayload,
-  type CwdCompression,
 } from '@ymir/shared';
 import { mockConn, request, makeGetWorkspaceMock } from '../../test-helpers/mock-utils';
 import type { Database } from 'bun:sqlite';
