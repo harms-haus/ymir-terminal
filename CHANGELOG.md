@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GitRepoDiscoveryProgressEvent` protocol type for incremental discovery results
 - Progressive git watcher startup: watchers start per BFS depth rather than after full discovery completes
 - Client-side progressive repo loading: `useGitRepos` subscribes to discovery progress events to show repos incrementally as they're found
+- Path autocomplete in workspace creation dialog (`PathAutocompleteInput`) with server-side directory listing, debounced fetch, keyboard navigation (Tab/Enter to accept, ArrowUp/Down to navigate, Escape to dismiss), and ARIA combobox semantics
+- `path.autocomplete` WebSocket channel for listing directories (1-level deep, sorted, max 256 entries, tilde expansion)
+- `listDirectories()` server utility for async directory scanning
+- `usePathAutocomplete` client hook with 300ms debounce and AbortController race-condition handling
+- `parsePathInput` pure utility for splitting path strings into query directory and filter prefix
 
 ### Changed
 
@@ -51,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DnD groups changed from hardcoded 'content'/'bottom' to dynamic pane IDs
 - Replace `computeLanes()` lane-assignment algorithm with topological-sort-based algorithm adapted from DoltHub `commit-graph` (Apache 2.0, vendored inline in `commit-graph-position.ts`); public API unchanged — no consumer code modified
 - Optimize `computeActiveLanes()` from O(n²) to O(n+E) using a sweep-line approach
+- `CreateWorkspaceDialog` path input now uses `PathAutocompleteInput` with directory autocomplete dropdown
+- `Dialog` focus trap now respects `defaultPrevented` on Tab and Escape events, allowing nested controls (like comboboxes) to handle these keys themselves
 
 ### Refactoring
 

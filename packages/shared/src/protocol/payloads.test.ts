@@ -92,6 +92,8 @@ import {
   type TabDeleteRequest,
   type TabReorderRequest,
   type TabRestoreRequest,
+  // Path
+  type PathAutocompleteRequest,
   // Unions
   type RequestPayload,
   type EventPayload,
@@ -170,6 +172,7 @@ describe('REQUEST_TYPES', () => {
     'git.remoteAdd',
     'git.remoteRemove',
     'git.remoteList',
+    'path.autocomplete',
     'config.get',
     'config.set',
     'tab.list',
@@ -184,8 +187,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 75 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(75);
+  it('has exactly 76 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(76);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -368,6 +371,7 @@ describe('RequestPayload union', () => {
       { tabId: 'tab-1' } satisfies TabDeleteRequest,
       { tabIds: ['tab-1', 'tab-2'] } satisfies TabReorderRequest,
       { workspaceId: 'ws-1' } satisfies TabRestoreRequest,
+      { path: '/some/path' } satisfies PathAutocompleteRequest,
     ];
 
     // Ensure they all survive a JSON round-trip

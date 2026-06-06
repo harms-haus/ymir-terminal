@@ -4,7 +4,9 @@ await setupTestDom();
 
 import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, within, cleanup, fireEvent } from '@testing-library/react';
+import { setReactInputValue } from '../test-helpers/mock-setup';
 import React from 'react';
+import { parsePathInput as realParsePathInput } from '../hooks/parsePathInput';
 
 // ---------------------------------------------------------------------------
 // Mock useCreateWorkspace
@@ -26,6 +28,15 @@ const mockUseCreateWorkspace = mock(() => ({
 mock.module('../hooks/useWorkspaces', () => ({
   useCreateWorkspace: mockUseCreateWorkspace,
   useWorktreeCopyFiles: mock(() => ({ data: null, isLoading: false })),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock usePathAutocomplete (used by PathAutocompleteInput)
+// ---------------------------------------------------------------------------
+
+mock.module('../hooks/usePathAutocomplete', () => ({
+  parsePathInput: realParsePathInput,
+  usePathAutocomplete: mock(() => ({ directories: [], isLoading: false })),
 }));
 
 // ---------------------------------------------------------------------------
@@ -105,5 +116,46 @@ describe('CreateWorkspaceDialog', () => {
     fireEvent.click(within(document.body).getByTestId('create-workspace-cancel'));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // 4. Path field renders as autocomplete input
+  // -----------------------------------------------------------------------
+  test('path field renders as autocomplete input', () => {
+    renderDialog({ open: true });
+
+    const pathInput = within(document.body)
+      .getByTestId('create-workspace-dialog')
+      .querySelector('#workspace-path') as HTMLInputElement;
+
+    expect(pathInput).toBeTruthy();
+    expect(pathInput.getAttribute('role')).toBe('combobox');
+    expect(pathInput.getAttribute('aria-autocomplete')).toBe('list');
+  });
+
+  // -----------------------------------------------------------------------
+  // 5. Path field still submits correctly
+  // -----------------------------------------------------------------------
+  test('path field still submits correctly', () => {
+    renderDialog({ open: true });
+
+    // Fill in Name (setReactInputValue triggers React's internal onChange)
+    const nameInput = document.querySelector('#workspace-name') as HTMLInputElement;
+    setReactInputValue(nameInput, 'My Project');
+
+    // Fill in Path
+    const pathInput = document.querySelector('#workspace-path') as HTMLInputElement;
+    setReactInputValue(pathInput, '/home/user/projects');
+
+    // Submit the form directly
+    const form = document.querySelector('form') as HTMLFormElement;
+    fireEvent.submit(form);
+
+    expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      name: 'My Project',
+      cwd: '/home/user/projects',
+      color: '#007acc',
+    });
   });
 });

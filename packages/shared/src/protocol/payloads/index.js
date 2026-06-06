@@ -9,6 +9,7 @@ export * from './git';
 export * from './config';
 export * from './session';
 export * from './tab';
+export * from './path';
 // ---------------------------------------------------------------------------
 // Request & event type constants
 // ---------------------------------------------------------------------------
@@ -80,6 +81,7 @@ export const REQUEST_TYPES = [
   'git.remoteAdd',
   'git.remoteRemove',
   'git.remoteList',
+  'path.autocomplete',
   'config.get',
   'config.set',
   'tab.list',

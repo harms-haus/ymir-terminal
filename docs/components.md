@@ -12,7 +12,8 @@
 | `SplitPaneContextMenu`     | Context menu for pane operations (renamed from `PaneContextMenu`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `WorkspaceSidebar`         | Sidebar listing workspaces with expandable worktree sub-items, DnD sortable via `useDroppable`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `WorkspaceItem`            | Individual workspace item with expand/collapse chevron, worktree sub-items, context menu, sortable via `useSortable`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `CreateWorkspaceDialog`    | Dialog for creating new workspaces                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `CreateWorkspaceDialog`    | Dialog for creating new workspaces with name, path (using [`PathAutocompleteInput`](#pathautocompleteinput) with server-side directory autocomplete), and color picker fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `PathAutocompleteInput`    | Autocomplete text input for directory paths — renders a filtered dropdown of server-fetched directory entries below the input; uses [`usePathAutocomplete`](#usepathautocomplete-hook) for debounced fetching and [`parsePathInput`](#parsepathinput-utility) for query extraction; full ARIA combobox pattern with keyboard navigation (Arrow, Tab/Enter accept, Escape close)                                                                                                                                                                                                                                                                                                                                                            |
 | `FileTree`                 | Directory tree with context menu and inline git status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `WorkspaceItemContextMenu` | Context menu for workspace items (rename, color, etc.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `WorktreeItem`             | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -39,7 +40,7 @@
 | `WindowControls`           | Extracted Tauri window control buttons (minimize, maximize, close) with hover states; lazily loads `@tauri-apps/api/window`; no-ops when not running in Tauri                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `useTauriMaximize`         | Shared hook (`lib/tauri.ts`) that returns a stable callback to toggle the current window's maximized state via `@tauri-apps/api/window`. No-op outside Tauri. Used by both `TopBar` and `WindowTitleBar` for double-click-to-maximize                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `PaneToggleButtons`        | Extracted pane toggle buttons (workspace/terminal/explorer) with active/hover states; consumed by `TopBar`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `Dialog`                   | Generic dialog shell rendered via `createPortal` at `document.body`, with focus trap (Tab cycling), auto-focus, focus restoration on close, Escape/backdrop-click close, body scroll lock, and optional `role` prop (`'dialog'` \| `'alertdialog'`) for ARIA semantics. Used by `CreateWorkspaceDialog`, `CreateWorktreeDialog`, `MergeWorktreeDialog`, `RemoveWorktreeDialog`, `GenericPicker`, and `DialogProvider`                                                                                                                                                                                                                                                                                                                      |
+| `Dialog`                   | Generic dialog shell rendered via `createPortal` at `document.body`, with focus trap (Tab cycling), auto-focus, focus restoration on close, Escape/backdrop-click close, body scroll lock, and optional `role` prop (`'dialog'` \| `'alertdialog'`) for ARIA semantics. Focus trap and Escape close respect `defaultPrevented`, allowing nested controls (e.g. [`PathAutocompleteInput`](#pathautocompleteinput)) to handle Tab/Escape first. Used by `CreateWorkspaceDialog`, `CreateWorktreeDialog`, `MergeWorktreeDialog`, `RemoveWorktreeDialog`, `GenericPicker`, and `DialogProvider`                                                                                                                                                |
 | `DialogProvider`           | Context provider that manages a queue of confirm/prompt dialogs rendered via portal. Wraps the app at the `WorkspaceView` level; supports concurrent dialogs, each in its own `Dialog` shell                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `useConfirm` / `usePrompt` | Promise-based hooks replacing `window.confirm`/`window.prompt`. `useConfirm()` → `Promise<boolean>`, `usePrompt()` → `Promise<string \| null>`. Must be used within `<DialogProvider>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `AppDropdownMenu`          | Reusable left-click dropdown menu with submenu support, wrapping `@radix-ui/react-dropdown-menu`. Counterpart to `AppContextMenu` (right-click). Accepts `DropdownMenuItem` and `DropdownMenuSubItem` entries with separators, destructive styling, shortcut hints, disabled states, and custom content rendering. Props: `items`, `minWidth`, `align`, `side`, `onCloseAutoFocus`, `extraContent`                                                                                                                                                                                                                                                                                                                                         |
@@ -433,6 +434,92 @@ This ensures the context stays in sync with the actual WebSocket connection stat
 - `useConnectionManager` — reads `currentUrl` via `useConnectionUrl()` and updates it via `useSetConnectionUrl()` on connect/disconnect
 - `WorkspaceView` — reads `connectionUrl` via `useConnectionUrl()` and passes it as `key` to `WorkspaceViewInner`, forcing a full remount when the server changes
 
+## Path Autocomplete
+
+### `PathAutocompleteInput`
+
+Autocomplete text input component for directory paths. Renders a filtered dropdown of server-fetched directory entries below the input as the user types. Uses [`usePathAutocomplete`](#usepathautocomplete-hook) for debounced server fetching and [`parsePathInput`](#parsepathinput-utility) for query extraction.
+
+**Props:**
+
+| Prop           | Type                      | Description                               |
+| -------------- | ------------------------- | ----------------------------------------- |
+| `value`        | `string`                  | Current input value (controlled)          |
+| `onChange`     | `(value: string) => void` | Callback when value changes               |
+| `disabled?`    | `boolean`                 | Disables the input                        |
+| `placeholder?` | `string`                  | Placeholder text                          |
+| `id?`          | `string`                  | HTML id attribute (for label association) |
+
+**Keyboard interactions:**
+
+| Key       | Behavior                                                                                           |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| ArrowDown | Open dropdown (if closed); move highlight down                                                     |
+| ArrowUp   | Open dropdown (if closed); move highlight up                                                       |
+| Tab       | Accept highlighted entry (or first entry if none highlighted); appends `name/` to the path         |
+| Enter     | Accept highlighted entry; appends `name/` to the path                                              |
+| Escape    | Close dropdown and clear highlight; calls `preventDefault` to prevent parent `Dialog` from closing |
+
+**ARIA pattern:** The input uses `role="combobox"` with `aria-autocomplete="list"`, `aria-expanded`, `aria-controls` (pointing to the listbox), and `aria-activedescendant` (tracking the highlighted option). The dropdown is a `role="listbox"` with `role="option"` items.
+
+**Accept behavior:** When an entry is accepted (Tab/Enter/click), the component replaces the last path segment with `entry.name + '/'`, producing a valid directory path ready for further traversal.
+
+**Used by:** `CreateWorkspaceDialog` for the path field.
+
+### `usePathAutocomplete` Hook
+
+Hook that fetches directory listings from the server with 300ms debounce and race-condition handling via `AbortController`.
+
+```tsx
+const { directories, isLoading } = usePathAutocomplete(
+  queryDir: string,
+  options?: { enabled?: boolean },
+);
+```
+
+**Parameters:**
+
+- `queryDir` — the directory path to list (produced by [`parsePathInput`](#parsepathinput-utility))
+- `options.enabled` — optional flag to disable fetching; defaults to `true`
+
+**Returns:**
+
+| Field         | Type                           | Description                                                                                                       |
+| ------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `directories` | `AutocompleteDirectoryEntry[]` | Filtered directory entries from the server; empty when disconnected, `queryDir` is empty, or `enabled` is `false` |
+| `isLoading`   | `boolean`                      | Whether a fetch is in progress                                                                                    |
+
+**Behavior:**
+
+1. **Debounce** — waits 300ms after `queryDir` changes before triggering a fetch; rapid typing cancels the pending timer
+2. **Race-condition handling** — each fetch creates a new `AbortController`; previous in-flight requests are aborted before the new one starts
+3. **Connection-aware** — returns empty results when disconnected (checked via `useConnectionStatus`); the `enabled` option also gates fetching
+4. **Server request** — calls `path.autocomplete` with `{ path: debouncedDir }` and returns the `directories` array from the response
+
+### `parsePathInput` Utility
+
+Pure function that splits a path input string into a parent directory (for server queries) and a prefix filter (for client-side filtering).
+
+```tsx
+parsePathInput(input: string): { queryDir: string; prefix: string }
+```
+
+Only absolute paths (starting with `/` or `~`) produce a non-empty `queryDir`. Relative paths return an empty `queryDir` so no server fetch is triggered.
+
+**Examples:**
+
+| Input             | `queryDir`     | `prefix`          | Notes                     |
+| ----------------- | -------------- | ----------------- | ------------------------- |
+| `''`              | `''`           | `''`              | Empty — no query          |
+| `~`               | `'~'`          | `''`              | Home dir — query home     |
+| `~/Doc`           | `'~'`          | `'Doc'`           | Home prefix filter        |
+| `/home/user/proj` | `'/home/user'` | `'proj'`          | Absolute path with prefix |
+| `/home/user/`     | `'/home/user'` | `''`              | Absolute path, no prefix  |
+| `Documents/sof`   | `''`           | `'Documents/sof'` | Relative — no query       |
+| `.hidden`         | `''`           | `'.hidden'`       | Relative — no query       |
+
+**Exported from:** `hooks/usePathAutocomplete.ts` (re-exports from `hooks/parsePathInput.ts`).
+
 ## Accessibility
 
 - Tree nodes have `role="treeitem"`, `tabIndex={0}`, and `aria-expanded` on directories
@@ -446,7 +533,7 @@ This ensures the context stays in sync with the actual WebSocket connection stat
 
 Several reusable components were extracted to eliminate duplication across the UI:
 
-- **`Dialog`** — Generic dialog shell rendered via `createPortal` to `document.body` (escaping stacking contexts). Props: `open`, `onClose`, `title`, `role?` (`'dialog'` | `'alertdialog'`), `children`, `testId?`, `wide?`. Features: focus trap (Tab cycling), auto-focus first input on open, focus restoration on close, Escape key close, backdrop click close, body scroll lock. Uses `Z_INDEX_DIALOG` (1100) from `theme.ts`. Card is 420px default, expanding to 520px with the `wide` prop. Backdrop is fixed-position `rgba(0, 0, 0, 0.5)` with flex-centered card. Used by `CreateWorkspaceDialog`, `CreateWorktreeDialog`, `MergeWorktreeDialog`, `RemoveWorktreeDialog`, `GenericPicker`, and `DialogProvider`.
+- **`Dialog`** — Generic dialog shell rendered via `createPortal` to `document.body` (escaping stacking contexts). Props: `open`, `onClose`, `title`, `role?` (`'dialog'` | `'alertdialog'`), `children`, `testId?`, `wide?`. Features: focus trap (Tab cycling) and Escape close both respect `defaultPrevented`, allowing nested interactive controls (like `PathAutocompleteInput`) to intercept these keys first; auto-focus first input on open; focus restoration on close; backdrop click close; body scroll lock. Uses `Z_INDEX_DIALOG` (1100) from `theme.ts`. Card is 420px default, expanding to 520px with the `wide` prop. Backdrop is fixed-position `rgba(0, 0, 0, 0.5)` with flex-centered card. Used by `CreateWorkspaceDialog`, `CreateWorktreeDialog`, `MergeWorktreeDialog`, `RemoveWorktreeDialog`, `GenericPicker`, and `DialogProvider`.
 
 ### Dialog System
 

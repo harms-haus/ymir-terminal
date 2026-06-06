@@ -12,6 +12,7 @@ import { registerWorkspaceHandlers } from './ws/handlers/workspaces';
 import { registerFileHandlers } from './ws/handlers/files/index';
 import { registerGitHandlers } from './ws/handlers/git';
 import { registerConfigHandlers } from './ws/handlers/config';
+import { registerPathHandlers } from './ws/handlers/path';
 import { registerTabHandlers } from './ws/handlers/tabs';
 import { PTYManager } from './pty/manager';
 import { stopAllWatchers } from './files/watcher';
@@ -148,7 +149,10 @@ export async function startServer(options: StartServerOptions): Promise<void> {
   // 6f. Config handlers
   registerConfigHandlers(router, { persistentDb: db });
 
-  // 6g. Tab handlers
+  // 6g. Path handlers
+  registerPathHandlers(router, {});
+
+  // 6h. Tab handlers
   registerTabHandlers(router, {
     sessionDb,
     persistentDb: db,

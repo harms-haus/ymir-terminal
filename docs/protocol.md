@@ -120,6 +120,7 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | '
 | `git.remoteAdd`              | request   | Add a remote                                                                                             |
 | `git.remoteRemove`           | request   | Remove a remote                                                                                          |
 | `git.remoteList`             | request   | List remotes                                                                                             |
+| `path.autocomplete`          | request   | List directories at a given path for autocomplete (1-level deep, sorted, max 256 entries)                |
 | `config.get`                 | request   | Get a config value from server_config table                                                              |
 | `config.set`                 | request   | Set a config value in server_config table                                                                |
 | `tab.list`                   | request   | List tabs for a workspace (with terminal liveness); optional `pane` filter                               |
@@ -356,6 +357,45 @@ interface PersistedTabInfo {
   worktreePath?: string | null;
 }
 ```
+
+## Path Channel Type Reference
+
+### Autocomplete
+
+| Channel             | Request type              | Response type              | Fields                                                           |
+| ------------------- | ------------------------- | -------------------------- | ---------------------------------------------------------------- |
+| `path.autocomplete` | `PathAutocompleteRequest` | `PathAutocompleteResponse` | req: `path`; res: `directories` (`AutocompleteDirectoryEntry[]`) |
+
+```typescript
+interface PathAutocompleteRequest {
+  path: string; // absolute path or ~-prefixed path
+}
+
+interface AutocompleteDirectoryEntry {
+  name: string; // directory name only (not full path)
+}
+
+interface PathAutocompleteResponse {
+  directories: AutocompleteDirectoryEntry[];
+}
+```
+
+**Error scenarios:**
+
+| Error code          | Condition                                            |
+| ------------------- | ---------------------------------------------------- |
+| `INVALID_MESSAGE`   | Empty, missing, or non-string `path`; relative path  |
+| `FILE_NOT_FOUND`    | Directory does not exist, or path is not a directory |
+| `PERMISSION_DENIED` | Insufficient permissions to read the directory       |
+| `HANDLER_ERROR`     | Unexpected internal error                            |
+
+**Notes:**
+
+- Tilde (`~`) expansion is applied — both bare `~` and `~/…` forms are resolved to the user's home directory.
+- Only absolute paths are accepted; relative paths result in an `INVALID_MESSAGE` error.
+- Results are sorted alphabetically by name.
+- A maximum of 256 entries is returned.
+- Hidden directories (dot-prefixed) are included in results.
 
 ## Protocol Type Reference
 

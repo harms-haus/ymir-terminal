@@ -105,7 +105,7 @@ export function Dialog({
     if (!open) return;
 
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
+      if (e.key !== 'Tab' || e.defaultPrevented) return;
 
       const card = cardRef.current;
       if (!card) return;
@@ -140,7 +140,7 @@ export function Dialog({
     if (!open) return;
 
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
         onClose();
       }
     };

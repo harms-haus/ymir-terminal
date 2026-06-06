@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, type FormEvent } from 'react';
+import { useState, useCallback, type FormEvent } from 'react';
 import { useCreateWorkspace } from '../hooks/useWorkspaces';
 import {
   inputGroupStyle,
@@ -12,6 +12,7 @@ import {
   buttonRowStyle,
 } from '../lib/dialog-styles';
 import { COLOR_BG_LOGIN, COLOR_BORDER_CARD, COLOR_TEXT_CARD_MUTED } from '../lib/theme';
+import { PathAutocompleteInput } from './PathAutocompleteInput';
 import { Dialog } from './Dialog';
 
 // ---------------------------------------------------------------------------
@@ -63,7 +64,6 @@ function CreateWorkspaceForm({
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
   const [color, setColor] = useState('#007acc');
-  const nameRef = useRef<HTMLInputElement>(null);
 
   const mutation = useCreateWorkspace();
 
@@ -99,7 +99,6 @@ function CreateWorkspaceForm({
           Name
         </label>
         <input
-          ref={nameRef}
           id="workspace-name"
           type="text"
           placeholder="My Workspace"
@@ -114,14 +113,12 @@ function CreateWorkspaceForm({
         <label htmlFor="workspace-path" style={labelStyle}>
           Path
         </label>
-        <input
+        <PathAutocompleteInput
           id="workspace-path"
-          type="text"
-          placeholder="/path/to/project"
           value={path}
-          onChange={(e) => setPath(e.target.value)}
+          onChange={setPath}
           disabled={mutation.isPending}
-          style={inputStyle}
+          placeholder="/path/to/project"
         />
       </div>
 

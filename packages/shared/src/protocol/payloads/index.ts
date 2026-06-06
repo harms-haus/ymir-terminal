@@ -10,6 +10,7 @@ export * from './git';
 export * from './config';
 export * from './session';
 export * from './tab';
+export * from './path';
 
 // Import types explicitly for union definitions below
 import type { AuthRequest } from './auth';
@@ -92,6 +93,7 @@ import type {
   GitStatusChangeEvent,
   GitRepoDiscoveryProgressEvent,
 } from './git';
+import type { PathAutocompleteRequest } from './path';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
 import type {
@@ -174,6 +176,7 @@ export const REQUEST_TYPES = [
   'git.remoteAdd',
   'git.remoteRemove',
   'git.remoteList',
+  'path.autocomplete',
   'config.get',
   'config.set',
   'tab.list',
@@ -276,7 +279,8 @@ export type RequestPayload =
   | TabUpdateRequest
   | TabDeleteRequest
   | TabReorderRequest
-  | TabRestoreRequest;
+  | TabRestoreRequest
+  | PathAutocompleteRequest;
 
 export type EventPayload =
   | TerminalOutputEvent
