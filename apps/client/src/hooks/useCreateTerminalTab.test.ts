@@ -21,6 +21,8 @@ mock.module('./useTerminal', () => ({
     onOutput: (_handler: (data: string) => void) => () => {},
     closeTerminal: async () => {},
     resizeTerminal: (_cols: number, _rows: number) => {},
+    restoreState: async () => {},
+    requestState: async () => null,
   }),
 }));
 

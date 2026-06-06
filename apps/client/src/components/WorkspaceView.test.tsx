@@ -281,6 +281,8 @@ mock.module('../hooks/useTerminal', () => ({
     createTerminal: mockCreateTerminal,
     closeTerminal: mock(() => Promise.resolve()),
     resizeTerminal: mock(() => {}),
+    restoreState: mock(() => Promise.resolve()),
+    requestState: mock(() => Promise.resolve(null)),
   }),
 }));
 
