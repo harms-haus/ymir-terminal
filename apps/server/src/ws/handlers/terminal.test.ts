@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, mock, afterAll, type Mock } from 'bun:test';
+import { resolve } from 'node:path';
 import {
   ErrorCodes,
   type ResponseEnvelope,
@@ -170,7 +171,7 @@ describe('registerTerminalHandlers', () => {
         .prepare('SELECT * FROM workspace_terminals WHERE id = ?')
         .get(terminalId) as Record<string, unknown> | undefined;
       expect(row).toBeDefined();
-      expect(row!.worktree_path).toBe(WORKTREE_PATH);
+      expect(resolve(row!.worktree_path as string)).toBe(resolve(WORKTREE_PATH));
     });
 
     it('stores NULL worktree_path when cwd is workspace root (not a worktree)', async () => {
