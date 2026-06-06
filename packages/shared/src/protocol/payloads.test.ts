@@ -11,6 +11,7 @@ import {
   type TerminalInputRequest,
   type TerminalResizeRequest,
   type TerminalCloseRequest,
+  type TerminalStateRequest,
   type TerminalOutputEvent,
   type TerminalExitEvent,
   // Workspace
@@ -107,6 +108,7 @@ describe('REQUEST_TYPES', () => {
     'terminal.input',
     'terminal.resize',
     'terminal.close',
+    'terminal.state',
     'workspace.list',
     'workspace.create',
     'workspace.update',
@@ -182,8 +184,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 74 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(74);
+  it('has exactly 75 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(75);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -247,6 +249,7 @@ describe('RequestPayload union', () => {
       { terminalId: 't-1', data: '' } satisfies TerminalInputRequest,
       { terminalId: 't-1', cols: 80, rows: 24 } satisfies TerminalResizeRequest,
       { terminalId: 't-1' } satisfies TerminalCloseRequest,
+      { terminalId: 't-1' } satisfies TerminalStateRequest,
       { name: 'ws', cwd: '/', color: '#000' } satisfies WorkspaceCreateRequest,
       { id: 'ws-1' } satisfies WorkspaceUpdateRequest,
       { id: 'ws-1' } satisfies WorkspaceDeleteRequest,
