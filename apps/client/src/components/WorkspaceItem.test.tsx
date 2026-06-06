@@ -48,6 +48,13 @@ mock.module('./WorktreeItem', () => ({
     ),
 }));
 
+// Mock ResizeObserver for JSDOM
+(globalThis as unknown as { ResizeObserver: typeof ResizeObserver }).ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // ---------------------------------------------------------------------------
 // Import component under test (after mocks)
 // ---------------------------------------------------------------------------
@@ -63,6 +70,7 @@ const testWorkspace = {
   name: 'Project Alpha',
   cwd: '/home/user/alpha',
   color: '#ff0000',
+  cwdCompression: undefined as import('@ymir/shared').CwdCompression | undefined,
 };
 
 const mainWorktree: GitWorktreeInfo = {
@@ -139,6 +147,17 @@ describe('WorkspaceItem', () => {
   // -----------------------------------------------------------------------
   test('renders workspace cwd', () => {
     const { getByText } = renderWorkspaceItem();
+
+    expect(getByText('/home/user/alpha')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 2b. Falls back to full cwd when cwdCompression is undefined
+  // -----------------------------------------------------------------------
+  test('falls back to full cwd when cwdCompression is undefined', () => {
+    const { getByText } = renderWorkspaceItem({
+      workspace: { ...testWorkspace, cwdCompression: undefined },
+    });
 
     expect(getByText('/home/user/alpha')).toBeTruthy();
   });
