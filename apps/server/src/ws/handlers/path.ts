@@ -7,7 +7,7 @@ import {
   type PathAutocompleteResponse,
   expandTilde,
 } from '@ymir/shared';
-import { resolve } from 'node:path';
+import { resolve, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { listDirectories } from '../../files/directory-lister';
 import type { ClientConnection } from '../connection';
@@ -50,7 +50,7 @@ export function registerPathHandlers(router: MessageRouter, deps: PathDeps): voi
     // Handle bare "~" (expandTilde only handles "~/…", not bare "~")
     const homeExpanded = expanded === '~' ? homedir() : expanded;
 
-    if (!homeExpanded.startsWith('/')) {
+    if (!isAbsolute(homeExpanded)) {
       conn.send(createError(req, ErrorCodes.INVALID_MESSAGE, 'Relative paths are not supported'));
       return;
     }
