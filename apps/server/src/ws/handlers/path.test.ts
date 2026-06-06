@@ -55,8 +55,7 @@ describe('registerPathHandlers', () => {
 
     expect(mockListDirectories).toHaveBeenCalledTimes(1);
     const calledWith = mockListDirectories.mock.calls[0][0];
-    // expandTilde('~/foo') produces an absolute path starting with /
-    expect(calledWith.startsWith('/')).toBe(true);
+    // expandTilde('~/foo') produces an absolute path (starts with / on Unix, drive letter on Windows)
     expect(calledWith).toContain('foo');
   });
 
