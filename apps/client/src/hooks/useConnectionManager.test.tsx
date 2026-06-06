@@ -328,8 +328,8 @@ describe('useConnectionManager', () => {
     expect(mockDisconnectAndRejectPending).toHaveBeenCalled();
     expect(mockClearToken).toHaveBeenCalled();
     expect(mockSetConnectionUrlFn).toHaveBeenCalledWith('ws://127.0.0.1:9999/ws');
-    // suppressAutoLogin should be called for all connections
-    expect(mockSuppressAutoLogin).toHaveBeenCalled();
+    // suppressAutoLogin should NOT be called for localhost connections
+    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
     // Re-render from setRecentConnections picks up new connectionUrl
     expect(result.current.currentHost).toBe('127.0.0.1');
     expect(result.current.currentPort).toBe(9999);
@@ -562,26 +562,26 @@ describe('useConnectionManager', () => {
     expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
   });
 
-  // 20. connect() suppresses auto-login for 127.0.0.1
-  test('connect() suppresses auto-login for local server (127.0.0.1)', () => {
+  // 20. connect() does NOT suppress auto-login for 127.0.0.1
+  test('connect() does NOT suppress auto-login for 127.0.0.1', () => {
     const { result } = renderHook(() => useConnectionManager());
 
     act(() => {
       result.current.connect('127.0.0.1', 4000);
     });
 
-    expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
+    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
   });
 
-  // 21. connect() suppresses auto-login for localhost
-  test('connect() suppresses auto-login for local server (localhost)', () => {
+  // 21. connect() does NOT suppress auto-login for localhost
+  test('connect() does NOT suppress auto-login for localhost', () => {
     const { result } = renderHook(() => useConnectionManager());
 
     act(() => {
       result.current.connect('localhost', 4000);
     });
 
-    expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
+    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
   });
 
   // 22. disconnect() clears query cache and auth
@@ -594,7 +594,8 @@ describe('useConnectionManager', () => {
 
     expect(mockQueryClientClear).toHaveBeenCalledTimes(1);
     expect(mockClearToken).toHaveBeenCalledTimes(1);
-    expect(mockSuppressAutoLogin).toHaveBeenCalledTimes(1);
+    // No connection URL set (null), so suppressAutoLogin should NOT be called
+    expect(mockSuppressAutoLogin).not.toHaveBeenCalled();
   });
 
   // 23. disconnect() clears connection URL context

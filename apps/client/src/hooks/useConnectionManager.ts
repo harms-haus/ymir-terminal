@@ -25,6 +25,12 @@ import { getSidecarPort } from '../lib/sidecar';
 
 const HOSTNAME_RE = /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/;
 
+const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function isLocalhost(host: string): boolean {
+  return LOCALHOST_HOSTS.has(host.toLowerCase());
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -103,7 +109,9 @@ export function useConnectionManager(): UseConnectionManagerReturn {
       queryClient.clear();
       clearToken();
 
-      suppressAutoLogin();
+      if (!isLocalhost(host)) {
+        suppressAutoLogin();
+      }
 
       // Tear down old connection and reject any pending requests
       wsClient.disconnectAndRejectPending();
@@ -121,10 +129,12 @@ export function useConnectionManager(): UseConnectionManagerReturn {
   const disconnect = useCallback(() => {
     queryClient.clear();
     clearToken();
-    suppressAutoLogin();
+    if (currentHost !== null && !isLocalhost(currentHost)) {
+      suppressAutoLogin();
+    }
     wsClient.disconnect();
     setConnectionUrl(null);
-  }, [queryClient, clearToken, suppressAutoLogin, setConnectionUrl]);
+  }, [queryClient, clearToken, suppressAutoLogin, setConnectionUrl, currentHost]);
 
   const connectToLocal = useCallback(async () => {
     const port = getSidecarPort();

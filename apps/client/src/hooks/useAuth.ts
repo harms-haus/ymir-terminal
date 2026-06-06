@@ -185,6 +185,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         window.__YMIR_SIDECAR_PORT = config.port;
+
+        // Only auto-login if connected to the known sidecar port — never send
+        // credentials to an arbitrary localhost service.
+        const sidecarUrl = getSidecarUrl();
+        if (sidecarUrl && connectionUrl && connectionUrl !== sidecarUrl) return;
+
         await login(config.password);
       } catch (err) {
         console.error('[useAuth] Tauri auto-login failed:', err);
@@ -192,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     autoLogin();
-  }, [isTauri, login, getTauriConfig, token]);
+  }, [isTauri, login, getTauriConfig, token, connectionUrl]);
 
   const authValue = useMemo(
     () => ({ isAuthenticated, token, login, logout, clearToken, suppressAutoLogin }),

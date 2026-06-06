@@ -350,6 +350,7 @@ describe('useAuth', () => {
   // -----------------------------------------------------------------------
   test('suppressAutoLogin() prevents Tauri auto-login', async () => {
     mockIsTauri = true;
+    mockConnectionUrl = 'ws://127.0.0.1:3000/ws'; // must match sidecar URL for auto-login guard
     mockGetTauriConfig.mockResolvedValue({ port: 3000, password: 'test' });
     sendRequestResult = { token: 'auto-token', expiresIn: 3600 };
 
@@ -391,6 +392,7 @@ describe('useAuth', () => {
   // -----------------------------------------------------------------------
   test('login() does NOT reset suppressAutoLogin (suppression persists)', async () => {
     mockIsTauri = true;
+    mockConnectionUrl = 'ws://127.0.0.1:3000/ws'; // must match sidecar URL for auto-login guard
     mockGetTauriConfig.mockResolvedValue({ port: 3000, password: 'test' });
     sendRequestResult = { token: 'auto-token', expiresIn: 3600 };
 
