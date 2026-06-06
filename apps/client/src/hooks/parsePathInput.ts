@@ -21,7 +21,7 @@ export function parsePathInput(input: string): { queryDir: string; prefix: strin
     return { queryDir: '', prefix: input };
   }
 
-  const queryDir = input.slice(0, lastSlash);
+  const queryDir = input.slice(0, lastSlash) || (input.startsWith('/') ? '/' : '');
   const prefix = input.slice(lastSlash + 1);
 
   // Only query if queryDir starts with `/` or `~`

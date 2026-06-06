@@ -32,6 +32,7 @@ export function PathAutocompleteInput({
   const listboxId = useId();
   const blurTimerRef = useRef<number | null>(null);
   const optionRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const isFocusedRef = useRef(false);
 
   const { queryDir, prefix } = parsePathInput(value);
   const { directories } = usePathAutocomplete(queryDir);
@@ -60,9 +61,12 @@ export function PathAutocompleteInput({
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setHighlightedIndex(-1);
     if (filtered.length === 0) {
+      setHighlightedIndex(-1);
       setIsDropdownOpen(false);
+    } else if (isFocusedRef.current) {
+      setHighlightedIndex(0);
+      setIsDropdownOpen(true);
     }
   }, [filtered.length, prefix]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -97,9 +101,9 @@ export function PathAutocompleteInput({
           break;
         }
         case 'Tab': {
-          if (isDropdownOpen && (highlightedIndex >= 0 || filtered.length > 0)) {
+          if (isDropdownOpen && highlightedIndex >= 0) {
             e.preventDefault();
-            acceptEntry(filtered[highlightedIndex >= 0 ? highlightedIndex : 0]);
+            acceptEntry(filtered[highlightedIndex]);
           }
           break;
         }
@@ -128,6 +132,7 @@ export function PathAutocompleteInput({
   // ---------------------------------------------------------------------------
 
   const handleBlur = useCallback(() => {
+    isFocusedRef.current = false;
     blurTimerRef.current = window.setTimeout(() => {
       setIsDropdownOpen(false);
       setHighlightedIndex(-1);
@@ -154,6 +159,7 @@ export function PathAutocompleteInput({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => {
+          isFocusedRef.current = true;
           if (filtered.length > 0) setIsDropdownOpen(true);
         }}
         onBlur={handleBlur}

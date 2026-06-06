@@ -88,6 +88,25 @@ describe('parsePathInput', () => {
   test('.hidden (relative, no slash) returns empty queryDir and .hidden as prefix', () => {
     expect(parsePathInput('.hidden')).toEqual({ queryDir: '', prefix: '.hidden' });
   });
+
+  test('/usr returns queryDir / with prefix usr', () => {
+    expect(parsePathInput('/usr')).toEqual({ queryDir: '/', prefix: 'usr' });
+  });
+
+  test('/ returns queryDir / with empty prefix', () => {
+    expect(parsePathInput('/')).toEqual({ queryDir: '/', prefix: '' });
+  });
+
+  test('/.hidden returns queryDir / with prefix .hidden', () => {
+    expect(parsePathInput('/.hidden')).toEqual({ queryDir: '/', prefix: '.hidden' });
+  });
+
+  test('/usr/local/bi returns queryDir /usr/local with prefix bi', () => {
+    expect(parsePathInput('/usr/local/bi')).toEqual({
+      queryDir: '/usr/local',
+      prefix: 'bi',
+    });
+  });
 });
 
 describe('usePathAutocomplete', () => {

@@ -45,7 +45,7 @@ function renderInput(
 ) {
   const onChange = overrides.onChange ?? mock(() => {});
 
-  const result = render(
+  const { rerender } = render(
     React.createElement(PathAutocompleteInput, {
       value: overrides.value ?? '',
       onChange,
@@ -55,7 +55,7 @@ function renderInput(
     }),
   );
 
-  return { ...result, onChange };
+  return { rerender, onChange };
 }
 
 /**
@@ -342,7 +342,24 @@ describe('PathAutocompleteInput', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 13. Does not show dropdown when input is empty
+  // 13. Tab without highlighted option does not accept and does not prevent default
+  // -----------------------------------------------------------------------
+  test('Tab without highlighted option does not accept and does not prevent default', () => {
+    mockDirectories = [{ name: 'software' }, { name: 'photos' }];
+
+    const { onChange } = renderInput({ value: '/home/user/' });
+
+    const input = within(document.body).getByRole('combobox') as HTMLInputElement;
+    triggerFocus(input);
+
+    // Press Tab WITHOUT pressing any arrow keys first
+    triggerKeyDown(input, 'Tab');
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // 14. Does not show dropdown when input is empty
   // -----------------------------------------------------------------------
   test('does not show dropdown when input is empty', () => {
     mockDirectories = [{ name: 'software' }];
@@ -350,5 +367,36 @@ describe('PathAutocompleteInput', () => {
     renderInput({ value: '' });
 
     expect(within(document.body).queryByRole('listbox')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // 15. Dropdown auto-opens when results arrive after focus
+  // -----------------------------------------------------------------------
+  test('dropdown auto-opens when results arrive after focus', () => {
+    mockDirectories = [];
+
+    const { rerender, onChange } = renderInput({ value: '/home/user/' });
+
+    const input = within(document.body).getByRole('combobox') as HTMLInputElement;
+    triggerFocus(input);
+
+    // No data yet — dropdown should not be open
+    expect(within(document.body).queryByRole('listbox')).toBeNull();
+
+    // Simulate data arriving (e.g. async fetch completes)
+    mockDirectories = [{ name: 'software' }, { name: 'photos' }];
+
+    act(() => {
+      rerender(
+        React.createElement(PathAutocompleteInput, {
+          value: '/home/user/',
+          onChange,
+        }),
+      );
+    });
+
+    // Dropdown should now be open without requiring another focus/keystroke
+    const listbox = within(document.body).getByRole('listbox');
+    expect(listbox).toBeTruthy();
   });
 });
