@@ -1,3 +1,4 @@
+import type { CwdCompression } from '@ymir/shared';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   COLOR_ACCENT,
@@ -12,7 +13,13 @@ import type { ContextMenuItem } from './AppContextMenu';
 import { useConfirm } from '../hooks/useDialog';
 
 interface WorkspaceItemContextMenuProps {
-  workspace: { id: string; name: string; cwd: string; color: string };
+  workspace: {
+    id: string;
+    name: string;
+    cwd: string;
+    color: string;
+    cwdCompression?: CwdCompression;
+  };
   onRename: (id: string, newName: string) => void;
   onSetCwd: (id: string, newCwd: string) => void;
   onRemove: (id: string) => void;

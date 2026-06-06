@@ -1,7 +1,17 @@
+export interface CwdCompression {
+  /** The path segments split on "/" — e.g. ["~", "Documents", "software", "project"] */
+  segments: string[];
+  /** Shortest unique prefix for each segment (same length as segments). Root and last segment keep their full value. */
+  uniquePrefixes: string[];
+  /** Number of compressible middle segments: max(0, segments.length - 2) */
+  compressibleCount: number;
+}
+
 export interface WorkspaceSummary {
   id: string;
   name: string;
   cwd: string;
+  cwdCompression?: CwdCompression;
   color: string;
   sortOrder: number;
 }

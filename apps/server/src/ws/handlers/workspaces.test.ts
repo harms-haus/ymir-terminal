@@ -8,6 +8,7 @@ import {
   type WorkspaceListResponse,
   type WorkspaceCreateResponse,
   type FileChangeEvent as FileChangePayload,
+  type CwdCompression,
 } from '@ymir/shared';
 import { mockConn, request, makeGetWorkspaceMock } from '../../test-helpers/mock-utils';
 import type { Database } from 'bun:sqlite';
@@ -34,6 +35,7 @@ describe('registerWorkspaceHandlers', () => {
   let stopManagedWatcherFn: ReturnType<typeof mock>;
   let reorderWorkspacesFn: ReturnType<typeof mock>;
   let deletePersistedTabsByWorkspaceFn: ReturnType<typeof mock>;
+  let buildCompressionMapFn: ReturnType<typeof mock>;
   let broadcastedEvents: EventEnvelope[];
 
   beforeEach(() => {
@@ -77,6 +79,11 @@ describe('registerWorkspaceHandlers', () => {
     stopManagedWatcherFn = mock(() => {});
     reorderWorkspacesFn = mock(() => {});
     deletePersistedTabsByWorkspaceFn = mock(() => {});
+    buildCompressionMapFn = mock(() => ({
+      segments: ['', 'home', 'user', 'a'],
+      uniquePrefixes: ['', 'h', 'u', 'a'],
+      compressibleCount: 2,
+    }));
 
     broadcastedEvents = [];
 
@@ -96,6 +103,7 @@ describe('registerWorkspaceHandlers', () => {
         stopManagedWatcher: stopManagedWatcherFn,
         reorderWorkspaces: reorderWorkspacesFn,
         deletePersistedTabsByWorkspace: deletePersistedTabsByWorkspaceFn,
+        buildCompressionMap: buildCompressionMapFn,
       },
     });
   });
@@ -125,8 +133,30 @@ describe('registerWorkspaceHandlers', () => {
 
       const payload = resp.payload as WorkspaceListResponse;
       expect(payload.workspaces).toEqual([
-        { id: 'ws-1', name: 'Project A', cwd: '/home/user/a', color: '#ff0000', sortOrder: 0 },
-        { id: 'ws-2', name: 'Project B', cwd: '/home/user/b', color: '#00ff00', sortOrder: 1 },
+        {
+          id: 'ws-1',
+          name: 'Project A',
+          cwd: '/home/user/a',
+          cwdCompression: {
+            segments: ['', 'home', 'user', 'a'],
+            uniquePrefixes: ['', 'h', 'u', 'a'],
+            compressibleCount: 2,
+          },
+          color: '#ff0000',
+          sortOrder: 0,
+        },
+        {
+          id: 'ws-2',
+          name: 'Project B',
+          cwd: '/home/user/b',
+          cwdCompression: {
+            segments: ['', 'home', 'user', 'a'],
+            uniquePrefixes: ['', 'h', 'u', 'a'],
+            compressibleCount: 2,
+          },
+          color: '#00ff00',
+          sortOrder: 1,
+        },
       ]);
     });
 
@@ -178,6 +208,11 @@ describe('registerWorkspaceHandlers', () => {
       expect(payload.workspace.id).toBe('ws-1');
       expect(payload.workspace.name).toBe('My Project');
       expect(payload.workspace.cwd).toBe(path.resolve('/home/dev'));
+      expect(payload.workspace.cwdCompression).toEqual({
+        segments: ['', 'home', 'user', 'a'],
+        uniquePrefixes: ['', 'h', 'u', 'a'],
+        compressibleCount: 2,
+      });
       expect(payload.workspace.color).toBe('#007acc');
       expect(payload.workspace.sortOrder).toBe(0);
     });
@@ -261,6 +296,11 @@ describe('registerWorkspaceHandlers', () => {
 
       const payload = resp.payload as WorkspaceCreateResponse;
       expect(payload.workspace.cwd).toBe(path.resolve('/nonexistent/path/that/does/not/exist'));
+      expect(payload.workspace.cwdCompression).toEqual({
+        segments: ['', 'home', 'user', 'a'],
+        uniquePrefixes: ['', 'h', 'u', 'a'],
+        compressibleCount: 2,
+      });
       expect(payload.workspace.name).toBe('Ghost Project');
     });
 
@@ -339,6 +379,11 @@ describe('registerWorkspaceHandlers', () => {
       const payload = resp.payload as { workspace: Record<string, unknown> };
       expect(payload.workspace.id).toBe('ws-1');
       expect(payload.workspace.name).toBe('Renamed');
+      expect(payload.workspace.cwdCompression).toEqual({
+        segments: ['', 'home', 'user', 'a'],
+        uniquePrefixes: ['', 'h', 'u', 'a'],
+        compressibleCount: 2,
+      });
     });
 
     it('updates multiple fields', async () => {
@@ -363,6 +408,11 @@ describe('registerWorkspaceHandlers', () => {
       expect(payload.workspace.id).toBe('ws-1');
       expect(payload.workspace.name).toBe('New');
       expect(payload.workspace.color).toBe('#aabbcc');
+      expect(payload.workspace.cwdCompression).toEqual({
+        segments: ['', 'home', 'user', 'a'],
+        uniquePrefixes: ['', 'h', 'u', 'a'],
+        compressibleCount: 2,
+      });
     });
 
     it('returns error INVALID_MESSAGE when id is missing', async () => {

@@ -15,8 +15,11 @@ import {
   type WorkspaceSummary,
   type WorkspaceUnsubscribeRequest,
   type WorkspaceUpdateRequest,
+  type CwdCompression,
 } from '@ymir/shared';
+import { homedir } from 'node:os';
 import { resolve, join } from 'node:path';
+import { buildCompressionMap, shortenPath } from '../../lib/path-compression';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, type MessageRouter } from '../router';
 import {
@@ -70,21 +73,7 @@ export interface WorkspaceDeps {
       maxDepth?: number,
       onDepthComplete?: (repos: GitRepoInfo[], depth: number) => void,
     ) => Promise<GitRepoInfo[]>;
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Strip timestamp fields to produce a WorkspaceSummary. */
-function toSummary(ws: Workspace): WorkspaceSummary {
-  return {
-    id: ws.id,
-    name: ws.name,
-    cwd: ws.cwd,
-    color: ws.color,
-    sortOrder: ws.sort_order,
+    buildCompressionMap?: (shortenedPath: string) => CwdCompression;
   };
 }
 
@@ -94,6 +83,22 @@ function toSummary(ws: Workspace): WorkspaceSummary {
 
 export function registerWorkspaceHandlers(router: MessageRouter, deps: WorkspaceDeps): void {
   const { persistentDb, _mocks } = deps;
+
+  const doBuildCompression = _mocks?.buildCompressionMap ?? buildCompressionMap;
+
+  /** Strip timestamp fields to produce a WorkspaceSummary. */
+  function toSummary(ws: Workspace): WorkspaceSummary {
+    const shortened = shortenPath(ws.cwd, homedir());
+    const cwdCompression = doBuildCompression(shortened);
+    return {
+      id: ws.id,
+      name: ws.name,
+      cwd: ws.cwd,
+      cwdCompression,
+      color: ws.color,
+      sortOrder: ws.sort_order,
+    };
+  }
 
   const doList = _mocks?.listWorkspaces ?? dbListWorkspaces;
   const doCreate = _mocks?.createWorkspace ?? dbCreateWorkspace;

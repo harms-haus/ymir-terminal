@@ -1,13 +1,21 @@
-import type { GitWorktreeInfo } from '@ymir/shared';
+import type { CwdCompression, GitWorktreeInfo } from '@ymir/shared';
+import { useRef, useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
+import { compressPathToWidth } from '../lib/path-compression';
 import { COLOR_ACCENT, COLOR_WORKSPACE_ACTIVE, COLOR_WORKSPACE_CWD } from '../lib/theme';
 import { WorktreeItem } from './WorktreeItem';
 import { WorktreeItemContextMenu } from './WorktreeItemContextMenu';
 import { WorkspaceItemContextMenu } from './WorkspaceItemContextMenu';
 
 interface WorkspaceItemProps {
-  workspace: { id: string; name: string; cwd: string; color: string };
+  workspace: {
+    id: string;
+    name: string;
+    cwd: string;
+    color: string;
+    cwdCompression?: CwdCompression;
+  };
   wsIndex: number;
   isActive: boolean;
   worktrees: GitWorktreeInfo[];
@@ -29,6 +37,13 @@ interface WorkspaceItemProps {
   onCreateWorktree?: () => void;
 }
 
+function createTextMeasurer(): (text: string) => number {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = '11px sans-serif';
+  return (text: string) => ctx.measureText(text).width;
+}
+
 export function WorkspaceItem({
   workspace,
   wsIndex,
@@ -46,6 +61,42 @@ export function WorkspaceItem({
   onMergeWorktree,
   onCreateWorktree,
 }: WorkspaceItemProps) {
+  const cwdRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<((text: string) => number) | null>(null);
+  const [displayCwd, setDisplayCwd] = useState(workspace.cwd);
+
+  useEffect(() => {
+    const el = cwdRef.current;
+    if (!el || !workspace.cwdCompression) {
+      setDisplayCwd(workspace.cwd);
+      return;
+    }
+
+    if (measureRef.current === null) {
+      measureRef.current = createTextMeasurer();
+    }
+    const measure = measureRef.current;
+    let rafId: number | null = null;
+
+    const update = () => {
+      rafId = null;
+      const availableWidth = el.clientWidth;
+      setDisplayCwd(compressPathToWidth(workspace.cwdCompression!, availableWidth, measure));
+    };
+
+    update();
+
+    const observer = new ResizeObserver(() => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(update);
+    });
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [workspace.cwdCompression, workspace.cwd]);
   const linkedWorktrees = worktrees.filter((w) => !w.isMain);
   const hasLinkedWorktrees = linkedWorktrees.length > 0;
   const hasActiveChildWorktree =
@@ -125,17 +176,16 @@ export function WorkspaceItem({
               {workspace.name}
             </div>
             <div
+              ref={cwdRef}
               style={{
                 fontSize: '11px',
                 color: COLOR_WORKSPACE_CWD,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                direction: 'rtl',
-                textAlign: 'left',
               }}
             >
-              {workspace.cwd}
+              {displayCwd}
             </div>
           </div>
         </div>
