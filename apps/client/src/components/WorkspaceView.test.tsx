@@ -204,6 +204,17 @@ mock.module('./CommandBar', () => ({
     React.createElement('div', { 'data-testid': 'command-bar' }, workspaceName ?? 'No workspace'),
 }));
 
+// Mock WindowTitleBar's dependencies instead of the component itself to
+// avoid cross-file mock contamination (mock.module is process-scoped).
+mock.module('./ConnectionManagerPopover', () => ({
+  ConnectionManagerPopover: () =>
+    React.createElement('div', { 'data-testid': 'connection-manager' }),
+}));
+
+mock.module('./WindowControls', () => ({
+  WindowControls: () => React.createElement('div', { 'data-testid': 'window-controls' }),
+}));
+
 // ---------------------------------------------------------------------------
 // Mock sonner
 // ---------------------------------------------------------------------------

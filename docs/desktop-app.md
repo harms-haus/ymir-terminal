@@ -28,10 +28,11 @@ Both overrides validate that the path exists before using it, printing a warning
 
 The window has `decorations: false` — no native title bar. Instead:
 
-- The `TopBar` component has `data-tauri-drag-region` making it draggable
+- The `TopBar` and `WindowTitleBar` components have `data-tauri-drag-region` making them draggable
+- `WindowTitleBar` is used on pre-auth screens (login and loading), while `TopBar` is used in the authenticated workspace
 - Interactive children (buttons, inputs) have `pointerEvents: 'auto'` to remain clickable
-- Window controls (minimize, maximize, close) appear right of the panel toggles
-- Double-click on the drag region toggles maximize
+- Window controls (minimize, maximize, close) appear right of the panel toggles in `TopBar`, and on the right in `WindowTitleBar`
+- Double-click on either drag region toggles maximize via the shared `useTauriMaximize` hook
 
 ## Auto-Authentication
 
@@ -71,10 +72,13 @@ The Connection Manager popover provides a "Connect to Local Server" button (visi
 
 ## Frontend Files
 
-| File                                                | Purpose                                                                                                                                                        |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/client/src/hooks/useTauri.ts`                 | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`)                                                                                            |
-| `apps/client/src/hooks/useAuth.ts`                  | Auto-login when `isTauri` is true; reads WebSocket URL from `ConnectionUrlContext`; supports `suppressAutoLogin()` to skip auto-login on server switch         |
-| `apps/client/src/components/TopBar.tsx`             | Drag region, ConnectionManagerPopover (left), command bar (center), window controls and pane toggles (right)                                                   |
-| `apps/client/src/contexts/ConnectionUrlContext.tsx` | Shared context for tracking the active WebSocket connection URL. Used by `AuthProvider` for auto-reconnect and by `WorkspaceView` for remount-on-server-switch |
-| `apps/client/src/lib/theme.ts`                      | Window control theme constants                                                                                                                                 |
+| File                                                | Purpose                                                                                                                                                         |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/client/src/hooks/useTauri.ts`                 | Tauri detection (`isTauri`) and config retrieval (`getTauriConfig`)                                                                                             |
+| `apps/client/src/hooks/useAuth.ts`                  | Auto-login when `isTauri` is true; reads WebSocket URL from `ConnectionUrlContext`; supports `suppressAutoLogin()` to skip auto-login on server switch          |
+| `apps/client/src/components/TopBar.tsx`             | Drag region, ConnectionManagerPopover (left), command bar (center), window controls and pane toggles (right)                                                    |
+| `apps/client/src/components/WindowTitleBar.tsx`     | Simplified drag-region title bar for login and loading screens; ConnectionManagerPopover (left), optional children (center), WindowControls (right, Tauri only) |
+| `apps/client/src/components/YmirLogo.tsx`           | Inline SVG logo component with configurable `size` prop; used in the branded loading screen                                                                     |
+| `apps/client/src/lib/tauri.ts`                      | Shared `useTauriMaximize` hook for double-click-to-maximize on drag regions; used by both `TopBar` and `WindowTitleBar`                                         |
+| `apps/client/src/contexts/ConnectionUrlContext.tsx` | Shared context for tracking the active WebSocket connection URL. Used by `AuthProvider` for auto-reconnect and by `WorkspaceView` for remount-on-server-switch  |
+| `apps/client/src/lib/theme.ts`                      | Window control theme constants                                                                                                                                  |

@@ -7,39 +7,10 @@ import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'b
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 import { AuthContext } from '../hooks/useAuth';
-import type { UseConnectionManagerReturn } from '../hooks/useConnectionManager';
-
-// ---------------------------------------------------------------------------
-// Mock useConnectionManager
-// ---------------------------------------------------------------------------
-
-const defaultMockCMReturn: UseConnectionManagerReturn = {
-  currentUrl: null,
-  currentHost: null,
-  currentPort: null,
-  status: 'disconnected',
-  favorites: [],
-  recentConnections: [],
-  addFavorite: mock(() => {}),
-  removeFavorite: mock(() => {}),
-  updateFavorite: mock(() => {}),
-  clearRecent: mock(() => {}),
-  connect: mock(() => {}),
-  disconnect: mock(() => {}),
-  connectToLocal: mock(() => {}),
-  isFavorite: mock(() => false),
-  isTauri: false,
-  localPort: null,
-};
-
-let mockCMReturn: UseConnectionManagerReturn = { ...defaultMockCMReturn };
-
-mock.module('../hooks/useConnectionManager', () => ({
-  useConnectionManager: () => mockCMReturn,
-}));
 
 mock.module('../hooks/useDialog', () => ({
   useConfirm: () => async () => true,
+  usePrompt: () => async () => null,
 }));
 
 // ---------------------------------------------------------------------------
@@ -80,10 +51,6 @@ function renderLoginPage(overrides: { login?: ReturnType<typeof mock> } = {}) {
   };
 }
 
-function resetMockCM() {
-  mockCMReturn = { ...defaultMockCMReturn };
-}
-
 // ---------------------------------------------------------------------------
 // Cleanup
 // ---------------------------------------------------------------------------
@@ -99,7 +66,6 @@ afterAll(() => {
 describe('LoginPage', () => {
   beforeEach(() => {
     localStorage.clear();
-    resetMockCM();
   });
 
   afterEach(() => {
@@ -135,40 +101,5 @@ describe('LoginPage', () => {
     expect(input).toBeTruthy();
     expect(input.id).toBe('password');
     expect(input.disabled).toBe(false);
-  });
-
-  // -----------------------------------------------------------------------
-  // ConnectionManagerPopover on LoginPage
-  // -----------------------------------------------------------------------
-
-  test('renders connection manager popover trigger on login page', () => {
-    const { getByTestId } = renderLoginPage();
-    const trigger = getByTestId('connection-manager-trigger');
-    expect(trigger).toBeTruthy();
-    expect(trigger.tagName).toBe('BUTTON');
-  });
-
-  test('renders Server: label next to connection manager', () => {
-    const { getByText } = renderLoginPage();
-    expect(getByText('Server:')).toBeTruthy();
-  });
-
-  test('connection manager shows Disconnected by default', () => {
-    const { getByTestId } = renderLoginPage();
-    const trigger = getByTestId('connection-manager-trigger');
-    expect(trigger.textContent).toContain('Disconnected');
-  });
-
-  test('connection manager shows host:port when connected', () => {
-    mockCMReturn = {
-      ...mockCMReturn,
-      status: 'connected',
-      currentHost: '10.0.0.1',
-      currentPort: 4000,
-    };
-
-    const { getByTestId } = renderLoginPage();
-    const trigger = getByTestId('connection-manager-trigger');
-    expect(trigger.textContent).toContain('10.0.0.1:4000');
   });
 });

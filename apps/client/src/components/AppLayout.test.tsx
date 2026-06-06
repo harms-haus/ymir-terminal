@@ -3,17 +3,38 @@ import { setupTestDom, setupAllMocks } from '../test-helpers/mock-setup';
 await setupTestDom();
 setupAllMocks();
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, afterAll, mock } from 'bun:test';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 
+// Import the real AuthContext before any mocking so our context-aware
+// useAuth mock below can reference it.
+import { AuthContext } from '../hooks/useAuth';
+
+// Mock WindowTitleBar's dependencies instead of the component itself to
+// avoid cross-file mock contamination (mock.module is process-scoped).
 mock.module('./ConnectionManagerPopover', () => ({
   ConnectionManagerPopover: () =>
-    React.createElement('div', { 'data-testid': 'mock-connection-manager' }),
+    React.createElement('div', { 'data-testid': 'connection-manager' }),
+}));
+
+mock.module('./WindowControls', () => ({
+  WindowControls: () => React.createElement('div', { 'data-testid': 'window-controls' }),
+}));
+
+// Mock useAuth to read from the real AuthContext so the component
+// respects the Provider value set in each test, even when another
+// test file has contaminated the useAuth module.
+mock.module('../hooks/useAuth', () => ({
+  useAuth: () => {
+    const ctx = React.useContext(AuthContext);
+    if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+    return ctx;
+  },
+  AuthContext,
 }));
 
 import { AppLayout } from './AppLayout';
-import { AuthContext } from '../hooks/useAuth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,6 +76,10 @@ function renderAppLayout(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+afterAll(() => {
+  mock.restore();
+});
 
 describe('AppLayout', () => {
   beforeEach(() => {
@@ -134,11 +159,14 @@ describe('AppLayout', () => {
   // -----------------------------------------------------------------------
   // 6. Shows LoginPage when not authenticated
   // -----------------------------------------------------------------------
-  test('shows LoginPage when not authenticated', () => {
-    const { queryByTestId } = renderAppLayout({ isAuthenticated: false });
+  test('shows WindowTitleBar and LoginPage when not authenticated', () => {
+    const { getByTestId, queryByTestId } = renderAppLayout({ isAuthenticated: false });
+
+    // WindowTitleBar is rendered
+    expect(getByTestId('window-title-bar')).toBeTruthy();
 
     // LoginPage renders with its own data-testid
-    expect(queryByTestId('login-page')).toBeTruthy();
+    expect(getByTestId('login-page')).toBeTruthy();
 
     // Layout panels should not be rendered
     expect(queryByTestId('left-sidebar')).toBeNull();

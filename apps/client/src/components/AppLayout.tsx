@@ -8,6 +8,7 @@ import {
 } from 'react-resizable-panels';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPage } from './LoginPage';
+import { WindowTitleBar } from './WindowTitleBar';
 import { AnimatedPane } from './AnimatedPane';
 import { COLOR_BG_PRIMARY, COLOR_BORDER, COLOR_TEXT } from '../lib/theme';
 import { sendRequest } from '../lib/send-request';
@@ -84,7 +85,14 @@ export function AppLayout({
     }).catch(() => {});
   }, []);
 
-  if (!isAuthenticated) return <LoginPage />;
+  if (!isAuthenticated) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <WindowTitleBar />
+        <LoginPage />
+      </div>
+    );
+  }
 
   return (
     <div

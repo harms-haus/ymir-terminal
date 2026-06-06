@@ -11,8 +11,6 @@ import {
   COLOR_TEXT_CARD_MUTED,
   COLOR_TEXT_ERROR_CARD,
 } from '../lib/theme';
-import { ConnectionManagerPopover } from './ConnectionManagerPopover';
-
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
@@ -22,7 +20,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '100vh',
+    flex: 1,
+    height: '100%',
     backgroundColor: COLOR_BG_LOGIN,
     color: COLOR_TEXT_CARD,
     fontFamily: '"Inter Variable", "JetBrainsMono Nerd Font", system-ui, sans-serif',
@@ -122,19 +121,6 @@ export function LoginPage() {
         <div style={styles.card}>
           <h1 style={styles.title}>Ymir Terminal</h1>
           <p style={styles.subtitle}>Enter your password to connect</p>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '16px',
-              gap: '8px',
-            }}
-          >
-            <span style={{ fontSize: '13px', color: COLOR_TEXT_CARD_MUTED }}>Server:</span>
-            <ConnectionManagerPopover />
-          </div>
 
           <form onSubmit={handleSubmit}>
             {error && (

@@ -12,8 +12,10 @@ import { ToastProvider } from './ToastProvider';
 import { DialogProvider } from './DialogProvider';
 import { PaneVisibilityProvider, usePaneVisibility } from '../hooks/usePaneVisibility';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
+import { WindowTitleBar } from './WindowTitleBar';
+import { YmirLogo } from './YmirLogo';
 import { useTheme } from '../hooks/useTheme';
-import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
+import { COLOR_BG_PRIMARY, COLOR_SPINNER_TRACK } from '../lib/theme';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider } from '@dnd-kit/react';
 import { FileClipboardProvider } from '../contexts/FileClipboardContext';
@@ -209,23 +211,45 @@ function WorkspaceViewInner() {
     setFileToOpen(path);
   }, []);
 
-  // While pane visibility is loading from the server, render a placeholder to avoid layout flash
+  // While pane visibility is loading from the server, render a branded loading screen
   if (loading) {
     return (
       <div
         role="status"
         aria-label="Loading workspace"
         style={{
-          flex: 1,
-          background: COLOR_BG_PRIMARY,
+          height: '100%',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: COLOR_TEXT_DIM,
-          fontSize: '13px',
+          flexDirection: 'column',
+          background: COLOR_BG_PRIMARY,
         }}
       >
-        Loading…
+        <WindowTitleBar />
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: COLOR_BG_PRIMARY,
+          }}
+        >
+          <YmirLogo size={120} />
+          <div
+            role="status"
+            aria-label="Loading"
+            style={{
+              marginTop: 12,
+              width: 32,
+              height: 32,
+              border: '3px solid ' + COLOR_SPINNER_TRACK,
+              borderTopColor: '#ffffff',
+              borderRadius: '50%',
+              animation: 'spin 0.6s linear infinite',
+            }}
+          />
+        </div>
       </div>
     );
   }

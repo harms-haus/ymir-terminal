@@ -1,7 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { usePaneVisibility } from '../hooks/usePaneVisibility';
 import { ConnectionManagerPopover } from './ConnectionManagerPopover';
-import { PaneToggleButtons } from './PaneToggleButtons';
 import { WindowControls } from './WindowControls';
 import { COLOR_TOPBAR_BG, COLOR_TOPBAR_BORDER, TOP_BAR_HEIGHT, Z_INDEX_TOPBAR } from '../lib/theme';
 import { useTauriMaximize } from '../lib/tauri';
@@ -10,17 +8,24 @@ import { useTauriMaximize } from '../lib/tauri';
 // Types
 // ---------------------------------------------------------------------------
 
-interface TopBarProps {
-  commandBar?: ReactNode;
+interface WindowTitleBarProps {
+  /** Optional centre content (e.g. a label or logo). */
+  children?: ReactNode;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function TopBar({ commandBar }: TopBarProps) {
-  const { left, right, bottom, toggleLeft, toggleRight, toggleBottom } = usePaneVisibility();
-
+/**
+ * Minimal window-decoration bar for login and loading screens.
+ *
+ * Renders the {@link ConnectionManagerPopover} on the left, optional
+ * {@link children} in the centre, and {@link WindowControls} on the right.
+ *
+ * **Requires** {@link ConnectionUrlProvider} and {@link AuthProvider} ancestors.
+ */
+export function WindowTitleBar({ children }: WindowTitleBarProps) {
   const [isTauri, setIsTauri] = useState(false);
 
   useEffect(() => {
@@ -34,6 +39,7 @@ export function TopBar({ commandBar }: TopBarProps) {
 
   return (
     <div
+      data-testid="window-title-bar"
       data-tauri-drag-region="deep"
       onDoubleClick={handleMaximize}
       style={{
@@ -49,19 +55,12 @@ export function TopBar({ commandBar }: TopBarProps) {
         userSelect: 'none',
       }}
     >
-      <style>{`
-        .topbar-toggle-btn:focus-visible {
-          outline: 1px solid var(--accent, #007acc);
-          outline-offset: -1px;
-        }
-      `}</style>
-
       {/* Left — Connection manager */}
       <div style={{ flex: '0 0 auto', marginRight: '8px', pointerEvents: 'auto' as const }}>
         <ConnectionManagerPopover />
       </div>
 
-      {/* Center — Command bar slot */}
+      {/* Centre — children slot */}
       <div
         style={{
           flex: 1,
@@ -71,28 +70,18 @@ export function TopBar({ commandBar }: TopBarProps) {
           pointerEvents: 'auto' as const,
         }}
       >
-        {commandBar}
+        {children}
       </div>
 
-      {/* Right — Toggle buttons & window controls */}
+      {/* Right — Window controls */}
       <div
         style={{
           flex: '0 0 auto',
           display: 'flex',
-          gap: '4px',
-          marginLeft: '16px',
+          marginLeft: 'auto',
           pointerEvents: 'auto' as const,
         }}
       >
-        <PaneToggleButtons
-          left={left}
-          right={right}
-          bottom={bottom}
-          toggleLeft={toggleLeft}
-          toggleRight={toggleRight}
-          toggleBottom={toggleBottom}
-        />
-
         {isTauri && <WindowControls />}
       </div>
     </div>
