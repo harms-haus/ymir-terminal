@@ -1,7 +1,7 @@
 import { IS_WINDOWS, CONFIG_DIR, DB_FILE, YMIR_HOME_DIR_NAME } from './constants';
 // Node.js modules — only available in server/CLI context, not in browser
-let _os = null; // eslint-disable-line @typescript-eslint/consistent-type-imports
-let _path = null; // eslint-disable-line @typescript-eslint/consistent-type-imports
+let _os = null;
+let _path = null;
 function getOs() {
   if (!_os) {
     try {

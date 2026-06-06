@@ -15,7 +15,7 @@ export const Terminal = forwardRef(function Terminal(
   { terminalId, cols = 80, rows = 24, onTitleChange, onCwdChange }: TerminalProps,
   ref,
 ) {
-  const { sendData, onOutput, resizeTerminal } = useTerminal(terminalId);
+  const { sendData, onOutput, resizeTerminal, restoreState } = useTerminal(terminalId);
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<GhosttyTerminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -74,6 +74,11 @@ export const Terminal = forwardRef(function Terminal(
       });
 
       fit.fit();
+
+      // Restore any previously buffered terminal state (e.g. after reconnect)
+      if (!disposed) {
+        restoreState();
+      }
 
       const observer = new ResizeObserver(() => {
         // Skip fit when the container is collapsed (display:none → 0×0).

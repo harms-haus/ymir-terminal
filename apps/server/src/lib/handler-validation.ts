@@ -1,11 +1,15 @@
 /** Path validation utilities for ensuring file/git operations stay within workspace boundaries. */
 import { resolve, relative, isAbsolute } from 'node:path';
 import { realpathSync } from 'node:fs';
-import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/shared';
+import {
+  ErrorCodes,
+  type GitWorktreeInfo,
+  type RequestEnvelope,
+  type ResponseEnvelope,
+} from '@ymir/shared';
 import type { ClientConnection } from '../ws/connection';
-import type { Database } from '../db/session';
 import { createError } from '../ws/router';
-import { getTerminalInstance, getTab } from '../db/session';
+import { type Database, getTerminalInstance, getTab, getWorkspaceTerminal } from '../db/session';
 
 // ---------------------------------------------------------------------------
 // Terminal ownership validation
@@ -98,6 +102,88 @@ export function validateTabOwnership(
 }
 
 // ---------------------------------------------------------------------------
+// Workspace terminal access validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Result of a successful {@link validateWorkspaceTerminalAccess} call.
+ */
+export interface WorkspaceTerminalAccessResult {
+  /** The workspace_terminal DB row. */
+  instance: Record<string, unknown>;
+}
+
+/**
+ * Validate that a workspace terminal exists.
+ *
+ * Workspace terminals are shared across connections so no session ownership
+ * check is performed. If the terminal is not found an error is sent on
+ * `conn` and `null` is returned so the caller can early-return.
+ */
+export function validateWorkspaceTerminalAccess(
+  sessionDb: Database,
+  terminalId: string,
+  conn: ClientConnection,
+  req: Pick<RequestEnvelope, 'id' | 'channel'>,
+  expectedWorktreePath?: string | null,
+): WorkspaceTerminalAccessResult | null {
+  const instance = getWorkspaceTerminal(sessionDb, terminalId);
+  if (!instance) {
+    const err: ResponseEnvelope = createError(
+      req,
+      ErrorCodes.TERMINAL_NOT_FOUND,
+      `Terminal not found: ${terminalId}`,
+    );
+    conn.send(err);
+    return null;
+  }
+
+  // Verify the session has access to this terminal's workspace+worktree scope.
+  // The connection must belong to a session that has at least one tab whose
+  // workspace_id and worktree_path match the terminal's.
+  const instanceWorkspaceId = instance.workspace_id as string;
+  const instanceWorktreePath = instance.worktree_path as string | null;
+
+  const hasAccess = sessionDb
+    .prepare(
+      `SELECT 1 FROM tabs
+       WHERE session_id = ? AND workspace_id = ?
+       AND ((worktree_path = ?) OR (worktree_path IS NULL AND ? IS NULL))
+       LIMIT 1`,
+    )
+    .get(conn.sessionId, instanceWorkspaceId, instanceWorktreePath, instanceWorktreePath);
+
+  if (!hasAccess) {
+    const err: ResponseEnvelope = createError(
+      req,
+      ErrorCodes.PERMISSION_DENIED,
+      `Terminal not accessible in this session's workspace/worktree scope`,
+    );
+    conn.send(err);
+    return null;
+  }
+
+  // When an expected worktree path is provided, enforce worktree scope.
+  // Terminals created in a worktree can only be accessed by tabs/contexts
+  // scoped to that same worktree (or to the workspace root when null).
+  if (expectedWorktreePath !== undefined) {
+    const instanceWorktree = (instance.worktree_path as string | null) ?? null;
+    const expected = expectedWorktreePath ?? null;
+    if (instanceWorktree !== expected) {
+      const err: ResponseEnvelope = createError(
+        req,
+        ErrorCodes.PERMISSION_DENIED,
+        `Terminal worktree mismatch: expected ${expected ?? 'null'}, got ${instanceWorktree ?? 'null'}`,
+      );
+      conn.send(err);
+      return null;
+    }
+  }
+
+  return { instance };
+}
+
+// ---------------------------------------------------------------------------
 // Safe-path resolution
 // ---------------------------------------------------------------------------
 
@@ -127,4 +213,49 @@ export function safePath(workspaceCwd: string, userInput: string): string {
   }
 
   return resolved;
+}
+
+// ---------------------------------------------------------------------------
+// Cwd resolution with worktree fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempt to resolve a candidate cwd within the workspace, falling back to
+ * known git worktrees when the path is outside the workspace root.
+ *
+ * When the candidate resolves inside the workspace via {@link safePath}, this
+ * also checks whether the resolved path matches a known worktree so callers
+ * can store the correct `worktree_path`.
+ *
+ * @returns A result with the resolved `cwd` and an optional `worktreePath`
+ *   when the cwd matched a known worktree, or `null` when the path is
+ *   neither inside the workspace nor a known worktree.
+ */
+export function resolveCwdWithWorktreeFallback(
+  workspaceCwd: string,
+  candidateCwd: string,
+  worktrees: GitWorktreeInfo[],
+): { cwd: string; worktreePath: string | undefined } | null {
+  // Try resolving within the workspace first
+  try {
+    const cwd = safePath(workspaceCwd, candidateCwd);
+    // Even when safePath succeeds the cwd might be a known worktree that
+    // lives inside the workspace root. Detect that so callers can store the
+    // correct worktree_path.
+    const normalizedWorkspaceCwd = resolve(workspaceCwd);
+    let worktreePath: string | undefined;
+    if (cwd !== normalizedWorkspaceCwd) {
+      if (worktrees.some((w) => resolve(w.path) === cwd)) {
+        worktreePath = cwd;
+      }
+    }
+    return { cwd, worktreePath };
+  } catch {
+    // Not within the workspace — check if it's a known git worktree
+    const resolvedCandidate = resolve(candidateCwd);
+    if (worktrees.some((w) => resolve(w.path) === resolvedCandidate)) {
+      return { cwd: resolvedCandidate, worktreePath: resolvedCandidate };
+    }
+    return null;
+  }
 }

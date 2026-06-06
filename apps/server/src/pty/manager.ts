@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import { existsSync } from 'node:fs';
 import { toBase64, fromBase64 } from '@ymir/shared';
+import { OutputRingBuffer } from './output-ring-buffer';
 
 const UNIX_SHELLS = new Set([
   '/bin/bash',
@@ -38,7 +39,15 @@ export class PTYManager {
       lastCols?: number;
       lastRows?: number;
       exited?: boolean;
+      onData: (data: string) => void;
+      onExit?: (code: number | null) => void;
+      buffer: OutputRingBuffer;
     }
+  >();
+  #buffers = new Map<string, OutputRingBuffer>();
+  #exitedBuffers = new Map<
+    string,
+    { buffer: OutputRingBuffer; lastCols?: number; lastRows?: number }
   >();
 
   constructor(platform?: string, deps?: { existsSync?: (path: string) => boolean }) {
@@ -62,13 +71,42 @@ export class PTYManager {
       | undefined;
     if (!BunTerminal) throw new Error('Bun.Terminal is not available');
 
+    const buffer = new OutputRingBuffer();
+
+    const entry: {
+      terminal: unknown;
+      process: { pid: number; kill: (sig: string) => void; exited: Promise<number> };
+      lastCols?: number;
+      lastRows?: number;
+      exited?: boolean;
+      onData: (data: string) => void;
+      onExit?: (code: number | null) => void;
+      buffer: OutputRingBuffer;
+    } = {
+      terminal: undefined as unknown,
+      process: undefined as unknown as {
+        pid: number;
+        kill: (sig: string) => void;
+        exited: Promise<number>;
+      },
+      lastCols: options.cols,
+      lastRows: options.rows,
+      exited: false,
+      onData: options.onData,
+      onExit: options.onExit,
+      buffer,
+    };
+
     const terminal = new BunTerminal({
       cols: options.cols,
       rows: options.rows,
       data(_term: unknown, data: Buffer) {
-        options.onData(toBase64(data as Uint8Array));
+        buffer.append(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+        entry.onData(toBase64(data as Uint8Array));
       },
     });
+
+    entry.terminal = terminal;
 
     const requestedShell = this.#isWindows
       ? options.shell || basename(process.env.COMSPEC || 'cmd.exe')
@@ -111,37 +149,13 @@ export class PTYManager {
       throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
     }
 
-    this.#terminals.set(id, {
-      terminal,
-      process: proc,
-      lastCols: options.cols,
-      lastRows: options.rows,
-    });
+    entry.process = proc;
+    this.#terminals.set(id, entry);
+    this.#buffers.set(id, buffer);
 
     proc.exited
-      .then((code: number) => {
-        const entry = this.#terminals.get(id);
-        if (entry) entry.exited = true;
-        this.#terminals.delete(id);
-        try {
-          options.onExit?.(code);
-        } catch {
-          // Swallow errors from user-provided onExit callback
-        }
-      })
-      .catch(() => {
-        const entry = this.#terminals.get(id);
-        if (entry) entry.exited = true;
-        this.#terminals.delete(id);
-        try {
-          options.onExit?.(null);
-        } catch {
-          // Swallow errors from user-provided onExit callback
-        }
-      })
-      .catch((err) => {
-        console.warn('Unexpected error in PTY exit handler:', err);
-      });
+      .then((code: number) => this.#handleProcessExit(id, code))
+      .catch(() => this.#handleProcessExit(id, null));
 
     return id;
   }
@@ -195,10 +209,36 @@ export class PTYManager {
   kill(id: string): void {
     const entry = this.#terminals.get(id);
     if (!entry) return;
-    (entry.terminal as { close: () => void }).close();
-    // Note: On Windows, process.kill sends SIGTERM which Bun maps to TerminateProcess
-    entry.process.kill('SIGTERM');
+    try {
+      (entry.terminal as { close: () => void }).close();
+    } catch {
+      // Terminal may already be closed
+    }
+    try {
+      entry.process.kill('SIGTERM');
+    } catch {
+      // Process may have already exited
+    }
+    this.#handleProcessExit(id, null);
+  }
+
+  #handleProcessExit(id: string, code: number | null): void {
+    const entry = this.#terminals.get(id);
+    if (entry) {
+      entry.exited = true;
+      this.#exitedBuffers.set(id, {
+        buffer: entry.buffer,
+        lastCols: entry.lastCols,
+        lastRows: entry.lastRows,
+      });
+    }
     this.#terminals.delete(id);
+    this.#buffers.delete(id);
+    try {
+      entry?.onExit?.(code);
+    } catch {
+      // Swallow errors from user-provided onExit callback
+    }
   }
 
   has(id: string): boolean {
@@ -206,8 +246,45 @@ export class PTYManager {
   }
 
   killAll(): void {
-    for (const id of this.#terminals.keys()) {
+    for (const id of [...this.#terminals.keys()]) {
       this.kill(id);
     }
+  }
+
+  setOutputTarget(
+    id: string,
+    onData: (data: string) => void,
+    onExit?: (code: number | null) => void,
+  ): void {
+    const entry = this.#terminals.get(id);
+    if (!entry || entry.exited) return;
+    entry.onData = onData;
+    if (onExit !== undefined) {
+      entry.onExit = onExit;
+    }
+  }
+
+  getBufferSnapshot(id: string): Uint8Array | null {
+    const buf = this.#buffers.get(id) ?? this.#exitedBuffers.get(id)?.buffer;
+    return buf ? buf.snapshot() : null;
+  }
+
+  hasExited(id: string): boolean {
+    if (this.#exitedBuffers.has(id)) return true;
+    const entry = this.#terminals.get(id);
+    if (entry) return !!entry.exited;
+    return true;
+  }
+
+  getDimensions(id: string): { cols: number; rows: number } | null {
+    const entry = this.#terminals.get(id);
+    if (entry) {
+      return { cols: entry.lastCols ?? 0, rows: entry.lastRows ?? 0 };
+    }
+    const exited = this.#exitedBuffers.get(id);
+    if (exited) {
+      return { cols: exited.lastCols ?? 0, rows: exited.lastRows ?? 0 };
+    }
+    return null;
   }
 }

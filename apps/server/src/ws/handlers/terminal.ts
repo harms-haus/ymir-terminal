@@ -1,5 +1,6 @@
 import {
   ErrorCodes,
+  type GitWorktreeInfo,
   type MessageEnvelope,
   type RequestEnvelope,
   type ResponseEnvelope,
@@ -10,22 +11,29 @@ import {
   type TerminalCloseRequest,
   type TerminalOutputEvent,
   type TerminalExitEvent,
+  type TerminalStateRequest,
+  type TerminalStateResponse,
   DEFAULT_COLS,
   DEFAULT_ROWS,
+  toBase64,
 } from '@ymir/shared';
 import type { PTYManager } from '../../pty/manager';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, createEvent, type MessageRouter } from '../router';
 import {
   type Database,
-  createTerminalInstance,
-  updateTerminalSize,
-  deleteTerminalInstance,
+  createWorkspaceTerminal,
+  updateWorkspaceTerminalSize,
+  deleteWorkspaceTerminal,
 } from '../../db/session';
-import { resolve } from 'node:path';
 import { getWorkspace } from '../../db/persistent';
+import { resolve } from 'node:path';
 import { listWorktrees } from '../../git/worktrees';
-import { validateTerminalOwnership, safePath } from '../../lib/handler-validation';
+import {
+  validateWorkspaceTerminalAccess,
+  safePath,
+  resolveCwdWithWorktreeFallback,
+} from '../../lib/handler-validation';
 
 export interface TerminalDeps {
   ptyManager: PTYManager;
@@ -81,57 +89,61 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     const cols = payload?.cols ?? DEFAULT_COLS;
     const rows = payload?.rows ?? DEFAULT_ROWS;
 
-    // Create a DB entry for the terminal instance
-    const terminalId = createTerminalInstance(sessionDb, {
-      sessionId: conn.sessionId,
-      workspaceId,
-      cols,
-      rows,
-    });
-
     // Resolve workspace CWD
     const workspace =
       workspaceId !== 'default' ? getWorkspace(deps.persistentDb, workspaceId) : null;
     const workspaceCwd = workspace?.cwd ?? process.cwd();
 
     // Validate cwd — must be within the workspace or a known git worktree
+    const rejectInvalidCwd = () => {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'terminal.create' },
+          ErrorCodes.PERMISSION_DENIED,
+          'Invalid cwd: path is not within the workspace or a known worktree',
+        ),
+      );
+    };
+
     let cwd: string;
+    let terminalWorktreePath: string | undefined;
     if (typeof payload.cwd === 'string' && payload.cwd.length > 0) {
-      const resolvedCwd = resolve(payload.cwd);
+      // Only fetch worktrees when the candidate might need fallback resolution.
+      // When safePath succeeds and the resolved path equals the workspace root,
+      // no worktree check is needed — this avoids unnecessary git calls.
+      let worktrees: GitWorktreeInfo[] | undefined;
       try {
-        cwd = safePath(workspaceCwd, payload.cwd);
-      } catch {
-        // Not within workspace — check if it's a known worktree
-        try {
-          const worktrees = await listWorktrees(workspaceCwd);
-          const isKnownWorktree = worktrees.some((w) => resolve(w.path) === resolvedCwd);
-          if (!isKnownWorktree) {
-            deleteTerminalInstance(sessionDb, terminalId);
-            conn.send(
-              createError(
-                { id: req.id, channel: req.channel ?? 'terminal.create' },
-                ErrorCodes.PERMISSION_DENIED,
-                'Invalid cwd: path is not within the workspace or a known worktree',
-              ),
-            );
-            return;
-          }
-          cwd = resolvedCwd;
-        } catch {
-          deleteTerminalInstance(sessionDb, terminalId);
-          conn.send(
-            createError(
-              { id: req.id, channel: req.channel ?? 'terminal.create' },
-              ErrorCodes.PERMISSION_DENIED,
-              'Invalid cwd: path is not within the workspace or a known worktree',
-            ),
-          );
-          return;
+        const resolved = safePath(workspaceCwd, payload.cwd);
+        if (resolved !== resolve(workspaceCwd)) {
+          worktrees = await listWorktrees(workspaceCwd).catch(() => []);
         }
+      } catch {
+        worktrees = await listWorktrees(workspaceCwd).catch(() => []);
       }
+
+      const result = resolveCwdWithWorktreeFallback(workspaceCwd, payload.cwd, worktrees ?? []);
+      if (!result) {
+        return rejectInvalidCwd();
+      }
+      cwd = result.cwd;
+      terminalWorktreePath = result.worktreePath;
     } else {
       cwd = workspaceCwd;
+      terminalWorktreePath = undefined;
     }
+
+    // Generate terminal ID before creating the DB entry
+    const terminalId = crypto.randomUUID();
+
+    // Create a DB entry in workspace_terminals for the terminal instance
+    createWorkspaceTerminal(sessionDb, {
+      id: terminalId,
+      workspaceId,
+      cwd,
+      cols,
+      rows,
+      worktreePath: terminalWorktreePath,
+    });
 
     // Create the PTY process
     try {
@@ -152,12 +164,12 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
             exitCode: exitCode ?? 0,
           } satisfies TerminalExitEvent);
           conn.send(evt);
-          deleteTerminalInstance(sessionDb, terminalId);
+          deleteWorkspaceTerminal(sessionDb, terminalId);
         },
       });
     } catch (err: unknown) {
       // Clean up the DB record if PTY creation fails
-      deleteTerminalInstance(sessionDb, terminalId);
+      deleteWorkspaceTerminal(sessionDb, terminalId);
       const message = err instanceof Error ? err.message : String(err);
       const errResp: ResponseEnvelope = createError(
         { id: req.id, channel: req.channel ?? 'terminal.create' },
@@ -182,7 +194,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     const terminalId = requireTerminalId(req.payload, conn, req, 'terminal.input');
     if (!terminalId) return;
 
-    if (!validateTerminalOwnership(sessionDb, terminalId, conn.sessionId, conn, req)) {
+    if (!validateWorkspaceTerminalAccess(sessionDb, terminalId, conn, req)) {
       return;
     }
 
@@ -200,7 +212,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     const terminalId = requireTerminalId(req.payload, conn, req, 'terminal.resize');
     if (!terminalId) return;
 
-    if (!validateTerminalOwnership(sessionDb, terminalId, conn.sessionId, conn, req)) {
+    if (!validateWorkspaceTerminalAccess(sessionDb, terminalId, conn, req)) {
       return;
     }
 
@@ -211,7 +223,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     ptyManager.resize(terminalId, cols, rows);
 
     // Update DB
-    updateTerminalSize(sessionDb, terminalId, cols, rows);
+    updateWorkspaceTerminalSize(sessionDb, terminalId, cols, rows);
 
     const resp: ResponseEnvelope = createResponse(req, null);
     conn.send(resp);
@@ -224,7 +236,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     const terminalId = requireTerminalId(req.payload, conn, req, 'terminal.close');
     if (!terminalId) return;
 
-    if (!validateTerminalOwnership(sessionDb, terminalId, conn.sessionId, conn, req)) {
+    if (!validateWorkspaceTerminalAccess(sessionDb, terminalId, conn, req)) {
       return;
     }
 
@@ -232,9 +244,65 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
     ptyManager.kill(terminalId);
 
     // Remove from DB
-    deleteTerminalInstance(sessionDb, terminalId);
+    deleteWorkspaceTerminal(sessionDb, terminalId);
 
     const resp: ResponseEnvelope = createResponse(req, null);
+    conn.send(resp);
+  });
+
+  // --- terminal.state -----------------------------------------------------
+  router.handle('terminal.state', async (conn: ClientConnection, envelope: MessageEnvelope) => {
+    const req = envelope as RequestEnvelope<TerminalStateRequest>;
+
+    const terminalId = requireTerminalId(req.payload, conn, req, 'terminal.state');
+    if (!terminalId) return;
+
+    const result = validateWorkspaceTerminalAccess(sessionDb, terminalId, conn, req);
+    if (!result) return; // error already sent
+
+    const snapshot = ptyManager.getBufferSnapshot(terminalId);
+    const dims = ptyManager.getDimensions(terminalId);
+
+    // Re-attach output to this connection
+    //
+    // Design note: The buffer snapshot is captured BEFORE setOutputTarget. Any output
+    // produced between getBufferSnapshot() and setOutputTarget() is still captured in
+    // the OutputRingBuffer (the buffer always appends before calling onData). The
+    // client-side useTerminal.restoreState() handles potential duplication via event
+    // buffering (isRestoringRef/pendingEventsRef): it buffers live events during
+    // restoration, replays the state snapshot first, then replays buffered events.
+    // Output sent to the old connection between these calls is silently lost (old
+    // connection is dead), but the buffer captures it for the next reconnection.
+    if (!ptyManager.hasExited(terminalId)) {
+      ptyManager.setOutputTarget(
+        terminalId,
+        (b64Data: string) => {
+          conn.send(
+            createEvent('terminal.output', {
+              terminalId,
+              data: b64Data,
+            } satisfies TerminalOutputEvent),
+          );
+        },
+        (exitCode: number | null) => {
+          conn.send(
+            createEvent('terminal.exit', {
+              terminalId,
+              exitCode: exitCode ?? 0,
+            } satisfies TerminalExitEvent),
+          );
+          deleteWorkspaceTerminal(sessionDb, terminalId);
+        },
+      );
+    }
+
+    const resp: ResponseEnvelope<TerminalStateResponse> = createResponse(req, {
+      terminalId,
+      data: snapshot ? toBase64(snapshot) : '',
+      cols: dims?.cols ?? (result.instance.cols as number) ?? DEFAULT_COLS,
+      rows: dims?.rows ?? (result.instance.rows as number) ?? DEFAULT_ROWS,
+    } satisfies TerminalStateResponse);
+
     conn.send(resp);
   });
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, mock, type Mock } from 'bun:test';
+import { describe, expect, it, beforeEach, mock, afterAll, type Mock } from 'bun:test';
 import {
   ErrorCodes,
   type ResponseEnvelope,
@@ -8,13 +8,16 @@ import {
   type TerminalInputRequest,
   type TerminalResizeRequest,
   type TerminalCloseRequest,
+  type TerminalStateRequest,
+  type TerminalStateResponse,
 } from '@ymir/shared';
 import { mockConn, request } from '../../test-helpers/mock-utils';
 import { MessageRouter } from '../router';
 import { registerTerminalHandlers } from './terminal';
-import { initSessionDb, createSession, type Database } from '../../db/session';
+import { initSessionDb, createSession, createTab, type Database } from '../../db/session';
 import { initDatabase as initPersistentDb } from '../../db/persistent';
 import { type PTYManager } from '../../pty/manager';
+import type { GitWorktreeInfo } from '@ymir/shared';
 
 type MockPty = {
   terminals: Map<string, { terminal: unknown; process: unknown }>;
@@ -24,7 +27,35 @@ type MockPty = {
   kill: Mock<(id: string) => void>;
   has: Mock<(id: string) => boolean>;
   killAll: Mock<() => void>;
+  getBufferSnapshot: Mock<(id: string) => Uint8Array | null>;
+  getDimensions: Mock<(id: string) => { cols: number; rows: number } | null>;
+  hasExited: Mock<(id: string) => boolean>;
+  setOutputTarget: Mock<
+    (id: string, onData: (data: string) => void, onExit?: (code: number | null) => void) => void
+  >;
 };
+
+// ---------------------------------------------------------------------------
+// Module-level mocks for listWorktrees and getWorkspace
+// ---------------------------------------------------------------------------
+
+// These are process-scoped in Bun. We mock them here so the terminal.create
+// worktree tests can control what the handler resolves for cwd.
+const listWorktreesMock = mock(
+  (_dirPath: string): Promise<GitWorktreeInfo[]> => Promise.resolve([]),
+);
+
+mock.module('../../git/worktrees', () => ({
+  listWorktrees: listWorktreesMock,
+}));
+
+const getWorkspaceMock = mock((_db: unknown, _id: string): null => null);
+
+mock.module('../../db/persistent', () => ({
+  getWorkspace: getWorkspaceMock,
+}));
+
+afterAll(() => mock.restore());
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,6 +73,12 @@ function mockPtyManager(): MockPty & PTYManager {
     kill: mock(() => {}) as Mock<(id: string) => void>,
     has: mock(() => true) as Mock<(id: string) => boolean>,
     killAll: mock(() => {}) as Mock<() => void>,
+    getBufferSnapshot: mock(() => null) as Mock<(id: string) => Uint8Array | null>,
+    getDimensions: mock(() => null) as Mock<(id: string) => { cols: number; rows: number } | null>,
+    hasExited: mock(() => false) as Mock<(id: string) => boolean>,
+    setOutputTarget: mock(() => {}) as Mock<
+      (id: string, onData: (data: string) => void, onExit?: (code: number | null) => void) => void
+    >,
   } as MockPty & PTYManager;
 }
 
@@ -67,6 +104,15 @@ describe('registerTerminalHandlers', () => {
     // Create a client session so foreign keys are satisfied
     sessionId = createSession(sessionDb);
     conn.sessionId = sessionId;
+    // Create a tab so the session has access to workspace ws-1 terminals.
+    // The session-scope check in validateWorkspaceTerminalAccess requires at
+    // least one tab matching the terminal's workspace_id + worktree_path.
+    createTab(sessionDb, {
+      sessionId,
+      workspaceId: 'ws-1',
+      tabType: 'terminal',
+      order: 0,
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -74,7 +120,113 @@ describe('registerTerminalHandlers', () => {
   // -------------------------------------------------------------------------
 
   describe('terminal.create', () => {
-    it('creates a PTY and session DB entry, responds with TerminalCreateResponse', async () => {
+    it('stores worktree_path when cwd is a known worktree', async () => {
+      const WORKTREE_CWD = '/tmp/ws';
+      const WORKTREE_PATH = '/tmp/ws/worktrees/feature';
+
+      getWorkspaceMock.mockImplementation((_db: unknown, id: string) => {
+        if (id === 'ws-1') {
+          return {
+            id: 'ws-1',
+            name: 'Test',
+            cwd: WORKTREE_CWD,
+            color: '#007acc',
+            sort_order: 0,
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          };
+        }
+        return null;
+      });
+
+      listWorktreesMock.mockImplementation(async () => [
+        { path: WORKTREE_PATH, branch: 'feature', isMain: false, isDetached: false },
+        { path: WORKTREE_CWD, branch: 'main', isMain: true, isDetached: false },
+      ]);
+
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+      });
+
+      const req = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+        cwd: WORKTREE_PATH,
+        cols: 80,
+        rows: 24,
+      });
+
+      await router.route(conn, req);
+
+      // Response should be success
+      expect(conn.sent.length).toBe(1);
+      const resp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      expect(resp.error).toBeUndefined();
+      const terminalId = resp.payload!.terminalId;
+
+      // Verify workspace_terminals row stores worktree_path
+      const row = sessionDb
+        .prepare('SELECT * FROM workspace_terminals WHERE id = ?')
+        .get(terminalId) as Record<string, unknown> | undefined;
+      expect(row).toBeDefined();
+      expect(row!.worktree_path).toBe(WORKTREE_PATH);
+    });
+
+    it('stores NULL worktree_path when cwd is workspace root (not a worktree)', async () => {
+      const WORKSPACE_CWD = '/tmp/workspace-root';
+
+      getWorkspaceMock.mockImplementation((_db: unknown, id: string) => {
+        if (id === 'ws-1') {
+          return {
+            id: 'ws-1',
+            name: 'Test',
+            cwd: WORKSPACE_CWD,
+            color: '#007acc',
+            sort_order: 0,
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          };
+        }
+        return null;
+      });
+
+      // listWorktrees should NOT be called when safePath succeeds
+      listWorktreesMock.mockClear();
+
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+      });
+
+      const req = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+        cwd: WORKSPACE_CWD,
+        cols: 80,
+        rows: 24,
+      });
+
+      await router.route(conn, req);
+
+      // Response should be success
+      expect(conn.sent.length).toBe(1);
+      const resp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      expect(resp.error).toBeUndefined();
+      const terminalId = resp.payload!.terminalId;
+
+      // listWorktrees should NOT have been called (cwd is inside workspace)
+      expect(listWorktreesMock).not.toHaveBeenCalled();
+
+      // Verify workspace_terminals row has NULL worktree_path
+      const row = sessionDb
+        .prepare('SELECT * FROM workspace_terminals WHERE id = ?')
+        .get(terminalId) as Record<string, unknown> | undefined;
+      expect(row).toBeDefined();
+      expect(row!.worktree_path).toBeNull();
+    });
+
+    it('creates a PTY and workspace_terminals DB entry, responds with TerminalCreateResponse', async () => {
       registerTerminalHandlers(router, {
         ptyManager,
         sessionDb,
@@ -107,6 +259,16 @@ describe('registerTerminalHandlers', () => {
       expect(resp.error).toBeUndefined();
       expect(resp.payload).toBeDefined();
       expect(typeof (resp.payload as TerminalCreateResponse).terminalId).toBe('string');
+
+      // Verify workspace_terminals row exists
+      const row = sessionDb
+        .prepare('SELECT * FROM workspace_terminals WHERE id = ?')
+        .get((resp.payload as TerminalCreateResponse).terminalId) as
+        | Record<string, unknown>
+        | undefined;
+      expect(row).toBeDefined();
+      expect(row!.cols).toBe(120);
+      expect(row!.rows).toBe(40);
     });
 
     it('uses default cols/rows when not provided', async () => {
@@ -216,7 +378,7 @@ describe('registerTerminalHandlers', () => {
 
       // Verify DB was updated
       const row = sessionDb
-        .prepare('SELECT cols, rows FROM terminal_instances WHERE id = ?')
+        .prepare('SELECT cols, rows FROM workspace_terminals WHERE id = ?')
         .get(terminalId) as { cols: number; rows: number } | undefined;
       expect(row).toBeDefined();
       expect(row!.cols).toBe(100);
@@ -248,7 +410,7 @@ describe('registerTerminalHandlers', () => {
 
       // Verify it exists in DB
       const beforeRow = sessionDb
-        .prepare('SELECT id FROM terminal_instances WHERE id = ?')
+        .prepare('SELECT id FROM workspace_terminals WHERE id = ?')
         .get(terminalId);
       expect(beforeRow).toBeDefined();
 
@@ -271,14 +433,14 @@ describe('registerTerminalHandlers', () => {
 
       // Verify DB row was removed
       const afterRow = sessionDb
-        .prepare('SELECT id FROM terminal_instances WHERE id = ?')
+        .prepare('SELECT id FROM workspace_terminals WHERE id = ?')
         .get(terminalId);
       expect(afterRow).toBeNull();
     });
   });
 
   // -------------------------------------------------------------------------
-  // 6. Missing terminalId returns TERMINAL_NOT_FOUND
+  // 6. Missing terminalId returns error
   // -------------------------------------------------------------------------
 
   describe('missing terminalId error handling', () => {
@@ -344,11 +506,11 @@ describe('registerTerminalHandlers', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 7. Cross-session access denied
+  // 7. Cross-session access allowed (workspace terminals are shared)
   // -------------------------------------------------------------------------
 
-  describe('cross-session access denied', () => {
-    it('terminal.input rejects access from a different session', async () => {
+  describe('cross-session access allowed', () => {
+    it('terminal.input allows access from a different session with matching tab', async () => {
       registerTerminalHandlers(router, {
         ptyManager,
         sessionDb,
@@ -363,9 +525,16 @@ describe('registerTerminalHandlers', () => {
       const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
       const terminalId = createResp.payload!.terminalId;
 
-      // Use a different session
+      // Use a different session with its own tab in the same workspace
+      const otherSessionId = createSession(sessionDb);
+      createTab(sessionDb, {
+        sessionId: otherSessionId,
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        order: 0,
+      });
       const otherConn = mockConn();
-      otherConn.sessionId = crypto.randomUUID(); // different session
+      otherConn.sessionId = otherSessionId;
 
       const inputReq = request<TerminalInputRequest>('terminal.input', {
         terminalId,
@@ -376,14 +545,13 @@ describe('registerTerminalHandlers', () => {
 
       expect(otherConn.sent.length).toBe(1);
       const resp = otherConn.sent[0] as ResponseEnvelope;
-      expect(resp.error).toBeDefined();
-      expect(resp.error!.code).toBe(ErrorCodes.PERMISSION_DENIED);
+      expect(resp.error).toBeUndefined();
 
-      // PTY write should NOT have been called
-      expect(ptyManager.write).not.toHaveBeenCalled();
+      // PTY write should have been called
+      expect(ptyManager.write).toHaveBeenCalledTimes(1);
     });
 
-    it('terminal.resize rejects access from a different session', async () => {
+    it('terminal.resize allows access from a different session with matching tab', async () => {
       registerTerminalHandlers(router, {
         ptyManager,
         sessionDb,
@@ -398,9 +566,16 @@ describe('registerTerminalHandlers', () => {
       const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
       const terminalId = createResp.payload!.terminalId;
 
-      // Use a different session
+      // Use a different session with its own tab in the same workspace
+      const otherSessionId = createSession(sessionDb);
+      createTab(sessionDb, {
+        sessionId: otherSessionId,
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        order: 0,
+      });
       const otherConn = mockConn();
-      otherConn.sessionId = crypto.randomUUID();
+      otherConn.sessionId = otherSessionId;
 
       const resizeReq = request<TerminalResizeRequest>('terminal.resize', {
         terminalId,
@@ -412,14 +587,13 @@ describe('registerTerminalHandlers', () => {
 
       expect(otherConn.sent.length).toBe(1);
       const resp = otherConn.sent[0] as ResponseEnvelope;
-      expect(resp.error).toBeDefined();
-      expect(resp.error!.code).toBe(ErrorCodes.PERMISSION_DENIED);
+      expect(resp.error).toBeUndefined();
 
-      // PTY resize should NOT have been called
-      expect(ptyManager.resize).not.toHaveBeenCalled();
+      // PTY resize should have been called
+      expect(ptyManager.resize).toHaveBeenCalledTimes(1);
     });
 
-    it('terminal.close rejects access from a different session', async () => {
+    it('terminal.close allows access from a different session with matching tab', async () => {
       registerTerminalHandlers(router, {
         ptyManager,
         sessionDb,
@@ -434,9 +608,16 @@ describe('registerTerminalHandlers', () => {
       const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
       const terminalId = createResp.payload!.terminalId;
 
-      // Use a different session
+      // Use a different session with its own tab in the same workspace
+      const otherSessionId = createSession(sessionDb);
+      createTab(sessionDb, {
+        sessionId: otherSessionId,
+        workspaceId: 'ws-1',
+        tabType: 'terminal',
+        order: 0,
+      });
       const otherConn = mockConn();
-      otherConn.sessionId = crypto.randomUUID();
+      otherConn.sessionId = otherSessionId;
 
       const closeReq = request<TerminalCloseRequest>('terminal.close', {
         terminalId,
@@ -446,11 +627,10 @@ describe('registerTerminalHandlers', () => {
 
       expect(otherConn.sent.length).toBe(1);
       const resp = otherConn.sent[0] as ResponseEnvelope;
-      expect(resp.error).toBeDefined();
-      expect(resp.error!.code).toBe(ErrorCodes.PERMISSION_DENIED);
+      expect(resp.error).toBeUndefined();
 
-      // PTY kill should NOT have been called
-      expect(ptyManager.kill).not.toHaveBeenCalled();
+      // PTY kill should have been called
+      expect(ptyManager.kill).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -494,6 +674,177 @@ describe('registerTerminalHandlers', () => {
         terminalId: expect.any(String),
         data: outputB64,
       });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 9. terminal.state
+  // -------------------------------------------------------------------------
+
+  describe('terminal.state', () => {
+    it('returns buffer snapshot and dimensions for an existing terminal', async () => {
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+      });
+
+      // Create a terminal
+      const createReq = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+        cols: 120,
+        rows: 40,
+      });
+      await router.route(conn, createReq);
+      const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      const terminalId = createResp.payload!.terminalId;
+
+      conn.sent.length = 0;
+
+      // Set up mock return values
+      const snapshotData = new Uint8Array([1, 2, 3, 4, 5]);
+      ptyManager.getBufferSnapshot.mockImplementation(() => snapshotData);
+      ptyManager.getDimensions.mockImplementation(() => ({ cols: 120, rows: 40 }));
+      ptyManager.hasExited.mockImplementation(() => false);
+
+      const stateReq = request<TerminalStateRequest>('terminal.state', {
+        terminalId,
+      });
+
+      await router.route(conn, stateReq);
+
+      // Response should contain the state
+      expect(conn.sent.length).toBe(1);
+      const resp = conn.sent[0] as ResponseEnvelope<TerminalStateResponse>;
+      expect(resp.type).toBe('response');
+      expect(resp.id).toBe(stateReq.id);
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload).toBeDefined();
+      expect(resp.payload!.terminalId).toBe(terminalId);
+      expect(typeof resp.payload!.data).toBe('string');
+      expect(resp.payload!.cols).toBe(120);
+      expect(resp.payload!.rows).toBe(40);
+
+      // getBufferSnapshot should have been called
+      expect(ptyManager.getBufferSnapshot).toHaveBeenCalledTimes(1);
+      expect(ptyManager.getBufferSnapshot.mock.calls[0][0]).toBe(terminalId);
+    });
+
+    it('returns empty data when buffer snapshot is null', async () => {
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+      });
+
+      // Create a terminal
+      const createReq = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+      });
+      await router.route(conn, createReq);
+      const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      const terminalId = createResp.payload!.terminalId;
+
+      conn.sent.length = 0;
+
+      // Return null snapshot (e.g. terminal exited)
+      ptyManager.getBufferSnapshot.mockImplementation(() => null);
+      ptyManager.getDimensions.mockImplementation(() => null);
+      ptyManager.hasExited.mockImplementation(() => true);
+
+      const stateReq = request<TerminalStateRequest>('terminal.state', {
+        terminalId,
+      });
+
+      await router.route(conn, stateReq);
+
+      expect(conn.sent.length).toBe(1);
+      const resp = conn.sent[0] as ResponseEnvelope<TerminalStateResponse>;
+      expect(resp.error).toBeUndefined();
+      expect(resp.payload!.data).toBe('');
+    });
+
+    it('re-attaches output to the requesting connection when terminal is alive', async () => {
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+      });
+
+      // Create a terminal
+      const createReq = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+      });
+      await router.route(conn, createReq);
+      const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      const terminalId = createResp.payload!.terminalId;
+
+      conn.sent.length = 0;
+
+      ptyManager.getBufferSnapshot.mockImplementation(() => null);
+      ptyManager.getDimensions.mockImplementation(() => null);
+      ptyManager.hasExited.mockImplementation(() => false);
+
+      const stateReq = request<TerminalStateRequest>('terminal.state', {
+        terminalId,
+      });
+
+      await router.route(conn, stateReq);
+
+      // setOutputTarget should have been called
+      expect(ptyManager.setOutputTarget).toHaveBeenCalledTimes(1);
+      expect(ptyManager.setOutputTarget.mock.calls[0][0]).toBe(terminalId);
+      expect(typeof ptyManager.setOutputTarget.mock.calls[0][1]).toBe('function');
+    });
+
+    it('does not re-attach output when terminal has exited', async () => {
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+      });
+
+      // Create a terminal
+      const createReq = request<TerminalCreateRequest>('terminal.create', {
+        workspaceId: 'ws-1',
+      });
+      await router.route(conn, createReq);
+      const createResp = conn.sent[0] as ResponseEnvelope<TerminalCreateResponse>;
+      const terminalId = createResp.payload!.terminalId;
+
+      conn.sent.length = 0;
+
+      ptyManager.getBufferSnapshot.mockImplementation(() => null);
+      ptyManager.getDimensions.mockImplementation(() => null);
+      ptyManager.hasExited.mockImplementation(() => true);
+
+      const stateReq = request<TerminalStateRequest>('terminal.state', {
+        terminalId,
+      });
+
+      await router.route(conn, stateReq);
+
+      // setOutputTarget should NOT have been called for exited terminal
+      expect(ptyManager.setOutputTarget).not.toHaveBeenCalled();
+    });
+
+    it('returns TERMINAL_NOT_FOUND for non-existent terminal', async () => {
+      registerTerminalHandlers(router, {
+        ptyManager,
+        sessionDb,
+        persistentDb,
+      });
+
+      const stateReq = request<TerminalStateRequest>('terminal.state', {
+        terminalId: 'nonexistent-id',
+      });
+
+      await router.route(conn, stateReq);
+
+      expect(conn.sent.length).toBe(1);
+      const resp = conn.sent[0] as ResponseEnvelope;
+      expect(resp.error).toBeDefined();
+      expect(resp.error!.code).toBe(ErrorCodes.TERMINAL_NOT_FOUND);
     });
   });
 });

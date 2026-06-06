@@ -27,7 +27,7 @@ interface Tab {
 | Type       | Description                                                   |
 | ---------- | ------------------------------------------------------------- |
 | `terminal` | A PTY-backed terminal session                                 |
-| `editor`   | A file editor backed by the Monaco-based `EditorPane`         |
+| `editor`   | A file editor backed by the CodeMirror 6-based `EditorPane`   |
 | `diff`     | A file diff viewer (`DiffViewer`) for staged/unstaged/commit  |
 | `git-tree` | A git history browser (`GitTreeTab`) for a specific repo path |
 
@@ -276,15 +276,45 @@ Tabs are persisted per-workspace and per-pane:
 3. **Session restore** uses `tab.restore` which returns all tabs for a workspace grouped by `pane`. `useTabRestore` distributes them to the matching pane handles via `loadRestoredTabs` (see [useTabRestore Hook](#usetabrestore-hook)).
 4. The `pane` field in `PersistedTabInfo` stores the pane UUID, allowing tabs to be restored to their original pane after reload.
 
+### `tab.restore` Two-Phase Terminal Restore
+
+When restoring a terminal tab, the `tab.restore` handler uses a **two-phase approach** to prefer reusing a still-running PTY over spawning a new one:
+
+**Phase 1 — Live terminal reuse:**
+
+1. The persisted tab's `terminal_id` column is checked against the live `PTYManager` via `ptyManager.has(id) && !ptyManager.hasExited(id)`.
+2. If the terminal is still alive, `ptyManager.setOutputTarget(id, onData, onExit)` re-attaches the output and exit callbacks to the new client connection — no new PTY is created.
+3. A `panes` row is created linking the new session tab to the existing `terminal_id`.
+4. The reused `terminalId` is written back into `persisted_tabs.terminal_id` so that subsequent restores can also reuse it.
+
+**Phase 2 — New PTY creation (fallback):**
+
+1. If `terminal_id` is absent, or the PTY has exited / been killed, a fresh terminal instance is created via `createTerminalInstance` + `ptyManager.create`.
+2. The new PTY is also tracked in the `workspace_terminals` table (see [Workspace Terminals](#workspace-terminals)).
+3. The new `terminalId` is saved into `persisted_tabs.terminal_id` for future restore cycles.
+
+After either phase, the persisted tab record is updated with the new session tab ID (and the old record deleted if the ID changed) so that future restores reference the correct entry.
+
+### Workspace Terminals
+
+Newly created PTYs during restore are tracked in the **`workspace_terminals`** table (in the session DB). This table stores `{ id, workspace_id, cwd, cols, rows, shell }` and is **workspace-scoped**, not session-scoped:
+
+- **No foreign key to `client_sessions`** — the `workspace_terminals` table is not cleaned up when a client session is deleted. Terminals survive session teardown.
+- **Terminals continue running** when clients disconnect. The underlying PTY process remains alive in the server's `PTYManager`.
+- **Only killed on server shutdown** — `PTYManager.killAll()` terminates all PTY processes when the server stops.
+- **Deleted on exit** — when a terminal's `onExit` callback fires, `deleteWorkspaceTerminal` removes the row. This also happens for reused terminals via their re-attached `onExit` callback.
+
+This design enables the live-terminal reuse in Phase 1: because PTYs and their `workspace_terminals` records persist across client reconnects, a subsequent `tab.restore` can discover and re-attach to them.
+
 ### `tab.restore` Partial Failure
 
-The server's `tab.restore` handler wraps each terminal tab's PTY creation in an individual `try/catch`. If a single tab fails (e.g. its CWD directory no longer exists), the handler logs the error and continues with the remaining tabs. This means:
+The server's `tab.restore` handler wraps each terminal tab's restore logic in an individual `try/catch`. If a single tab fails, the handler logs the error and continues with the remaining tabs. This means:
 
 - **The response may contain a subset** of the originally persisted tabs — failed terminals are omitted from the `restoredTabs` array.
 - **Non-terminal tabs** (editor, diff, git-tree) are always restored since they have no PTY dependency.
 - **If PTY creation fails** after the terminal instance is created, the instance is cleaned up (`deleteTerminalInstance`) but the tab is still included in the response without a `terminalId`.
 - **CWD resolution fallback**: If a terminal tab's CWD is outside the workspace root, the handler checks whether it matches a known git worktree. If not, it falls back to the workspace root.
-- The persisted tab record is updated with the new session tab ID (and the old record deleted if the ID changed) so that future restores reference the correct entry.
+- **Live-terminal reuse failure**: If the persisted `terminal_id` references a live PTY but the surrounding logic fails (e.g. CWD validation throws), the error is caught by the per-tab `try/catch` and the tab is skipped entirely — it does **not** fall through to Phase 2 new-PTY creation within the same restore call. The tab will be retried on the next restore cycle.
 
 ## Pane Splitting
 

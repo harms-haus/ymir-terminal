@@ -18,6 +18,7 @@ import type {
   TerminalInputRequest,
   TerminalResizeRequest,
   TerminalCloseRequest,
+  TerminalStateRequest,
   TerminalOutputEvent,
   TerminalExitEvent,
 } from './terminal';
@@ -111,6 +112,7 @@ export const REQUEST_TYPES = [
   'terminal.input',
   'terminal.resize',
   'terminal.close',
+  'terminal.state',
   'workspace.list',
   'workspace.create',
   'workspace.update',
@@ -205,6 +207,7 @@ export type RequestPayload =
   | TerminalInputRequest
   | TerminalResizeRequest
   | TerminalCloseRequest
+  | TerminalStateRequest
   | WorkspaceListRequest
   | WorkspaceCreateRequest
   | WorkspaceUpdateRequest

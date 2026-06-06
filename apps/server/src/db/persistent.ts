@@ -66,13 +66,18 @@ export function initDatabase(dbPath: string): Database {
       parent_sha TEXT,
       cwd TEXT,
       custom_title TEXT,
+      terminal_id TEXT,
       worktree_path TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
 
-  // Idempotent migration: add worktree_path column if it doesn't exist
+  // Idempotent migrations for persisted_tabs
   const tabColumns = db.prepare('PRAGMA table_info(persisted_tabs)').all() as { name: string }[];
+  const hasTerminalId = tabColumns.some((col) => col.name === 'terminal_id');
+  if (!hasTerminalId) {
+    db.run('ALTER TABLE persisted_tabs ADD COLUMN terminal_id TEXT');
+  }
   const hasWorktreePath = tabColumns.some((col) => col.name === 'worktree_path');
   if (!hasWorktreePath) {
     db.run('ALTER TABLE persisted_tabs ADD COLUMN worktree_path TEXT');
@@ -190,6 +195,7 @@ export interface PersistedTab {
   parent_sha: string | null;
   cwd: string | null;
   custom_title: string | null;
+  terminal_id: string | null;
   worktree_path: string | null;
   created_at: string;
 }
@@ -208,15 +214,16 @@ export interface SavePersistedTabInput {
   parentSha?: string | null;
   cwd?: string | null;
   customTitle?: string | null;
+  terminalId?: string | null;
   worktreePath?: string | null;
 }
 
 export function savePersistedTab(db: Database, input: SavePersistedTabInput): void {
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO persisted_tabs
-      (id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha, cwd, custom_title, worktree_path)
+      (id, workspace_id, tab_type, title, file_path, pane, sort_order, diff_ref, repo_path, commit_sha, parent_sha, cwd, custom_title, terminal_id, worktree_path)
     VALUES
-      ($id, $workspaceId, $tabType, $title, $filePath, $pane, $sortOrder, $diffRef, $repoPath, $commitSha, $parentSha, $cwd, $customTitle, $worktreePath)
+      ($id, $workspaceId, $tabType, $title, $filePath, $pane, $sortOrder, $diffRef, $repoPath, $commitSha, $parentSha, $cwd, $customTitle, $terminalId, $worktreePath)
   `);
   stmt.run({
     $id: input.id,
@@ -232,6 +239,7 @@ export function savePersistedTab(db: Database, input: SavePersistedTabInput): vo
     $parentSha: input.parentSha ?? null,
     $cwd: input.cwd ?? null,
     $customTitle: input.customTitle ?? null,
+    $terminalId: input.terminalId ?? null,
     $worktreePath: input.worktreePath ?? null,
   });
 }

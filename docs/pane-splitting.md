@@ -338,7 +338,7 @@ Individual tab state is persisted separately through server-backed operations:
 | Tab reordering | `tab.reorder` | Updates persisted tab order                               |
 | Tab activation | `tab.update`  | Marks a tab as active (activate event)                    |
 
-Note: Tab title and cwd changes are tracked **locally in the client only** and are never synced to the server. The client does not send `tab.update` with a `title` field. Title and cwd are derived from the terminal process state (e.g., shell prompt, `pwd`) and are ephemeral per session.
+Note: Tab title and cwd changes are tracked **locally in the client only** and are never synced to the server. The client does not send `tab.update` with a `title` field. Title and cwd are derived from the terminal process state (e.g., shell prompt, `pwd`) and are ephemeral per session. The `terminal_id` is an exception — it **is** persisted in `persisted_tabs` via `savePersistedTab` and is synced to the server so that live terminals can be reused across sessions (see [Tab Restoration](#tab-restoration)).
 
 ### Tab Restoration
 
@@ -348,6 +348,11 @@ When a workspace is loaded, `WorkspaceView` calls `tab.restore` to fetch persist
 const res = await sendRequest<TabRestoreResponse>('tab.restore', { workspaceId });
 ```
 
-Tabs are grouped by pane ID and loaded into the corresponding `TerminalPanelHandle` via `loadRestoredTabs`. Terminal tabs trigger creation of new PTYs on the server. Editor tabs are reconstructed from their persisted `filePath`.
+Tabs are grouped by pane ID and loaded into the corresponding `TerminalPanelHandle` via `loadRestoredTabs`. For terminal tabs, the server checks whether the persisted `terminal_id` is still alive in the PTY manager:
+
+- **Live terminal** — If `terminal_id` is present, `ptyManager.has(id)` is true, and `ptyManager.hasExited(id)` is false, the existing PTY is reused. The server re-attaches output/exit callbacks and re-associates the pane with the existing terminal. No new PTY is spawned.
+- **Dead or missing terminal** — If the `terminal_id` has exited or was never persisted, a new PTY is created via `ptyManager.create` with the persisted `cwd` (resolved relative to the workspace root). The new terminal ID is then written back into `persisted_tabs` via `savePersistedTab` so future restores reference the live terminal.
+
+Editor tabs are reconstructed from their persisted `filePath`.
 
 Restoration is best-effort — failures are silently caught to avoid blocking workspace load.

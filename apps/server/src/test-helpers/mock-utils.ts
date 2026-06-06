@@ -296,6 +296,17 @@ export function createMockSessionDb(): Database {
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS workspace_terminals (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      cwd TEXT NOT NULL,
+      cols INTEGER NOT NULL DEFAULT 80,
+      rows INTEGER NOT NULL DEFAULT 24,
+      shell TEXT,
+      worktree_path TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   return db;

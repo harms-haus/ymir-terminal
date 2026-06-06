@@ -591,6 +591,316 @@ describe('PTYManager', () => {
       'Terminal resize-after-kill not found',
     );
   });
+
+  // -----------------------------------------------------------------------
+  // Output buffering tests
+  // -----------------------------------------------------------------------
+
+  it('create() buffers output when data callback fires', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-buffer', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    const terminal = mockTerminalInstances[0];
+    const testData = Buffer.from('hello world');
+    terminal.dataCallback(terminal, testData);
+
+    const snapshot = manager.getBufferSnapshot('test-buffer');
+    expect(snapshot).not.toBeNull();
+    expect(new TextDecoder().decode(snapshot!)).toBe('hello world');
+  });
+
+  it('getBufferSnapshot returns accumulated data from multiple data callbacks', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-buffer-multi', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    const terminal = mockTerminalInstances[0];
+    terminal.dataCallback(terminal, Buffer.from('hello '));
+    terminal.dataCallback(terminal, Buffer.from('world'));
+    terminal.dataCallback(terminal, Buffer.from('!'));
+
+    const snapshot = manager.getBufferSnapshot('test-buffer-multi');
+    expect(snapshot).not.toBeNull();
+    expect(new TextDecoder().decode(snapshot!)).toBe('hello world!');
+  });
+
+  it('getBufferSnapshot does not drain the buffer — calling twice returns same data', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-buffer-persist', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    const terminal = mockTerminalInstances[0];
+    terminal.dataCallback(terminal, Buffer.from('persistent'));
+
+    const snap1 = manager.getBufferSnapshot('test-buffer-persist');
+    const snap2 = manager.getBufferSnapshot('test-buffer-persist');
+
+    expect(snap1).not.toBeNull();
+    expect(snap2).not.toBeNull();
+    expect(new TextDecoder().decode(snap1!)).toBe('persistent');
+    expect(new TextDecoder().decode(snap2!)).toBe('persistent');
+  });
+
+  it('getBufferSnapshot returns null for unknown id', () => {
+    expect(manager.getBufferSnapshot('nonexistent')).toBeNull();
+  });
+
+  it('setOutputTarget replaces onData callback — new callback receives data', async () => {
+    const originalOnData = mock((_data: string) => {});
+    manager.create('test-switch', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData: originalOnData,
+    });
+
+    // Fire data with original callback
+    const terminal = mockTerminalInstances[0];
+    terminal.dataCallback(terminal, Buffer.from('before'));
+    expect(originalOnData).toHaveBeenCalledTimes(1);
+
+    // Switch output target
+    const newOnData = mock((_data: string) => {});
+    manager.setOutputTarget('test-switch', newOnData);
+
+    // Fire data with new callback
+    terminal.dataCallback(terminal, Buffer.from('after'));
+    expect(originalOnData).toHaveBeenCalledTimes(1); // not called again
+    expect(newOnData).toHaveBeenCalledTimes(1);
+
+    const encoded = newOnData.mock.calls[0][0] as string;
+    expect(encoded).toBe(toBase64(Buffer.from('after')));
+  });
+
+  it('setOutputTarget also replaces onExit callback', async () => {
+    const originalOnExit = mock((_code: number | null) => {});
+    const onData = mock((_data: string) => {});
+    manager.create('test-switch-exit', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+      onExit: originalOnExit,
+    });
+
+    const newOnExit = mock((_code: number | null) => {});
+    manager.setOutputTarget('test-switch-exit', onData, newOnExit);
+
+    // Simulate process exit
+    mockSpawnedProcesses[0]._resolve();
+    // Allow microtask queue to flush
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(originalOnExit).not.toHaveBeenCalled();
+    expect(newOnExit).toHaveBeenCalledTimes(1);
+    expect(newOnExit.mock.calls[0][0]).toBe(0);
+  });
+
+  it('setOutputTarget is a no-op for nonexistent terminal', () => {
+    const newOnData = mock((_data: string) => {});
+    // Should not throw
+    manager.setOutputTarget('nonexistent', newOnData);
+    expect(newOnData).not.toHaveBeenCalled();
+  });
+
+  it('setOutputTarget preserves ring buffer wrapping — data is still buffered', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-switch-buffer', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    const terminal = mockTerminalInstances[0];
+    terminal.dataCallback(terminal, Buffer.from('before-switch'));
+
+    const newOnData = mock((_data: string) => {});
+    manager.setOutputTarget('test-switch-buffer', newOnData);
+
+    terminal.dataCallback(terminal, Buffer.from('after-switch'));
+
+    // Both chunks should be in the buffer
+    const snapshot = manager.getBufferSnapshot('test-switch-buffer');
+    expect(new TextDecoder().decode(snapshot!)).toBe('before-switchafter-switch');
+  });
+
+  it('hasExited returns false for live terminal', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-live', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    expect(manager.hasExited('test-live')).toBe(false);
+  });
+
+  it('hasExited returns true for unknown id', () => {
+    expect(manager.hasExited('nonexistent')).toBe(true);
+  });
+
+  it('hasExited returns true after simulated process exit', async () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-exit-state', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    expect(manager.hasExited('test-exit-state')).toBe(false);
+
+    // Simulate process exit
+    mockSpawnedProcesses[0]._resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(manager.hasExited('test-exit-state')).toBe(true);
+  });
+
+  it('getDimensions returns correct values from lastCols/lastRows', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-dims', {
+      cwd: '/home/user',
+      cols: 120,
+      rows: 40,
+      onData,
+    });
+
+    expect(manager.getDimensions('test-dims')).toEqual({ cols: 120, rows: 40 });
+  });
+
+  it('getDimensions returns updated values after resize', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-dims-resize', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    manager.resize('test-dims-resize', 200, 50);
+    expect(manager.getDimensions('test-dims-resize')).toEqual({ cols: 200, rows: 50 });
+  });
+
+  it('getDimensions returns null for nonexistent terminal', () => {
+    expect(manager.getDimensions('nonexistent')).toBeNull();
+  });
+
+  it('kill() removes buffer from active buffers', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-kill-buffer', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    // Write some data to buffer
+    const terminal = mockTerminalInstances[0];
+    terminal.dataCallback(terminal, Buffer.from('some data'));
+    expect(manager.getBufferSnapshot('test-kill-buffer')).not.toBeNull();
+
+    manager.kill('test-kill-buffer');
+
+    // Terminal is removed from the active map
+    expect(manager.has('test-kill-buffer')).toBe(false);
+    // But buffer data is preserved in exitedBuffers for snapshot access
+    const snapshot = manager.getBufferSnapshot('test-kill-buffer');
+    expect(snapshot).not.toBeNull();
+    expect(new TextDecoder().decode(snapshot!)).toBe('some data');
+  });
+
+  it('killAll() removes all buffers from active buffers', () => {
+    const onData = mock((_data: string) => {});
+    manager.create('killall-buf-1', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+    manager.create('killall-buf-2', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    // Write data to both
+    mockTerminalInstances[0].dataCallback(mockTerminalInstances[0], Buffer.from('data1'));
+    mockTerminalInstances[1].dataCallback(mockTerminalInstances[1], Buffer.from('data2'));
+
+    expect(manager.getBufferSnapshot('killall-buf-1')).not.toBeNull();
+    expect(manager.getBufferSnapshot('killall-buf-2')).not.toBeNull();
+
+    manager.killAll();
+
+    // Terminals are removed from the active map
+    expect(manager.has('killall-buf-1')).toBe(false);
+    expect(manager.has('killall-buf-2')).toBe(false);
+    // But buffer data is preserved in exitedBuffers for snapshot access
+    const snap1 = manager.getBufferSnapshot('killall-buf-1');
+    const snap2 = manager.getBufferSnapshot('killall-buf-2');
+    expect(snap1).not.toBeNull();
+    expect(snap2).not.toBeNull();
+    expect(new TextDecoder().decode(snap1!)).toBe('data1');
+    expect(new TextDecoder().decode(snap2!)).toBe('data2');
+  });
+
+  it('after simulated process exit, buffer is still accessible via getBufferSnapshot', async () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-exit-buffer', {
+      cwd: '/home/user',
+      cols: 80,
+      rows: 24,
+      onData,
+    });
+
+    const terminal = mockTerminalInstances[0];
+    terminal.dataCallback(terminal, Buffer.from('before-exit'));
+
+    // Simulate process exit
+    mockSpawnedProcesses[0]._resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Buffer should still be accessible (moved to exitedBuffers)
+    const snapshot = manager.getBufferSnapshot('test-exit-buffer');
+    expect(snapshot).not.toBeNull();
+    expect(new TextDecoder().decode(snapshot!)).toBe('before-exit');
+  });
+
+  it('after simulated process exit, getDimensions returns last known dimensions', async () => {
+    const onData = mock((_data: string) => {});
+    manager.create('test-exit-dims', {
+      cwd: '/home/user',
+      cols: 90,
+      rows: 30,
+      onData,
+    });
+
+    manager.resize('test-exit-dims', 150, 45);
+
+    // Simulate process exit
+    mockSpawnedProcesses[0]._resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Dimensions should still be available from exitedBuffers
+    expect(manager.getDimensions('test-exit-dims')).toEqual({ cols: 150, rows: 45 });
+  });
 });
 
 describe('PTYManager (win32)', () => {

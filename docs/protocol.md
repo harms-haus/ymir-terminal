@@ -54,6 +54,7 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | '
 | `terminal.input`             | request   | Send keystrokes (base64)                                                                                 |
 | `terminal.resize`            | request   | Resize terminal dimensions                                                                               |
 | `terminal.close`             | request   | Kill a PTY                                                                                               |
+| `terminal.state`             | request   | Get buffered VT output + dimensions for re-attachment                                                    |
 | `terminal.output`            | event     | PTY output (base64)                                                                                      |
 | `terminal.exit`              | event     | PTY process exited (with exit code)                                                                      |
 | `workspace.list`             | request   | List saved workspaces                                                                                    |
@@ -126,7 +127,7 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | '
 | `tab.update`                 | request   | Update tab properties (active, title, sort order)                                                        |
 | `tab.delete`                 | request   | Delete a tab                                                                                             |
 | `tab.reorder`                | request   | Reorder tabs by ID array                                                                                 |
-| `tab.restore`                | request   | Restore persisted tabs for a workspace, creating new PTYs for terminal tabs                              |
+| `tab.restore`                | request   | Restore persisted tabs for a workspace, reusing live PTYs or creating new ones for terminal tabs         |
 | `git.statusChange`           | event     | Git status updated (`GitStatusChangeEvent` with `workspaceId`, `repoPath`, `status: GitStatusResponse`)  |
 | `connection.status`          | event     | Connection status change                                                                                 |
 
@@ -263,6 +264,28 @@ When a client sends a `git.repoDiscovery` request, the server emits `git.repoDis
 | `git.worktreeMerge`     | `GitWorktreeMergeRequest`     | `GitWorktreeMergeResponse`     | req: `worktreePath`, `targetBranch?`, `deleteAfterMerge?`, `filesToCopy?`; res: `success`, `message`, `worktreeRemoved?` |
 | `git.worktreeCopyFiles` | `GitWorktreeCopyFilesRequest` | `GitWorktreeCopyFilesResponse` | req: `dirPath?`; res: `untrackedFiles[]`, `configuredFiles[]`                                                            |
 
+## Terminal Channel Type Reference
+
+### State Query
+
+| Channel          | Request type           | Response type           | Fields                                                                                           |
+| ---------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------------------------ |
+| `terminal.state` | `TerminalStateRequest` | `TerminalStateResponse` | req: `terminalId`; res: `terminalId`, `data` (base64-encoded raw VT byte buffer), `cols`, `rows` |
+
+```typescript
+interface TerminalStateRequest {
+  terminalId: string;
+}
+
+interface TerminalStateResponse {
+  terminalId: string;
+  /** Base64-encoded raw VT byte buffer. */
+  data: string;
+  cols: number;
+  rows: number;
+}
+```
+
 ## Tab Channel Type Reference
 
 All tab request payloads include `workspaceId` (except `tab.update`, `tab.delete` which use `tabId`).
@@ -311,7 +334,9 @@ interface TabInfo {
 ### PersistedTabInfo
 
 Returned by `tab.restore`. Represents a tab persisted across server restarts.
-Terminal tabs include a freshly-created `terminalId`.
+The `terminal_id` column is persisted in `persisted_tabs`, so terminal tabs
+may reference a reused live terminal when the PTY is still running, or a
+freshly-created one when no live terminal matches.
 
 ```typescript
 interface PersistedTabInfo {

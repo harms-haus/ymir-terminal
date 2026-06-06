@@ -66,6 +66,73 @@ Filesystem changes (.git/HEAD, .git/refs/, working tree)
   → Client useGitStatusSubscription hook
 ```
 
+## PTY Lifecycle
+
+Terminals are **workspace-scoped**, not session-scoped. This means PTY processes survive client disconnects and are only killed when the server shuts down or a client explicitly closes the terminal.
+
+**Lifecycle flow:**
+
+```
+Client sends terminal.create
+  → PTYManager.create() spawns shell process
+  → workspace_terminals row inserted (in-memory DB, no FK to sessions)
+  → Output streams to the creating client's WebSocket connection
+
+Client disconnects (onClose)
+  → cleanupSession() deletes client_sessions row (cascades to tabs, etc.)
+  → PTY process continues running — NOT killed
+  → workspace_terminals row survives (no FK dependency on sessions)
+  → OutputRingBuffer continues capturing output in the background
+
+Client reconnects
+  → Client sends terminal.state request for each terminal ID
+  → Server re-attaches output callbacks to the new WebSocket connection
+  → Server returns buffer snapshot (all accumulated VT output) + dimensions
+  → Client replays buffered output, then resumes live streaming
+
+Server shuts down
+  → ptyManager.killAll() terminates all PTY processes
+  → workspace_terminals rows are lost (in-memory DB)
+```
+
+**Design rationale:** Killing PTYs on disconnect would destroy long-running processes (builds, servers, watches) whenever a browser tab is closed or the network flakes. Workspace-scoped PTYs match user expectations — terminals keep running until explicitly closed or the server stops.
+
+### PTYManager
+
+**File:** `apps/server/src/pty/manager.ts`
+
+The `PTYManager` manages the full lifecycle of pseudo-terminal processes. It handles shell resolution (platform-aware allowlist + fallback), spawn via `Bun.Terminal` + `Bun.spawn`, resize with SIGWINCH (Unix only — ConPTY handles resize directly on Windows), and process cleanup.
+
+**Public methods:**
+
+| Method                                 | Description                                                                                                                                                                                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create(id, options)`                  | Spawns a new PTY process. `options` includes `cwd`, `cols`, `rows`, `shell` (optional), `onData` (base64 output callback), and `onExit`. Validates the shell against the platform allowlist. Returns the terminal `id`. |
+| `write(id, base64Data)`                | Writes decoded data to the terminal's stdin. Throws if the terminal doesn't exist or has exited.                                                                                                                        |
+| `resize(id, cols, rows)`               | Resizes the terminal. On Unix, sends `SIGWINCH` to the child process after resizing. No-ops if dimensions are unchanged. Swallows `ESRCH` (process already exited).                                                     |
+| `kill(id)`                             | Closes the terminal and sends `SIGTERM` to the child process. Safe to call multiple times.                                                                                                                              |
+| `killAll()`                            | Kills all live terminals. Used during graceful shutdown.                                                                                                                                                                |
+| `has(id)`                              | Returns whether a terminal with the given ID exists and is still running.                                                                                                                                               |
+| `setOutputTarget(id, onData, onExit?)` | Replaces the output and (optionally) exit callbacks on a live terminal. Used by `terminal.state` to re-attach output to a new WebSocket connection after client reconnect. No-op if the terminal has exited.            |
+| `getBufferSnapshot(id)`                | Returns a copy (`Uint8Array`) of all buffered VT output for the terminal. Works for both live and exited terminals (exited buffers are retained in a separate map). Returns `null` if the terminal ID is unknown.       |
+| `hasExited(id)`                        | Returns `true` if the terminal process has exited (checked in both the live and exited-buffer maps).                                                                                                                    |
+| `getDimensions(id)`                    | Returns `{ cols, rows }` for the terminal, or `null` if unknown. Works for both live and exited terminals.                                                                                                              |
+
+### OutputRingBuffer
+
+**File:** `apps/server/src/pty/output-ring-buffer.ts`
+
+Each PTY has an `OutputRingBuffer` (default 512 KB) that stores raw VT byte chunks. This enables output replay on client reconnect.
+
+**Behavior:**
+
+- `append(chunk)` stores a `Uint8Array` chunk. When total bytes would exceed `maxBytes`, oldest chunks are dropped from the front until the new chunk fits. A single chunk larger than `maxBytes` clears the buffer and stores just that chunk.
+- `snapshot()` returns a concatenated copy of all stored chunks (does not drain the buffer).
+- `clear()` resets the buffer.
+- **Survives process exit:** When a PTY exits, its buffer is moved from the live `#buffers` map to `#exitedBuffers`, preserving the output for later retrieval via `getBufferSnapshot()`.
+
+**Reconnect flow:** On `terminal.state`, the server calls `getBufferSnapshot()` to retrieve the accumulated output, then `setOutputTarget()` to redirect live output to the new connection. The client-side `useTerminal.restoreState()` handles potential duplication between the snapshot and buffered live events.
+
 ## Tech Stack
 
 | Layer           | Technology                                                                              |
@@ -100,20 +167,20 @@ Filesystem changes (.git/HEAD, .git/refs/, working tree)
 
 ### `apps/server` — `@ymir/server`
 
-| Directory             | Purpose                                                                                   |
-| --------------------- | ----------------------------------------------------------------------------------------- |
-| `auth/`               | Password hashing (Argon2id), JWT sign/verify                                              |
-| `db/`                 | Persistent DB (workspaces), session DB (tabs)                                             |
-| `lib/`                | Shared handler validation (`handler-validation.ts`)                                       |
-| `pty/`                | PTY manager — spawn, resize, write, kill                                                  |
-| `files/`              | File scanner, CRUD operations, filesystem watcher                                         |
-| `git/`                | Git status, log, repo discovery, staging, branching, and remote operations                |
-| `ws/`                 | WebSocket server, message router, connection state                                        |
-| `ws/handlers/`        | Channel handlers (auth, terminal, files, git, tabs, ws)                                   |
-| `ws/handlers/tabs.ts` | Tab CRUD operations — `tab.list`, `tab.create`, `tab.update`, `tab.delete`, `tab.reorder` |
-| `ws/handlers/git/`    | Git handlers split into 8 domain modules (see below)                                      |
-| `ws/handlers/files/`  | File handlers split into `tree`, `crud`, `language`, `shared`                             |
-| `test-helpers/`       | Shared server test utilities (`mock-utils.ts`)                                            |
+| Directory             | Purpose                                                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth/`               | Password hashing (Argon2id), JWT sign/verify                                                                                                   |
+| `db/`                 | Persistent DB (workspaces), session DB (tabs, workspace terminals)                                                                             |
+| `lib/`                | Shared handler validation (`handler-validation.ts`)                                                                                            |
+| `pty/`                | PTY manager — spawn, resize, write, kill, output buffering (`OutputRingBuffer`), reconnection support (`setOutputTarget`, `getBufferSnapshot`) |
+| `files/`              | File scanner, CRUD operations, filesystem watcher                                                                                              |
+| `git/`                | Git status, log, repo discovery, staging, branching, and remote operations                                                                     |
+| `ws/`                 | WebSocket server, message router, connection state                                                                                             |
+| `ws/handlers/`        | Channel handlers (auth, terminal, files, git, tabs, ws)                                                                                        |
+| `ws/handlers/tabs.ts` | Tab CRUD operations — `tab.list`, `tab.create`, `tab.update`, `tab.delete`, `tab.reorder`                                                      |
+| `ws/handlers/git/`    | Git handlers split into 8 domain modules (see below)                                                                                           |
+| `ws/handlers/files/`  | File handlers split into `tree`, `crud`, `language`, `shared`                                                                                  |
+| `test-helpers/`       | Shared server test utilities (`mock-utils.ts`)                                                                                                 |
 
 **Git module detail:**
 
@@ -174,6 +241,8 @@ These are separate callers with separate triggers — the client request provide
 
 In `server.ts`, a `GitStatusCache` and `GitStatusWatcher` are created before handler registration (step 5a). The watcher's `statusChangeHandler` broadcasts `git.statusChange` events to all authenticated WebSocket connections, using a `watchedGitDirs` map to resolve `workspaceId` and `repoPath` from the absolute `.git` directory. Both are passed via dependency injection to `registerGitHandlers` and `registerWorkspaceHandlers`. On graceful shutdown, `gitStatusWatcher.unwatchAll()` closes all `fs.watch` watchers and stops the safety-poll timer.
 
+**Connection disconnect (`onClose`):** When a WebSocket connection closes, `cleanupSession()` deletes the `client_sessions` row (which cascades to session-scoped tables like `tabs` and `terminal_instances`). PTYs are **not** killed — they are workspace-scoped and survive disconnects. The `workspace_terminals` rows have no FK to `client_sessions` and are unaffected. On reconnect, the client sends `terminal.state` for each terminal to re-attach output callbacks and replay the buffered output.
+
 **Workspace handler progressive git watcher startup:** The `registerWorkspaceHandlers` function creates a `startGitWatchersForWorkspace` helper that calls `discoverRepos` with an `onDepthComplete` callback. As each BFS depth completes, the callback registers discovered repos with `gitStatusWatcher.watchRepo()` and updates the `watchedGitDirs` map — so git status watching begins progressively rather than waiting for full discovery. A `cancelledDiscovery` map tracks in-flight discoveries so watchers are not started for deleted or cwd-changed workspaces. The `stopGitWatchersForWorkspace` helper cancels in-flight discovery and removes all watcher entries for a workspace.
 
 **Git handler structure:** The git handlers are split into focused modules under `ws/handlers/git/`:
@@ -199,7 +268,7 @@ export function registerTerminalHandlers(router: MessageRouter, deps: { ... }): 
 }
 ```
 
-Handlers are registered in `server.ts` and receive the parsed envelope plus the authenticated `ClientConnection`. Shared validation helpers (`validateTerminalOwnership`, `resolveWorkspaceOrError`, `resolveSafePathOrError`) live in `lib/handler-validation.ts` and are used by multiple handler modules.
+Handlers are registered in `server.ts` and receive the parsed envelope plus the authenticated `ClientConnection`. Shared validation helpers (`validateTerminalOwnership`, `validateTabOwnership`, `validateWorkspaceTerminalAccess`, `safePath`) live in `lib/handler-validation.ts` and are used by multiple handler modules.
 
 **File handler structure:** The file handlers are split into focused modules under `ws/handlers/files/`:
 
@@ -380,7 +449,42 @@ Ymir stores persistent data in SQLite:
 | Database   | Location                   | Purpose                                                                                                                                           |
 | ---------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Persistent | `{getConfigDir()}/ymir.db` | Workspaces, password hash, UI layout state, persisted tabs (survive server restarts), server config (`pane_layout_*`, `ui_pane_visibility`, etc.) |
-| Session    | In-memory (`:memory:`)     | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns)                                               |
+| Session    | In-memory (`:memory:`)     | Client sessions, workspace-scoped tab state (tabs table includes `workspace_id` and `pane` columns), workspace-scoped terminal instances          |
+
+The session DB contains the following tables:
+
+| Table                 | Purpose                                                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client_sessions`     | Authenticated WebSocket sessions. Deleted on disconnect via `cleanupSession()`; cascades to `tabs`, `terminal_instances`, `bottom_panel_tabs`. |
+| `tabs`                | Per-session tab state with `workspace_id`, `pane`, and `sort_order`. FK to `client_sessions` with `ON DELETE CASCADE`.                         |
+| `panes`               | Per-tab pane metadata. FK to `tabs` with `ON DELETE CASCADE`.                                                                                  |
+| `terminal_instances`  | Legacy per-session terminal tracking. FK to `client_sessions` with `ON DELETE CASCADE`.                                                        |
+| `bottom_panel_tabs`   | Bottom panel tab state. FK to `client_sessions` with `ON DELETE CASCADE`.                                                                      |
+| `workspace_terminals` | Workspace-scoped terminal instances — **no FK to `client_sessions`**. Survives session cleanup. Cleared on server restart (in-memory DB).      |
+
+### workspace_terminals Table
+
+The `workspace_terminals` table tracks workspace-scoped PTY instances independently of client sessions:
+
+```sql
+workspace_terminals (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  cwd TEXT NOT NULL,
+  cols INTEGER NOT NULL DEFAULT 80,
+  rows INTEGER NOT NULL DEFAULT 24,
+  shell TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)
+```
+
+Key differences from `terminal_instances`:
+
+- **No FK to `client_sessions`** — rows survive `cleanupSession()` on client disconnect.
+- **In-memory** — all rows are lost when the server process exits (PTYs die with the server anyway).
+- **No `session_id` column** — terminals are keyed by workspace, not by the session that created them.
+
+CRUD functions: `createWorkspaceTerminal`, `getWorkspaceTerminal`, `listWorkspaceTerminalsByWorkspace`, `updateWorkspaceTerminalSize`, `deleteWorkspaceTerminal`, `deleteWorkspaceTerminalsByWorkspace`.
 
 The workspaces table includes a `sort_order` column (integer) that persists drag-and-drop ordering. The `WorkspaceSummary` type returned by `workspace.list` includes `sortOrder: number` reflecting this column.
 

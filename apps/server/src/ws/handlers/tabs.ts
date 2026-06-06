@@ -30,6 +30,9 @@ import {
   createPane,
   createTerminalInstance,
   deleteTerminalInstance,
+  createWorkspaceTerminal,
+  deleteWorkspaceTerminal,
+  getWorkspaceTerminal,
 } from '../../db/session';
 import {
   getWorkspace,
@@ -39,8 +42,11 @@ import {
   updatePersistedTabTitle,
   listPersistedTabsByWorkspace,
 } from '../../db/persistent';
-import { resolve } from 'node:path';
-import { validateTabOwnership, safePath } from '../../lib/handler-validation';
+import {
+  validateTabOwnership,
+  safePath,
+  resolveCwdWithWorktreeFallback,
+} from '../../lib/handler-validation';
 import { listWorktrees } from '../../git/worktrees';
 import type { PTYManager } from '../../pty/manager';
 
@@ -100,21 +106,11 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
     query += ' ORDER BY t.sort_order ASC';
     const rows = sessionDb.prepare(query).all(...queryParams) as Record<string, unknown>[];
 
-    // Batch-check terminal liveness (avoids N+1 per-row queries)
-    const terminalIds = rows.map((r) => r.terminal_id as string | null).filter(Boolean) as string[];
-
-    const aliveSet = new Set<string>();
-    if (terminalIds.length > 0) {
-      const placeholders = terminalIds.map(() => '?').join(',');
-      const aliveRows = sessionDb
-        .prepare(`SELECT id FROM terminal_instances WHERE id IN (${placeholders})`)
-        .all(...terminalIds) as { id: string }[];
-      for (const r of aliveRows) aliveSet.add(r.id);
-    }
-
     const tabs: TabInfo[] = rows.map((row) => {
       const terminalId = (row.terminal_id as string | null) ?? null;
-      const terminalAlive = terminalId ? aliveSet.has(terminalId) : undefined;
+      const terminalAlive = terminalId
+        ? ptyManager.has(terminalId) && !ptyManager.hasExited(terminalId)
+        : undefined;
 
       return {
         id: row.id as string,
@@ -471,62 +467,106 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
 
       let terminalId: string | null = null;
 
-      // For terminal tabs, create a new PTY (wrapped in individual try/catch so
-      // that a single tab failure does not abort the entire restore loop).
+      // For terminal tabs, check for a reusable live terminal first, then fall
+      // back to creating a new PTY. Wrapped in individual try/catch so that a
+      // single tab failure does not abort the entire restore loop.
       if (ptab.tab_type === 'terminal') {
         try {
           const candidateCwd = ptab.cwd ?? ptab.worktree_path ?? workspaceCwd;
 
-          let cwd: string;
-          try {
-            cwd = safePath(workspaceCwd, candidateCwd);
-          } catch {
-            // Not within workspace — check if it's a known git worktree
-            const resolvedCandidate = resolve(candidateCwd);
-            const isKnownWorktree = worktrees.some((w) => resolve(w.path) === resolvedCandidate);
-            if (isKnownWorktree) {
-              cwd = resolvedCandidate;
-            } else {
-              cwd = workspaceCwd;
-            }
+          const cwdResult = resolveCwdWithWorktreeFallback(workspaceCwd, candidateCwd, worktrees);
+          const cwd = cwdResult?.cwd ?? workspaceCwd;
+
+          // Check if the persisted terminal is still alive in ptyManager
+          const persistedTerminalId = ptab.terminal_id;
+          const isAlive =
+            persistedTerminalId &&
+            ptyManager.has(persistedTerminalId) &&
+            !ptyManager.hasExited(persistedTerminalId);
+
+          let worktreeMatches = true;
+          if (isAlive && persistedTerminalId) {
+            const wsTerm = getWorkspaceTerminal(sessionDb, persistedTerminalId);
+            const termWorktree = (wsTerm?.worktree_path as string | null) ?? null;
+            const tabWorktree = ptab.worktree_path ?? null;
+            worktreeMatches = termWorktree === tabWorktree;
           }
 
-          const newTerminalId = createTerminalInstance(sessionDb, {
-            sessionId: conn.sessionId,
-            workspaceId,
-            cols: DEFAULT_COLS,
-            rows: DEFAULT_ROWS,
-          });
+          if (isAlive && persistedTerminalId && worktreeMatches) {
+            // Reuse the existing live terminal — just re-attach callbacks
+            createPane(sessionDb, { tabId, terminalId: persistedTerminalId });
+            terminalId = persistedTerminalId;
 
-          try {
-            ptyManager.create(newTerminalId, {
-              cwd,
+            ptyManager.setOutputTarget(
+              persistedTerminalId,
+              (b64Data: string) => {
+                conn.send(
+                  createEvent('terminal.output', {
+                    terminalId: persistedTerminalId,
+                    data: b64Data,
+                  }),
+                );
+              },
+              (exitCode: number | null) => {
+                conn.send(
+                  createEvent('terminal.exit', {
+                    terminalId: persistedTerminalId,
+                    exitCode: exitCode ?? 0,
+                  }),
+                );
+                deleteWorkspaceTerminal(sessionDb, persistedTerminalId);
+              },
+            );
+          } else {
+            // Terminal is dead or never existed — create a new PTY
+            const newTerminalId = createTerminalInstance(sessionDb, {
+              sessionId: conn.sessionId,
+              workspaceId,
               cols: DEFAULT_COLS,
               rows: DEFAULT_ROWS,
-              onData: (b64Data: string) => {
-                const evt = createEvent('terminal.output', {
-                  terminalId: newTerminalId,
-                  data: b64Data,
-                });
-                conn.send(evt);
-              },
-              onExit: (exitCode) => {
-                const evt = createEvent('terminal.exit', {
-                  terminalId: newTerminalId,
-                  exitCode: exitCode ?? 0,
-                });
-                conn.send(evt);
-                deleteTerminalInstance(sessionDb, newTerminalId);
-              },
             });
-          } catch {
-            // If PTY creation fails, clean up the terminal instance but still restore the tab
-            deleteTerminalInstance(sessionDb, newTerminalId);
-          }
 
-          // Create pane association
-          createPane(sessionDb, { tabId, terminalId: newTerminalId });
-          terminalId = newTerminalId;
+            try {
+              ptyManager.create(newTerminalId, {
+                cwd,
+                cols: DEFAULT_COLS,
+                rows: DEFAULT_ROWS,
+                onData: (b64Data: string) => {
+                  const evt = createEvent('terminal.output', {
+                    terminalId: newTerminalId,
+                    data: b64Data,
+                  });
+                  conn.send(evt);
+                },
+                onExit: (exitCode) => {
+                  const evt = createEvent('terminal.exit', {
+                    terminalId: newTerminalId,
+                    exitCode: exitCode ?? 0,
+                  });
+                  conn.send(evt);
+                  deleteTerminalInstance(sessionDb, newTerminalId);
+                  deleteWorkspaceTerminal(sessionDb, newTerminalId);
+                },
+              });
+
+              // Also track as a workspace terminal for liveness checks
+              createWorkspaceTerminal(sessionDb, {
+                id: newTerminalId,
+                workspaceId,
+                cwd,
+                cols: DEFAULT_COLS,
+                rows: DEFAULT_ROWS,
+                worktreePath: ptab.worktree_path ?? undefined,
+              });
+            } catch {
+              // If PTY creation fails, clean up the terminal instance but still restore the tab
+              deleteTerminalInstance(sessionDb, newTerminalId);
+            }
+
+            // Create pane association
+            createPane(sessionDb, { tabId, terminalId: newTerminalId });
+            terminalId = newTerminalId;
+          }
         } catch (tabErr) {
           // Individual tab restore failed — log and continue with remaining tabs
           console.error(`Failed to restore terminal tab ${ptab.id}:`, tabErr);
@@ -548,6 +588,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
         parentSha: ptab.parent_sha,
         cwd: ptab.cwd,
         customTitle: ptab.custom_title,
+        terminalId,
         worktreePath: ptab.worktree_path,
       });
 

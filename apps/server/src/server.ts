@@ -48,6 +48,8 @@ export async function startServer(options: StartServerOptions): Promise<void> {
 
   // 4. Init in-memory session DB
   const sessionDb: Database = initSessionDb();
+  // workspace_terminals table is in-memory and empty on startup.
+  // All workspace terminals from previous runs are gone since PTYs die with the server.
 
   // 5. Create PTY manager
   const ptyManager = new PTYManager();
@@ -164,14 +166,8 @@ export async function startServer(options: StartServerOptions): Promise<void> {
       });
     },
     onClose(conn) {
-      // Query all terminal instances for this session and kill each PTY
-      const terminals = sessionDb
-        .prepare('SELECT id FROM terminal_instances WHERE session_id = ?')
-        .all(conn.sessionId) as { id: string }[];
-      for (const { id } of terminals) {
-        ptyManager.kill(id);
-      }
-      // Remove all session DB rows (tabs, panes, terminal_instances, etc.)
+      // PTYs survive disconnect — they are workspace-scoped, not session-scoped.
+      // workspace_terminals rows are unaffected by cleanupSession.
       cleanupSession(sessionDb, conn.sessionId);
     },
   });

@@ -14,6 +14,12 @@ import {
   updateTerminalSize,
   deleteTerminalInstance,
   cleanupSession,
+  createWorkspaceTerminal,
+  getWorkspaceTerminal,
+  listWorkspaceTerminalsByWorkspace,
+  updateWorkspaceTerminalSize,
+  deleteWorkspaceTerminal,
+  deleteWorkspaceTerminalsByWorkspace,
 } from './session';
 import { createBottomPanelTab, listBottomPanelTabs } from './session/bottom-panel';
 
@@ -36,6 +42,7 @@ describe('session database', () => {
     expect(tableNames).toContain('panes');
     expect(tableNames).toContain('terminal_instances');
     expect(tableNames).toContain('bottom_panel_tabs');
+    expect(tableNames).toContain('workspace_terminals');
   });
 
   // 2. createSession(db) inserts into client_sessions and returns id
@@ -649,6 +656,295 @@ describe('session database', () => {
 
       expect(filtered).toHaveLength(1);
       expect(filtered[0].title).toBe('Non-Worktree Tab');
+    });
+  });
+
+  // =========================================================================
+  // workspace_terminals
+  // =========================================================================
+
+  describe('workspace_terminals', () => {
+    test('createWorkspaceTerminal inserts a row', () => {
+      createWorkspaceTerminal(db, {
+        id: 'wt-1',
+        workspaceId: 'ws1',
+        cwd: '/home/user/project',
+        cols: 120,
+        rows: 40,
+        shell: '/bin/zsh',
+      });
+
+      const row = getWorkspaceTerminal(db, 'wt-1') as Record<string, unknown>;
+      expect(row).not.toBeNull();
+      expect(row.id).toBe('wt-1');
+      expect(row.workspace_id).toBe('ws1');
+      expect(row.cwd).toBe('/home/user/project');
+      expect(row.cols).toBe(120);
+      expect(row.rows).toBe(40);
+      expect(row.shell).toBe('/bin/zsh');
+      expect(row.created_at).toBeTruthy();
+    });
+
+    test('getWorkspaceTerminal returns null for nonexistent id', () => {
+      expect(getWorkspaceTerminal(db, 'nonexistent')).toBeNull();
+    });
+
+    test('listWorkspaceTerminalsByWorkspace returns only terminals for given workspace', () => {
+      createWorkspaceTerminal(db, {
+        id: 'wt-1',
+        workspaceId: 'ws1',
+        cwd: '/a',
+        cols: 80,
+        rows: 24,
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-2',
+        workspaceId: 'ws1',
+        cwd: '/b',
+        cols: 80,
+        rows: 24,
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-3',
+        workspaceId: 'ws2',
+        cwd: '/c',
+        cols: 80,
+        rows: 24,
+      });
+
+      const ws1 = listWorkspaceTerminalsByWorkspace(db, 'ws1');
+      expect(ws1).toHaveLength(2);
+      expect(ws1.map((r) => r.id)).toEqual(['wt-1', 'wt-2']);
+
+      const ws2 = listWorkspaceTerminalsByWorkspace(db, 'ws2');
+      expect(ws2).toHaveLength(1);
+      expect(ws2[0].id).toBe('wt-3');
+    });
+
+    test('updateWorkspaceTerminalSize updates cols and rows', () => {
+      createWorkspaceTerminal(db, {
+        id: 'wt-1',
+        workspaceId: 'ws1',
+        cwd: '/home',
+        cols: 80,
+        rows: 24,
+      });
+
+      updateWorkspaceTerminalSize(db, 'wt-1', 200, 50);
+
+      const row = getWorkspaceTerminal(db, 'wt-1') as Record<string, unknown>;
+      expect(row.cols).toBe(200);
+      expect(row.rows).toBe(50);
+    });
+
+    test('deleteWorkspaceTerminal removes the row', () => {
+      createWorkspaceTerminal(db, {
+        id: 'wt-1',
+        workspaceId: 'ws1',
+        cwd: '/home',
+        cols: 80,
+        rows: 24,
+      });
+
+      expect(getWorkspaceTerminal(db, 'wt-1')).not.toBeNull();
+      deleteWorkspaceTerminal(db, 'wt-1');
+      expect(getWorkspaceTerminal(db, 'wt-1')).toBeNull();
+    });
+
+    test('deleteWorkspaceTerminal is idempotent', () => {
+      // Should not throw on nonexistent id
+      deleteWorkspaceTerminal(db, 'nonexistent');
+    });
+
+    test('deleteWorkspaceTerminalsByWorkspace removes all terminals for workspace', () => {
+      createWorkspaceTerminal(db, {
+        id: 'wt-1',
+        workspaceId: 'ws1',
+        cwd: '/a',
+        cols: 80,
+        rows: 24,
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-2',
+        workspaceId: 'ws1',
+        cwd: '/b',
+        cols: 80,
+        rows: 24,
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-3',
+        workspaceId: 'ws2',
+        cwd: '/c',
+        cols: 80,
+        rows: 24,
+      });
+
+      deleteWorkspaceTerminalsByWorkspace(db, 'ws1');
+
+      expect(listWorkspaceTerminalsByWorkspace(db, 'ws1')).toHaveLength(0);
+      expect(listWorkspaceTerminalsByWorkspace(db, 'ws2')).toHaveLength(1);
+    });
+
+    test('workspace terminals survive session cleanup', () => {
+      const sessionId = createSession(db);
+
+      createWorkspaceTerminal(db, {
+        id: 'wt-survive',
+        workspaceId: 'ws1',
+        cwd: '/home/user/project',
+        cols: 100,
+        rows: 30,
+        shell: '/bin/bash',
+      });
+
+      // Also create a session-scoped terminal to verify it gets cleaned up
+      const terminalId = createTerminalInstance(db, {
+        sessionId,
+        workspaceId: 'ws1',
+        cols: 80,
+        rows: 24,
+      });
+
+      cleanupSession(db, sessionId);
+
+      // Session-scoped terminal should be gone
+      expect(getTerminalInstance(db, terminalId)).toBeNull();
+
+      // Workspace terminal must still exist
+      const row = getWorkspaceTerminal(db, 'wt-survive') as Record<string, unknown>;
+      expect(row).not.toBeNull();
+      expect(row.id).toBe('wt-survive');
+      expect(row.workspace_id).toBe('ws1');
+      expect(row.cwd).toBe('/home/user/project');
+      expect(row.cols).toBe(100);
+      expect(row.rows).toBe(30);
+      expect(row.shell).toBe('/bin/bash');
+    });
+  });
+
+  // =========================================================================
+  // worktree_path in workspace_terminals
+  // =========================================================================
+
+  describe('worktree_path in workspace_terminals', () => {
+    test('createWorkspaceTerminal with worktreePath stores worktree_path correctly', () => {
+      createWorkspaceTerminal(db, {
+        id: 'wt-wt-1',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+        worktreePath: '/repos/repo/worktrees/feature',
+      });
+
+      const row = db
+        .query('SELECT worktree_path FROM workspace_terminals WHERE id = ?')
+        .get('wt-wt-1') as { worktree_path: string | null } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBe('/repos/repo/worktrees/feature');
+    });
+
+    test('createWorkspaceTerminal without worktreePath stores NULL', () => {
+      createWorkspaceTerminal(db, {
+        id: 'wt-wt-2',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+      });
+
+      const row = db
+        .query('SELECT worktree_path FROM workspace_terminals WHERE id = ?')
+        .get('wt-wt-2') as { worktree_path: string | null } | null;
+      expect(row).not.toBeNull();
+      expect(row!.worktree_path).toBeNull();
+    });
+
+    test('listWorkspaceTerminalsByWorkspace with worktreePath filter returns only matching terminals', () => {
+      // Create terminals with different worktree_path values in the same workspace
+      createWorkspaceTerminal(db, {
+        id: 'wt-feat',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+        worktreePath: '/repos/repo/worktrees/feature',
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-fix',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+        worktreePath: '/repos/repo/worktrees/hotfix',
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-null',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+      });
+
+      const filtered = listWorkspaceTerminalsByWorkspace(
+        db,
+        'ws1',
+        '/repos/repo/worktrees/feature',
+      ) as Record<string, unknown>[];
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('wt-feat');
+    });
+
+    test('listWorkspaceTerminalsByWorkspace without worktreePath filter returns only NULL worktree_path terminals', () => {
+      // Create terminals with different worktree_path values
+      createWorkspaceTerminal(db, {
+        id: 'wt-feat',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+        worktreePath: '/repos/repo/worktrees/feature',
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-null',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+      });
+
+      const filtered = listWorkspaceTerminalsByWorkspace(db, 'ws1') as Record<string, unknown>[];
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('wt-null');
+    });
+
+    test('listWorkspaceTerminalsByWorkspace with explicit null worktreePath returns only NULL worktree_path terminals', () => {
+      // Create terminals with different worktree_path values
+      createWorkspaceTerminal(db, {
+        id: 'wt-feat',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+        worktreePath: '/repos/repo/worktrees/feature',
+      });
+      createWorkspaceTerminal(db, {
+        id: 'wt-null',
+        workspaceId: 'ws1',
+        cwd: '/repos/repo',
+        cols: 80,
+        rows: 24,
+      });
+
+      const filtered = listWorkspaceTerminalsByWorkspace(db, 'ws1', null) as Record<
+        string,
+        unknown
+      >[];
+
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('wt-null');
     });
   });
 });

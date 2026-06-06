@@ -35,3 +35,15 @@ export interface TerminalExitEvent {
   terminalId: string;
   exitCode: number;
 }
+
+export interface TerminalStateRequest {
+  terminalId: string;
+}
+
+export interface TerminalStateResponse {
+  terminalId: string;
+  /** Base64-encoded raw VT byte buffer. */
+  data: string;
+  cols: number;
+  rows: number;
+}
