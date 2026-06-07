@@ -107,6 +107,7 @@ function createMockSpawn(spawned: any[]): any {
       _resolve = resolve;
     });
     const proc = {
+      pid: 12345,
       killed: false,
       exited,
       _resolve: () => _resolve(0),
@@ -506,6 +507,31 @@ describe('PTYManager', () => {
     expect(() => manager.resize('test-invalid-inf', Infinity, 24)).toThrow(
       'Invalid terminal dimensions: Infinityx24',
     );
+  });
+
+  it('resize() sends SIGWINCH to process and process group on Linux', () => {
+    const originalProcessKill = process.kill;
+    const mockProcessKill = mock((_pid: number, _signal: string) => {});
+    process.kill = mockProcessKill as unknown as typeof process.kill;
+    try {
+      const onData = mock((_data: string) => {});
+      manager.create('win-resize-sigwinch', {
+        cwd: '/home/user',
+        cols: 80,
+        rows: 24,
+        onData,
+      });
+
+      manager.resize('win-resize-sigwinch', 120, 40);
+
+      const terminal = mockTerminalInstances[0];
+      expect(terminal.resizeOpts).toEqual({ cols: 120, rows: 40 });
+      expect(mockProcessKill).toHaveBeenCalledTimes(2);
+      expect(mockProcessKill).toHaveBeenCalledWith(12345, 'SIGWINCH');
+      expect(mockProcessKill).toHaveBeenCalledWith(-12345, 'SIGWINCH');
+    } finally {
+      process.kill = originalProcessKill;
+    }
   });
 
   it('killAll() closes all terminals', () => {

@@ -186,7 +186,12 @@ export class PTYManager {
       entry.lastRows = safeRows;
 
       // Bun.Terminal.resize() does not send SIGWINCH to the child process.
-      // Send it manually so the shell redraws its prompt.
+      // We send it to both the shell process directly AND to its process group
+      // (negative PID). The process-group signal is critical for foreground
+      // processes (like pi-coding-agent) that listen for SIGWINCH via
+      // process.stdout 'resize' events. In a native terminal, the kernel
+      // delivers SIGWINCH to the entire foreground process group via
+      // ioctl(TIOCSWINSZ); here we must do it manually.
       //
       // There is an inherent TOCTOU race: the child may exit between
       // terminal.resize() and process.kill() below, and the OS could recycle
@@ -199,6 +204,11 @@ export class PTYManager {
           process.kill(entry.process.pid, 'SIGWINCH');
         } catch {
           // Process may have exited (ESRCH) or PID was recycled; swallow.
+        }
+        try {
+          process.kill(-entry.process.pid, 'SIGWINCH');
+        } catch {
+          // Process group may not exist or was recycled; swallow.
         }
       }
     } catch (err) {
