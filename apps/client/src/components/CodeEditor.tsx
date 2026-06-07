@@ -8,7 +8,6 @@ import { python } from '@codemirror/lang-python';
 import { rust } from '@codemirror/lang-rust';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { useMemo, useRef } from 'react';
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const LANG_EXTENSIONS: Record<string, () => any> = {
   javascript,
@@ -18,6 +17,7 @@ const LANG_EXTENSIONS: Record<string, () => any> = {
   markdown,
   python,
   rust,
+  typescript: () => javascript({ typescript: true }),
 };
 
 interface CodeEditorProps {

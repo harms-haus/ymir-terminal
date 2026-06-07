@@ -12,6 +12,7 @@ import React from 'react';
 // ---------------------------------------------------------------------------
 
 let capturedOnChange: ((value: string) => void) | undefined;
+let capturedTheme: unknown;
 
 const MockCodeMirror = ({
   value,
@@ -33,12 +34,14 @@ const MockCodeMirror = ({
   onKeyDown?: (e: React.KeyboardEvent) => void;
 }) => {
   capturedOnChange = onChange;
+  capturedTheme = theme;
   return React.createElement(
     'div',
     {
       'data-testid': dataTestId ?? 'mock-codemirror',
       'data-extensions-count': extensions?.length ?? 0,
       'data-theme': theme ? 'set' : 'unset',
+      'data-theme-type': typeof theme,
       'data-height': height ?? '',
       style,
       onKeyDown,
@@ -68,6 +71,7 @@ function renderCodeEditor(props: {
   onSave?: (content: string) => void;
 }) {
   capturedOnChange = undefined;
+  capturedTheme = undefined;
   return render(React.createElement(CodeEditor, props));
 }
 
@@ -104,20 +108,32 @@ describe('CodeEditor', () => {
     expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('1');
   });
 
-  test('no extensions when language is not provided', () => {
+  test('no extensions without language', () => {
     const { getByTestId } = renderCodeEditor({ content: 'some text' });
 
     expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('0');
   });
 
-  test('no extensions when language is unrecognized', () => {
+  test('no extensions with unrecognized language', () => {
     const { getByTestId } = renderCodeEditor({ content: 'some text', language: 'brainfuck' });
 
     expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('0');
   });
 
   // -----------------------------------------------------------------------
-  // 3. Accepts onSave callback
+  // 4. Accepts typescript language and provides extensions
+  // -----------------------------------------------------------------------
+  test('accepts typescript language and provides extensions', () => {
+    const { getByTestId } = renderCodeEditor({
+      content: 'const x: number = 1;',
+      language: 'typescript',
+    });
+
+    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('1');
+  });
+
+  // -----------------------------------------------------------------------
+  // 5. Accepts onSave callback
   // -----------------------------------------------------------------------
   test('calls onSave when Ctrl+S is pressed', () => {
     const onSave = mock((content: string) => {
@@ -143,6 +159,21 @@ describe('CodeEditor', () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith('save me');
+  });
+
+  // -----------------------------------------------------------------------
+  // Theme should be an Extension object (oneDark), not a string
+  // -----------------------------------------------------------------------
+  test('passes theme as an Extension object, not a string', () => {
+    const { getByTestId } = renderCodeEditor({ content: 'theme test' });
+
+    // theme prop must be an object (the oneDark Extension), not a string like 'dark'
+    expect(typeof capturedTheme).toBe('object');
+    expect(capturedTheme).not.toBe('dark');
+
+    // Also verifiable via DOM data attribute
+    const editor = getByTestId('code-editor');
+    expect(editor.getAttribute('data-theme-type')).toBe('object');
   });
 
   // -----------------------------------------------------------------------

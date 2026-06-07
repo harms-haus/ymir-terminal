@@ -442,4 +442,59 @@ describe('useAuth', () => {
     });
     expect(mockGetTauriConfig.mock.calls.length).toBe(0);
   });
+
+  // -----------------------------------------------------------------------
+  // 16. Tauri auto-login stale-token race condition: stale token + disconnected
+  //     WS should still trigger auto-login (fix: guard on WS state, not just token)
+  // -----------------------------------------------------------------------
+  test('stale token + disconnected WS in Tauri triggers auto-login', async () => {
+    localStorage.setItem('ymir-token', 'stale-dev-token');
+    mockIsTauri = true;
+    mockConnectionUrl = 'ws://127.0.0.1:3000/ws';
+    mockGetTauriConfig.mockResolvedValue({ port: 3000, password: 'prod-password' });
+    sendRequestResult = { token: 'prod-jwt', expiresIn: 3600 };
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    // Wait for effects to settle
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Auto-login should have run despite the stale token because the WS is
+    // disconnected — the stale token is not valid for the current sidecar session.
+    expect(mockGetTauriConfig).toHaveBeenCalled();
+    expect(result.current.token).toBe('prod-jwt');
+  });
+
+  // -----------------------------------------------------------------------
+  // 17. Tauri auto-login stale-token race condition: valid token + connected
+  //     WS should skip auto-login (existing behaviour preserved)
+  // -----------------------------------------------------------------------
+  test('valid token + connected WS in Tauri skips auto-login', async () => {
+    localStorage.setItem('ymir-token', 'valid-token');
+    mockIsTauri = true;
+    mockConnectionUrl = 'ws://127.0.0.1:3000/ws';
+    mockGetTauriConfig.mockResolvedValue({ port: 3000, password: 'prod-password' });
+    sendRequestResult = { token: 'new-token', expiresIn: 3600 };
+
+    // Simulate WS already connected before the hook mounts
+    mockWs.simulateStatusChange('connected');
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    // Wait for effects to settle
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Auto-login should NOT have run — the existing token is valid and the
+    // WS is already connected, so there is no reason to re-authenticate.
+    expect(mockGetTauriConfig.mock.calls.length).toBe(0);
+    expect(result.current.token).toBe('valid-token');
+  });
 });

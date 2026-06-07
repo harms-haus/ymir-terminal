@@ -174,7 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Auto-login when running in Tauri
   useEffect(() => {
     if (!isTauri) return;
-    if (token) return; // Already authenticated
+    if (token && wsClient.getStatus() === 'connected') return;
     if (suppressAutoLoginRef.current) return; // ref — not a dependency; reads latest value
 
     const autoLogin = async () => {

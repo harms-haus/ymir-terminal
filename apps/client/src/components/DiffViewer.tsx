@@ -24,6 +24,7 @@ import type { GitDiffDataResponse, GitCommitDiffResponse } from '@ymir/shared';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const LANG_EXTENSIONS: Record<string, () => any> = {
   javascript,
+  typescript: () => javascript({ typescript: true }),
   css,
   html,
   json,
