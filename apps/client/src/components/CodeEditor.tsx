@@ -16,8 +16,15 @@ export function CodeEditor({ content, language, readOnly, onChange, onSave }: Co
     currentValueRef.current = content;
   }, [content]);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (onSave && (e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      onSave(currentValueRef.current);
+    }
+  };
+
   return (
-    <div data-testid="code-editor" style={{ height: '100%' }}>
+    <div data-testid="code-editor" style={{ height: '100%' }} onKeyDown={handleKeyDown}>
       <Editor
         height="100%"
         theme="vs-dark"

@@ -357,10 +357,12 @@ export function setupAllMocks(): void {
 
   // --- @monaco-editor/react ------------------------------------------------
   bunMock.module('@monaco-editor/react', () => {
+    const capturedSaveHandlers: Array<() => void> = [];
+
     const MockEditor = ({
       value,
       onChange: _onChange,
-      onMount: _onMount,
+      onMount,
       defaultLanguage,
       options: _options,
       theme,
@@ -379,6 +381,16 @@ export function setupAllMocks(): void {
     }) => {
       // Eagerly call onMount so tests that capture it get the callback
       // before assertions run.
+      if (onMount) {
+        onMount(
+          {
+            addCommand: (_keybinding: number, handler: () => void) => {
+              capturedSaveHandlers.push(handler);
+            },
+          },
+          { KeyMod: { CtrlCmd: 2048 }, KeyCode: { KeyS: 49 } },
+        );
+      }
       void rest;
       return React.createElement(
         'div',
@@ -387,6 +399,12 @@ export function setupAllMocks(): void {
           'data-default-language': defaultLanguage ?? '',
           'data-theme': theme ?? '',
           'data-height': height ?? '',
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+              capturedSaveHandlers.forEach((h) => h());
+              e.preventDefault();
+            }
+          },
         },
         React.createElement('div', { 'data-testid': 'cm-content' }, value),
       );
