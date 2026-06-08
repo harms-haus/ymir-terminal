@@ -118,7 +118,7 @@ describe('EditorPane', () => {
     const { getByTestId } = renderEditorPane();
     await resolveFileLoad('const x = 42;');
 
-    // The mock CodeMirror renders content inside data-testid="cm-content"
+    // The mock Monaco Editor renders content inside data-testid="cm-content"
     expect(getByTestId('cm-content').textContent).toBe('const x = 42;');
   });
 
@@ -130,7 +130,7 @@ describe('EditorPane', () => {
     const { getByTestId } = renderEditorPane({ onDirtyChange });
     await resolveFileLoad('initial content');
 
-    // Verify the CodeEditor and CodeMirror mock rendered — the actual
+    // Verify the CodeEditor and Monaco mock rendered — the actual
     // onChange → onDirtyChange wiring is exercised in the next test.
     // The mock passes through data-testid from CodeEditor, so it renders as "code-editor".
     expect(getByTestId('code-editor')).toBeTruthy();
@@ -140,25 +140,31 @@ describe('EditorPane', () => {
   // -----------------------------------------------------------------------
   // 4b. (Direct) onDirtyChange fires via captured CodeMirror onChange
   // -----------------------------------------------------------------------
-  test('calls onDirtyChange when CodeMirror onChange fires', async () => {
-    // Override the @uiw/react-codemirror mock to capture onChange
-    let capturedOnChange: ((value: string) => void) | undefined;
+  test('calls onDirtyChange when Monaco onChange fires', async () => {
+    // Override the @monaco-editor/react mock to capture onChange
+    let capturedOnChange: ((value: string | undefined) => void) | undefined;
 
-    mock.module('@uiw/react-codemirror', () => {
+    mock.module('@monaco-editor/react', () => {
       const CapturingMock = ({
         value,
         onChange,
+        onMount,
         ...rest
       }: {
-        value: string;
-        onChange?: (value: string) => void;
-        'data-testid'?: string;
+        value?: string;
+        onChange?: (value: string | undefined) => void;
+        onMount?: (editor: unknown, monaco: unknown) => void;
         [key: string]: unknown;
       }) => {
         capturedOnChange = onChange;
+        // Provide a mock editor/monaco so onMount callbacks don't throw
+        if (onMount) {
+          onMount({ addCommand: () => {} }, { KeyMod: { CtrlCmd: 1 }, KeyCode: { KeyS: 1 } });
+        }
+        void rest;
         return React.createElement(
           'div',
-          { 'data-testid': rest['data-testid'] ?? 'mock-codemirror' },
+          { 'data-testid': rest['data-testid'] ?? 'mock-monaco-editor' },
           React.createElement('div', { 'data-testid': 'cm-content' }, value),
         );
       };
@@ -184,7 +190,7 @@ describe('EditorPane', () => {
 
     expect(capturedOnChange).toBeTruthy();
 
-    // Simulate CodeMirror firing onChange
+    // Simulate Monaco firing onChange
     await act(async () => {
       capturedOnChange!('modified content');
     });

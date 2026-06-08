@@ -164,7 +164,7 @@ The `safePath(workspaceCwd, userInput)` function resolves a user-supplied path r
 | Backend         | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                                         |
 | Frontend        | React 19, TanStack Router, TanStack Query, Vite                                         |
 | Terminal        | `ghostty-web` + `ghostty-web FitAddon`                                                  |
-| Code Editor     | CodeMirror 6 (`@codemirror/lang-*`)                                                     |
+| Code Editor     | Monaco Editor (`@monaco-editor/react`)                                                  |
 | Auth            | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry                   |
 | DnD             | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer          |
 | Context Menu    | `@radix-ui/react-context-menu`                                                          |

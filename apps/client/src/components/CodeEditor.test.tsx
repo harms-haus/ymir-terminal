@@ -4,54 +4,78 @@ await setupTestDom();
 setupAllMocks();
 
 import { describe, test, expect, afterEach, afterAll, mock } from 'bun:test';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
-// Override @uiw/react-codemirror mock — capture onChange callback for direct testing
+// Override @monaco-editor/react mock — capture callbacks for direct testing
 // ---------------------------------------------------------------------------
 
-let capturedOnChange: ((value: string) => void) | undefined;
-let capturedTheme: unknown;
+let capturedOnChange: ((value: string | undefined) => void) | undefined;
+let capturedOnMount:
+  | ((
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      editor: any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      monaco: any,
+    ) => void)
+  | undefined;
+let capturedDefaultLanguage: string | undefined;
+let capturedValue: string | undefined;
+let capturedOptions: Record<string, unknown> | undefined;
+let capturedTheme: string | undefined;
 
-const MockCodeMirror = ({
+let addCommandCaptured: Array<{ id: number; handler: () => void }> = [];
+
+const mockEditor = {
+  addCommand: (_id: number, handler: () => void) => {
+    addCommandCaptured.push({ id: _id, handler });
+  },
+};
+
+const mockMonaco = {
+  KeyMod: { CtrlCmd: 2048 },
+  KeyCode: { KeyS: 49 },
+};
+
+const MockMonacoEditor = ({
   value,
   onChange,
-  extensions,
+  onMount,
+  defaultLanguage,
+  options,
   theme,
   height,
-  style,
-  'data-testid': dataTestId,
-  onKeyDown,
 }: {
-  value: string;
-  onChange?: (value: string) => void;
-  extensions?: unknown[];
-  theme?: unknown;
+  value?: string;
+  onChange?: (value: string | undefined) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onMount?: (editor: any, monaco: any) => void;
+  defaultLanguage?: string;
+  options?: Record<string, unknown>;
+  theme?: string;
   height?: string;
-  style?: React.CSSProperties;
-  'data-testid'?: string;
-  onKeyDown?: (e: React.KeyboardEvent) => void;
 }) => {
   capturedOnChange = onChange;
+  capturedOnMount = onMount;
+  capturedDefaultLanguage = defaultLanguage;
+  capturedValue = value;
+  capturedOptions = options;
   capturedTheme = theme;
+  void height;
   return React.createElement(
     'div',
     {
-      'data-testid': dataTestId ?? 'mock-codemirror',
-      'data-extensions-count': extensions?.length ?? 0,
-      'data-theme': theme ? 'set' : 'unset',
-      'data-theme-type': typeof theme,
-      'data-height': height ?? '',
-      style,
-      onKeyDown,
+      'data-testid': 'monaco-editor',
+      'data-default-language': defaultLanguage ?? '',
+      'data-theme': theme ?? '',
     },
     React.createElement('div', { 'data-testid': 'cm-content' }, value),
   );
 };
 
-mock.module('@uiw/react-codemirror', () => ({
-  default: MockCodeMirror,
+mock.module('@monaco-editor/react', () => ({
+  default: MockMonacoEditor,
 }));
 
 // ---------------------------------------------------------------------------
@@ -66,13 +90,26 @@ const { CodeEditor } = await import('./CodeEditor');
 
 function renderCodeEditor(props: {
   content: string;
+  filePath?: string;
   language?: string;
+  readOnly?: boolean;
   onChange?: (value: string) => void;
   onSave?: (content: string) => void;
+  basicSetup?: boolean | object;
 }) {
   capturedOnChange = undefined;
+  capturedOnMount = undefined;
+  capturedDefaultLanguage = undefined;
+  capturedValue = undefined;
+  capturedOptions = undefined;
   capturedTheme = undefined;
-  return render(React.createElement(CodeEditor, props));
+  addCommandCaptured = [];
+  const result = render(React.createElement(CodeEditor, props));
+  // If onMount was captured, call it so addCommand gets registered
+  if (capturedOnMount) {
+    capturedOnMount(mockEditor, mockMonaco);
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,96 +137,109 @@ describe('CodeEditor', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 2. Accepts language prop for syntax highlighting
+  // 2. Accepts language prop and passes it as defaultLanguage
   // -----------------------------------------------------------------------
-  test('accepts language prop and provides extensions', () => {
-    const { getByTestId } = renderCodeEditor({ content: 'let x = 1;', language: 'javascript' });
+  test('accepts language prop and passes it to Monaco', () => {
+    renderCodeEditor({ content: 'let x = 1;', language: 'javascript' });
 
-    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('1');
+    expect(capturedDefaultLanguage).toBe('javascript');
   });
 
-  test('no extensions without language', () => {
-    const { getByTestId } = renderCodeEditor({ content: 'some text' });
+  test('no defaultLanguage without language prop', () => {
+    renderCodeEditor({ content: 'some text' });
 
-    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('0');
-  });
-
-  test('no extensions with unrecognized language', () => {
-    const { getByTestId } = renderCodeEditor({ content: 'some text', language: 'brainfuck' });
-
-    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('0');
+    expect(capturedDefaultLanguage).toBeUndefined();
   });
 
   // -----------------------------------------------------------------------
-  // 4. Accepts typescript language and provides extensions
+  // 3. Passes value to Monaco Editor
   // -----------------------------------------------------------------------
-  test('accepts typescript language and provides extensions', () => {
-    const { getByTestId } = renderCodeEditor({
-      content: 'const x: number = 1;',
-      language: 'typescript',
-    });
+  test('passes content as value to Monaco', () => {
+    renderCodeEditor({ content: 'const x: number = 1;', language: 'typescript' });
 
-    expect(getByTestId('code-editor').getAttribute('data-extensions-count')).toBe('1');
+    expect(capturedValue).toBe('const x: number = 1;');
+    expect(capturedDefaultLanguage).toBe('typescript');
   });
 
   // -----------------------------------------------------------------------
-  // 5. Accepts onSave callback
+  // 4. Registers Ctrl+S save command via onMount
   // -----------------------------------------------------------------------
-  test('calls onSave when Ctrl+S is pressed', () => {
-    const onSave = mock((content: string) => {
-      void content;
-    });
-    const { getByTestId } = renderCodeEditor({ content: 'save me', onSave });
+  test('registers save command when onSave is provided', () => {
+    const onSave = mock((_content: string) => {});
+    renderCodeEditor({ content: 'save me', onSave });
 
-    const editor = getByTestId('code-editor');
-    fireEvent.keyDown(editor, { key: 's', ctrlKey: true });
-
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith('save me');
+    // addCommand should have been called once for Ctrl+S
+    expect(addCommandCaptured.length).toBe(1);
   });
 
-  test('calls onSave when Cmd+S is pressed (macOS)', () => {
-    const onSave = mock((content: string) => {
-      void content;
-    });
-    const { getByTestId } = renderCodeEditor({ content: 'save me', onSave });
+  // -----------------------------------------------------------------------
+  // 5. Calls onSave when Ctrl+S handler fires
+  // -----------------------------------------------------------------------
+  test('calls onSave when Ctrl+S handler is triggered', () => {
+    const onSave = mock((_content: string) => {});
+    renderCodeEditor({ content: 'save me', onSave });
 
-    const editor = getByTestId('code-editor');
-    fireEvent.keyDown(editor, { key: 's', metaKey: true });
+    // Trigger the registered save command handler
+    addCommandCaptured[0].handler();
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith('save me');
   });
 
   // -----------------------------------------------------------------------
-  // Theme should be an Extension object (oneDark), not a string
+  // 6. Theme should be vs-dark
   // -----------------------------------------------------------------------
-  test('passes theme as an Extension object, not a string', () => {
-    const { getByTestId } = renderCodeEditor({ content: 'theme test' });
+  test('passes vs-dark theme to Monaco', () => {
+    renderCodeEditor({ content: 'theme test' });
 
-    // theme prop must be an object (the oneDark Extension), not a string like 'dark'
-    expect(typeof capturedTheme).toBe('object');
-    expect(capturedTheme).not.toBe('dark');
-
-    // Also verifiable via DOM data attribute
-    const editor = getByTestId('code-editor');
-    expect(editor.getAttribute('data-theme-type')).toBe('object');
+    expect(capturedTheme).toBe('vs-dark');
   });
 
   // -----------------------------------------------------------------------
-  // 4. Accepts onChange callback
+  // 7. Accepts onChange callback
   // -----------------------------------------------------------------------
   test('calls onChange when content changes', () => {
-    const onChange = mock((value: string) => {
-      void value;
-    });
+    const onChange = mock((_value: string) => {});
     renderCodeEditor({ content: 'initial', onChange });
 
-    // Simulate CodeMirror calling onChange directly (captured from mock props)
+    // Simulate Monaco calling onChange directly (captured from mock props)
     expect(capturedOnChange).toBeTruthy();
     capturedOnChange!('updated');
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('updated');
+  });
+
+  // -----------------------------------------------------------------------
+  // 8. Passes sensible default options
+  // -----------------------------------------------------------------------
+  test('passes default editor options', () => {
+    renderCodeEditor({ content: 'options test' });
+
+    expect(capturedOptions).toMatchObject({
+      minimap: { enabled: false },
+      fontSize: 13,
+      lineNumbers: 'on',
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. Does not register save command when onSave is not provided
+  // -----------------------------------------------------------------------
+  test('does not register save command when onSave is omitted', () => {
+    renderCodeEditor({ content: 'no save' });
+
+    expect(addCommandCaptured.length).toBe(0);
+  });
+
+  // -----------------------------------------------------------------------
+  // 10. Passes readOnly option
+  // -----------------------------------------------------------------------
+  test('passes readOnly option to Monaco', () => {
+    renderCodeEditor({ content: 'readonly test', readOnly: true });
+
+    expect(capturedOptions).toMatchObject({ readOnly: true });
   });
 });

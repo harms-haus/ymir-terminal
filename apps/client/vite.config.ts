@@ -18,32 +18,8 @@ function stripCrossorigin(): Plugin {
   };
 }
 
-/**
- * Strips @__PURE__ annotations from CodeMirror packages so Rolldown
- * won't tree-shake their style-injection side effects. More targeted
- * than globally disabling annotation-based tree-shaking.
- *
- * CodeMirror's StyleModule constructors use @__PURE__ annotations which,
- * combined with "sideEffects": false in @codemirror/* package.json files,
- * causes Rolldown to remove the runtime style-injection code.
- *
- * Remove this plugin if Rolldown adds per-package annotation control
- * or CodeMirror removes @__PURE__ from StyleModule.
- */
-function stripCodemirrorPureAnnotations(): Plugin {
-  return {
-    name: 'strip-codemirror-pure-annotations',
-    enforce: 'pre',
-    transform(code, id) {
-      if (!/\/node_modules\/(@codemirror|codemirror|style-mod)\//.test(id)) return null;
-      if (!code.includes('@__PURE__')) return null;
-      return code.replace(/\/\*[@#__]*PURE__\*\//g, '');
-    },
-  };
-}
-
 export default defineConfig({
-  plugins: [react(), stripCrossorigin(), stripCodemirrorPureAnnotations()],
+  plugins: [react(), stripCrossorigin()],
   resolve: {
     alias: {
       '@ymir/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),

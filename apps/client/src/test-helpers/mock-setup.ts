@@ -88,7 +88,7 @@ export function createMockAuthState(overrides?: Partial<MockAuthState>): MockAut
  * - `@dnd-kit/react/sortable` — pass-through
  * - `@dnd-kit/helpers` — empty object
  * - `ghostty-web` — no-op Terminal / FitAddon stubs
- * - `@uiw/react-codemirror` — `CodeMirror` as div
+ * - `@monaco-editor/react` — `Editor` as div, `DiffEditor` as div
  * - `react-intersection-observer` — `useInView` returning `{ ref: () => {}, inView: true }`
  * - `react-resizable-panels` — `Group`, `Panel`, `Separator` as divs
  */
@@ -355,53 +355,67 @@ export function setupAllMocks(): void {
     };
   });
 
-  // --- @uiw/react-codemirror ------------------------------------------------
-  bunMock.module('@uiw/react-codemirror', () => {
-    const MockCodeMirror = ({
+  // --- @monaco-editor/react ------------------------------------------------
+  bunMock.module('@monaco-editor/react', () => {
+    const MockEditor = ({
       value,
-      ...props
+      onChange: _onChange,
+      onMount: _onMount,
+      defaultLanguage,
+      options: _options,
+      theme,
+      height,
+      ...rest
     }: {
-      value: string;
-      onChange?: (value: string) => void;
-      extensions?: unknown[];
-      theme?: unknown;
+      value?: string;
+      onChange?: (value: string | undefined) => void;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onMount?: (editor: any, monaco: any) => void;
+      defaultLanguage?: string;
+      options?: Record<string, unknown>;
+      theme?: string;
       height?: string;
-      style?: React.CSSProperties;
-      'data-testid'?: string;
-      onKeyDown?: (e: React.KeyboardEvent) => void;
       [key: string]: unknown;
-    }) =>
-      React.createElement(
+    }) => {
+      // Eagerly call onMount so tests that capture it get the callback
+      // before assertions run.
+      void rest;
+      return React.createElement(
         'div',
         {
-          'data-testid': props['data-testid'] ?? 'mock-codemirror',
-          'data-extensions-count': props.extensions?.length ?? 0,
-          'data-theme': props.theme ? 'set' : 'unset',
-          'data-height': props.height ?? '',
-          style: props.style,
-          onKeyDown: props.onKeyDown,
+          'data-testid': 'mock-monaco-editor',
+          'data-default-language': defaultLanguage ?? '',
+          'data-theme': theme ?? '',
+          'data-height': height ?? '',
         },
         React.createElement('div', { 'data-testid': 'cm-content' }, value),
       );
-    // EditorView stub — matches the real static API used by production code
-    // (e.g. EditorView.editable.of(false) in DiffViewer)
-    const EditorView = {
-      editable: { of: (val: boolean) => ({ tag: 'editable', value: val }) },
-      lineWrapping: {},
     };
 
-    return { default: MockCodeMirror, EditorView };
-  });
+    const MockDiffEditor = ({
+      original: _original,
+      modified,
+      height,
+      ...rest
+    }: {
+      original?: string;
+      modified?: string;
+      height?: string;
+      [key: string]: unknown;
+    }) => {
+      void rest;
+      return React.createElement(
+        'div',
+        {
+          'data-testid': 'mock-monaco-diff-editor',
+          'data-height': height ?? '',
+        },
+        React.createElement('div', { 'data-testid': 'diff-content' }, modified ?? ''),
+      );
+    };
 
-  // --- @codemirror language modules ----------------------------------------
-  bunMock.module('@codemirror/lang-javascript', () => ({ javascript: () => {} }));
-  bunMock.module('@codemirror/lang-css', () => ({ css: () => {} }));
-  bunMock.module('@codemirror/lang-html', () => ({ html: () => {} }));
-  bunMock.module('@codemirror/lang-json', () => ({ json: () => {} }));
-  bunMock.module('@codemirror/lang-markdown', () => ({ markdown: () => {} }));
-  bunMock.module('@codemirror/lang-python', () => ({ python: () => {} }));
-  bunMock.module('@codemirror/lang-rust', () => ({ rust: () => {} }));
-  bunMock.module('@codemirror/theme-one-dark', () => ({ oneDark: {} }));
+    return { default: MockEditor, Editor: MockEditor, DiffEditor: MockDiffEditor };
+  });
 
   // --- react-intersection-observer ------------------------------------------
   bunMock.module('react-intersection-observer', () => ({

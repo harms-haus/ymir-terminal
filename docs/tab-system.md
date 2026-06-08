@@ -27,7 +27,7 @@ interface Tab {
 | Type       | Description                                                   |
 | ---------- | ------------------------------------------------------------- |
 | `terminal` | A PTY-backed terminal session                                 |
-| `editor`   | A file editor backed by the CodeMirror 6-based `EditorPane`   |
+| `editor`   | A file editor backed by the Monaco Editor-based `EditorPane`  |
 | `diff`     | A file diff viewer (`DiffViewer`) for staged/unstaged/commit  |
 | `git-tree` | A git history browser (`GitTreeTab`) for a specific repo path |
 

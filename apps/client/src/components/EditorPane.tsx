@@ -29,6 +29,7 @@ export function EditorPane({ workspaceId, filePath, onDirtyChange }: EditorPaneP
   const [fetchRetry, setFetchRetry] = useState(0);
 
   const currentContentRef = useRef<string>('');
+  const loadedContentRef = useRef<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +40,7 @@ export function EditorPane({ workspaceId, filePath, onDirtyChange }: EditorPaneP
     })
       .then((res) => {
         if (cancelled) return;
+        loadedContentRef.current = res.content;
         setFileLoadState({
           path: filePath,
           content: res.content,
@@ -60,6 +62,18 @@ export function EditorPane({ workspaceId, filePath, onDirtyChange }: EditorPaneP
       cancelled = true;
     };
   }, [workspaceId, filePath, fetchRetry]);
+
+  const handleEditorChange = useCallback(
+    (value: string) => {
+      currentContentRef.current = value;
+      if (value !== loadedContentRef.current) {
+        onDirtyChange(filePath, true);
+      } else {
+        onDirtyChange(filePath, false);
+      }
+    },
+    [filePath, onDirtyChange],
+  );
 
   const handleSave = useCallback(
     (content: string) => {
@@ -142,10 +156,7 @@ export function EditorPane({ workspaceId, filePath, onDirtyChange }: EditorPaneP
         key={filePath}
         content={fileContent}
         language={fileLanguage ?? undefined}
-        onChange={(value: string) => {
-          currentContentRef.current = value;
-          onDirtyChange(filePath, true);
-        }}
+        onChange={handleEditorChange}
         onSave={handleSave}
       />
       {saveError && (

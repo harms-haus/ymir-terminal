@@ -1,14 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import CodeMirror, { EditorView } from '@uiw/react-codemirror';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { unifiedMergeView } from '@codemirror/merge';
-import { javascript } from '@codemirror/lang-javascript';
-import { css } from '@codemirror/lang-css';
-import { html } from '@codemirror/lang-html';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
-import { python } from '@codemirror/lang-python';
-import { rust } from '@codemirror/lang-rust';
+import { DiffEditor } from '@monaco-editor/react';
 import { DiffViewerHeader, type DiffViewMode } from './DiffViewerHeader';
 import { sendRequest } from '../lib/send-request';
 import { getLanguageFromPath } from '../lib/file-icons';
@@ -20,18 +11,6 @@ import {
   COLOR_RETRY_BTN_BG,
 } from '../lib/theme';
 import type { GitDiffDataResponse, GitCommitDiffResponse } from '@ymir/shared';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const LANG_EXTENSIONS: Record<string, () => any> = {
-  javascript,
-  typescript: () => javascript({ typescript: true }),
-  css,
-  html,
-  json,
-  markdown,
-  python,
-  rust,
-};
 
 interface DiffLoadState {
   key: string;
@@ -140,31 +119,7 @@ export function DiffViewer({
   const additions = isCurrentKey ? diffState!.additions : 0;
   const deletions = isCurrentKey ? diffState!.deletions : 0;
 
-  const langExtension = useMemo(() => {
-    const langKey = getLanguageFromPath(filePath);
-    if (!langKey) return undefined;
-    const extFn = LANG_EXTENSIONS[langKey];
-    return extFn ? extFn() : undefined;
-  }, [filePath]);
-
-  const extensions = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const exts: any[] = [EditorView.editable.of(false)];
-    if (langExtension) {
-      exts.push(langExtension);
-    }
-    exts.push(
-      unifiedMergeView({
-        original: originalContent,
-        highlightChanges: true,
-        gutter: true,
-        syntaxHighlightDeletions: true,
-        mergeControls: false,
-        collapseUnchanged: mode === 'changes' ? { margin: 3, minSize: 4 } : undefined,
-      }),
-    );
-    return exts;
-  }, [mode, originalContent, langExtension]);
+  const langKey = useMemo(() => getLanguageFromPath(filePath), [filePath]);
 
   if (isLoading) {
     return (
@@ -234,13 +189,21 @@ export function DiffViewer({
         commitSha={commitSha}
       />
       <div style={{ flex: 1 }}>
-        <CodeMirror
-          key={commitSha ? `${filePath}-${commitSha}` : filePath}
-          value={modifiedContent}
+        <DiffEditor
+          original={originalContent}
+          modified={modifiedContent}
+          originalLanguage={langKey ?? undefined}
+          modifiedLanguage={langKey ?? undefined}
+          theme="vs-dark"
           height="100%"
-          style={{ height: '100%' }}
-          theme={oneDark}
-          extensions={extensions}
+          options={{
+            readOnly: true,
+            renderSideBySide: mode !== 'inline',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            renderOverviewRuler: true,
+          }}
         />
       </div>
     </div>
