@@ -259,7 +259,7 @@ describe('ConnectionManagerPopover', () => {
   // -----------------------------------------------------------------------
   // 12. Clicking disconnect calls disconnect()
   // -----------------------------------------------------------------------
-  test('clicking disconnect calls disconnect', () => {
+  test('clicking disconnect calls disconnect', async () => {
     mockCMReturn = {
       ...mockCMReturn,
       status: 'connected',
@@ -270,6 +270,8 @@ describe('ConnectionManagerPopover', () => {
     const { getByTestId } = renderPopover();
     fireEvent.click(getByTestId('disconnect-btn'));
 
+    // Wait for the async confirm + disconnect to resolve
+    await new Promise((r) => setTimeout(r, 0));
     expect(mockCMReturn.disconnect).toHaveBeenCalledTimes(1);
   });
 

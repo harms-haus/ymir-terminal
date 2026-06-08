@@ -18,6 +18,22 @@ import type { ResolvedGitDeps } from './index';
 import { resolveSafeRepoPath } from './shared';
 
 // ---------------------------------------------------------------------------
+// Branch name validation
+// ---------------------------------------------------------------------------
+
+const VALID_BRANCH = /^[a-zA-Z0-9][a-zA-Z0-9\/._-]*$/;
+const INVALID_SUFFIX = /\.(lock)$/i;
+const INVALID_PATTERN = /\.\.|@\{|\/\/|\\|^\.|\/$/;
+
+function validateBranchName(name: string): string | null {
+  if (!name || !VALID_BRANCH.test(name)) return `Invalid branch name: ${name}`;
+  if (INVALID_SUFFIX.test(name)) return `Invalid branch name: ${name}`;
+  if (INVALID_PATTERN.test(name)) return `Invalid branch name: ${name}`;
+  if (name.includes(' ')) return `Invalid branch name: ${name}`;
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
@@ -99,6 +115,18 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
+    const branchError = validateBranchName(payload.branch);
+    if (branchError) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.checkout' },
+          ErrorCodes.INVALID_MESSAGE,
+          branchError,
+        ),
+      );
+      return;
+    }
+
     const workspace = doGetWorkspace(persistentDb, payload.workspaceId);
     if (!workspace) {
       conn.send(
@@ -140,6 +168,29 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
           { id: req.id, channel: req.channel ?? 'git.branchRename' },
           ErrorCodes.INVALID_MESSAGE,
           'Missing or invalid fields: workspaceId, repoPath, oldName, newName',
+        ),
+      );
+      return;
+    }
+
+    const oldNameError = validateBranchName(payload.oldName);
+    if (oldNameError) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.branchRename' },
+          ErrorCodes.INVALID_MESSAGE,
+          oldNameError,
+        ),
+      );
+      return;
+    }
+    const newNameError = validateBranchName(payload.newName);
+    if (newNameError) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.branchRename' },
+          ErrorCodes.INVALID_MESSAGE,
+          newNameError,
         ),
       );
       return;
@@ -187,6 +238,18 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
           { id: req.id, channel: req.channel ?? 'git.branchDelete' },
           ErrorCodes.INVALID_MESSAGE,
           'Missing or invalid fields: workspaceId, repoPath, name',
+        ),
+      );
+      return;
+    }
+
+    const nameError = validateBranchName(payload.name);
+    if (nameError) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.branchDelete' },
+          ErrorCodes.INVALID_MESSAGE,
+          nameError,
         ),
       );
       return;
@@ -240,6 +303,29 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
       return;
     }
 
+    const remoteError = validateBranchName(payload.remote);
+    if (remoteError) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.branchDeleteRemote' },
+          ErrorCodes.INVALID_MESSAGE,
+          remoteError,
+        ),
+      );
+      return;
+    }
+    const branchDeleteRemoteError = validateBranchName(payload.branch);
+    if (branchDeleteRemoteError) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.branchDeleteRemote' },
+          ErrorCodes.INVALID_MESSAGE,
+          branchDeleteRemoteError,
+        ),
+      );
+      return;
+    }
+
     const workspace = doGetWorkspace(persistentDb, payload.workspaceId);
     if (!workspace) {
       conn.send(
@@ -284,6 +370,20 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
         ),
       );
       return;
+    }
+
+    if (payload.remote !== undefined) {
+      const remoteErr = validateBranchName(payload.remote);
+      if (remoteErr) {
+        conn.send(
+          createError(
+            { id: req.id, channel: req.channel ?? 'git.branchPublish' },
+            ErrorCodes.INVALID_MESSAGE,
+            remoteErr,
+          ),
+        );
+        return;
+      }
     }
 
     const workspace = doGetWorkspace(persistentDb, payload.workspaceId);
@@ -377,6 +477,29 @@ export function registerBranchesHandlers(router: MessageRouter, deps: ResolvedGi
           { id: req.id, channel: req.channel ?? 'git.branchCreateFrom' },
           ErrorCodes.INVALID_MESSAGE,
           'Missing or invalid fields: workspaceId, repoPath, name, startPoint',
+        ),
+      );
+      return;
+    }
+
+    const nameErr = validateBranchName(payload.name);
+    if (nameErr) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.branchCreateFrom' },
+          ErrorCodes.INVALID_MESSAGE,
+          nameErr,
+        ),
+      );
+      return;
+    }
+    const startErr = validateBranchName(payload.startPoint);
+    if (startErr) {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'git.branchCreateFrom' },
+          ErrorCodes.INVALID_MESSAGE,
+          startErr,
         ),
       );
       return;

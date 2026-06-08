@@ -27,7 +27,7 @@ export async function createBranch(dirPath: string, name: string): Promise<void>
   if (!/^[a-zA-Z0-9\/. _-]+$/.test(name)) {
     throw new Error(`Invalid branch name: ${name}`);
   }
-  await spawnGit(['checkout', '-b', '--', name], dirPath);
+  await spawnGit(['checkout', '-b', name], dirPath);
 }
 
 export async function checkoutBranch(dirPath: string, name: string): Promise<void> {
@@ -48,14 +48,14 @@ export async function renameBranch(
   if (!/^[a-zA-Z0-9\/. _-]+$/.test(newName)) {
     throw new Error(`Invalid branch name: ${newName}`);
   }
-  await spawnGitChecked(['branch', '-m', '--', oldName, newName], dirPath);
+  await spawnGitChecked(['branch', '-m', oldName, newName], dirPath);
 }
 
 export async function deleteBranch(dirPath: string, name: string, force?: boolean): Promise<void> {
   if (!/^[a-zA-Z0-9\/. _-]+$/.test(name)) {
     throw new Error(`Invalid branch name: ${name}`);
   }
-  await spawnGitChecked(['branch', force ? '-D' : '-d', '--', name], dirPath);
+  await spawnGitChecked(['branch', force ? '-D' : '-d', name], dirPath);
 }
 
 export async function deleteRemoteBranch(
@@ -69,14 +69,14 @@ export async function deleteRemoteBranch(
   if (!/^[a-zA-Z0-9\/. _-]+$/.test(branch)) {
     throw new Error(`Invalid branch name: ${branch}`);
   }
-  await spawnGitChecked(['push', '--', remote, '--delete', '--', branch], dirPath);
+  await spawnGitChecked(['push', remote, '--delete', branch], dirPath);
 }
 
 export async function publishBranch(dirPath: string, remote?: string): Promise<void> {
   if (remote !== undefined && !/^[a-zA-Z0-9._-]+$/.test(remote)) {
     throw new Error(`Invalid remote name: ${remote}`);
   }
-  await spawnGitChecked(['push', '-u', '--', remote ?? 'origin', 'HEAD'], dirPath);
+  await spawnGitChecked(['push', '-u', remote ?? 'origin', 'HEAD'], dirPath);
 }
 
 export async function listRemoteBranches(
@@ -107,5 +107,5 @@ export async function createBranchFrom(
   if (!/^[a-zA-Z0-9\/. _-]+$/.test(startPoint)) {
     throw new Error(`Invalid start point: ${startPoint}`);
   }
-  await spawnGitChecked(['checkout', '-b', '--', name, '--', startPoint], dirPath);
+  await spawnGitChecked(['checkout', '-b', name, startPoint], dirPath);
 }
