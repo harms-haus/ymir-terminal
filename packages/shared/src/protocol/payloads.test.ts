@@ -31,6 +31,9 @@ import {
   type FileCopyRequest,
   type FileMoveRequest,
   type FileChangeEvent,
+  type FileSearchRequest,
+  type FileSearchReplaceRequest,
+  type FileSearchProgressEvent,
   // Git
   type GitStatusRequest,
   type GitLogRequest,
@@ -126,6 +129,8 @@ describe('REQUEST_TYPES', () => {
     'file.create',
     'file.copy',
     'file.move',
+    'file.search',
+    'file.search.replace',
     'git.status',
     'git.log',
     'git.repoDiscovery',
@@ -187,8 +192,8 @@ describe('REQUEST_TYPES', () => {
     expect(REQUEST_TYPES).toEqual(expected);
   });
 
-  it('has exactly 76 entries', () => {
-    expect(REQUEST_TYPES).toHaveLength(76);
+  it('has exactly 78 entries', () => {
+    expect(REQUEST_TYPES).toHaveLength(78);
   });
 
   it('is frozen (readonly tuple)', () => {
@@ -207,6 +212,7 @@ describe('EVENT_TYPES', () => {
     'terminal.output',
     'terminal.exit',
     'file.change',
+    'file.search.progress',
     'connection.status',
     'git.statusChange',
     'git.repoDiscovery.progress',
@@ -216,8 +222,8 @@ describe('EVENT_TYPES', () => {
     expect(EVENT_TYPES).toEqual(expected);
   });
 
-  it('has exactly 6 entries', () => {
-    expect(EVENT_TYPES).toHaveLength(6);
+  it('has exactly 7 entries', () => {
+    expect(EVENT_TYPES).toHaveLength(7);
   });
 });
 
@@ -372,6 +378,8 @@ describe('RequestPayload union', () => {
       { tabIds: ['tab-1', 'tab-2'] } satisfies TabReorderRequest,
       { workspaceId: 'ws-1' } satisfies TabRestoreRequest,
       { path: '/some/path' } satisfies PathAutocompleteRequest,
+      { workspaceId: 'ws-1', query: 'test' } satisfies FileSearchRequest,
+      { workspaceId: 'ws-1', query: 'test', replacement: 'new' } satisfies FileSearchReplaceRequest,
     ];
 
     // Ensure they all survive a JSON round-trip
@@ -410,6 +418,14 @@ describe('EventPayload union', () => {
         depth: 0,
         done: false,
       } satisfies GitRepoDiscoveryProgressEvent,
+      {
+        workspaceId: 'ws-1',
+        requestId: 'r-1',
+        fileResult: { path: '/a', relativePath: 'a', matches: [], truncated: false },
+        done: false,
+        totalMatches: 0,
+        truncated: false,
+      } satisfies FileSearchProgressEvent,
     ];
 
     for (const p of payloads) {
