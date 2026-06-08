@@ -42,6 +42,9 @@ import type {
   FileCopyRequest,
   FileMoveRequest,
   FileChangeEvent,
+  FileSearchRequest,
+  FileSearchReplaceRequest,
+  FileSearchProgressEvent,
 } from './file';
 import type {
   GitStatusRequest,
@@ -130,6 +133,8 @@ export const REQUEST_TYPES = [
   'file.create',
   'file.copy',
   'file.move',
+  'file.search',
+  'file.search.replace',
   'git.status',
   'git.log',
   'git.repoDiscovery',
@@ -193,6 +198,7 @@ export const EVENT_TYPES = [
   'terminal.output',
   'terminal.exit',
   'file.change',
+  'file.search.progress',
   'connection.status',
   'git.statusChange',
   'git.repoDiscovery.progress',
@@ -226,6 +232,8 @@ export type RequestPayload =
   | FileCreateRequest
   | FileCopyRequest
   | FileMoveRequest
+  | FileSearchRequest
+  | FileSearchReplaceRequest
   | GitStatusRequest
   | GitLogRequest
   | GitRepoDiscoveryRequest
@@ -286,6 +294,7 @@ export type EventPayload =
   | TerminalOutputEvent
   | TerminalExitEvent
   | FileChangeEvent
+  | FileSearchProgressEvent
   | ConnectionStatusEvent
   | GitStatusChangeEvent
   | GitRepoDiscoveryProgressEvent;

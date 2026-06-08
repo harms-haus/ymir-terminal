@@ -299,6 +299,10 @@ function WorkspaceViewInner() {
               onOpenDiff={handleDiffFile}
               onOpenGitTree={handleOpenGitTree}
               onCommitClick={handleCommitClick}
+              onSearchResultClick={(filePath: string, _lineNumber: number) => {
+                handleFileSelect(filePath);
+                // TODO: Navigate to _lineNumber in the editor when supported
+              }}
             />
           }
           bottomPanel={

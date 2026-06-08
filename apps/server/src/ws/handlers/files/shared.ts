@@ -5,6 +5,7 @@ import { safePath as _safePath } from '../../../lib/handler-validation';
 import { ErrorCodes, type RequestEnvelope, type ResponseEnvelope } from '@ymir/shared';
 import type { ScanOptions } from '../../../files/scanner';
 import type { FileNode } from '@ymir/shared';
+import type { SearchOptions, SearchCallbacks } from '../../../files/search';
 import type { ClientConnection } from '../../connection';
 import { createError, createResponse } from '../../router';
 
@@ -28,9 +29,25 @@ export interface FileDeps {
     copyDirectory: (srcPath: string, destPath: string) => Promise<void>;
     findAvailableName: (dirPath: string, baseName: string) => Promise<string>;
   };
+  search?: {
+    streamSearch: (
+      cwd: string,
+      workspaceRoot: string,
+      options: SearchOptions,
+      callbacks: SearchCallbacks,
+      signal?: AbortSignal,
+    ) => Promise<{ totalMatches: number; truncated: boolean; fileCount: number }>;
+  };
   /** Internal: allows tests to inject mock functions. */
   _mocks?: {
     getWorkspace?: (db: Database, id: string) => Workspace | null;
+    streamSearch?: (
+      cwd: string,
+      workspaceRoot: string,
+      options: SearchOptions,
+      callbacks: SearchCallbacks,
+      signal?: AbortSignal,
+    ) => Promise<{ totalMatches: number; truncated: boolean; fileCount: number }>;
   };
 }
 

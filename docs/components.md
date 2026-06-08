@@ -19,7 +19,7 @@
 | `WorktreeItem`             | Worktree sub-item in sidebar — shows branch name and path, sortable via `useSortable`, keyboard accessible with `role='button'`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `WorktreeItemContextMenu`  | Context menu for worktree items (Copy Path, Remove Worktree)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `CreateWorktreeDialog`     | Modal dialog for creating git worktrees (branch name + optional base ref)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel) and bottom git history panel. Uses react-resizable-panels for the vertical split; subscribes to push-based `git.statusChange` events via `useGitStatusSubscription` for real-time git status updates                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `RightSidebar`             | Project sidebar with toggleable top pane (FileTree/GitPanel/[`SearchPanel`](#searchpanel)) and bottom git history panel. Three tab buttons switch the top pane between file explorer, source control, and search views. Uses react-resizable-panels for the vertical split; subscribes to push-based `git.statusChange` events via `useGitStatusSubscription` for real-time git status updates                                                                                                                                                                                                                                                                                                                                             |
 | `GitPanel`                 | Multi-repo git changes panel — discovers repos, displays per-repo headers with branch selectors and push/fetch buttons, commit message input (Ctrl+Enter), and collapsible staged/unstaged tree views with context menus for stage/unstage/discard/diff. Props: `workspaceId`, `workspaceCwd`, `onOpenEditor`                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `GitHistoryPanel`          | Virtualized git commit history with SVG lane graph (per-row rendering) and infinite scroll. Uses `@tanstack/react-virtual` for virtualization and `react-intersection-observer` for infinite loading                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `GitRepoHeader`            | Per-repo header with collapse toggle, branch selector (`GitBranchSelector`), push/fetch action buttons, git graph button, and `GitRepoMenu` (⋯) for full repository operations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -56,21 +56,27 @@
 | `DiffViewerHeader`         | Header bar for `DiffViewer` — displays file name (with commit SHA for commit diffs), additions/deletions counts, a toggle between 'changes only' and 'inline diff' view modes (`DiffViewMode`), and an 'Open in Editor' button                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `MergeWorktreeDialog`      | Modal dialog for merging a worktree branch into a target branch. Options: delete worktree after merge (checkbox), and selective file copying (displays configured + untracked files from `useWorktreeCopyFiles` as checkboxes). Uses `Dialog` with `wide` prop                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `RemoveWorktreeDialog`     | Confirmation dialog for removing a worktree. Option: force delete (checkbox) to remove even with uncommitted changes. Uses destructive (red) styling for the confirm button via `Dialog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `SearchPanel`              | File content search UI with find/replace inputs, search option toggles (case-sensitive, whole-word, regex, include pattern), and streaming results via [`useFileContentSearch`](#usefilecontentsearch-hook). Supports bulk replace via `file.search.replace` request                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `SearchResults`            | Renders search result file groups — status bar (match/file counts), collapsible per-file sections via [`CollapsibleSection`](#collapsiblesection), and clickable result lines that navigate to file:line. Shows truncated-results warning when server caps output                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `SearchResultLine`         | Renders a single result line with highlighted match regions. In find mode, matches are highlighted; in replace mode, the original text is struck through and the replacement text is shown inline. Long lines are center-truncated around the first match via [`truncateLine`](#truncateline-utility)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `CollapsibleSection`       | Reusable collapsible section with toggle chevron, title content, optional count badge, and optional action buttons. Used by `SearchResults` for per-file groups and by `GitChangesSection` for staged/unstaged change groups                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `useFileContentSearch`     | Hook managing streaming file content search — sends `file.search` request, subscribes to `file.search.progress` WebSocket events for incremental results, and provides `search`, `clearResults`, and `abort` controls. See [useFileContentSearch Hook](#usefilecontentsearch-hook)                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `ToastProvider`            | Toast notification system                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ## Project Sidebar
 
-The right sidebar (`RightSidebar`) is a vertically resizable panel layout with a header labeled "Project" containing two toggle buttons:
+The right sidebar (`RightSidebar`) is a vertically resizable panel layout with a header labeled "Project" containing three toggle buttons:
 
 - **📁 (File Explorer)** — shows the file tree in the top pane
-- **⎇ (Git Changes)** — shows staged/unstaged git changes (`GitPanel`) in the top pane
+- **⎇ (Source Control)** — shows staged/unstaged git changes (`GitPanel`) in the top pane
+- **🔍 (Search)** — shows file content search ([`SearchPanel`](#searchpanel)) in the top pane
 
 ```
 ┌─────────────────────────────────────┐
-│  Project              [📁] [⎇]      │  ← header with toggle buttons
+│  Project          [📁] [⎇] [🔍]    │  ← header with toggle buttons
 ├─────────────────────────────────────┤
 │                                     │
-│  Top Pane (60%)                     │  ← FileTree OR GitPanel (toggle)
+│  Top Pane (60%)                     │  ← FileTree OR GitPanel OR SearchPanel
 │                                     │
 ├─────────────────────────────────────┤
 │                                     │
@@ -86,7 +92,19 @@ Panel sizes are persisted under config key `ui_project_sidebar_sizes` as `{ topP
 
 Both `file.tree` and `git.status` are fetched when a workspace is selected. Git status updates are **push-based**: the server emits `git.statusChange` events via WebSocket, and `useGitStatusSubscription` updates status in real time without polling. The `useFileChange` hook subscribes to `file.change` events and refreshes only the file tree on filesystem changes.
 
-`workspaceCwd` flows from `WorkspaceView` → `RightSidebar` → `FileTree` and is used to compute relative paths for git status lookups.
+`workspaceCwd` flows from `WorkspaceView` → `RightSidebar` → `FileTree`/`SearchPanel` and is used to compute relative paths for git status lookups and search queries.
+
+**Props:**
+
+| Prop                  | Type                                     | Description                                                                                 |
+| --------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `workspaceId`         | `string \| null`                         | Active workspace ID                                                                         |
+| `workspaceCwd`        | `string`                                 | Workspace root path                                                                         |
+| `onFileSelect`        | `(path: string) => void`                 | Callback to open a file in the editor                                                       |
+| `onOpenDiff`          | `(filePath, repoPath, staged) => void`   | Callback to open a diff view                                                                |
+| `onOpenGitTree`       | `(repoPath) => void`                     | Callback to open git-tree tab                                                               |
+| `onCommitClick`       | `(commitSha) => void`                    | Callback when a commit in history is clicked                                                |
+| `onSearchResultClick` | `(filePath: string, lineNumber) => void` | Callback when a search result line is clicked; falls back to `onFileSelect` if not provided |
 
 ### Git History Panel
 
@@ -184,6 +202,200 @@ useGitStatusSubscription(
 - **Stable callback** — uses a ref internally so the callback can change between renders without re-subscribing
 - **Cleanup** — unsubscribes when `workspaceId` changes or the component unmounts
 - **Used by** — `useGitRepos` (updates `repoStatuses` map) and `RightSidebar` (updates its local `gitStatus` state)
+
+## File Content Search
+
+The file content search system provides streaming, full-text search across workspace files with optional replace. It is composed of four components and one hook:
+
+```
+SearchPanel
+  └─ useFileContentSearch (hook)
+       ├─ sendRequest('file.search')          → initiates search
+       └─ wsClient.onMessage('file.search.progress') → streaming results
+  └─ SearchResults
+       ├─ StatusBar (match/file counts)
+       └─ FileGroup (per file)
+            └─ CollapsibleSection
+            └─ ResultLine (per match)
+                 └─ SearchResultLine (highlighted match text)
+                      └─ truncateLine (utility)
+```
+
+### `SearchPanel`
+
+Top-level search panel rendered in the [`RightSidebar`](#project-sidebar) top pane when the search tab is active. Manages search query state with 300ms debounce, search option toggles, and optional replace functionality.
+
+**Props:**
+
+| Prop            | Type                                             | Description                                                              |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
+| `workspaceId`   | `string \| null`                                 | Active workspace ID; renders "No workspace selected" when `null`         |
+| `workspaceCwd`  | `string`                                         | Workspace root path (passed to search, not currently used for filtering) |
+| `onFileSelect`  | `(path: string) => void`                         | Callback when a file name in results is clicked                          |
+| `onResultClick` | `(filePath: string, lineNumber: number) => void` | Callback when a specific result line is clicked (navigates to file:line) |
+
+**UI sections (top to bottom):**
+
+1. **Find input row** — search text input with a toggle button to show/hide the replace row (uses `codicon-replace` icon)
+2. **Options row** — four toggle controls:
+   - **Match Case** (`codicon-case-sensitive`) — case-sensitive search
+   - **Match Whole Word** (`codicon-whole-word`) — whole-word matching
+   - **Use Regular Expression** (`codicon-regex`) — regex mode
+   - **Files to include** — glob pattern input for filtering files
+3. **Replace row** (collapsible) — replace text input with a "Replace All" button that sends `file.search.replace` and re-triggers the search
+4. **Error banner** — inline error display (red text)
+5. **Results area** — [`SearchResults`](#searchresults) component in a scrollable container
+
+**Debounce logic:** The query is debounced at 300ms (instant clear when query becomes empty). Search is triggered when the debounced query or any search option (`caseSensitive`, `wholeWord`, `useRegex`, `includePattern`) changes.
+
+**Replace behavior:** The "Replace All" button sends a `file.search.replace` request with the current query, replacement text, and search options. After success, it re-triggers the search to show updated results. The button is disabled while a replace is in progress or when the query is empty.
+
+### `SearchResults`
+
+Renders the search result list with a status bar and per-file collapsible groups. Receives all search state from [`useFileContentSearch`](#usefilecontentsearch-hook) via `SearchPanel`.
+
+**Props:**
+
+| Prop            | Type                                             | Description                                                               |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `results`       | `FileSearchFileResult[]`                         | Array of file results, each with `path`, `relativePath`, and `matches[]`  |
+| `totalMatches`  | `number`                                         | Total match count across all files                                        |
+| `fileCount`     | `number`                                         | Number of files with matches                                              |
+| `truncated`     | `boolean`                                        | Whether results were capped by the server                                 |
+| `isSearching`   | `boolean`                                        | Whether a search is in progress                                           |
+| `isComplete`    | `boolean`                                        | Whether the search has finished                                           |
+| `replaceText`   | `string \| undefined`                            | When set, result lines render in replace mode (strikethrough + insertion) |
+| `onFileClick`   | `(filePath: string) => void`                     | Callback when a file header is clicked                                    |
+| `onResultClick` | `(filePath: string, lineNumber: number) => void` | Callback when a result line is clicked (navigates to file:line)           |
+
+**Sub-components (file-private):**
+
+- **`StatusBar`** — displays "Searching..." while in progress, then "{totalMatches} results in {fileCount} files" on completion. Shows a red "(results limited)" warning when `truncated` is true.
+- **`FileGroup`** — wraps each file's results in a [`CollapsibleSection`](#collapsiblesection). The title shows a file icon, bold file name (clickable via `onFileClick`), and dim directory path. The count badge shows the number of matches in that file.
+- **`ResultLine`** — clickable row for each match, displaying the line number and a [`SearchResultLine`](#searchresultline) with highlighted submatches. Keyboard-accessible (`role="button"`, Enter/Space activation).
+
+**Empty states:** Returns `null` when no results exist and no search is active. Shows "No results found. Try adjusting your search terms or filters." when a search completes with zero results.
+
+### `SearchResultLine`
+
+Renders a single line of search result text with highlighted match regions. Supports two display modes controlled by the `replaceText` prop:
+
+- **Find mode** (`replaceText` undefined) — match regions are rendered with highlighted background/text colors
+- **Replace mode** (`replaceText` set) — original match text is struck through with dim color; replacement text is rendered inline with a green-tinted background
+
+**Props:**
+
+| Prop              | Type                   | Description                                            |
+| ----------------- | ---------------------- | ------------------------------------------------------ |
+| `lineText`        | `string`               | Full line content                                      |
+| `submatches`      | `FileSearchSubmatch[]` | Array of `{ matchText, start, end }` match regions     |
+| `replaceText`     | `string \| undefined`  | Replacement text; when set, renders in replace mode    |
+| `maxDisplayWidth` | `number`               | Maximum character width before truncation (default 80) |
+
+**Rendering:** Walks through `adjustedSubmatches` (produced by [`truncateLine`](#truncateline-utility)) and emits `<span>` segments: plain text in muted color before/between/after matches, then highlighted or struck-through+replacement spans for match regions. Ellipsis indicators (`...`) appear at the start or end when the line is truncated.
+
+#### `truncateLine` Utility
+
+Pure exported function that center-truncates a line around the first match to fit within a display width. Only truncates when `lineText.length > maxDisplayWidth`.
+
+```tsx
+truncateLine(lineText: string, submatches: FileSearchSubmatch[], maxDisplayWidth?: number): TruncateResult
+```
+
+**Algorithm:**
+
+1. If the line fits within `maxDisplayWidth` (default 80), returns it unchanged
+2. Centers a window of `maxDisplayWidth` characters around the midpoint of the first submatch
+3. Slides the window left if it hits the right edge before filling
+4. Adjusts all submatch `start`/`end` offsets relative to the window start
+5. Filters out submatches that fall entirely outside the window
+
+**Return type:**
+
+| Field                | Type                   | Description                                     |
+| -------------------- | ---------------------- | ----------------------------------------------- |
+| `displayText`        | `string`               | The truncated line text                         |
+| `adjustedSubmatches` | `FileSearchSubmatch[]` | Submatch offsets adjusted to the truncated text |
+| `prefixEllipsis`     | `boolean`              | Whether text was removed from the start         |
+| `suffixEllipsis`     | `boolean`              | Whether text was removed from the end           |
+
+### `CollapsibleSection`
+
+Reusable collapsible container component with a clickable header, chevron indicator, optional count badge, and optional action slot. Used by both search results and git change sections.
+
+**Props:**
+
+| Prop              | Type                    | Description                                                         |
+| ----------------- | ----------------------- | ------------------------------------------------------------------- |
+| `title`           | `React.ReactNode`       | Header content (supports rich rendering, e.g. clickable file names) |
+| `count`           | `number`                | Optional count badge (only shown when > 0)                          |
+| `defaultExpanded` | `boolean`               | Initial expanded state (default `true`)                             |
+| `renderActions`   | `() => React.ReactNode` | Optional action buttons rendered in the header right slot           |
+| `testId`          | `string`                | Optional `data-testid` attribute                                    |
+| `children`        | `React.ReactNode`       | Content rendered when expanded                                      |
+
+**Accessibility:** The header has `role="button"`, `tabIndex={0}`, and `aria-expanded`. Keyboard-toggleable via Enter/Space.
+
+**Used by:** `SearchResults` (per-file groups) and `GitChangesSection` (staged/unstaged sections).
+
+### `useFileContentSearch` Hook
+
+Hook (`hooks/useFileContentSearch.ts`) that manages streaming file content search for a workspace. Handles search initiation, real-time result streaming via WebSocket progress events, race-condition protection, and abort/cleanup.
+
+```tsx
+const {
+  results,
+  isSearching,
+  isComplete,
+  totalMatches,
+  fileCount,
+  truncated,
+  error,
+  search,
+  clearResults,
+  abort,
+} = useFileContentSearch(workspaceId);
+```
+
+**Parameter:** `workspaceId: string | null` — results are cleared when this changes.
+
+**Returns:**
+
+| Field          | Type                       | Description                                                                        |
+| -------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| `results`      | `FileSearchFileResult[]`   | Accumulated file results, appended incrementally as progress events arrive         |
+| `isSearching`  | `boolean`                  | Whether a search request is in flight                                              |
+| `isComplete`   | `boolean`                  | Whether the search has finished (all progress events received or request resolved) |
+| `totalMatches` | `number`                   | Total match count across all files                                                 |
+| `fileCount`    | `number`                   | Number of files with at least one match                                            |
+| `truncated`    | `boolean`                  | Whether the server capped results                                                  |
+| `error`        | `string \| null`           | Error message from a failed search                                                 |
+| `search`       | `(query, options) => void` | Initiates a new search (see below)                                                 |
+| `clearResults` | `() => void`               | Resets all state to initial values                                                 |
+| `abort`        | `() => void`               | Aborts the in-flight search and unsubscribes from progress events                  |
+
+**`search(query, options)`:**
+
+- Aborts any previous in-flight search via `AbortController`
+- Increments an epoch counter to discard stale responses
+- Resets all result state
+- Subscribes to `file.search.progress` WebSocket events (filtered by channel and `workspaceId`)
+- Sends `file.search` request with `{ workspaceId, query, ...options }`
+- As progress events arrive, appends `fileResult` to `results` and updates `totalMatches`/`fileCount`
+- When `done: true` is received in a progress event, marks `isComplete`
+- When the `file.search` response resolves, also marks `isComplete` (handles non-streaming fallback)
+- Stale responses from a previous epoch are silently discarded
+
+**`SearchOptions`:**
+
+| Field            | Type      | Description                     |
+| ---------------- | --------- | ------------------------------- |
+| `caseSensitive`  | `boolean` | Case-sensitive matching         |
+| `wholeWord`      | `boolean` | Whole-word matching             |
+| `useRegex`       | `boolean` | Regular expression mode         |
+| `includePattern` | `string`  | Glob pattern for file inclusion |
+
+**Cleanup:** Aborts in-flight requests and unsubscribes from WebSocket events on unmount and when `workspaceId` changes.
 
 ## Split-Pane Architecture
 

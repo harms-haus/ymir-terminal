@@ -274,6 +274,38 @@ export const COLOR_COMMANDBAR_BORDER = '#444';
 export const COLOR_COMMANDBAR_ACTIVE_BORDER = '#555';
 export const COLOR_COMMANDBAR_SELECTED_BG = '#094771';
 
+// ── Search panel ───────────────────────────────────────────────────────────────
+
+/** Background highlight for matched text */
+export const COLOR_SEARCH_MATCH_BG = '#613214';
+
+/** Text color inside match highlight */
+export const COLOR_SEARCH_MATCH_TEXT = '#e2c08d';
+
+/** Replacement text color (green) */
+export const COLOR_SEARCH_REPLACE_TEXT = '#73c991';
+
+/** Strikethrough color for original in replace mode */
+export const COLOR_SEARCH_STRIKETHROUGH = '#e06050';
+
+/** Search input border */
+export const COLOR_SEARCH_INPUT_BORDER = '#444';
+
+/** Search input focused border */
+export const COLOR_SEARCH_INPUT_FOCUS_BORDER = '#007acc';
+
+/** Active toggle button bg */
+export const COLOR_SEARCH_TOGGLE_ACTIVE_BG = 'rgba(255,255,255,0.15)';
+
+/** Hover on a result line */
+export const COLOR_SEARCH_RESULT_HOVER_BG = 'rgba(255,255,255,0.04)';
+
+/** File group header background */
+export const COLOR_SEARCH_FILE_HEADER_BG = 'rgba(255,255,255,0.04)';
+
+/** Status text */
+export const COLOR_SEARCH_STATUS_TEXT = '#888';
+
 // ── Layout sizing ──────────────────────────────────────────────────────────────
 
 export const TITLE_BAR_HEIGHT = 28;

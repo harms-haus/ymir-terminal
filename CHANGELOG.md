@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `listDirectories()` server utility for async directory scanning
 - `usePathAutocomplete` client hook with 300ms debounce and AbortController race-condition handling
 - `parsePathInput` pure utility for splitting path strings into query directory and filter prefix
+- File content search tab in the project sidebar with find and find/replace modes
+- Streaming search results via ripgrep (`file.search` and `file.search.progress` WebSocket channels)
+- Find-and-replace across files (`file.search.replace` WebSocket channel)
+- Search options: case sensitive, whole word, regex, file include pattern
+- Collapsible file-grouped search results with highlighted match text
+- Replace preview: original text shown crossed-out in red, replacement shown in green
+- `useFileContentSearch` React hook with streaming results and abort support
+- Shared `CollapsibleSection` component (extracted from GitChangesSection)
+- 10 search color theme constants
+- 3 icon tab header for project sidebar (File Explorer, Source Control, Search)
 
 ### Changed
 
@@ -57,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace `computeLanes()` lane-assignment algorithm with topological-sort-based algorithm adapted from DoltHub `commit-graph` (Apache 2.0, vendored inline in `commit-graph-position.ts`); public API unchanged — no consumer code modified
 - Optimize `computeActiveLanes()` from O(n²) to O(n+E) using a sweep-line approach
 - `CreateWorkspaceDialog` path input now uses `PathAutocompleteInput` with directory autocomplete dropdown
+- RightSidebar header redesigned with 3 codicon icon tabs (was 2 toggle buttons)
+- GitChangesSection refactored to use shared CollapsibleSection
 - `Dialog` focus trap now respects `defaultPrevented` on Tab and Escape events, allowing nested controls (like comboboxes) to handle these keys themselves
 
 ### Refactoring

@@ -2,6 +2,7 @@ import type { MessageRouter } from '../../router';
 import type { FileDeps } from './shared';
 import { registerTreeHandlers } from './tree';
 import { registerCrudHandlers } from './crud';
+import { registerSearchHandlers } from './search';
 
 // Re-export FileDeps for consumers
 export type { FileDeps } from './shared';
@@ -13,4 +14,5 @@ export type { FileDeps } from './shared';
 export function registerFileHandlers(router: MessageRouter, deps: FileDeps): void {
   registerTreeHandlers(router, deps);
   registerCrudHandlers(router, deps);
+  registerSearchHandlers(router, deps);
 }

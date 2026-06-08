@@ -73,6 +73,9 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | '
 | `file.copy`                  | request   | Copy a file or directory to a target directory (auto-renames on conflict)                                |
 | `file.move`                  | request   | Move a file or directory to a target directory (auto-renames on conflict)                                |
 | `file.change`                | event     | Filesystem change notification                                                                           |
+| `file.search`                | request   | Search files for text matches (streaming results via progress events)                                    |
+| `file.search.replace`        | request   | Find and replace text across files in a workspace                                                        |
+| `file.search.progress`       | event     | Incremental search results — emitted per file during `file.search` request processing                    |
 | `git.status`                 | request   | Get git status for a path; optional `repoPath`, returns `hasRemote`, `ahead`, `behind`                   |
 | `git.log`                    | request   | Paginated git commit history (`skip`/`limit`, returns `GitLogItem[]` + `hasMore`); optional `repoPath`   |
 | `git.repoDiscovery`          | request   | Discover git repositories in a workspace directory (optional `repoPath` scopes to a subdirectory)        |
@@ -264,6 +267,125 @@ When a client sends a `git.repoDiscovery` request, the server emits `git.repoDis
 | ----------------------- | ----------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `git.worktreeMerge`     | `GitWorktreeMergeRequest`     | `GitWorktreeMergeResponse`     | req: `worktreePath`, `targetBranch?`, `deleteAfterMerge?`, `filesToCopy?`; res: `success`, `message`, `worktreeRemoved?` |
 | `git.worktreeCopyFiles` | `GitWorktreeCopyFilesRequest` | `GitWorktreeCopyFilesResponse` | req: `dirPath?`; res: `untrackedFiles[]`, `configuredFiles[]`                                                            |
+
+## File Search Channel Type Reference
+
+### Search
+
+| Channel               | Request type               | Response type               | Fields                                                                                                                                              |
+| --------------------- | -------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `file.search`         | `FileSearchRequest`        | `FileSearchResponse`        | req: `query`, `caseSensitive?`, `wholeWord?`, `useRegex?`, `includePattern?`; res: `totalMatches`, `truncated`, `fileCount`                         |
+| `file.search.replace` | `FileSearchReplaceRequest` | `FileSearchReplaceResponse` | req: `query`, `replacement`, `caseSensitive?`, `wholeWord?`, `useRegex?`, `includePattern?`; res: `replacedFiles` (`string[]`), `totalReplacements` |
+
+### Search Progress Event
+
+| Channel                | Event type                | Fields                                                                                                                                        |
+| ---------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `file.search.progress` | `FileSearchProgressEvent` | `workspaceId`, `requestId` (correlates to request `id`), `fileResult` (`FileSearchFileResult`), `done` (boolean), `totalMatches`, `truncated` |
+
+### Type Definitions
+
+```typescript
+interface FileSearchRequest {
+  workspaceId: string;
+  query: string; // non-empty search string or regex pattern
+  caseSensitive?: boolean; // default: false
+  wholeWord?: boolean; // default: false
+  useRegex?: boolean; // treat query as regex; default: false
+  includePattern?: string; // glob pattern to filter files (e.g. "*.ts")
+}
+
+interface FileSearchResponse {
+  totalMatches: number; // total matches across all files
+  truncated: boolean; // true if limits were hit
+  fileCount: number; // number of files with matches
+}
+
+interface FileSearchProgressEvent {
+  workspaceId: string;
+  requestId: string; // correlates to the request envelope id
+  fileResult: FileSearchFileResult;
+  done: boolean; // false for per-file events; true for the final event
+  totalMatches: number; // running count of matches so far
+  truncated: boolean; // true if any result was truncated
+}
+
+interface FileSearchFileResult {
+  path: string; // absolute file path
+  relativePath: string; // path relative to workspace root
+  matches: FileSearchMatch[]; // match details (max 50 per file)
+  truncated: boolean; // true if per-file limit was hit
+}
+
+interface FileSearchMatch {
+  lineNumber: number;
+  lineText: string;
+  submatches: FileSearchSubmatch[];
+}
+
+interface FileSearchSubmatch {
+  matchText: string;
+  start: number; // byte offset within lineText
+  end: number; // byte offset within lineText
+}
+
+interface FileSearchReplaceRequest {
+  workspaceId: string;
+  query: string; // non-empty search string or regex pattern
+  replacement: string; // replacement text (regex groups supported when useRegex is true)
+  caseSensitive?: boolean; // default: false
+  wholeWord?: boolean; // default: false
+  useRegex?: boolean; // treat query as regex; default: false
+  includePattern?: string; // glob pattern to filter files
+}
+
+interface FileSearchReplaceResponse {
+  replacedFiles: string[]; // absolute paths of files that were modified
+  totalReplacements: number; // total number of individual replacements
+}
+```
+
+### Streaming Behavior
+
+When a client sends a `file.search` request, the server:
+
+1. Aborts any previous in-progress search for the same connection (one active search per connection).
+2. Emits `file.search.progress` events with `done: false` — one per file that contains matches.
+3. Emits a final `file.search.progress` event with `done: true` and an empty `fileResult` (path and matches are empty).
+4. Sends the `file.search` response with aggregate counts.
+
+Clients subscribe to progress events by filtering on channel `file.search.progress` and matching `requestId` to the original request `id`.
+
+**Result limits:**
+
+- Maximum 1000 total matches across all files.
+- Maximum 50 matches per file.
+- If either limit is hit, `truncated` is set to `true` and remaining results are skipped.
+
+**Replace limits:**
+
+- Files larger than 1 MB are skipped during `file.search.replace`.
+- Regex patterns are limited to 500 characters (ReDoS protection) when `useRegex` is `true`.
+
+### Error Scenarios
+
+**`file.search` errors:**
+
+| Error code            | Condition                                                            |
+| --------------------- | -------------------------------------------------------------------- |
+| `INVALID_MESSAGE`     | Missing or non-string `workspaceId` or `query`; empty `query` string |
+| `WORKSPACE_NOT_FOUND` | No workspace matches the provided `workspaceId`                      |
+| `HANDLER_ERROR`       | Unexpected internal error during search                              |
+
+**`file.search.replace` errors:**
+
+| Error code            | Condition                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `INVALID_MESSAGE`     | Missing or non-string `workspaceId`, `query`, or `replacement`; empty `query` string |
+| `INVALID_MESSAGE`     | Regex pattern exceeds 500 characters when `useRegex` is `true`                       |
+| `INVALID_MESSAGE`     | Invalid regex pattern in `query` when `useRegex` is `true`                           |
+| `WORKSPACE_NOT_FOUND` | No workspace matches the provided `workspaceId`                                      |
+| `HANDLER_ERROR`       | ripgrep exited with unexpected error code; unexpected internal error during replace  |
 
 ## Terminal Channel Type Reference
 

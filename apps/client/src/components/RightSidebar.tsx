@@ -1,9 +1,11 @@
+import '@vscode/codicons/dist/codicon.css';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import type { GroupImperativeHandle } from 'react-resizable-panels';
 import { FileTree } from './FileTree';
 import { GitPanel } from './GitPanel';
 import { GitHistoryPanel } from './GitHistoryPanel';
+import { SearchPanel } from './SearchPanel';
 import { sendRequest } from '../lib/send-request';
 import { useFileChange } from '../hooks/useFileChange';
 import { useGitStatusSubscription } from '../hooks/git';
@@ -14,11 +16,11 @@ import { mergeDeletedFiles } from '../lib/git-utils';
 import { joinPath, pathBasename, pathDirname } from '../lib/path-utils';
 import { useFileClipboard } from '../contexts/FileClipboardContext';
 import {
+  COLOR_ACCENT,
   COLOR_BORDER,
   COLOR_ERROR,
   COLOR_TEXT,
   COLOR_TEXT_MUTED,
-  COLOR_HOVER_BG,
   TITLE_BAR_HEIGHT,
 } from '../lib/theme';
 
@@ -29,6 +31,7 @@ interface RightSidebarProps {
   onOpenDiff?: (filePath: string, repoPath: string, staged: boolean) => void;
   onOpenGitTree?: (repoPath: string) => void;
   onCommitClick?: (commitSha: string) => void;
+  onSearchResultClick?: (filePath: string, lineNumber: number) => void;
 }
 
 export function RightSidebar({
@@ -38,11 +41,12 @@ export function RightSidebar({
   onOpenDiff,
   onOpenGitTree,
   onCommitClick,
+  onSearchResultClick,
 }: RightSidebarProps) {
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [gitStatus, setGitStatus] = useState<GitStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [topView, setTopView] = useState<'tree' | 'changes'>('tree');
+  const [topView, setTopView] = useState<'tree' | 'changes' | 'search'>('tree');
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const explorerGroupRef = useRef<GroupImperativeHandle>(null);
   const sizesLoadedRef = useRef(false);
@@ -298,43 +302,87 @@ export function RightSidebar({
           }}
         >
           <span style={{ flex: 1 }}>Project</span>
-          <button
-            data-testid="toggle-file-tree"
-            title="File Explorer"
-            aria-label="File Explorer"
-            onClick={() => setTopView('tree')}
-            style={{
-              background: topView === 'tree' ? COLOR_HOVER_BG : 'transparent',
-              border: 'none',
-              color: topView === 'tree' ? COLOR_TEXT : COLOR_TEXT_MUTED,
-              cursor: 'pointer',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              fontSize: '12px',
-              lineHeight: 1,
-              fontFamily: "'JetBrainsMono Nerd Font'",
-            }}
+          <div
+            role="tablist"
+            aria-label="Project sidebar views"
+            style={{ display: 'flex', alignItems: 'center', gap: 0 }}
           >
-            󰙅
-          </button>
-          <button
-            data-testid="toggle-git-changes"
-            title="Git Changes"
-            aria-label="Git Changes"
-            onClick={() => setTopView('changes')}
-            style={{
-              background: topView === 'changes' ? COLOR_HOVER_BG : 'transparent',
-              border: 'none',
-              color: topView === 'changes' ? COLOR_TEXT : COLOR_TEXT_MUTED,
-              cursor: 'pointer',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              fontSize: '12px',
-              lineHeight: 1,
-            }}
-          >
-            ⎇
-          </button>
+            <button
+              data-testid="toggle-file-tree"
+              title="File Explorer"
+              aria-label="File Explorer"
+              role="tab"
+              aria-selected={topView === 'tree'}
+              aria-controls="project-sidebar-panel"
+              onClick={() => setTopView('tree')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderBottom:
+                  topView === 'tree' ? `2px solid ${COLOR_ACCENT}` : '2px solid transparent',
+                color: topView === 'tree' ? COLOR_TEXT : COLOR_TEXT_MUTED,
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontSize: '14px',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <span className="codicon codicon-files" />
+            </button>
+            <button
+              data-testid="toggle-git-changes"
+              title="Source Control"
+              aria-label="Source Control"
+              role="tab"
+              aria-selected={topView === 'changes'}
+              aria-controls="project-sidebar-panel"
+              onClick={() => setTopView('changes')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderBottom:
+                  topView === 'changes' ? `2px solid ${COLOR_ACCENT}` : '2px solid transparent',
+                color: topView === 'changes' ? COLOR_TEXT : COLOR_TEXT_MUTED,
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontSize: '14px',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <span className="codicon codicon-source-control" />
+            </button>
+            <button
+              data-testid="toggle-file-search"
+              title="Search"
+              aria-label="Search"
+              role="tab"
+              aria-selected={topView === 'search'}
+              aria-controls="project-sidebar-panel"
+              onClick={() => setTopView('search')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderBottom:
+                  topView === 'search' ? `2px solid ${COLOR_ACCENT}` : '2px solid transparent',
+                color: topView === 'search' ? COLOR_TEXT : COLOR_TEXT_MUTED,
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontSize: '14px',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <span className="codicon codicon-search" />
+            </button>
+          </div>
         </div>
         {error && (
           <div
@@ -354,7 +402,14 @@ export function RightSidebar({
           groupRef={explorerGroupRef}
           onLayoutChanged={handleExplorerLayoutChanged}
         >
-          <Panel id="topPane" defaultSize="60%" minSize="20%" style={{ overflow: 'auto' }}>
+          <Panel
+            id="topPane"
+            defaultSize="60%"
+            minSize="20%"
+            style={{ overflow: 'auto' }}
+            role="tabpanel"
+            aria-labelledby="toggle-file-tree"
+          >
             {topView === 'tree' ? (
               workspaceId ? (
                 <FileTree
@@ -377,13 +432,26 @@ export function RightSidebar({
               ) : (
                 <div style={{ padding: '8px', color: COLOR_TEXT_MUTED }}>No workspace selected</div>
               )
-            ) : (
+            ) : topView === 'changes' ? (
               <GitPanel
                 workspaceId={workspaceId}
                 workspaceCwd={workspaceCwd ?? null}
                 onOpenEditor={onFileSelect}
                 onOpenDiff={onOpenDiff}
                 onOpenGitTree={onOpenGitTree}
+              />
+            ) : (
+              <SearchPanel
+                workspaceId={workspaceId}
+                workspaceCwd={workspaceCwd}
+                onFileSelect={onFileSelect}
+                onResultClick={(filePath, lineNumber) => {
+                  if (onSearchResultClick) {
+                    onSearchResultClick(filePath, lineNumber);
+                  } else {
+                    onFileSelect(filePath);
+                  }
+                }}
               />
             )}
           </Panel>

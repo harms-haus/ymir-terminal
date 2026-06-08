@@ -54,3 +54,53 @@ export interface FileChangeEvent {
   path: string;
   kind: 'create' | 'modify' | 'delete';
 }
+export interface FileSearchSubmatch {
+  matchText: string;
+  start: number;
+  end: number;
+}
+export interface FileSearchMatch {
+  lineNumber: number;
+  lineText: string;
+  submatches: FileSearchSubmatch[];
+}
+export interface FileSearchFileResult {
+  path: string;
+  relativePath: string;
+  matches: FileSearchMatch[];
+  truncated: boolean;
+}
+export interface FileSearchRequest {
+  workspaceId: string;
+  query: string;
+  caseSensitive?: boolean;
+  wholeWord?: boolean;
+  useRegex?: boolean;
+  includePattern?: string;
+}
+export interface FileSearchResponse {
+  totalMatches: number;
+  truncated: boolean;
+  fileCount: number;
+}
+export interface FileSearchProgressEvent {
+  workspaceId: string;
+  requestId: string;
+  fileResult: FileSearchFileResult;
+  done: boolean;
+  totalMatches: number;
+  truncated: boolean;
+}
+export interface FileSearchReplaceRequest {
+  workspaceId: string;
+  query: string;
+  replacement: string;
+  caseSensitive?: boolean;
+  wholeWord?: boolean;
+  useRegex?: boolean;
+  includePattern?: string;
+}
+export interface FileSearchReplaceResponse {
+  replacedFiles: string[];
+  totalReplacements: number;
+}
