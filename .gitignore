@@ -18,3 +18,7 @@ src-tauri/WixTools/
 .idea/
 .vscode/
 coverage/
+
+# Generated build artifacts (tsc --build for composite projects)
+packages/shared/src/**/*.js
+packages/shared/src/**/*.d.ts

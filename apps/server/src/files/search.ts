@@ -66,6 +66,9 @@ export async function streamSearch(
     throw err;
   }
 
+  // ---- Drain stderr concurrently to prevent pipe buffering ----
+  const stderrPromise = new Response(proc.stderr as ReadableStream).text();
+
   // ---- Abort handling ----
   let aborted = false;
   const onAbort = () => {
@@ -233,7 +236,7 @@ export async function streamSearch(
   // (exit code 1 means no matches found, which is not an error)
   const exitCode = await proc.exited;
   if (exitCode === 2) {
-    const stderrText = await new Response(proc.stderr as ReadableStream).text();
+    const stderrText = await stderrPromise;
     throw new Error(`ripgrep error: ${stderrText.trim() || 'unknown error'}`);
   }
 

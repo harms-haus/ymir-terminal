@@ -55,6 +55,13 @@ export function WindowTitleBar({ children }: WindowTitleBarProps) {
         userSelect: 'none',
       }}
     >
+      <style>{`
+        .topbar-toggle-btn:focus-visible {
+          outline: 1px solid var(--accent, #007acc);
+          outline-offset: -1px;
+        }
+      `}</style>
+
       {/* Left — Connection manager */}
       <div style={{ flex: '0 0 auto', marginRight: '8px', pointerEvents: 'auto' as const }}>
         <ConnectionManagerPopover />

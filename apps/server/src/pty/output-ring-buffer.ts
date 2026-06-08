@@ -11,6 +11,10 @@ export class OutputRingBuffer {
   readonly #chunks: Uint8Array[] = [];
   readonly #maxBytes: number;
   #totalBytes = 0;
+  #head = 0;
+
+  /** Fraction of the array that must be unused before compact(). */
+  static readonly #COMPACT_RATIO = 0.5;
 
   constructor(maxBytes: number = DEFAULT_MAX_BYTES) {
     this.#maxBytes = maxBytes;
@@ -22,19 +26,25 @@ export class OutputRingBuffer {
       // Single chunk is larger than (or equal to) capacity — clear and store just it.
       this.#chunks.length = 0;
       this.#totalBytes = 0;
+      this.#head = 0;
       this.#chunks.push(chunk);
       this.#totalBytes = chunk.byteLength;
       return;
     }
 
-    // Drop oldest chunks until the new chunk fits within maxBytes.
-    while (this.#totalBytes + chunk.byteLength > this.#maxBytes && this.#chunks.length > 0) {
-      const dropped = this.#chunks.shift()!;
-      this.#totalBytes -= dropped.byteLength;
+    // Evict oldest chunks (O(1) amortised) until the new chunk fits.
+    while (
+      this.#totalBytes + chunk.byteLength > this.#maxBytes &&
+      this.#head < this.#chunks.length
+    ) {
+      this.#totalBytes -= this.#chunks[this.#head].byteLength;
+      this.#head++;
     }
 
     this.#chunks.push(chunk);
     this.#totalBytes += chunk.byteLength;
+
+    this.#compact();
   }
 
   /**
@@ -42,13 +52,14 @@ export class OutputRingBuffer {
    * order. Does NOT drain/clear the buffer.
    */
   snapshot(): Uint8Array {
-    if (this.#chunks.length === 0) {
+    if (this.#head >= this.#chunks.length) {
       return new Uint8Array(0);
     }
 
     const result = new Uint8Array(this.#totalBytes);
     let offset = 0;
-    for (const chunk of this.#chunks) {
+    for (let i = this.#head; i < this.#chunks.length; i++) {
+      const chunk = this.#chunks[i];
       result.set(chunk, offset);
       offset += chunk.byteLength;
     }
@@ -58,6 +69,7 @@ export class OutputRingBuffer {
   clear(): void {
     this.#chunks.length = 0;
     this.#totalBytes = 0;
+    this.#head = 0;
   }
 
   get size(): number {
@@ -65,6 +77,19 @@ export class OutputRingBuffer {
   }
 
   get chunkCount(): number {
-    return this.#chunks.length;
+    return this.#chunks.length - this.#head;
+  }
+
+  /**
+   * Reclaims wasted front-of-array space when the discarded prefix grows
+   * past the compact ratio. Runs in O(n) but is only triggered
+   * periodically so the amortised cost of eviction stays O(1).
+   */
+  #compact(): void {
+    if (this.#head === 0) return;
+    if (this.#head >= this.#chunks.length * OutputRingBuffer.#COMPACT_RATIO) {
+      this.#chunks.splice(0, this.#head);
+      this.#head = 0;
+    }
   }
 }

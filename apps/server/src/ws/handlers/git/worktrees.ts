@@ -16,6 +16,7 @@ import { createError, createResponse, type MessageRouter } from '../../router';
 import { join } from 'node:path';
 import type { ResolvedGitDeps } from './index';
 import { safePath } from './shared';
+import { sanitizeGitError } from '../../../git/status';
 
 // ---------------------------------------------------------------------------
 // Local helper – shared file-copy logic used by create & merge
@@ -232,7 +233,7 @@ export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGi
         createError(
           { id: req.id, channel: req.channel ?? 'git.worktreeCreate' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Failed to create worktree',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Failed to create worktree',
         ),
       );
     }
@@ -305,7 +306,7 @@ export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGi
         createError(
           { id: req.id, channel: req.channel ?? 'git.worktreeMerge' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Failed to merge worktree',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Failed to merge worktree',
         ),
       );
     }
@@ -367,7 +368,7 @@ export function registerWorktreeHandlers(router: MessageRouter, deps: ResolvedGi
         createError(
           { id: req.id, channel: req.channel ?? 'git.worktreeRemove' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Failed to remove worktree',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Failed to remove worktree',
         ),
       );
     }

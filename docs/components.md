@@ -34,7 +34,9 @@
 | `BottomPanel`              | `forwardRef` terminal panel — `BottomPanelHandle`, shared `TabBar`, batch close with process-termination confirmation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `WorkspaceView`            | Top-level workspace view wrapped in `DialogProvider` as the outermost shell, then `ToastProvider`, `PaneVisibilityProvider`, and `FileClipboardProvider`; reads `connectionUrl` via [`useConnectionUrl()`](#connectionurlcontext) and passes `key={connectionUrl}` to `WorkspaceViewInner`, forcing a full remount when the server URL changes so all state (tabs, terminals, workspaces, git data) is properly reset; composes `TopBar` with `CommandBar`; `DragDropProvider` for cross-pane terminal tab DnD; orchestrates split-pane layout via `useSplitLayout`, cross-pane tab transfer, and terminal lifecycle management; shows a branded loading screen (`WindowTitleBar` + `YmirLogo` + spinner) while pane visibility is loading |
 | `TopBar`                   | Top bar with `ConnectionManagerPopover` (left), command bar slot (center), pane toggle buttons (right)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `ConnectionManagerPopover` | Radix Popover-based connection manager rendered in the `TopBar` and the `WindowTitleBar` (the simplified title bar shown on login and loading screens). Displays a status dot with host:port. Clicking opens a popover with: current connection status, connect/disconnect controls, favorites list, recent connections list, and a "Connect to Local Server" button (Tauri only). Uses `useConnectionManager` hook and `@radix-ui/react-popover`                                                                                                                                                                                                                                                                                          |
+| `ConnectionManagerPopover` | Radix Popover-based connection manager rendered in the `TopBar` and the `WindowTitleBar`. Container that composes `ConnectionForm` and `ConnectionList` sub-components. Manages trigger button (status dot + host:port), current connection section (save favorite / disconnect), popover open state, and form state. Uses `useConnectionManager` hook and `@radix-ui/react-popover`                                                                                                                                                                                                                                                                                                                                                       |
+| `ConnectionForm`           | Host/port input form with a Connect button and an optional "Connect to Local Server" button (Tauri only). Re-exported from `ConnectionManagerPopover.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `ConnectionList`           | Scrollable favorites list and recent connections list with connect (→) and delete (×) actions. Re-exported from `ConnectionManagerPopover.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `WindowTitleBar`           | Simplified window decoration bar for login and loading screens. Has drag region (`data-tauri-drag-region="deep"`), `ConnectionManagerPopover` (left), optional children (center), `WindowControls` (right, Tauri only). Requires `ConnectionUrlProvider` and `AuthProvider` ancestors                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `YmirLogo`                 | Inline SVG logo component with configurable `size` prop (default 120px). Renders the Ymir "Y" shape icon as an SVG with `data-testid="ymir-logo"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `WindowControls`           | Extracted Tauri window control buttons (minimize, maximize, close) with hover states; lazily loads `@tauri-apps/api/window`; no-ops when not running in Tauri                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -553,18 +555,72 @@ Props: `{ info: LaneInfo, graphWidth: number, activeLanes: ActiveLane[], rowHeig
 
 The `ConnectionManagerPopover` is rendered in two locations: the `TopBar`'s left slot and the `WindowTitleBar`'s left slot (the simplified title bar shown on login and loading screens). It provides a compact status indicator and a popover for managing WebSocket connections.
 
+The popover's content has been decomposed into two sub-components (`ConnectionForm` and `ConnectionList`), both re-exported from `ConnectionManagerPopover.tsx` so consumers can import them from either path.
+
 ### Trigger Button
 
 A small button showing a colored **status dot** (green = connected, amber = reconnecting, accent = connecting, grey = disconnected) followed by the current `host:port` (or "Disconnected" text). The trigger uses `aria-label` that reflects the current status and connection details.
 
 ### Popover Sections
 
-The popover (`@radix-ui/react-popover`) is divided into four sections separated by horizontal rules:
+The popover (`@radix-ui/react-popover`) is divided into sections separated by horizontal rules. The `ConnectionManagerPopover` itself renders the **Current Connection** section and acts as the container; the remaining sections are handled by two extracted sub-components:
 
-1. **Current Connection** — Status label and `host:port` detail. When connected, shows a "★ Save as Favorite" button (hidden if already favorited) and a "Disconnect" button.
-2. **Connect to Server** — Host and port inputs with a "Connect" button. Validates that host matches `/^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/` and port is a positive integer. On Tauri, also shows a "Connect to Local Server" button that connects to `127.0.0.1` using the sidecar port from `window.__YMIR_SIDECAR_PORT` or the Tauri config.
-3. **Favorites** — Scrollable list of saved connections (`ConnectionEntry[]`). Each item has a connect button (→) and a delete button (×) with confirmation via `useConfirm`. Section is hidden when empty.
-4. **Recent** — Scrollable list of up to 10 recent connections (`RecentConnection[]`), sorted by `lastConnectedAt` descending. Each item has a connect button (→). A "Clear" button removes all recent entries. Section is hidden when empty.
+1. **Current Connection** (inline in `ConnectionManagerPopover`) — Status label and `host:port` detail. When connected, shows a "★ Save as Favorite" button (hidden if already favorited) and a "Disconnect" button.
+2. **Connect to Server** ([`ConnectionForm`](#connectionform)) — Host and port inputs with a "Connect" button. Validates that host matches `/^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/` and port is a positive integer. On Tauri, also shows a "Connect to Local Server" button that connects to `127.0.0.1` using the sidecar port from `window.__YMIR_SIDECAR_PORT` or the Tauri config.
+3. **Favorites** ([`ConnectionList`](#connectionlist)) — Scrollable list of saved connections (`ConnectionEntry[]`). Each item has a connect button (→) and a delete button (×) with confirmation via `useConfirm`. Section is hidden when empty.
+4. **Recent** ([`ConnectionList`](#connectionlist)) — Scrollable list of up to 10 recent connections (`RecentConnection[]`), sorted by `lastConnectedAt` descending. Each item has a connect button (→). A "Clear" button removes all recent entries. Section is hidden when empty.
+
+### `ConnectionForm`
+
+Renders the host/port input row, Connect button, and optional Local Connect button.
+
+**Source:** `components/connection-manager/ConnectionForm.tsx` — re-exported from `ConnectionManagerPopover.tsx`.
+
+**Props (`ConnectionFormProps`):**
+
+| Prop               | Type                      | Description                                                                                 |
+| ------------------ | ------------------------- | ------------------------------------------------------------------------------------------- |
+| `host`             | `string`                  | Current host input value (controlled)                                                       |
+| `onHostChange`     | `(value: string) => void` | Called when the host input changes                                                          |
+| `port`             | `string`                  | Current port input value (controlled)                                                       |
+| `onPortChange`     | `(value: string) => void` | Called when the port input changes                                                          |
+| `canConnect`       | `boolean`                 | Whether the Connect button should be enabled                                                |
+| `onConnect`        | `() => void`              | Called when the Connect button is clicked                                                   |
+| `isTauri`          | `boolean`                 | Whether the app is running inside Tauri (controls Local Connect button visibility)          |
+| `onConnectToLocal` | `() => void`              | Called when the "Connect to Local Server" button is clicked                                 |
+| `localPort`        | `number \| null`          | Sidecar port number displayed next to the Local Connect label; `null` hides the port suffix |
+
+**Test IDs:** `host-input`, `port-input`, `connect-btn`, `connect-local-btn`.
+
+### `ConnectionList`
+
+Renders the favorites and recent connections lists with connect and delete actions.
+
+**Source:** `components/connection-manager/ConnectionList.tsx` — re-exported from `ConnectionManagerPopover.tsx`.
+
+**Props (`ConnectionListProps`):**
+
+| Prop                | Type                                   | Description                                                                   |
+| ------------------- | -------------------------------------- | ----------------------------------------------------------------------------- |
+| `favorites`         | `ConnectionEntry[]`                    | Saved favorite connections to display                                         |
+| `recentConnections` | `RecentConnection[]`                   | Recent connections to display (max 10)                                        |
+| `onConnect`         | `(host: string, port: number) => void` | Called when a connect action (→) is clicked on any item                       |
+| `onRemoveFavorite`  | `(id: string) => void`                 | Called when a favorite's delete (×) is confirmed                              |
+| `onClearRecent`     | `() => void`                           | Called when the "Clear" button is clicked to remove all recent connections    |
+| `confirm`           | [`ConfirmFn`](#confirmfn-type)         | Promise-based confirmation dialog (from `useConfirm`) for destructive actions |
+
+**`ConfirmFn` type** (re-exported from `ConnectionList.tsx`):
+
+```ts
+type ConfirmFn = (opts: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  danger?: boolean;
+}) => Promise<boolean>;
+```
+
+**Test IDs:** `fav-connect-{id}`, `fav-delete-{id}`, `recent-connect-{id}`, `clear-recent-btn`.
 
 ### `useConnectionManager` Hook
 

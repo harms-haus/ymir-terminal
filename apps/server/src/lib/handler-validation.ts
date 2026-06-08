@@ -1,5 +1,5 @@
 /** Path validation utilities for ensuring file/git operations stay within workspace boundaries. */
-import { resolve, relative, isAbsolute } from 'node:path';
+import { resolve, relative, isAbsolute, dirname } from 'node:path';
 import { realpathSync } from 'node:fs';
 import {
   ErrorCodes,
@@ -206,9 +206,34 @@ export function safePath(workspaceCwd: string, userInput: string): string {
     }
   } catch (e) {
     if (e instanceof Error && e.message === 'Path traversal detected') throw e;
+    // Basic string-based check (works even when workspace doesn't exist on disk)
     const rel = relative(normalizedCwd, resolved);
     if (rel.startsWith('..') || isAbsolute(rel)) {
       throw new Error('Path traversal detected');
+    }
+    // Walk up checking existing ancestors for symlink escapes.
+    // This catches escapes where an intermediate symlink points outside
+    // the workspace even though the string path looks valid.
+    try {
+      const realCwd = realpathSync(normalizedCwd);
+      let checkPath = resolved;
+      while (checkPath !== normalizedCwd && checkPath !== dirname(checkPath)) {
+        checkPath = dirname(checkPath);
+        try {
+          const realCheck = realpathSync(checkPath);
+          const relCheck = relative(realCwd, realCheck);
+          if (relCheck.startsWith('..') || isAbsolute(relCheck)) {
+            throw new Error('Path traversal detected');
+          }
+          break; // existing ancestor is safe
+        } catch (e2) {
+          if (e2 instanceof Error && e2.message === 'Path traversal detected') throw e2;
+          // continue walking up
+        }
+      }
+    } catch (e3) {
+      if (e3 instanceof Error && e3.message === 'Path traversal detected') throw e3;
+      // Cannot resolve cwd — string check above is our best effort
     }
   }
 

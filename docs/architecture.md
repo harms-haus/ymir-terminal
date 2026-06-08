@@ -110,8 +110,8 @@ The `PTYManager` manages the full lifecycle of pseudo-terminal processes. It han
 | `create(id, options)`                  | Spawns a new PTY process. `options` includes `cwd`, `cols`, `rows`, `shell` (optional), `onData` (base64 output callback), and `onExit`. Validates the shell against the platform allowlist. Returns the terminal `id`. |
 | `write(id, base64Data)`                | Writes decoded data to the terminal's stdin. Throws if the terminal doesn't exist or has exited.                                                                                                                        |
 | `resize(id, cols, rows)`               | Resizes the terminal. On Unix, sends `SIGWINCH` to the child process after resizing. No-ops if dimensions are unchanged. Swallows `ESRCH` (process already exited).                                                     |
-| `kill(id)`                             | Closes the terminal and sends `SIGTERM` to the child process. Safe to call multiple times.                                                                                                                              |
-| `killAll()`                            | Kills all live terminals. Used during graceful shutdown.                                                                                                                                                                |
+| `kill(id)`                             | Closes the terminal and sends `SIGTERM` to the child process. Also removes the terminal from `#exitedBuffers` so its replay data is discarded. Safe to call multiple times.                                             |
+| `killAll()`                            | Kills all live terminals and clears `#exitedBuffers`. Used during graceful shutdown.                                                                                                                                    |
 | `has(id)`                              | Returns whether a terminal with the given ID exists and is still running.                                                                                                                                               |
 | `setOutputTarget(id, onData, onExit?)` | Replaces the output and (optionally) exit callbacks on a live terminal. Used by `terminal.state` to re-attach output to a new WebSocket connection after client reconnect. No-op if the terminal has exited.            |
 | `getBufferSnapshot(id)`                | Returns a copy (`Uint8Array`) of all buffered VT output for the terminal. Works for both live and exited terminals (exited buffers are retained in a separate map). Returns `null` if the terminal ID is unknown.       |
@@ -126,12 +126,34 @@ Each PTY has an `OutputRingBuffer` (default 512 KB) that stores raw VT byte chun
 
 **Behavior:**
 
-- `append(chunk)` stores a `Uint8Array` chunk. When total bytes would exceed `maxBytes`, oldest chunks are dropped from the front until the new chunk fits. A single chunk larger than `maxBytes` clears the buffer and stores just that chunk.
-- `snapshot()` returns a concatenated copy of all stored chunks (does not drain the buffer).
-- `clear()` resets the buffer.
+- `append(chunk)` stores a `Uint8Array` chunk. When total bytes would exceed `maxBytes`, oldest chunks are evicted until the new chunk fits. A single chunk larger than `maxBytes` clears the buffer and stores just that chunk.
+- `snapshot()` returns a concatenated copy (`Uint8Array`) of all live chunks (from `#head` onward). Does not drain the buffer.
+- `clear()` resets the buffer, the `#head` pointer, and the internal chunk array.
 - **Survives process exit:** When a PTY exits, its buffer is moved from the live `#buffers` map to `#exitedBuffers`, preserving the output for later retrieval via `getBufferSnapshot()`.
 
+**O(1) index-based eviction:** Eviction no longer uses `Array.shift()` (O(n)). Instead, a private `#head` index pointer tracks the first live chunk in the underlying array. When chunks are evicted, only `#head` is incremented — no array elements are shifted, so eviction is O(1). The `chunkCount` getter returns the effective (live) count (`#chunks.length - #head`), not the raw array length.
+
+**`#compact()` reclamation:** Because eviction only advances the index without shrinking the array, wasted space at the front accumulates. The private `#compact()` method reclaims this space by calling `splice(0, #head)` and resetting `#head` to 0 — but only when the discarded prefix exceeds 50 % of the array length (`#COMPACT_RATIO = 0.5`). Since `#compact()` runs O(n) but is triggered only periodically after appends, the amortised cost of eviction remains O(1).
+
 **Reconnect flow:** On `terminal.state`, the server calls `getBufferSnapshot()` to retrieve the accumulated output, then `setOutputTarget()` to redirect live output to the new connection. The client-side `useTerminal.restoreState()` handles potential duplication between the snapshot and buffered live events.
+
+**Exited-buffer cap (`MAX_EXITED_BUFFERS = 100`):** When a terminal process exits, its buffer is moved to `#exitedBuffers`. If the map exceeds 100 entries, the oldest entry (first inserted) is evicted in FIFO order. This bounds memory usage for exited terminals that are never reclaimed by a client.
+
+### Centralized Git Error Sanitization
+
+**File:** `apps/server/src/git/status.ts`
+
+The `sanitizeGitError(message)` function is the centralized error sanitizer for all git handlers. It strips absolute paths from error messages (replacing them with just the basename) to prevent leaking server filesystem details to the client. It is imported and used by `worktrees.ts`, `stash.ts`, and other git handler modules whenever user-facing errors are constructed from git CLI output or caught exceptions.
+
+### Symlink Escape Detection (`safePath`)
+
+**File:** `apps/server/src/lib/handler-validation.ts`
+
+The `safePath(workspaceCwd, userInput)` function resolves a user-supplied path relative to the workspace root and guards against path-traversal attacks. Beyond the basic string-based `relative()` check, it defends against symlink escapes through a multi-layered approach:
+
+1. **`realpathSync` on both ends:** If both the resolved path and workspace root exist on disk, it resolves symlinks and checks that the result stays within the workspace.
+2. **String-based fallback:** When `realpathSync` fails on either path (e.g., the workspace directory doesn't exist yet, or a parent directory is inaccessible), it falls back to a purely lexical `relative()` check.
+3. **Ancestor walking:** When `realpathSync` fails on the target path (e.g., it doesn't exist yet), it walks up ancestor directories (`dirname` step-by-step) until it finds one that _does_ exist on disk, then verifies that ancestor's real path hasn't escaped the workspace. This catches cases where an intermediate symlink points outside the workspace even though the string path appears valid.
 
 ## Tech Stack
 
@@ -248,16 +270,18 @@ In `server.ts`, a `GitStatusCache` and `GitStatusWatcher` are created before han
 
 **Git handler structure:** The git handlers are split into focused modules under `ws/handlers/git/`:
 
-| Module          | Registration function        | Responsibility                                                                                                                                          |
-| --------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `status.ts`     | `registerStatusHandlers`     | `git.status` (cache-aware: serves fresh/stale cache hits, background refreshes via watcher), `git.repoDiscovery`                                        |
-| `operations.ts` | `registerOperationsHandlers` | `git.stage`, `git.unstage`, `git.discard`, `git.commit`                                                                                                 |
-| `branches.ts`   | `registerBranchesHandlers`   | `git.branches`, `git.checkout`                                                                                                                          |
-| `remote.ts`     | `registerRemoteHandlers`     | `git.push`, `git.fetch`                                                                                                                                 |
-| `diff.ts`       | `registerDiffHandlers`       | `git.diffData`, `git.commitDetails`, `git.commitDiff`                                                                                                   |
-| `worktrees.ts`  | `registerWorktreeHandlers`   | `git.worktreeList`, `git.worktreeCreate`, `git.worktreeRemove`, merge                                                                                   |
-| `shared.ts`     | —                            | Re-exports for sub-modules (`safePath`, `resolveWorkspace`, types), `createInvalidator` (cache + watcher invalidation helper used by mutation handlers) |
-| `index.ts`      | `registerGitHandlers`        | Resolves deps (native + mock), creates `doInvalidateAndRefresh` via `createInvalidator`, delegates to domain registrations                              |
+| Module          | Registration function        | Responsibility                                                                                                                                                      |
+| --------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status.ts`     | `registerStatusHandlers`     | `git.status` (cache-aware: serves fresh/stale cache hits, background refreshes via watcher), `git.repoDiscovery`, `git.log`                                         |
+| `operations.ts` | `registerOperationsHandlers` | `git.stage`, `git.unstage`, `git.discard`, `git.commit`, `git.stageAll`, `git.unstageAll`, `git.discardAll`, `git.commitAmend`, `git.commitAll`, `git.resetSoft`    |
+| `branches.ts`   | `registerBranchesHandlers`   | `git.branches`, `git.checkout`, `git.branchRename`, `git.branchDelete`, `git.branchDeleteRemote`, `git.branchPublish`, `git.branchesRemote`, `git.branchCreateFrom` |
+| `remote.ts`     | `registerRemoteHandlers`     | `git.push`, `git.fetch`, `git.remoteAdd`, `git.remoteRemove`, `git.remoteList`                                                                                      |
+| `diff.ts`       | `registerDiffHandlers`       | `git.diffData`, `git.commitDetails`, `git.commitDiff`                                                                                                               |
+| `worktrees.ts`  | `registerWorktreeHandlers`   | `git.worktreeList`, `git.worktreeCreate`, `git.worktreeRemove`, `git.worktreeCopyFiles`, `git.worktreeMerge`                                                        |
+| `merge.ts`      | `registerMergeHandlers`      | `git.merge`, `git.rebase`, `git.rebaseAbort`, `git.rebaseStatus`, `git.pull`, `git.sync`                                                                            |
+| `stash.ts`      | `registerStashHandlers`      | `git.stashPush`, `git.stashList`, `git.stashApply`, `git.stashPop`, `git.stashDrop`, `git.stashClear`                                                               |
+| `shared.ts`     | —                            | Re-exports for sub-modules (`safePath`, `resolveWorkspace`, types), `createInvalidator` (cache + watcher invalidation helper used by mutation handlers)             |
+| `index.ts`      | `registerGitHandlers`        | Resolves deps (native + mock), creates `doInvalidateAndRefresh` via `createInvalidator`, delegates to domain registrations                                          |
 
 **Handler registration pattern:**
 

@@ -827,7 +827,7 @@ describe('PTYManager', () => {
     expect(manager.getDimensions('nonexistent')).toBeNull();
   });
 
-  it('kill() removes buffer from active buffers', () => {
+  it('kill() removes buffer from active and exited buffers', () => {
     const onData = mock((_data: string) => {});
     manager.create('test-kill-buffer', {
       cwd: '/home/user',
@@ -845,13 +845,11 @@ describe('PTYManager', () => {
 
     // Terminal is removed from the active map
     expect(manager.has('test-kill-buffer')).toBe(false);
-    // But buffer data is preserved in exitedBuffers for snapshot access
-    const snapshot = manager.getBufferSnapshot('test-kill-buffer');
-    expect(snapshot).not.toBeNull();
-    expect(new TextDecoder().decode(snapshot!)).toBe('some data');
+    // Explicitly killed terminals release their buffer to prevent memory leaks
+    expect(manager.getBufferSnapshot('test-kill-buffer')).toBeNull();
   });
 
-  it('killAll() removes all buffers from active buffers', () => {
+  it('killAll() removes all buffers from active and exited buffers', () => {
     const onData = mock((_data: string) => {});
     manager.create('killall-buf-1', {
       cwd: '/home/user',
@@ -878,13 +876,9 @@ describe('PTYManager', () => {
     // Terminals are removed from the active map
     expect(manager.has('killall-buf-1')).toBe(false);
     expect(manager.has('killall-buf-2')).toBe(false);
-    // But buffer data is preserved in exitedBuffers for snapshot access
-    const snap1 = manager.getBufferSnapshot('killall-buf-1');
-    const snap2 = manager.getBufferSnapshot('killall-buf-2');
-    expect(snap1).not.toBeNull();
-    expect(snap2).not.toBeNull();
-    expect(new TextDecoder().decode(snap1!)).toBe('data1');
-    expect(new TextDecoder().decode(snap2!)).toBe('data2');
+    // Explicitly killed terminals release their buffers to prevent memory leaks
+    expect(manager.getBufferSnapshot('killall-buf-1')).toBeNull();
+    expect(manager.getBufferSnapshot('killall-buf-2')).toBeNull();
   });
 
   it('after simulated process exit, buffer is still accessible via getBufferSnapshot', async () => {

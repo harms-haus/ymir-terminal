@@ -16,6 +16,9 @@ const WINDOWS_SHELLS = new Set(['cmd.exe', 'powershell.exe', 'pwsh.exe']);
 const UNIX_FALLBACK = ['/bin/bash', '/bin/zsh', '/bin/sh'];
 const WINDOWS_FALLBACK = ['cmd.exe', 'powershell.exe'];
 
+/** Maximum number of exited-terminal buffers to retain for replay. */
+const MAX_EXITED_BUFFERS = 100;
+
 export interface PTYOptions {
   shell?: string;
   cwd: string;
@@ -230,6 +233,7 @@ export class PTYManager {
       // Process may have already exited
     }
     this.#handleProcessExit(id, null);
+    this.#exitedBuffers.delete(id);
   }
 
   #handleProcessExit(id: string, code: number | null): void {
@@ -241,6 +245,11 @@ export class PTYManager {
         lastCols: entry.lastCols,
         lastRows: entry.lastRows,
       });
+      // Evict oldest entries when the map exceeds the cap.
+      while (this.#exitedBuffers.size > MAX_EXITED_BUFFERS) {
+        const oldest = this.#exitedBuffers.keys().next().value;
+        if (oldest !== undefined) this.#exitedBuffers.delete(oldest);
+      }
     }
     this.#terminals.delete(id);
     this.#buffers.delete(id);
@@ -259,6 +268,7 @@ export class PTYManager {
     for (const id of [...this.#terminals.keys()]) {
       this.kill(id);
     }
+    this.#exitedBuffers.clear();
   }
 
   setOutputTarget(

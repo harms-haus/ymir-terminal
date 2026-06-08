@@ -76,8 +76,13 @@ export async function commitAll(
 const REF_PATTERN = /^[0-9a-f]{4,64}$|^(HEAD~?\d*)$|^[a-zA-Z0-9\/. _-]+$/;
 
 export async function resetSoft(dirPath: string, ref?: string): Promise<void> {
-  if (ref !== undefined && !REF_PATTERN.test(ref)) {
-    throw new Error(`Invalid ref: ${ref}`);
+  if (ref !== undefined) {
+    if (ref.includes('..')) {
+      throw new Error(`Invalid ref: ${ref}`);
+    }
+    if (!REF_PATTERN.test(ref)) {
+      throw new Error(`Invalid ref: ${ref}`);
+    }
   }
   await spawnGitChecked(['reset', '--soft', ref ?? 'HEAD~1'], dirPath);
 }

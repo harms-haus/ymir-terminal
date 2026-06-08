@@ -545,3 +545,149 @@ Several protocol types use union types for correctness:
 6. Server validates the JWT on each request before dispatching to handlers.
 
 The server requires a password to start. Without `--password` or `YMIR_PASSWORD` env var, it exits with an error.
+
+## Request Validation
+
+All incoming request payloads are validated at the boundary using [Zod](https://zod.dev) schemas defined in `packages/shared/src/protocol/schemas.ts`. Auth, Git, Tab, and File write channels each have a corresponding exported Zod schema that the handler runs the raw `payload` through before any business logic executes. Other channels validate payloads inline.
+
+### `validatePayload<T>(schema, data)`
+
+```typescript
+import { z } from 'zod';
+
+function validatePayload<T>(schema: z.ZodType<T>, data: unknown): T;
+```
+
+Accepts any Zod schema and an `unknown` value (typically `envelope.payload`). On success it returns the parsed, typed result. On failure it throws an `Error` with a multi-line message listing every validation issue and its field path:
+
+```
+Payload validation failed:
+  files.0: String must contain at least 1 character(s)
+  repoPath: Required
+```
+
+The thrown error message is suitable for returning directly to clients as an `INVALID_MESSAGE` error — the handler layer catches it, wraps it into a standard `ErrorResponse`, and sends it back on the same `id`.
+
+### Available Schemas
+
+All schemas are exported from `@ymir/shared` (re-exported through `schemas.ts` → `index.ts`).
+
+#### Auth
+
+| Schema              | Validates              |
+| ------------------- | ---------------------- |
+| `AuthRequestSchema` | `{ password: string }` |
+
+#### Git
+
+Git schemas extend a shared base (`workspaceId: string`, `repoPath: string`) and add channel-specific fields.
+
+| Schema                               | Additional fields                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `GitStageRequestSchema`              | `files: string[]` (≥1 item, each non-empty)                                             |
+| `GitUnstageRequestSchema`            | Same shape as `GitStageRequestSchema`                                                   |
+| `GitDiscardRequestSchema`            | Same shape as `GitStageRequestSchema`                                                   |
+| `GitStageAllRequestSchema`           | Base only                                                                               |
+| `GitUnstageAllRequestSchema`         | Base only                                                                               |
+| `GitDiscardAllRequestSchema`         | Base only                                                                               |
+| `GitCommitRequestSchema`             | `message: string` (trimmed, non-empty)                                                  |
+| `GitCommitAmendRequestSchema`        | `message?: string`, `noEdit?: boolean`                                                  |
+| `GitCommitAllRequestSchema`          | `message: string` (trimmed, non-empty), `includeUntracked?: boolean`, `amend?: boolean` |
+| `GitResetSoftRequestSchema`          | `ref?: string`                                                                          |
+| `GitCheckoutRequestSchema`           | `branch: string`, `createNew?: boolean`                                                 |
+| `GitBranchRenameRequestSchema`       | `oldName: string`, `newName: string`                                                    |
+| `GitBranchDeleteRequestSchema`       | `name: string`, `force?: boolean`                                                       |
+| `GitBranchDeleteRemoteRequestSchema` | `remote: string`, `branch: string`                                                      |
+| `GitBranchPublishRequestSchema`      | `remote?: string`                                                                       |
+| `GitBranchesRequestSchema`           | Base only                                                                               |
+| `GitBranchesRemoteRequestSchema`     | Base only                                                                               |
+| `GitBranchCreateFromRequestSchema`   | `name: string`, `startPoint: string`                                                    |
+
+#### Tabs
+
+| Schema                    | Validates                                                                                                                                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TabListRequestSchema`    | `workspaceId`, `pane?`, `worktreePath?` (nullable)                                                                                                                                                                                        |
+| `TabCreateRequestSchema`  | `workspaceId`, `pane`, `tabType` (enum: `terminal \| editor \| diff \| git-tree`), `title`, plus optional `terminalId`, `filePath`, `diffRef`, `diffRepoPath`, `repoPath`, `commitSha`, `parentSha`, `cwd`, `customTitle`, `worktreePath` |
+| `TabUpdateRequestSchema`  | `tabId`, optional `active`, `sortOrder`, `title`                                                                                                                                                                                          |
+| `TabDeleteRequestSchema`  | `tabId`                                                                                                                                                                                                                                   |
+| `TabReorderRequestSchema` | `tabIds: string[]` (≥1)                                                                                                                                                                                                                   |
+| `TabRestoreRequestSchema` | `workspaceId`, optional `worktreePath`                                                                                                                                                                                                    |
+
+#### Files
+
+| Schema                   | Validates                                      |
+| ------------------------ | ---------------------------------------------- |
+| `FileWriteRequestSchema` | `workspaceId`, `path`, `content` (all strings) |
+
+### Validation Error Format
+
+When `validatePayload` throws, the error has a predictable shape:
+
+```
+Payload validation failed:
+  <field-path>: <zod-issue-message>
+  <field-path>: <zod-issue-message>
+```
+
+- `<field-path>` is a dot-joined path (`files.0`, `repoPath`, etc.), or `(root)` for top-level issues.
+- `<zod-issue-message>` is the default Zod issue message (e.g. `Required`, `Expected string, received number`).
+
+Handlers should catch this error and map it to an `INVALID_MESSAGE` error response.
+
+### Handler Integration Example
+
+```typescript
+import { validatePayload, GitCommitRequestSchema } from '@ymir/shared';
+
+function handleGitCommit(envelope: RequestEnvelope, send: SendFn) {
+  let payload: GitCommitRequest;
+  try {
+    payload = validatePayload(GitCommitRequestSchema, envelope.payload);
+  } catch (err) {
+    send({
+      type: 'response',
+      id: envelope.id,
+      payload: null,
+      error: { code: 'INVALID_MESSAGE', message: (err as Error).message },
+    });
+    return;
+  }
+
+  // payload is now typed as GitCommitRequest — safe to use
+  const hash = gitCommit(payload.workspaceId, payload.repoPath, payload.message);
+  send({ type: 'response', id: envelope.id, payload: { commitHash: hash } });
+}
+```
+
+## Git Payload Module Layout
+
+Git request/response types are split across focused modules under `packages/shared/src/protocol/payloads/`:
+
+| Module              | Contents                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `git-operations.ts` | Status, log, stage/unstage/discard, commit, push, fetch, pull/sync, merge/rebase, worktree, remotes, status change event |
+| `git-branches.ts`   | Branch listing, checkout, rename, delete, publish, create-from                                                           |
+| `git-diff.ts`       | Diff data, commit details, commit diff                                                                                   |
+| `git-stash.ts`      | Stash push/list/apply/pop/drop/clear                                                                                     |
+
+All four modules are re-exported through the **barrel file** `git.ts`:
+
+```typescript
+// payloads/git.ts
+export * from './git-operations';
+export * from './git-branches';
+export * from './git-diff';
+export * from './git-stash';
+```
+
+Consumers can import from either the barrel or individual modules:
+
+```typescript
+// Barrel import (most common)
+import { GitStageRequest, GitBranchRenameRequest } from './git';
+
+// Direct module import (tree-shake friendly)
+import { GitStageRequest } from './git-operations';
+import { GitBranchRenameRequest } from './git-branches';
+```

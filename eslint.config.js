@@ -16,6 +16,8 @@ module.exports = [
       "src-tauri/target/",
       "src-tauri/gen/",
       "packages/npm/",
+      "packages/shared/src/**/*.js",
+      "packages/shared/src/**/*.d.ts",
     ],
   },
 

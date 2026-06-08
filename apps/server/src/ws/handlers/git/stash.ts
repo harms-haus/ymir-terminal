@@ -14,6 +14,7 @@ import type { ClientConnection } from '../../connection';
 import { createError, createResponse, type MessageRouter } from '../../router';
 import type { ResolvedGitDeps } from './index';
 import { resolveSafeRepoPath } from './shared';
+import { sanitizeGitError } from '../../../git/status';
 
 // ---------------------------------------------------------------------------
 // Registration
@@ -86,7 +87,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
         createError(
           { id: req.id, channel: req.channel ?? 'git.stashPush' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Internal error',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Internal error',
         ),
       );
     }
@@ -142,7 +143,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
         createError(
           { id: req.id, channel: req.channel ?? 'git.stashList' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Internal error',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Internal error',
         ),
       );
     }
@@ -199,7 +200,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
         createError(
           { id: req.id, channel: req.channel ?? 'git.stashApply' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Internal error',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Internal error',
         ),
       );
     }
@@ -250,7 +251,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
         createError(
           { id: req.id, channel: req.channel ?? 'git.stashPop' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Internal error',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Internal error',
         ),
       );
     }
@@ -308,7 +309,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
         createError(
           { id: req.id, channel: req.channel ?? 'git.stashDrop' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Internal error',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Internal error',
         ),
       );
     }
@@ -365,7 +366,7 @@ export function registerStashHandlers(router: MessageRouter, deps: ResolvedGitDe
         createError(
           { id: req.id, channel: req.channel ?? 'git.stashClear' },
           ErrorCodes.INTERNAL_ERROR,
-          err instanceof Error ? err.message : 'Internal error',
+          err instanceof Error ? sanitizeGitError(err.message) : 'Internal error',
         ),
       );
     }

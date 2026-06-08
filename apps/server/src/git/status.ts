@@ -57,7 +57,7 @@ export async function spawnGitChecked(args: string[], cwd: string): Promise<stri
  * Sanitize a git error message to prevent leaking absolute paths
  * or command invocation details to the client.
  */
-function sanitizeGitError(message: string): string {
+export function sanitizeGitError(message: string): string {
   // Strip absolute paths, replacing them with just the basename
   return message.replace(/\/[^\s]+\/([^/\s]+)/g, '$1');
 }
