@@ -308,6 +308,9 @@ export const COLOR_SEARCH_STATUS_TEXT = '#888';
 
 // ── Layout sizing ──────────────────────────────────────────────────────────────
 
+/** Base content font size in pixels (file tree, search results, panels) */
+export const FONT_SIZE_CONTENT = 12;
+
 export const TITLE_BAR_HEIGHT = 28;
 
 /** Top bar height in pixels (includes command bar, toggle buttons, etc.) */

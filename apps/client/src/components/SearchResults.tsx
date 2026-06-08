@@ -10,6 +10,7 @@ import {
   COLOR_ERROR,
   COLOR_SEARCH_STATUS_TEXT,
   COLOR_SEARCH_RESULT_HOVER_BG,
+  FONT_SIZE_CONTENT,
 } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
@@ -39,7 +40,14 @@ export function SearchResults(props: SearchResultsProps): JSX.Element | null {
   if (results.length === 0 && !isSearching) {
     if (isComplete) {
       return (
-        <div style={{ padding: 12, color: COLOR_TEXT_MUTED, fontSize: 12, textAlign: 'center' }}>
+        <div
+          style={{
+            padding: 12,
+            color: COLOR_TEXT_MUTED,
+            fontSize: FONT_SIZE_CONTENT,
+            textAlign: 'center',
+          }}
+        >
           No results found. Try adjusting your search terms or filters.
         </div>
       );
@@ -50,7 +58,13 @@ export function SearchResults(props: SearchResultsProps): JSX.Element | null {
   return (
     <div
       data-testid="search-results"
-      style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'auto' }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        overflow: 'auto',
+        fontSize: FONT_SIZE_CONTENT,
+      }}
     >
       {/* Status bar */}
       {(isSearching || results.length > 0) && <StatusBar {...props} />}
@@ -147,6 +161,7 @@ function FileGroup({
       }
       count={matchCount}
       defaultExpanded={true}
+      headerPadding="2px 8px"
     >
       {file.matches.map((match) => (
         <ResultLine
@@ -188,8 +203,7 @@ function ResultLine({
       tabIndex={0}
       style={{
         cursor: 'pointer',
-        padding: '4px 8px 4px 16px',
-        minHeight: 24,
+        padding: '2px 8px 2px 8px',
         display: 'flex',
         alignItems: 'center',
         background: hovered ? COLOR_SEARCH_RESULT_HOVER_BG : 'transparent',

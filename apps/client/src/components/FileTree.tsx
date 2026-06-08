@@ -3,7 +3,7 @@ import type { FileNode, GitStatusResponse } from '@ymir/shared';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { FileTreeContext } from './FileTreeContext';
 import { buildGitPathMap, computeDirectoryStatus } from '../lib/git-utils';
-import { GIT_STATUS_COLORS } from '../lib/theme';
+import { GIT_STATUS_COLORS, FONT_SIZE_CONTENT } from '../lib/theme';
 
 export type { FileNode };
 
@@ -135,7 +135,11 @@ export function FileTree({
 
   return (
     <FileTreeContext.Provider value={contextValue}>
-      <div data-testid="file-tree" role="tree" style={{ fontSize: '12px', userSelect: 'none' }}>
+      <div
+        data-testid="file-tree"
+        role="tree"
+        style={{ fontSize: FONT_SIZE_CONTENT, userSelect: 'none' }}
+      >
         {tree.map((node) => (
           <FileTreeNode
             key={node.path}

@@ -406,7 +406,7 @@ export function RightSidebar({
             id="topPane"
             defaultSize="60%"
             minSize="20%"
-            style={{ overflow: 'auto' }}
+            style={{ overflow: 'auto', display: 'flex', flexDirection: 'column' }}
             role="tabpanel"
             aria-labelledby="toggle-file-tree"
           >

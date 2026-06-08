@@ -7,12 +7,13 @@ interface CollapsibleSectionProps {
   count?: number;
   defaultExpanded?: boolean;
   renderActions?: () => React.ReactNode;
+  headerPadding?: string;
   testId?: string;
   children: React.ReactNode;
 }
 
 export function CollapsibleSection(props: CollapsibleSectionProps): JSX.Element {
-  const { title, count, defaultExpanded, renderActions, testId, children } = props;
+  const { title, count, defaultExpanded, renderActions, headerPadding, testId, children } = props;
   const [expanded, setExpanded] = useState(defaultExpanded ?? true);
 
   return (
@@ -32,7 +33,7 @@ export function CollapsibleSection(props: CollapsibleSectionProps): JSX.Element 
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '6px 8px',
+          padding: headerPadding ?? '6px 8px',
           cursor: 'pointer',
         }}
       >
