@@ -388,7 +388,16 @@ export function setupAllMocks(): void {
               capturedSaveHandlers.push(handler);
             },
           },
-          { KeyMod: { CtrlCmd: 2048 }, KeyCode: { KeyS: 49 } },
+          {
+            KeyMod: { CtrlCmd: 2048 },
+            KeyCode: { KeyS: 49 },
+            languages: {
+              registerLinkProvider: () => ({ dispose: () => {} }),
+            },
+            editor: {
+              registerLinkOpener: () => ({ dispose: () => {} }),
+            },
+          },
         );
       }
       void rest;

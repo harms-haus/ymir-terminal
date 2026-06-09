@@ -159,7 +159,15 @@ describe('EditorPane', () => {
         capturedOnChange = onChange;
         // Provide a mock editor/monaco so onMount callbacks don't throw
         if (onMount) {
-          onMount({ addCommand: () => {} }, { KeyMod: { CtrlCmd: 1 }, KeyCode: { KeyS: 1 } });
+          onMount(
+            { addCommand: () => {} },
+            {
+              KeyMod: { CtrlCmd: 1 },
+              KeyCode: { KeyS: 1 },
+              languages: { registerLinkProvider: () => ({ dispose: () => {} }) },
+              editor: { registerLinkOpener: () => ({ dispose: () => {} }) },
+            },
+          );
         }
         void rest;
         return React.createElement(
