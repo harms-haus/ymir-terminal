@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import { execSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { platform } from 'node:os';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -17,6 +18,29 @@ import {
 
 function run(cmd: string, cwd: string) {
   execSync(cmd, { cwd, encoding: 'utf-8' });
+}
+
+/**
+ * Remove a directory tree, retrying on Windows when files are still locked
+ * by a subprocess (e.g. git). On non-Windows platforms this is a plain
+ * `rmSync` because EBUSY/EPERM are not expected.
+ */
+function rmSyncWithRetry(path: string, attempts = 5, delayMs = 200) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      rmSync(path, { recursive: true, force: true });
+      return;
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const isWindows = platform() === 'win32';
+      if (isWindows && (code === 'EBUSY' || code === 'EPERM') && i < attempts - 1) {
+        // Give the OS a moment to release file locks
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 /** Helper to fully initialize a repo with an initial commit on master. */
@@ -38,7 +62,7 @@ describe('git branches', () => {
   });
 
   afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
+    rmSyncWithRetry(testDir);
   });
 
   describe('listBranches', () => {
@@ -218,7 +242,7 @@ describe('git branches', () => {
         const names = remoteBranches.branches.map((b) => b.name);
         expect(names.some((n) => n === 'origin/feature')).toBe(false);
       } finally {
-        rmSync(remoteDir, { recursive: true, force: true });
+        rmSyncWithRetry(remoteDir);
       }
     });
   });
@@ -256,7 +280,7 @@ describe('git branches', () => {
         }).trim();
         expect(tracking).toContain('origin/');
       } finally {
-        rmSync(remoteDir, { recursive: true, force: true });
+        rmSyncWithRetry(remoteDir);
       }
     });
 
@@ -284,7 +308,7 @@ describe('git branches', () => {
         }).trim();
         expect(remoteHead).toBe(localHead);
       } finally {
-        rmSync(remoteDir, { recursive: true, force: true });
+        rmSyncWithRetry(remoteDir);
       }
     });
   });
@@ -325,7 +349,7 @@ describe('git branches', () => {
           expect(b.name).toContain('origin/');
         }
       } finally {
-        rmSync(remoteDir, { recursive: true, force: true });
+        rmSyncWithRetry(remoteDir);
       }
     });
 
@@ -350,7 +374,7 @@ describe('git branches', () => {
           expect(b.name).not.toContain('->');
         }
       } finally {
-        rmSync(remoteDir, { recursive: true, force: true });
+        rmSyncWithRetry(remoteDir);
       }
     });
   });
