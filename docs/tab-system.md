@@ -1,6 +1,6 @@
 # Tab System
 
-The tab system manages terminal, editor, diff, and git-tree tabs across a **dynamic N-pane split layout**. Each pane (`SplitLeafPane`) owns an independent tab strip. Users can split panes horizontally or vertically to create arbitrary layouts; each resulting pane is a self-contained tab manager.
+The tab system manages terminal, editor, diff, git-tree, and agent tabs across a **dynamic N-pane split layout**. Each pane (`SplitLeafPane`) owns an independent tab strip. Users can split panes horizontally or vertically to create arbitrary layouts; each resulting pane is a self-contained tab manager.
 
 ## Tab Interface
 
@@ -8,7 +8,7 @@ The tab system manages terminal, editor, diff, and git-tree tabs across a **dyna
 interface Tab {
   id: string;
   workspaceId: string; // workspace-scoped; each tab belongs to exactly one workspace
-  type: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  type: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
   title: string;
   terminalId?: string;
   filePath?: string;
@@ -24,12 +24,46 @@ interface Tab {
 
 **Tab types:**
 
-| Type       | Description                                                   |
-| ---------- | ------------------------------------------------------------- |
-| `terminal` | A PTY-backed terminal session                                 |
-| `editor`   | A file editor backed by the Monaco Editor-based `EditorPane`  |
-| `diff`     | A file diff viewer (`DiffViewer`) for staged/unstaged/commit  |
-| `git-tree` | A git history browser (`GitTreeTab`) for a specific repo path |
+| Type       | Description                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| `terminal` | A PTY-backed terminal session                                                                             |
+| `editor`   | A file editor backed by the Monaco Editor-based `EditorPane`                                              |
+| `diff`     | A file diff viewer (`DiffViewer`) for staged/unstaged/commit                                              |
+| `git-tree` | A git history browser (`GitTreeTab`) for a specific repo path                                             |
+| `agent`    | A terminal-backed tab running `pi-coding-agent` via the `pi` CLI with the `@harms-haus/pi-ymir` extension |
+
+### Agent Tab Status Indicator
+
+Agent tabs display a colored status dot on the tab header that reflects the current agent state:
+
+| Status              | Color              | Behavior |
+| ------------------- | ------------------ | -------- |
+| `idle`              | Gray (`#888`)      | Static   |
+| `working`           | Accent color       | Pulsing  |
+| `done`              | Green (`#4caf50`)  | Pulsing  |
+| `waiting-for-input` | Orange (`#ff9800`) | Pulsing  |
+
+The pulsing animation uses `pulse-subtle 1.8s ease-in-out infinite alternate`. The status is received via `agent.status` WebSocket events and managed by the `AgentStatusProvider` context + `useAgentStatus` hook.
+
+**Focus transition:** When a `done` agent tab is activated (clicked), the client-side `markFocused` callback transitions the status from `done` to `idle` — this is a cosmetic-only client transition (no server event is sent).
+
+**Agent tab tooltip:** Agent tabs display a `'Coding Agent'` tooltip.
+
+### Open Agent Button
+
+When a pane has no active tab, an **"Open Agent"** button is rendered at the bottom center of the empty pane state (below the "Open Terminal" button). Clicking it:
+
+1. Sends a `terminal.create` request with `command: 'pi'` to spawn an agent terminal.
+2. Creates an agent tab with `type: 'agent'` and `title: 'Agent'`.
+3. Registers the terminal with the terminal registry.
+
+### Agent Tab Lifecycle
+
+1. **Spawn:** Client sends `terminal.create` with `command: 'pi'`.
+2. **Server** creates a temp directory, sets `YMIR_AGENT_STATUS_PATH`, spawns PTY with `['pi', '-e', 'npm:@harms-haus/pi-ymir']`, and starts `startAgentStatusWatcher`.
+3. **Status updates:** The pi-ymir extension writes status JSON to the temp file; the server polls it (250 ms) and emits `agent.status` events.
+4. **Focus transition:** When the user activates a `done` agent tab, `markFocused` transitions the status to `idle` (client-only).
+5. **Close:** When the agent tab is closed, `clearStatus` removes the status from the `AgentStatusProvider` map, and the server cleans up the watcher and temp directory.
 
 ## Pane Layout Model
 
@@ -178,10 +212,11 @@ Each tab is a `SortableTab` (memoized) wired to `@dnd-kit/react`'s `useSortable`
 - **Context menu** — right-click opens `TabContextMenu` (Close, Close Others, Close to the Right, Rename, Split Right, Split Down, Close Pane)
 - **Middle-click close** — `onAuxClick` with `button === 1` closes the tab
 - **Inline rename** — triggered from context menu; commits on Enter/blur, cancels on Escape
-- **Tooltips** — terminal tabs show `cwd`, editor tabs show `filePath`, diff tabs show `filePath (diff)`, git-tree tabs show `Git History — {repoPath}`
+- **Tooltips** — terminal tabs show `cwd`, editor tabs show `filePath`, diff tabs show `filePath (diff)`, git-tree tabs show `Git History — {repoPath}`, agent tabs show `Coding Agent`
 - **Active accent line** — 2px `var(--accent)` top border on the active tab
 - **Split actions** — `onSplitRight` and `onSplitDown` split the pane and optionally move the current tab to the new pane
 - **Close pane** — `onClosePane` / `canClosePane` allows closing the entire pane (disabled when it's the only pane)
+- **Agent status indicator** — `TabBar` accepts an optional `agentStatusMap` (`Map<string, AgentStatus>`) keyed by `terminalId`. Agent tabs render a colored dot before the tab title reflecting their status (see [Agent Tab Status Indicator](#agent-tab-status-indicator)).
 
 ## Drag-and-Drop Architecture
 

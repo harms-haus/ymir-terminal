@@ -17,6 +17,7 @@ export interface PaneContentProps {
     filePath: string,
     repoPath: string,
   ) => void;
+  onOpenAgent?: () => void;
   emptyState?: React.ReactNode;
 }
 
@@ -44,6 +45,7 @@ export function PaneContent({
   onDirtyChange,
   onOpenEditor,
   onOpenCommitDiff,
+  onOpenAgent,
   emptyState,
 }: PaneContentProps) {
   return (
@@ -101,7 +103,32 @@ export function PaneContent({
           />
         </div>
       )}
-      {!activeTab && (emptyState ?? DEFAULT_EMPTY_STATE)}
+      {!activeTab && (
+        <>
+          {emptyState ?? DEFAULT_EMPTY_STATE}
+          {onOpenAgent && (
+            <button
+              onClick={onOpenAgent}
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'var(--accent)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 4,
+                padding: '6px 16px',
+                cursor: 'pointer',
+                fontSize: 13,
+                zIndex: 1,
+              }}
+            >
+              Open Agent
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }

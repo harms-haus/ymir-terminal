@@ -3,6 +3,7 @@ export interface TerminalCreateRequest {
   cols?: number;
   rows?: number;
   cwd?: string;
+  command?: string;
 }
 
 export interface TerminalCreateResponse {

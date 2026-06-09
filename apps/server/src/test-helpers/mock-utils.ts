@@ -257,7 +257,7 @@ export function createMockSessionDb(): Database {
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES client_sessions(id) ON DELETE CASCADE,
       workspace_id TEXT NOT NULL,
-      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree', 'agent')),
       title TEXT,
       file_path TEXT,
       pane TEXT NOT NULL DEFAULT 'content' CHECK(pane IN ('content', 'bottom')),
@@ -346,7 +346,7 @@ export function createMockPersistentDb(): Database {
     CREATE TABLE IF NOT EXISTS persisted_tabs (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
-      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree', 'agent')),
       title TEXT,
       file_path TEXT,
       pane TEXT DEFAULT 'content',

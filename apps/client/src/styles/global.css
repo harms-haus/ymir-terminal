@@ -25,6 +25,17 @@
   scrollbar-color: #3a3a3a transparent;
 }
 
+@keyframes pulse-subtle {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+
 [role='treeitem']:focus-visible {
   outline: 1px solid var(--accent, #007acc);
   outline-offset: -1px;
@@ -38,6 +49,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   [style*='animation: spin'] {
+    animation: none !important;
+  }
+
+  [style*='animation: pulse-subtle'] {
     animation: none !important;
   }
 }

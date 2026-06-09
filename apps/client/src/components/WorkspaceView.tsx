@@ -15,6 +15,7 @@ import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
 import { WindowTitleBar } from './WindowTitleBar';
 import { YmirLogo } from './YmirLogo';
 import { useTheme } from '../hooks/useTheme';
+import { AgentStatusProvider } from '../hooks/useAgentStatus';
 import { COLOR_BG_PRIMARY, COLOR_SPINNER_TRACK } from '../lib/theme';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 import { DragDropProvider } from '@dnd-kit/react';
@@ -378,14 +379,16 @@ export function WorkspaceView() {
   const connectionUrl = useConnectionUrl();
 
   return (
-    <DialogProvider>
-      <ToastProvider>
-        <PaneVisibilityProvider>
-          <FileClipboardProvider>
-            <WorkspaceViewInner key={connectionUrl} />
-          </FileClipboardProvider>
-        </PaneVisibilityProvider>
-      </ToastProvider>
-    </DialogProvider>
+    <AgentStatusProvider>
+      <DialogProvider>
+        <ToastProvider>
+          <PaneVisibilityProvider>
+            <FileClipboardProvider>
+              <WorkspaceViewInner key={connectionUrl} />
+            </FileClipboardProvider>
+          </PaneVisibilityProvider>
+        </ToastProvider>
+      </DialogProvider>
+    </AgentStatusProvider>
   );
 }

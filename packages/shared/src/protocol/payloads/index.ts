@@ -11,6 +11,7 @@ export * from './config';
 export * from './session';
 export * from './tab';
 export * from './path';
+export * from './agent';
 
 // Import types explicitly for union definitions below
 import type { AuthRequest } from './auth';
@@ -99,6 +100,7 @@ import type {
 import type { PathAutocompleteRequest } from './path';
 import type { ConfigGetRequest, ConfigSetRequest } from './config';
 import type { ConnectionStatusEvent } from './session';
+import type { AgentStatusEvent } from './agent';
 import type {
   TabListRequest,
   TabCreateRequest,
@@ -202,6 +204,7 @@ export const EVENT_TYPES = [
   'connection.status',
   'git.statusChange',
   'git.repoDiscovery.progress',
+  'agent.status',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -297,4 +300,5 @@ export type EventPayload =
   | FileSearchProgressEvent
   | ConnectionStatusEvent
   | GitStatusChangeEvent
-  | GitRepoDiscoveryProgressEvent;
+  | GitRepoDiscoveryProgressEvent
+  | AgentStatusEvent;

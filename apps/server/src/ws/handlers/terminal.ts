@@ -17,6 +17,8 @@ import {
   DEFAULT_ROWS,
   toBase64,
 } from '@ymir/shared';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import type { PTYManager } from '../../pty/manager';
 import type { ClientConnection } from '../connection';
 import { createError, createResponse, createEvent, type MessageRouter } from '../router';
@@ -27,19 +29,23 @@ import {
   deleteWorkspaceTerminal,
 } from '../../db/session';
 import { getWorkspace } from '../../db/persistent';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { listWorktrees } from '../../git/worktrees';
 import {
   validateWorkspaceTerminalAccess,
   safePath,
   resolveCwdWithWorktreeFallback,
 } from '../../lib/handler-validation';
+import { startAgentStatusWatcher } from './agent-status.js';
 
 export interface TerminalDeps {
   ptyManager: PTYManager;
   sessionDb: Database;
   persistentDb: Database;
 }
+
+/** Cleanup functions for agent status file watchers, keyed by terminalId. */
+const agentWatchers = new Map<string, () => void>();
 
 /**
  * Validate that a payload contains a string `terminalId` field.
@@ -132,6 +138,19 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
       terminalWorktreePath = undefined;
     }
 
+    // Validate command — only undefined (shell) or 'pi' are accepted
+    const command = payload?.command;
+    if (command !== undefined && command !== 'pi') {
+      conn.send(
+        createError(
+          { id: req.id, channel: req.channel ?? 'terminal.create' },
+          ErrorCodes.INVALID_MESSAGE,
+          `Unsupported command: ${command}`,
+        ),
+      );
+      return;
+    }
+
     // Generate terminal ID before creating the DB entry
     const terminalId = crypto.randomUUID();
 
@@ -145,12 +164,21 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
       worktreePath: terminalWorktreePath,
     });
 
+    // Determine PTY spawn options based on command
+    const isAgent = command === 'pi';
+    const agentDir = isAgent ? mkdtempSync(join(tmpdir(), 'ymir-agent-')) : undefined;
+    const agentStatusPath = agentDir ? join(agentDir, 'status.json') : undefined;
+    const commandArray = isAgent ? ['pi', '-e', 'npm:@harms-haus/pi-ymir'] : undefined;
+    const extraEnv = isAgent ? { YMIR_AGENT_STATUS_PATH: agentStatusPath! } : undefined;
+
     // Create the PTY process
     try {
       ptyManager.create(terminalId, {
         cwd,
         cols,
         rows,
+        command: commandArray,
+        env: extraEnv,
         onData: (b64Data: string) => {
           const evt = createEvent('terminal.output', {
             terminalId,
@@ -164,6 +192,12 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
             exitCode: exitCode ?? 0,
           } satisfies TerminalExitEvent);
           conn.send(evt);
+          // Clean up agent watcher if present
+          const cleanup = agentWatchers.get(terminalId);
+          if (cleanup) {
+            cleanup();
+            agentWatchers.delete(terminalId);
+          }
           deleteWorkspaceTerminal(sessionDb, terminalId);
         },
       });
@@ -178,6 +212,18 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
       );
       conn.send(errResp);
       return;
+    }
+
+    // Start agent status watcher for pi terminals
+    if (isAgent) {
+      const stopWatcher = startAgentStatusWatcher({
+        terminalId,
+        statusFilePath: agentStatusPath!,
+        onStatus: (event) => {
+          conn.send(createEvent('agent.status', event));
+        },
+      });
+      agentWatchers.set(terminalId, stopWatcher);
     }
 
     const resp: ResponseEnvelope<TerminalCreateResponse> = createResponse(req, {
@@ -242,6 +288,13 @@ export function registerTerminalHandlers(router: MessageRouter, deps: TerminalDe
 
     // Kill PTY
     ptyManager.kill(terminalId);
+
+    // Clean up agent watcher if present
+    const cleanup = agentWatchers.get(terminalId);
+    if (cleanup) {
+      cleanup();
+      agentWatchers.delete(terminalId);
+    }
 
     // Remove from DB
     deleteWorkspaceTerminal(sessionDb, terminalId);

@@ -1,6 +1,8 @@
 import React, { useRef, useLayoutEffect } from 'react';
+import type { AgentStatus } from '@ymir/shared';
 import type { Tab } from '../hooks/useTabs';
 import {
+  COLOR_ACCENT,
   COLOR_BG_PRIMARY,
   COLOR_BORDER,
   COLOR_TAB_INACTIVE,
@@ -13,6 +15,21 @@ import {
 } from '../lib/theme';
 import { TabContextMenu } from './TabContextMenu';
 import { useSortable } from '@dnd-kit/react/sortable';
+
+function getAgentStatusStyle(status: AgentStatus): { background: string; animate: boolean } | null {
+  switch (status) {
+    case 'idle':
+      return { background: '#888', animate: false };
+    case 'working':
+      return { background: COLOR_ACCENT, animate: true };
+    case 'done':
+      return { background: '#4caf50', animate: true };
+    case 'waiting-for-input':
+      return { background: '#ff9800', animate: true };
+    default:
+      return null;
+  }
+}
 
 export const SortableTab = React.memo(function SortableTab({
   tab,
@@ -39,6 +56,7 @@ export const SortableTab = React.memo(function SortableTab({
   onSplitDown,
   onClosePane,
   canClosePane,
+  agentStatus,
 }: {
   tab: Tab;
   tabs: Tab[];
@@ -64,6 +82,7 @@ export const SortableTab = React.memo(function SortableTab({
   onSplitDown?: () => void;
   onClosePane?: () => void;
   canClosePane?: boolean;
+  agentStatus?: AgentStatus;
 }) {
   const renameMountTimeRef = useRef(0);
   const isRenaming = tab.id === renamingTabId;
@@ -118,6 +137,8 @@ export const SortableTab = React.memo(function SortableTab({
     tooltipTitle = tab.filePath ? `${tab.filePath} (diff)` : 'Diff';
   } else if (tab.type === 'git-tree') {
     tooltipTitle = tab.repoPath ? `Git History — ${tab.repoPath}` : 'Git History';
+  } else if (tab.type === 'agent') {
+    tooltipTitle = 'Coding Agent';
   }
 
   return (
@@ -197,6 +218,25 @@ export const SortableTab = React.memo(function SortableTab({
           opacity: isDragging ? 0.4 : undefined,
         }}
       >
+        {agentStatus
+          ? (() => {
+              const s = getAgentStatusStyle(agentStatus);
+              return s ? (
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: s.background,
+                    flexShrink: 0,
+                    animation: s.animate
+                      ? 'pulse-subtle 1.8s ease-in-out infinite alternate'
+                      : undefined,
+                  }}
+                />
+              ) : null;
+            })()
+          : null}
         {tab.id === renamingTabId ? (
           <input
             ref={renameInputRef}

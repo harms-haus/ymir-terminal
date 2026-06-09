@@ -26,6 +26,8 @@ export interface PTYOptions {
   rows: number;
   onData: (data: string) => void; // base64-encoded output
   onExit?: (code: number | null) => void;
+  command?: string[];
+  env?: Record<string, string>;
 }
 
 export class PTYManager {
@@ -111,27 +113,6 @@ export class PTYManager {
 
     entry.terminal = terminal;
 
-    const requestedShell = this.#isWindows
-      ? options.shell || basename(process.env.COMSPEC || 'cmd.exe')
-      : options.shell || process.env.SHELL || '/bin/bash';
-    const shellToValidate = this.#isWindows ? basename(requestedShell) : requestedShell;
-    if (!this.#allowedShells.has(shellToValidate)) {
-      throw new Error(`Shell not allowed: ${requestedShell}`);
-    }
-
-    let shell = requestedShell;
-    if (this.#isWindows) {
-      // Windows shells are resolved via PATH; no existsSync check needed
-    } else if (!this.#deps.existsSync(shell)) {
-      const fallback = this.#fallbackOrder.find(
-        (s) => this.#allowedShells.has(s) && this.#deps.existsSync(s),
-      );
-      if (!fallback) {
-        throw new Error('No supported shell found on this system');
-      }
-      shell = fallback;
-    }
-
     const bunSpawn = (Bun as Record<string, unknown>).spawn as
       | ((
           cmd: string[],
@@ -141,15 +122,49 @@ export class PTYManager {
     if (!bunSpawn) throw new Error('Bun.spawn is not available');
 
     let proc: { pid: number; kill: (sig: string) => void; exited: Promise<number> };
-    try {
-      proc = bunSpawn([shell], {
-        terminal,
-        cwd: options.cwd,
-        env: { ...process.env },
-      });
-    } catch (err) {
-      (terminal as { close: () => void }).close();
-      throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
+    if (options.command) {
+      try {
+        proc = bunSpawn(options.command, {
+          terminal,
+          cwd: options.cwd,
+          env: { ...process.env, ...options.env },
+        });
+      } catch (err) {
+        (terminal as { close: () => void }).close();
+        throw new Error(`Failed to spawn command: ${options.command.join(' ')}`, { cause: err });
+      }
+    } else {
+      const requestedShell = this.#isWindows
+        ? options.shell || basename(process.env.COMSPEC || 'cmd.exe')
+        : options.shell || process.env.SHELL || '/bin/bash';
+      const shellToValidate = this.#isWindows ? basename(requestedShell) : requestedShell;
+      if (!this.#allowedShells.has(shellToValidate)) {
+        throw new Error(`Shell not allowed: ${requestedShell}`);
+      }
+
+      let shell = requestedShell;
+      if (this.#isWindows) {
+        // Windows shells are resolved via PATH; no existsSync check needed
+      } else if (!this.#deps.existsSync(shell)) {
+        const fallback = this.#fallbackOrder.find(
+          (s) => this.#allowedShells.has(s) && this.#deps.existsSync(s),
+        );
+        if (!fallback) {
+          throw new Error('No supported shell found on this system');
+        }
+        shell = fallback;
+      }
+
+      try {
+        proc = bunSpawn([shell], {
+          terminal,
+          cwd: options.cwd,
+          env: { ...process.env },
+        });
+      } catch (err) {
+        (terminal as { close: () => void }).close();
+        throw new Error(`Failed to spawn shell: ${shell}`, { cause: err });
+      }
     }
 
     entry.process = proc;

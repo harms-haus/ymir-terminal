@@ -90,7 +90,7 @@ export const GitBranchCreateFromRequestSchema = GitRepoRequestBaseSchema.extend(
 // Tab schemas
 // ---------------------------------------------------------------------------
 
-const TabTypeEnum = z.enum(['terminal', 'editor', 'diff', 'git-tree']);
+const TabTypeEnum = z.enum(['terminal', 'editor', 'diff', 'git-tree', 'agent']);
 
 export const TabListRequestSchema = z.object({
   workspaceId: z.string(),

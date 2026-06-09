@@ -79,7 +79,7 @@ export function registerTabHandlers(router: MessageRouter, deps: TabDeps): void 
 
       return {
         id: row.id as string,
-        tabType: row.tab_type as 'terminal' | 'editor' | 'diff' | 'git-tree',
+        tabType: row.tab_type as 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent',
         title: (row.title as string | null) ?? null,
         filePath: (row.file_path as string | null) ?? null,
         terminalId,

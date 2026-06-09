@@ -55,7 +55,7 @@ export function initDatabase(dbPath: string): Database {
     CREATE TABLE IF NOT EXISTS persisted_tabs (
       id TEXT PRIMARY KEY,
       workspace_id TEXT NOT NULL,
-      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+      tab_type TEXT NOT NULL,
       title TEXT,
       file_path TEXT,
       pane TEXT DEFAULT 'content',

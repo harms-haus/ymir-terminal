@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, forwardRef } from 'react';
+import { useState, useCallback, useEffect, forwardRef, useMemo } from 'react';
 import { useTerminalPane } from '../hooks/useTerminalPane';
 import { useCreateTerminalTab } from '../hooks/useCreateTerminalTab';
 import { PaneContent } from './PaneContent';
@@ -7,6 +7,8 @@ import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
 import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
 import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { pathBasename } from '../lib/path-utils';
+import { useAgentStatus } from '../hooks/useAgentStatus';
+import { sendRequest } from '../lib/send-request';
 
 export interface SplitLeafPaneProps {
   paneId: string;
@@ -63,15 +65,17 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
   ) {
     const [dirtyFiles, setDirtyFiles] = useState<Set<string>>(new Set());
 
+    const { getStatus, clearStatus, markFocused } = useAgentStatus();
+
     const {
       tabs,
       activeTabId,
       createTab,
-      activateTab,
+      activateTab: rawActivateTab,
       reorderTabs,
       updateTabTitle,
       updateTabCwd,
-      handleCloseTab,
+      handleCloseTab: rawHandleCloseTab,
       handleCloseRight,
       handleCloseOthers,
       handleRenameTab,
@@ -88,6 +92,30 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
       onTerminalRegistered,
       onTerminalUnregistered,
     });
+
+    // Wrap activateTab to mark agent tabs as focused (done -> idle)
+    const activateTab = useCallback(
+      (tabId: string) => {
+        rawActivateTab(tabId);
+        const tab = tabs.find((t) => t.id === tabId);
+        if (tab?.type === 'agent' && tab.terminalId) {
+          markFocused(tab.terminalId);
+        }
+      },
+      [rawActivateTab, tabs, markFocused],
+    );
+
+    // Wrap handleCloseTab to clear agent status on close
+    const handleCloseTab = useCallback(
+      (tabId: string) => {
+        const tab = tabs.find((t) => t.id === tabId);
+        if (tab?.type === 'agent' && tab.terminalId) {
+          clearStatus(tab.terminalId);
+        }
+        rawHandleCloseTab(tabId);
+      },
+      [rawHandleCloseTab, tabs, clearStatus],
+    );
 
     const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -111,6 +139,29 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
       () => createTerminalTab(effectiveCwd),
       [createTerminalTab, effectiveCwd],
     );
+
+    const handleAddAgent = useCallback(async () => {
+      if (!workspaceId) return;
+      try {
+        const result = await sendRequest<{ terminalId: string }>('terminal.create', {
+          workspaceId,
+          cols: 80,
+          rows: 24,
+          command: 'pi',
+          cwd: effectiveCwd,
+        });
+        const tabId = createTab({
+          type: 'agent' as const,
+          title: 'Agent',
+          terminalId: result.terminalId,
+        });
+        if (onTerminalRegistered && workspaceId) {
+          onTerminalRegistered(result.terminalId, tabId, workspaceId);
+        }
+      } catch (err) {
+        console.error('Failed to create agent tab:', err);
+      }
+    }, [workspaceId, createTab, effectiveCwd, onTerminalRegistered]);
 
     const handleDirtyChange = useCallback((filePath: string, dirty: boolean) => {
       setDirtyFiles((prev) => {
@@ -233,6 +284,18 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
       updateTabCwd,
     });
 
+    // Build agent status map for TabBar
+    const agentStatusMap = useMemo(() => {
+      const map = new Map<string, 'idle' | 'working' | 'done' | 'waiting-for-input'>();
+      for (const tab of tabs) {
+        if (tab.type === 'agent' && tab.terminalId) {
+          const status = getStatus(tab.terminalId);
+          if (status) map.set(tab.terminalId, status);
+        }
+      }
+      return map;
+    }, [tabs, getStatus]);
+
     return (
       <div
         data-testid={`split-leaf-pane-${paneId}`}
@@ -261,6 +324,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
           onSplitDown={onSplitDown ? (tabId) => onSplitDown(paneId, tabId) : undefined}
           onClosePane={onClosePane ? () => onClosePane(paneId) : undefined}
           canClosePane={!isOnlyPane}
+          agentStatusMap={agentStatusMap}
         />
         <PaneContent
           activeTab={activeTab}
@@ -270,6 +334,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
           onDirtyChange={handleDirtyChange}
           onOpenEditor={handleAddEditor}
           onOpenCommitDiff={handleAddCommitDiff}
+          onOpenAgent={handleAddAgent}
           emptyState={
             <div
               style={{

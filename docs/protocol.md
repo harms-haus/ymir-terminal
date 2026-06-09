@@ -50,7 +50,7 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | '
 | Channel                      | Direction | Description                                                                                              |
 | ---------------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
 | `auth`                       | request   | Authenticate with password                                                                               |
-| `terminal.create`            | request   | Spawn a new PTY                                                                                          |
+| `terminal.create`            | request   | Spawn a new PTY (optional `command` for agent terminals)                                                 |
 | `terminal.input`             | request   | Send keystrokes (base64)                                                                                 |
 | `terminal.resize`            | request   | Resize terminal dimensions                                                                               |
 | `terminal.close`             | request   | Kill a PTY                                                                                               |
@@ -134,6 +134,7 @@ interface EventEnvelope<T = unknown> extends Omit<MessageEnvelope<T>, 'type' | '
 | `tab.restore`                | request   | Restore persisted tabs for a workspace, reusing live PTYs or creating new ones for terminal tabs         |
 | `git.statusChange`           | event     | Git status updated (`GitStatusChangeEvent` with `workspaceId`, `repoPath`, `status: GitStatusResponse`)  |
 | `connection.status`          | event     | Connection status change                                                                                 |
+| `agent.status`               | event     | Agent terminal status change (idle / working / done / waiting-for-input)                                 |
 
 Terminal data is base64-encoded to safely transport binary PTY output over JSON.
 
@@ -409,6 +410,61 @@ interface TerminalStateResponse {
 }
 ```
 
+### Agent Terminal Spawning
+
+The `terminal.create` request accepts an optional `command` field. When set to `'pi'`, the server spawns an **agent terminal** instead of a regular shell:
+
+```typescript
+interface TerminalCreateRequest {
+  workspaceId: string;
+  cols?: number;
+  rows?: number;
+  cwd?: string;
+  command?: string; // 'pi' for agent terminal; undefined for regular shell
+}
+```
+
+When `command` is `'pi'`, the server:
+
+1. Creates a temporary directory (`$TMPDIR/ymir-agent-XXXXXX/`) containing a `status.json` file.
+2. Sets the `YMIR_AGENT_STATUS_PATH` environment variable to point to that file.
+3. Spawns the PTY with `command: ['pi', '-e', 'npm:@harms-haus/pi-ymir']` instead of the default shell.
+4. Starts a file watcher (`startAgentStatusWatcher`) that polls `status.json` every 250 ms and emits `agent.status` events when the status changes.
+5. Cleans up the temporary directory and stops the watcher when the terminal exits or is closed.
+
+Any other `command` value results in an `INVALID_MESSAGE` error (`Unsupported command`).
+
+## Agent Channel Type Reference
+
+### `AgentStatus` Type
+
+```typescript
+type AgentStatus = 'idle' | 'working' | 'done' | 'waiting-for-input';
+```
+
+| Value               | Meaning                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| `idle`              | Agent is idle, waiting for user input                                  |
+| `working`           | Agent is actively processing (running tool calls, generating response) |
+| `done`              | Agent has completed its current task (transitions to `idle` on focus)  |
+| `waiting-for-input` | Agent is waiting for user approval/input (e.g. tool call confirmation) |
+
+### Status Event
+
+| Channel        | Event type         | Fields                                                         |
+| -------------- | ------------------ | -------------------------------------------------------------- |
+| `agent.status` | `AgentStatusEvent` | `terminalId`, `status` (`AgentStatus`), `timestamp` (epoch ms) |
+
+```typescript
+interface AgentStatusEvent {
+  terminalId: string;
+  status: AgentStatus;
+  timestamp: number;
+}
+```
+
+The server emits this event each time the pi-ymir extension writes a new status to the `YMIR_AGENT_STATUS_PATH` file. Duplicate consecutive statuses are suppressed. The file is polled every 250 ms via `watchFile`.
+
 ## Tab Channel Type Reference
 
 All tab request payloads include `workspaceId` (except `tab.update`, `tab.delete` which use `tabId`).
@@ -437,7 +493,7 @@ Returned by `tab.list`. Represents a live tab in the current session.
 ```typescript
 interface TabInfo {
   id: string;
-  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
   title: string | null;
   filePath: string | null;
   terminalId: string | null;
@@ -464,7 +520,7 @@ freshly-created one when no live terminal matches.
 ```typescript
 interface PersistedTabInfo {
   id: string;
-  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
   title: string | null;
   filePath: string | null;
   pane: string;
@@ -605,14 +661,14 @@ Git schemas extend a shared base (`workspaceId: string`, `repoPath: string`) and
 
 #### Tabs
 
-| Schema                    | Validates                                                                                                                                                                                                                                 |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TabListRequestSchema`    | `workspaceId`, `pane?`, `worktreePath?` (nullable)                                                                                                                                                                                        |
-| `TabCreateRequestSchema`  | `workspaceId`, `pane`, `tabType` (enum: `terminal \| editor \| diff \| git-tree`), `title`, plus optional `terminalId`, `filePath`, `diffRef`, `diffRepoPath`, `repoPath`, `commitSha`, `parentSha`, `cwd`, `customTitle`, `worktreePath` |
-| `TabUpdateRequestSchema`  | `tabId`, optional `active`, `sortOrder`, `title`                                                                                                                                                                                          |
-| `TabDeleteRequestSchema`  | `tabId`                                                                                                                                                                                                                                   |
-| `TabReorderRequestSchema` | `tabIds: string[]` (≥1)                                                                                                                                                                                                                   |
-| `TabRestoreRequestSchema` | `workspaceId`, optional `worktreePath`                                                                                                                                                                                                    |
+| Schema                    | Validates                                                                                                                                                                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TabListRequestSchema`    | `workspaceId`, `pane?`, `worktreePath?` (nullable)                                                                                                                                                                                                 |
+| `TabCreateRequestSchema`  | `workspaceId`, `pane`, `tabType` (enum: `terminal \| editor \| diff \| git-tree \| agent`), `title`, plus optional `terminalId`, `filePath`, `diffRef`, `diffRepoPath`, `repoPath`, `commitSha`, `parentSha`, `cwd`, `customTitle`, `worktreePath` |
+| `TabUpdateRequestSchema`  | `tabId`, optional `active`, `sortOrder`, `title`                                                                                                                                                                                                   |
+| `TabDeleteRequestSchema`  | `tabId`                                                                                                                                                                                                                                            |
+| `TabReorderRequestSchema` | `tabIds: string[]` (≥1)                                                                                                                                                                                                                            |
+| `TabRestoreRequestSchema` | `workspaceId`, optional `worktreePath`                                                                                                                                                                                                             |
 
 #### Files
 

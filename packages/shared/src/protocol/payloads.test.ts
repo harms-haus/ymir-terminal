@@ -97,6 +97,8 @@ import {
   type TabRestoreRequest,
   // Path
   type PathAutocompleteRequest,
+  // Agent
+  type AgentStatusEvent,
   // Unions
   type RequestPayload,
   type EventPayload,
@@ -216,14 +218,15 @@ describe('EVENT_TYPES', () => {
     'connection.status',
     'git.statusChange',
     'git.repoDiscovery.progress',
+    'agent.status',
   ];
 
   it('contains all expected event types', () => {
     expect(EVENT_TYPES).toEqual(expected);
   });
 
-  it('has exactly 7 entries', () => {
-    expect(EVENT_TYPES).toHaveLength(7);
+  it('has exactly 8 entries', () => {
+    expect(EVENT_TYPES).toHaveLength(8);
   });
 });
 
@@ -426,6 +429,7 @@ describe('EventPayload union', () => {
         totalMatches: 0,
         truncated: false,
       } satisfies FileSearchProgressEvent,
+      { terminalId: 't-1', status: 'idle', timestamp: Date.now() } satisfies AgentStatusEvent,
     ];
 
     for (const p of payloads) {

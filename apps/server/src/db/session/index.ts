@@ -47,7 +47,7 @@ export function initSessionDb(): Database {
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES client_sessions(id) ON DELETE CASCADE,
       workspace_id TEXT NOT NULL,
-      tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+      tab_type TEXT NOT NULL,
       title TEXT,
       file_path TEXT,
       pane TEXT NOT NULL DEFAULT 'content',

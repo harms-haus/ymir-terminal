@@ -6,7 +6,7 @@ export interface TabListRequest {
 
 export interface TabInfo {
   id: string;
-  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
   title: string | null;
   filePath: string | null;
   terminalId: string | null;
@@ -29,7 +29,7 @@ export interface TabListResponse {
 export interface TabCreateRequest {
   workspaceId: string;
   pane: string;
-  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
   title: string;
   terminalId?: string;
   filePath?: string;
@@ -64,7 +64,7 @@ export interface TabReorderRequest {
 
 export interface PersistedTabInfo {
   id: string;
-  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  tabType: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
   title: string | null;
   filePath: string | null;
   pane: string;

@@ -5,7 +5,7 @@ import { parseScopeKey } from './useWorkspaceSelection';
 
 export interface Tab {
   id: string;
-  type: 'terminal' | 'editor' | 'diff' | 'git-tree';
+  type: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
   title: string;
   workspaceId: string;
   terminalId?: string;
@@ -127,7 +127,7 @@ export function useTabs(opts?: { onTabChange?: (event: TabChangeEvent) => void }
   // ---------------------------------------------------------------------------
   const createTab = useCallback(
     (opts: {
-      type: 'terminal' | 'editor' | 'diff' | 'git-tree';
+      type: 'terminal' | 'editor' | 'diff' | 'git-tree' | 'agent';
       title: string;
       terminalId?: string;
       filePath?: string;

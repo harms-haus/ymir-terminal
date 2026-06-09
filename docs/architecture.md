@@ -542,7 +542,7 @@ The `persisted_tabs` table mirrors tab state into the persistent database so tab
 persisted_tabs (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
-  tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree')),
+  tab_type TEXT NOT NULL CHECK(tab_type IN ('terminal', 'editor', 'diff', 'git-tree', 'agent')),
   title TEXT,
   file_path TEXT,
   pane TEXT DEFAULT 'content',
@@ -559,6 +559,66 @@ persisted_tabs (
 ```
 
 CRUD functions: `savePersistedTab`, `deletePersistedTab`, `updatePersistedTabOrder`, `updatePersistedTabTitle`, `listPersistedTabsByWorkspace`, `deletePersistedTabsByWorkspace`.
+
+## Agent Terminal Architecture
+
+Agent terminals are a specialized form of PTY that run `pi-coding-agent` instead of a regular shell. They use command-based PTY spawning and a file-based IPC mechanism for status reporting.
+
+### Spawning
+
+When `terminal.create` is received with `command: 'pi'`, the server:
+
+1. Creates a temporary directory via `mkdtempSync` (`$TMPDIR/ymir-agent-XXXXXX/`).
+2. Determines the `statusFilePath` (`$TMPDIR/ymir-agent-XXXXXX/status.json`).
+3. Spawns the PTY with `command: ['pi', '-e', 'npm:@harms-haus/pi-ymir']` and `env: { YMIR_AGENT_STATUS_PATH: statusFilePath }`.
+4. The pi-ymir extension reads `YMIR_AGENT_STATUS_PATH` from the environment and writes JSON status updates to that file as it runs.
+
+### Status File IPC
+
+**Server side (`apps/server/src/ws/handlers/agent-status.ts`):**
+
+The `startAgentStatusWatcher` function uses Node.js `watchFile` (polling at 250 ms intervals) to monitor the status file. When the file changes:
+
+1. It reads and parses the JSON (`{ status: string, timestamp: number }`).
+2. Validates the status against the allowed set (`idle`, `working`, `done`, `waiting-for-input`).
+3. Suppresses duplicate consecutive statuses.
+4. Emits an `agent.status` WebSocket event with `{ terminalId, status, timestamp }`.
+
+The watcher is cleaned up (via `unwatchFile` + temp directory `rmSync`) when:
+
+- The terminal process exits (in the `onExit` callback).
+- The terminal is explicitly closed via `terminal.close`.
+- The server shuts down.
+
+Cleanup functions are tracked in the `agentWatchers` map (`Map<string, () => void>`) keyed by `terminalId`.
+
+**Extension side:** The pi-ymir extension writes `{ status, timestamp }` to `YMIR_AGENT_STATUS_PATH` whenever its state changes.
+
+### Client Side
+
+**`AgentStatusProvider`** (`apps/client/src/hooks/useAgentStatus.tsx`):
+
+- Wraps `WorkspaceView` in the component tree.
+- Subscribes to `agent.status` WebSocket events via `wsClient.onMessage`.
+- Maintains a `Map<string, AgentStatus>` keyed by `terminalId`.
+- Exposes three functions via context:
+  - `getStatus(terminalId)` — returns the current `AgentStatus` or `undefined`.
+  - `clearStatus(terminalId)` — removes a terminal's status entry (called on tab close).
+  - `markFocused(terminalId)` — transitions `done` → `idle` client-side (cosmetic focus indicator).
+
+**`useAgentStatus`** hook — consumed by `SplitLeafPane` to build the `agentStatusMap` passed to `TabBar` for rendering status dots on agent tabs.
+
+### Data Flow
+
+```
+pi-ymir extension writes to YMIR_AGENT_STATUS_PATH
+  → startAgentStatusWatcher polls file (250 ms)
+  → Parses JSON, validates status, suppresses duplicates
+  → Emits agent.status WebSocket event
+  → AgentStatusProvider updates statusMap
+  → SplitLeafPane builds agentStatusMap via useAgentStatus
+  → TabBar renders status dot on SortableTab
+```
 
 ## Windows Support
 
