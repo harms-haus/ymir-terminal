@@ -1,3 +1,4 @@
+import '../lib/monaco-loader';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { DiffEditor } from '@monaco-editor/react';
 import { DiffViewerHeader, type DiffViewMode } from './DiffViewerHeader';

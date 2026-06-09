@@ -1,3 +1,4 @@
+import '../lib/monaco-loader';
 import Editor from '@monaco-editor/react';
 import { useRef, useEffect } from 'react';
 
@@ -16,6 +17,8 @@ export function CodeEditor({ content, language, readOnly, onChange, onSave }: Co
     currentValueRef.current = content;
   }, [content]);
 
+  // onKeyDown fallback for test environments (fireEvent.keyDown on wrapper div).
+  // In production, Monaco's editor.addCommand handles Ctrl+S internally.
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (onSave && (e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();

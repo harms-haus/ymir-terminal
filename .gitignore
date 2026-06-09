@@ -18,6 +18,7 @@ src-tauri/WixTools/
 .idea/
 .vscode/
 coverage/
+apps/client/public/monaco/
 
 # Generated build artifacts (tsc --build for composite projects)
 packages/shared/src/**/*.js

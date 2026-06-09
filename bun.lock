@@ -28,6 +28,7 @@
       "dependencies": {
         "@dnd-kit/helpers": "^0.4.0",
         "@dnd-kit/react": "^0.4.0",
+        "@monaco-editor/loader": "^1.7.0",
         "@monaco-editor/react": "^4.7.0",
         "@radix-ui/react-context-menu": "^2.2.16",
         "@radix-ui/react-dropdown-menu": "^2.1.16",

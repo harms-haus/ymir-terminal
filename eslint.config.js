@@ -18,6 +18,7 @@ module.exports = [
       "packages/npm/",
       "packages/shared/src/**/*.js",
       "packages/shared/src/**/*.d.ts",
+      "apps/client/public/monaco/",
     ],
   },
 
