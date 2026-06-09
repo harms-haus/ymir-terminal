@@ -440,6 +440,11 @@ export function setupAllMocks(): void {
     useInView: () => ({ ref: () => {}, inView: true }),
   }));
 
+  // --- @tauri-apps/plugin-opener --------------------------------------------
+  bunMock.module('@tauri-apps/plugin-opener', () => ({
+    openUrl: async (_url: string) => {},
+  }));
+
   // --- react-resizable-panels -----------------------------------------------
   bunMock.module('react-resizable-panels', () => ({
     Group: ({

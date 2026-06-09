@@ -157,24 +157,25 @@ The `safePath(workspaceCwd, userInput)` function resolves a user-supplied path r
 
 ## Tech Stack
 
-| Layer           | Technology                                                                              |
-| --------------- | --------------------------------------------------------------------------------------- |
-| Runtime         | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner                     |
-| Language        | TypeScript (strict mode)                                                                |
-| Backend         | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                                         |
-| Frontend        | React 19, TanStack Router, TanStack Query, Vite                                         |
-| Terminal        | `ghostty-web` + `ghostty-web FitAddon`                                                  |
-| Code Editor     | Monaco Editor (`@monaco-editor/react`)                                                  |
-| Auth            | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry                   |
-| DnD             | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer          |
-| Context Menu    | `@radix-ui/react-context-menu`                                                          |
-| Popover         | `@radix-ui/react-popover` — connection management popover                               |
-| Virtualization  | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories |
-| Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API     |
-| Desktop Shell   | Tauri 2.x (Rust) — wraps webview in native window                                       |
-| Sidecar         | Compiled Bun binary — server bundled as platform-native executable                      |
-| Styling         | Inline CSS, `react-resizable-panels` for IDE layout                                     |
-| Testing         | `bun:test`, Testing Library (React), happy-dom                                          |
+| Layer           | Technology                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| Runtime         | [Bun](https://bun.sh) — HTTP server, WebSocket, SQLite, test runner                              |
+| Language        | TypeScript (strict mode)                                                                         |
+| Backend         | `Bun.serve`, `Bun.Terminal` (PTY), `bun:sqlite`                                                  |
+| Frontend        | React 19, TanStack Router, TanStack Query, Vite                                                  |
+| Terminal        | `ghostty-web` + `ghostty-web FitAddon`                                                           |
+| Code Editor     | Monaco Editor (`@monaco-editor/react`)                                                           |
+| Auth            | Argon2id password hashing, JWT (HS256 via `jose`), 7-day token expiry                            |
+| DnD             | `@dnd-kit/react` + `@dnd-kit/helpers` — tab drag-and-drop, cross-pane transfer                   |
+| Context Menu    | `@radix-ui/react-context-menu`                                                                   |
+| Popover         | `@radix-ui/react-popover` — connection management popover                                        |
+| Virtualization  | `@tanstack/react-virtual@^3.13` — virtualized list rendering for large commit histories          |
+| Infinite scroll | `react-intersection-observer@^10.0` — infinite scroll via Intersection Observer API              |
+| Desktop Shell   | Tauri 2.x (Rust) — wraps webview in native window                                                |
+| Sidecar         | Compiled Bun binary — server bundled as platform-native executable                               |
+| Styling         | Inline CSS, `react-resizable-panels` for IDE layout                                              |
+| URL Opening     | `@tauri-apps/plugin-opener` (Tauri native browser launch), `window.open` fallback (browser mode) |
+| Testing         | `bun:test`, Testing Library (React), happy-dom                                                   |
 
 ## Project Structure
 
@@ -319,7 +320,7 @@ Handlers are registered in `server.ts` and receive the parsed envelope plus the 
 | `components/`   | React UI components (see below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `hooks/`        | Custom React hooks for state and data (see [Hook Architecture](#hook-architecture) below). Includes top-level hooks (`useConnectionManager` for connection lifecycle and favorites, `useConnectionStatus` for wsClient status subscription) and the `git/` subdirectory which decomposes git functionality into domain hooks (`useGitDiscovery`, `useGitStatus`, `useGitOperations`, `useGitBranches`, `useGitStash`) composed by a coordinator `useGitRepos` hook. Top-level `useGitRepos.ts` and `useGitStatusSubscription.ts` are barrel re-exports from `git/`. |
 | `contexts/`     | React context providers (see [Context Architecture](#context-architecture) below). `ConnectionUrlContext` holds the active WebSocket URL as a single source of truth, `DialogContext` backs confirm/prompt dialogs, `FileClipboardContext` tracks copy/cut file clipboard state.                                                                                                                                                                                                                                                                                    |
-| `lib/`          | WebSocket client, request helper, git-utils, git-change-tree, git-graph, OSC 7 CWD parser, pane-tree (binary tree model for split layouts), theme constants, context styles, connection-storage (localStorage-backed favorites and recent connections CRUD)                                                                                                                                                                                                                                                                                                         |
+| `lib/`          | WebSocket client, request helper, git-utils, git-change-tree, git-graph, OSC 7 CWD parser, pane-tree (binary tree model for split layouts), theme constants, context styles, connection-storage (localStorage-backed favorites and recent connections CRUD), url-opener (shared URL opener utility with Tauri opener plugin / `window.open` fallback + global `window.open` override for terminal links), monaco-links (Monaco link provider and opener registration for clickable URLs in editor content)                                                          |
 | `routes/`       | TanStack Router route definitions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `test-helpers/` | Shared client test utilities (`mock-setup.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 

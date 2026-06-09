@@ -36,6 +36,12 @@ const mockEditor = {
 const mockMonaco = {
   KeyMod: { CtrlCmd: 2048 },
   KeyCode: { KeyS: 49 },
+  languages: {
+    registerLinkProvider: mock(() => ({ dispose: mock(() => {}) })),
+  },
+  editor: {
+    registerLinkOpener: mock(() => ({ dispose: mock(() => {}) })),
+  },
 };
 
 const MockMonacoEditor = ({
@@ -78,6 +84,18 @@ mock.module('@monaco-editor/react', () => ({
   default: MockMonacoEditor,
 }));
 
+// Trackable mock for setupMonacoLinks — returns a disposable we can inspect
+let lastLinkDisposable: { dispose: ReturnType<typeof mock> } | null = null;
+
+const setupMonacoLinksMock = mock(() => {
+  lastLinkDisposable = { dispose: mock(() => {}) };
+  return lastLinkDisposable;
+});
+
+mock.module('../lib/monaco-links', () => ({
+  setupMonacoLinks: setupMonacoLinksMock,
+}));
+
 // ---------------------------------------------------------------------------
 // Import component under test (after mocks)
 // ---------------------------------------------------------------------------
@@ -104,6 +122,8 @@ function renderCodeEditor(props: {
   capturedOptions = undefined;
   capturedTheme = undefined;
   addCommandCaptured = [];
+  setupMonacoLinksMock.mockClear();
+  lastLinkDisposable = null;
   const result = render(React.createElement(CodeEditor, props));
   // If onMount was captured, call it so addCommand gets registered
   if (capturedOnMount) {
@@ -241,5 +261,57 @@ describe('CodeEditor', () => {
     renderCodeEditor({ content: 'readonly test', readOnly: true });
 
     expect(capturedOptions).toMatchObject({ readOnly: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Link detection (monaco-links integration)
+// ---------------------------------------------------------------------------
+
+describe('link detection', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  // -----------------------------------------------------------------------
+  // 1. Registers Monaco link setup on mount
+  // -----------------------------------------------------------------------
+  test('registers Monaco link setup on mount', () => {
+    renderCodeEditor({ content: 'https://example.com' });
+
+    expect(setupMonacoLinksMock).toHaveBeenCalled();
+    expect(setupMonacoLinksMock).toHaveBeenCalledWith(mockMonaco);
+  });
+
+  // -----------------------------------------------------------------------
+  // 2. Disposes link setup on unmount
+  // -----------------------------------------------------------------------
+  test('disposes link setup on unmount', () => {
+    const { unmount } = renderCodeEditor({ content: 'https://example.com' });
+
+    expect(lastLinkDisposable).toBeTruthy();
+    const disposeSpy = lastLinkDisposable!.dispose;
+
+    unmount();
+
+    expect(disposeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // 3. Link setup does not interfere with Ctrl+S
+  // -----------------------------------------------------------------------
+  test('does not interfere with Ctrl+S save', () => {
+    const onSave = mock((_content: string) => {});
+    renderCodeEditor({ content: 'save me', onSave });
+
+    // setupMonacoLinks was registered
+    expect(setupMonacoLinksMock).toHaveBeenCalled();
+
+    // Ctrl+S command still works
+    expect(addCommandCaptured.length).toBe(1);
+    addCommandCaptured[0].handler();
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('save me');
   });
 });

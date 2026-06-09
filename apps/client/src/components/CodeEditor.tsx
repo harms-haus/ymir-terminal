@@ -1,4 +1,5 @@
 import '../lib/monaco-loader';
+import { setupMonacoLinks } from '../lib/monaco-links';
 import Editor from '@monaco-editor/react';
 import { useRef, useEffect } from 'react';
 
@@ -12,10 +13,18 @@ interface CodeEditorProps {
 
 export function CodeEditor({ content, language, readOnly, onChange, onSave }: CodeEditorProps) {
   const currentValueRef = useRef(content);
+  const linkSetupRef = useRef<{ dispose(): void } | null>(null);
 
   useEffect(() => {
     currentValueRef.current = content;
   }, [content]);
+
+  useEffect(
+    () => () => {
+      linkSetupRef.current?.dispose();
+    },
+    [],
+  );
 
   // onKeyDown fallback for test environments (fireEvent.keyDown on wrapper div).
   // In production, Monaco's editor.addCommand handles Ctrl+S internally.
@@ -51,6 +60,8 @@ export function CodeEditor({ content, language, readOnly, onChange, onSave }: Co
               onSave(currentValueRef.current),
             );
           }
+          linkSetupRef.current?.dispose();
+          linkSetupRef.current = setupMonacoLinks(monaco);
         }}
       />
     </div>

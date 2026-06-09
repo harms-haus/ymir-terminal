@@ -4,6 +4,7 @@ import { DiffEditor } from '@monaco-editor/react';
 import { DiffViewerHeader, type DiffViewMode } from './DiffViewerHeader';
 import { sendRequest } from '../lib/send-request';
 import { getLanguageFromPath } from '../lib/file-icons';
+import { setupMonacoLinks } from '../lib/monaco-links';
 import {
   COLOR_TEXT_DIM,
   COLOR_ERROR,
@@ -47,6 +48,7 @@ export function DiffViewer({
 
   const handleOpenEditor = useCallback(() => onOpenEditor(filePath), [onOpenEditor, filePath]);
   const generationRef = useRef(0);
+  const linkSetupRef = useRef<{ dispose(): void } | null>(null);
   const currentKey = commitSha
     ? `${workspaceId}:${repoPath}:${filePath}:${commitSha}`
     : `${workspaceId}:${repoPath}:${filePath}:${staged}`;
@@ -112,6 +114,13 @@ export function DiffViewer({
     };
   }, [workspaceId, repoPath, filePath, staged, commitSha, parentSha, fetchRetry]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(
+    () => () => {
+      linkSetupRef.current?.dispose();
+    },
+    [],
+  );
+
   const isCurrentKey = diffState?.key === currentKey;
   const isLoading = !isCurrentKey;
   const diffError = isCurrentKey ? diffState!.error : null;
@@ -121,6 +130,15 @@ export function DiffViewer({
   const deletions = isCurrentKey ? diffState!.deletions : 0;
 
   const langKey = useMemo(() => getLanguageFromPath(filePath), [filePath]);
+
+  const handleDiffMount = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (_editor: any, monaco: any) => {
+      linkSetupRef.current?.dispose();
+      linkSetupRef.current = setupMonacoLinks(monaco);
+    },
+    [],
+  );
 
   if (isLoading) {
     return (
@@ -197,6 +215,7 @@ export function DiffViewer({
           modifiedLanguage={langKey ?? undefined}
           theme="vs-dark"
           height="100%"
+          onMount={handleDiffMount}
           options={{
             readOnly: true,
             renderSideBySide: mode !== 'inline',

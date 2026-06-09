@@ -2,6 +2,7 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Terminal as GhosttyTerminal, FitAddon, init } from 'ghostty-web';
 import { useTerminal } from '../hooks/useTerminal';
 import { parseOsc7Cwd } from '../lib/osc-parser';
+import { initUrlOpener } from '../lib/url-opener';
 
 export interface TerminalProps {
   terminalId: string;
@@ -10,6 +11,12 @@ export interface TerminalProps {
   onTitleChange?: (title: string) => void;
   onCwdChange?: (cwd: string) => void;
 }
+
+// INTENTIONAL: App-lifetime singleton — window.open override persists for the
+// entire app session. Multiple Terminal instances share this override, so it
+// must NOT be cleaned up when a single Terminal unmounts. The override is a
+// no-op in browser mode (returns an empty cleanup function).
+let cleanupUrlOpener: (() => void) | null = null;
 
 export const Terminal = forwardRef(function Terminal(
   { terminalId, cols = 80, rows = 24, onTitleChange, onCwdChange }: TerminalProps,
@@ -41,6 +48,10 @@ export const Terminal = forwardRef(function Terminal(
       await init();
       await document.fonts?.ready;
       if (disposed) return;
+
+      if (!cleanupUrlOpener) {
+        cleanupUrlOpener = initUrlOpener();
+      }
 
       const term = new GhosttyTerminal({
         cols,

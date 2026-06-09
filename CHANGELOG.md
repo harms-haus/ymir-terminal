@@ -53,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared `CollapsibleSection` component (extracted from GitChangesSection)
 - 10 search color theme constants
 - 3 icon tab header for project sidebar (File Explorer, Source Control, Search)
+- Clickable URLs in editor, diff viewer, and terminal — Ctrl+click (Cmd+click on macOS) any URL to open it in the system browser
+- `lib/url-opener.ts` — shared utility for opening external URLs via Tauri opener plugin or `window.open`
+- `lib/monaco-links.ts` — shared Monaco link provider and opener registration for URL detection in editor content
+- `@tauri-apps/plugin-opener` npm package for native URL opening in Tauri desktop mode
+- `tauri-plugin-opener` Rust crate registered in Tauri builder
+- `opener:default` capability permission added for URL opening
+- `window.open` monkey-patch in Tauri mode routes ghostty-web terminal link clicks through native opener
 
 ### Changed
 
