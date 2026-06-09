@@ -1,3 +1,7 @@
+/// <reference lib="dom" />
+import { setupTestDom } from '../test-helpers/mock-setup';
+await setupTestDom();
+
 import { describe, test, expect, mock, afterEach, beforeEach } from 'bun:test';
 import {
   URL_SCHEME_REGEX,
