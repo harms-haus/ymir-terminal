@@ -405,9 +405,9 @@ describe('WorkspaceView', () => {
   test('terminal creation calls createTerminal with the active workspaceId', async () => {
     const { getAllByTestId } = renderWorkspaceView();
 
-    // Click the first add terminal button (ContentPane's TabBar) — ws-1 is active by default
-    const addButtons = getAllByTestId('tab-add');
-    fireEvent.click(addButtons[0]);
+    // Click the Terminal dropdown item in the TabBar + dropdown — ws-1 is active by default
+    const terminalItems = getAllByTestId('tab-add-terminal');
+    fireEvent.click(terminalItems[0]);
 
     // Flush async createTerminal
     await new Promise((r) => setTimeout(r, 0));
@@ -423,9 +423,9 @@ describe('WorkspaceView', () => {
   test('createTerminal is called with the correct workspaceId for each workspace', async () => {
     const { getAllByTestId, getByTestId } = renderWorkspaceView();
 
-    // ws-1 is active by default — add a terminal
-    const addButtons = getAllByTestId('tab-add');
-    fireEvent.click(addButtons[0]);
+    // ws-1 is active by default — add a terminal via the dropdown Terminal item
+    const terminalItems = getAllByTestId('tab-add-terminal');
+    fireEvent.click(terminalItems[0]);
     await new Promise((r) => setTimeout(r, 0));
 
     expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
@@ -434,8 +434,8 @@ describe('WorkspaceView', () => {
     fireEvent.click(getByTestId('workspace-item-ws-2'));
     await new Promise((r) => setTimeout(r, 0));
 
-    // Add a terminal in ws-2 (click the first add button again)
-    fireEvent.click(addButtons[0]);
+    // Add a terminal in ws-2 (click the Terminal dropdown item again)
+    fireEvent.click(terminalItems[0]);
     await new Promise((r) => setTimeout(r, 0));
 
     // createTerminal should now have been called with ws-2 as well
@@ -461,8 +461,8 @@ describe('WorkspaceView', () => {
     expect(getAllByTestId('tab-add').length).toBeGreaterThanOrEqual(1);
 
     // Create a terminal now — should use ws-2
-    const addButtons = getAllByTestId('tab-add');
-    fireEvent.click(addButtons[0]);
+    const terminalItems = getAllByTestId('tab-add-terminal');
+    fireEvent.click(terminalItems[0]);
     await new Promise((r) => setTimeout(r, 0));
     expect(mockCreateTerminal).toHaveBeenCalledWith('ws-2', undefined);
 
@@ -470,8 +470,8 @@ describe('WorkspaceView', () => {
     fireEvent.click(getByTestId('workspace-item-ws-1'));
     await new Promise((r) => setTimeout(r, 0));
 
-    const addButtonsAfter = getAllByTestId('tab-add');
-    fireEvent.click(addButtonsAfter[0]);
+    const terminalItemsAfter = getAllByTestId('tab-add-terminal');
+    fireEvent.click(terminalItemsAfter[0]);
     await new Promise((r) => setTimeout(r, 0));
     expect(mockCreateTerminal).toHaveBeenCalledWith('ws-1', undefined);
   });
