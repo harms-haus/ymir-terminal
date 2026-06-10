@@ -235,21 +235,23 @@ interface SplitLeafPaneProps {
 
 **Tab types and content rendering:**
 
-| Tab type     | Component    | Condition                                                                        |
-| ------------ | ------------ | -------------------------------------------------------------------------------- |
-| `editor`     | `EditorPane` | `activeTab.type === 'editor'` and `filePath` + `workspaceId`                     |
-| `diff`       | `DiffViewer` | `activeTab.type === 'diff'` and `filePath` + `diffRepoPath`                      |
-| `git-tree`   | `GitTreeTab` | `activeTab.type === 'git-tree'` and `repoPath`                                   |
-| _(terminal)_ | Portaled     | Terminal instances are portaled into `terminalContainerRef` by `TerminalManager` |
-| _(none)_     | Empty state  | "No tabs open" with "Open Terminal" button                                       |
+| Tab type     | Component    | Condition                                                                                 |
+| ------------ | ------------ | ----------------------------------------------------------------------------------------- |
+| `editor`     | `EditorPane` | `activeTab.type === 'editor'` and `filePath` + `workspaceId`                              |
+| `diff`       | `DiffViewer` | `activeTab.type === 'diff'` and `filePath` + `diffRepoPath`                               |
+| `git-tree`   | `GitTreeTab` | `activeTab.type === 'git-tree'` and `repoPath`                                            |
+| _(terminal)_ | Portaled     | Terminal instances are portaled into `terminalContainerRef` by `TerminalManager`          |
+| _(none)_     | Empty state  | Centered `YmirLogo` (33% width, max 150px). Tab creation via + button dropdown in TabBar. |
 
-**Focus indication:** The outer `div` renders a `1px solid var(--accent)` border when `focused` is `true`, and `transparent` when `false`. Focus is captured on `mousedown` via the `onFocus` callback.
+**Focus indication:** The outer `div` renders a `1px solid var(--accent-dim)` border when `focused` is `true`, and `transparent` when `false`. Focus is captured on `mousedown` via the `onFocus` callback.
 
 **Tab creation helpers:**
 
 - `handleAddEditor(filePath)` — opens an editor tab, or activates an existing one for the same file (deduplication).
 - `handleAddDiff(filePath, repoPath, staged)` — opens a diff tab, deduplicating by `(filePath, diffRef)`.
 - `handleAddCommitDiff(sha, parentSha, filePath, repoPath)` — opens a commit diff tab, deduplicating by `(filePath, commitSha)`.
+
+**Agent creation:** `SplitLeafPane` passes `onAddAgent={handleAddAgent}` to `TabBar`. The `handleAddAgent` function sends a `terminal.create` request with `command: 'pi'`, creates an agent tab, and registers the resulting terminal. This powers the + button dropdown in the `TabBar`, which offers both "Terminal" and "Agent" options.
 
 **Context menu integration:** The `TabBar` receives `onSplitRight`, `onSplitDown`, and `onClosePane` callbacks. These are pre-bound with the pane's `paneId` so the tab context menu can trigger split/close operations scoped to this pane.
 

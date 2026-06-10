@@ -60,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tauri-plugin-opener` Rust crate registered in Tauri builder
 - `opener:default` capability permission added for URL opening
 - `window.open` monkey-patch in Tauri mode routes ghostty-web terminal link clicks through native opener
+- TabBar `+` button dropdown with 'Terminal' and 'Agent' options when `onAddAgent` prop is provided
+- `YmirLogo` component now accepts an optional `style: React.CSSProperties` prop
 
 ### Changed
 
@@ -77,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RightSidebar header redesigned with 3 codicon icon tabs (was 2 toggle buttons)
 - GitChangesSection refactored to use shared CollapsibleSection
 - `Dialog` focus trap now respects `defaultPrevented` on Tab and Escape events, allowing nested controls (like comboboxes) to handle these keys themselves
+- Empty tab state now renders a centered `YmirLogo` (33% width, max 150px) instead of 'No tabs open' text and action buttons
+- `SplitLeafPane` now passes `onAddAgent` to `TabBar` for agent tab creation via the `+` dropdown
+- Agent creation moved from `PaneContent` `onOpenAgent` prop to `TabBar` `+` dropdown
 
 ### Refactoring
 
@@ -131,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - `getWsUrl()` function from useAuth (replaced by ConnectionUrlContext)
+- `PaneContent` `onOpenAgent` prop — agent creation is now via the TabBar `+` dropdown
 
 ### Dead Code Removal
 

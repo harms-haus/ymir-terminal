@@ -134,13 +134,12 @@ describe('ContentPane', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 5. Shows "No tabs open" when no active tab
+  // 5. Shows YmirLogo when no active tab
   // -----------------------------------------------------------------------
-  test('shows no tabs message when no active tab', () => {
+  test('shows YmirLogo when no active tab', () => {
     const { container } = renderContentPane();
 
-    const content = container.textContent;
-    expect(content).toContain('No tabs open');
+    expect(container.querySelector('[data-testid="ymir-logo"]')).toBeTruthy();
   });
 
   // -----------------------------------------------------------------------
@@ -676,8 +675,8 @@ describe('ContentPane', () => {
     mocks.activeTabId = null;
     rerender(React.createElement(ContentPane, { workspaceId: 'ws-2' }));
 
-    // Should show "No tabs open" — workspace ws-2 has no tabs
-    expect(container.textContent).toContain('No tabs open');
+    // Should show YmirLogo — workspace ws-2 has no tabs
+    expect(container.querySelector('[data-testid="ymir-logo"]')).toBeTruthy();
     expect(queryByTestId('tab-mock-tab-id')).toBeNull();
 
     // Switch back to ws-1 — simulate tabs being restored

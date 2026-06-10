@@ -2,9 +2,10 @@ import React from 'react';
 
 interface YmirLogoProps {
   size?: number;
+  style?: React.CSSProperties;
 }
 
-export function YmirLogo({ size = 120 }: YmirLogoProps) {
+export function YmirLogo({ size = 120, style }: YmirLogoProps) {
   return (
     <svg
       data-testid="ymir-logo"
@@ -12,6 +13,7 @@ export function YmirLogo({ size = 120 }: YmirLogoProps) {
       height={size}
       viewBox="0 0 264.80392 264.80399"
       xmlns="http://www.w3.org/2000/svg"
+      style={style}
     >
       <rect width="264.80392" height="264.80399" rx="52.960785" fill="#000000" />
       <path

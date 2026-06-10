@@ -45,4 +45,14 @@ describe('YmirLogo', () => {
     expect(svg.getAttribute('width')).toBe('64');
     expect(svg.getAttribute('height')).toBe('64');
   });
+
+  // -----------------------------------------------------------------------
+  // 4. Applies style prop to SVG element
+  // -----------------------------------------------------------------------
+  test('applies style prop to SVG element', () => {
+    const { getByTestId } = render(React.createElement(YmirLogo, { style: { maxWidth: '50%' } }));
+
+    const svg = getByTestId('ymir-logo');
+    expect(svg.style.maxWidth).toBe('50%');
+  });
 });

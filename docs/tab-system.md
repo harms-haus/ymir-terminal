@@ -49,13 +49,17 @@ The pulsing animation uses `pulse-subtle 1.8s ease-in-out infinite alternate`. T
 
 **Agent tab tooltip:** Agent tabs display a `'Coding Agent'` tooltip.
 
-### Open Agent Button
+### Agent Tab Creation via + Dropdown
 
-When a pane has no active tab, an **"Open Agent"** button is rendered at the bottom center of the empty pane state (below the "Open Terminal" button). Clicking it:
+Agent tabs are created through the **+ button** in the `TabBar`, which renders an `AppDropdownMenu` when `onAddAgent` is provided:
 
-1. Sends a `terminal.create` request with `command: 'pi'` to spawn an agent terminal.
-2. Creates an agent tab with `type: 'agent'` and `title: 'Agent'`.
-3. Registers the terminal with the terminal registry.
+1. **SplitLeafPane** passes `onAddAgent` to `TabBar`, causing the + button to render as an `AppDropdownMenu` with two options: **"Terminal"** and **"Agent"**.
+2. Clicking **"Agent"** triggers `handleAddAgent` in `SplitLeafPane`, which sends a `terminal.create` request with `command: 'pi'` and creates a tab with `type: 'agent'` and `title: 'Agent'`.
+3. Clicking **"Terminal"** creates a standard terminal tab as usual.
+
+When `onAddAgent` is **not** provided (e.g. `BottomPanel`), the + button remains a simple button that directly creates a terminal tab with no dropdown.
+
+The empty pane state (when no tabs are open) now displays only a centered `YmirLogo` — the previous "Open Terminal" and "Open Agent" action buttons have been removed.
 
 ### Agent Tab Lifecycle
 
@@ -207,13 +211,21 @@ interface UseTabDragDropParams {
 
 Each tab is a `SortableTab` (memoized) wired to `@dnd-kit/react`'s `useSortable` with a `group` identifier set to the pane's UUID. This group is used by the `DragDropProvider` in `WorkspaceView` to distinguish same-pane reorders from cross-pane transfers.
 
+**Relevant props:**
+
+| Prop             | Type                        | Description                                                                                                                                                  |
+| ---------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `onAddAgent`     | `(() => void) \| undefined` | When provided, the + button renders as an `AppDropdownMenu` with "Terminal" and "Agent" options. When absent, the + button is a simple terminal-only button. |
+| `canAddTerminal` | `boolean \| undefined`      | Gates whether the + button (and its dropdown menu items) are enabled.                                                                                        |
+
 **Features:**
 
+- **\+ button dropdown** — when `onAddAgent` is provided, the + button opens an `AppDropdownMenu` offering "Terminal" and "Agent" creation options. The "Agent" option calls `onAddAgent`; the "Terminal" option creates a standard terminal tab. Gated by `canAddTerminal`.
 - **Context menu** — right-click opens `TabContextMenu` (Close, Close Others, Close to the Right, Rename, Split Right, Split Down, Close Pane)
 - **Middle-click close** — `onAuxClick` with `button === 1` closes the tab
 - **Inline rename** — triggered from context menu; commits on Enter/blur, cancels on Escape
 - **Tooltips** — terminal tabs show `cwd`, editor tabs show `filePath`, diff tabs show `filePath (diff)`, git-tree tabs show `Git History — {repoPath}`, agent tabs show `Coding Agent`
-- **Active accent line** — 2px `var(--accent)` top border on the active tab
+- **Active accent line** — 2px `var(--accent-dim)` top border on the active tab
 - **Split actions** — `onSplitRight` and `onSplitDown` split the pane and optionally move the current tab to the new pane
 - **Close pane** — `onClosePane` / `canClosePane` allows closing the entire pane (disabled when it's the only pane)
 - **Agent status indicator** — `TabBar` accepts an optional `agentStatusMap` (`Map<string, AgentStatus>`) keyed by `terminalId`. Agent tabs render a colored dot before the tab title reflecting their status (see [Agent Tab Status Indicator](#agent-tab-status-indicator)).

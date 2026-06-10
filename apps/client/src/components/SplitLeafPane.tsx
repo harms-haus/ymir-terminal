@@ -5,7 +5,6 @@ import { PaneContent } from './PaneContent';
 import { TabBar } from './TabBar';
 import { useTerminalPanelHandle } from '../hooks/useTerminalPanel';
 import type { TerminalPanelHandle } from '../hooks/useTerminalPanel';
-import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
 import { pathBasename } from '../lib/path-utils';
 import { useAgentStatus } from '../hooks/useAgentStatus';
 import { sendRequest } from '../lib/send-request';
@@ -315,6 +314,7 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
           onClose={handleCloseTab}
           onAddTerminal={handleAddTerminal}
           canAddTerminal={!!workspaceId}
+          onAddAgent={handleAddAgent}
           variant="content"
           onCloseRight={handleCloseRight}
           onCloseOthers={handleCloseOthers}
@@ -334,40 +334,6 @@ export const SplitLeafPane = forwardRef<TerminalPanelHandle, SplitLeafPaneProps>
           onDirtyChange={handleDirtyChange}
           onOpenEditor={handleAddEditor}
           onOpenCommitDiff={handleAddCommitDiff}
-          onOpenAgent={handleAddAgent}
-          emptyState={
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                color: COLOR_TEXT_DIM,
-                background: COLOR_BG_PRIMARY,
-              }}
-            >
-              <span>No tabs open</span>
-              <button
-                onClick={handleAddTerminal}
-                disabled={!workspaceId}
-                style={{
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 4,
-                  padding: '6px 16px',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  opacity: workspaceId ? 1 : 0.5,
-                }}
-              >
-                Open Terminal
-              </button>
-            </div>
-          }
         />
       </div>
     );

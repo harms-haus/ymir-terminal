@@ -117,6 +117,8 @@ function renderTabBar(
     onCloseRight?: (tabId: string) => void;
     onCloseOthers?: (tabId: string) => void;
     onRename?: (tabId: string, newTitle: string) => void;
+    onAddAgent?: () => void;
+    canAddTerminal?: boolean;
   } = {},
 ) {
   const onActivate = overrides.onActivate ?? mock(() => {});
@@ -125,6 +127,7 @@ function renderTabBar(
   const onCloseRight = overrides.onCloseRight ?? mock(() => {});
   const onCloseOthers = overrides.onCloseOthers ?? mock(() => {});
   const onRename = overrides.onRename ?? mock(() => {});
+  const onAddAgent = overrides.onAddAgent ?? undefined;
 
   const result = render(
     React.createElement(TabBar, {
@@ -133,14 +136,25 @@ function renderTabBar(
       onActivate,
       onClose,
       onAddTerminal,
+      canAddTerminal: overrides.canAddTerminal,
       variant: overrides.variant,
       onCloseRight,
       onCloseOthers,
       onRename,
+      onAddAgent,
     }),
   );
 
-  return { onActivate, onClose, onAddTerminal, onCloseRight, onCloseOthers, onRename, ...result };
+  return {
+    onActivate,
+    onClose,
+    onAddTerminal,
+    onCloseRight,
+    onCloseOthers,
+    onRename,
+    onAddAgent,
+    ...result,
+  };
 }
 
 /**
@@ -632,5 +646,92 @@ describe('TabBar', () => {
     expect(input).toBeTruthy();
     // Input should be pre-filled with customTitle, not title
     expect(input.value).toBe('Custom Name');
+  });
+
+  // -----------------------------------------------------------------------
+  // 22. When onAddAgent is provided, + button renders AppDropdownMenu
+  // -----------------------------------------------------------------------
+  test('+ button renders dropdown menu when onAddAgent is provided', () => {
+    const { getByTestId } = renderTabBar({ onAddAgent: () => {} });
+
+    const addBtn = getByTestId('tab-add');
+    expect(addBtn).toBeTruthy();
+
+    // Click to open dropdown
+    fireEvent.click(addBtn);
+
+    // The dropdown content should appear
+    const menu = getByTestId('tab-add-menu');
+    expect(menu).toBeTruthy();
+
+    // Both menu items should be present
+    expect(getByTestId('tab-add-terminal')).toBeTruthy();
+    expect(getByTestId('tab-add-agent')).toBeTruthy();
+  });
+
+  // -----------------------------------------------------------------------
+  // 23. When onAddAgent is provided, clicking Terminal calls onAddTerminal
+  // -----------------------------------------------------------------------
+  test('dropdown Terminal item calls onAddTerminal', () => {
+    const onAddTerminal = mock(() => {});
+    const { getByTestId } = renderTabBar({ onAddTerminal, onAddAgent: () => {} });
+
+    fireEvent.click(getByTestId('tab-add'));
+
+    const terminalItem = getByTestId('tab-add-terminal');
+    fireEvent.click(terminalItem);
+
+    expect(onAddTerminal).toHaveBeenCalledTimes(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // 24. When onAddAgent is provided, clicking Agent calls onAddAgent
+  // -----------------------------------------------------------------------
+  test('dropdown Agent item calls onAddAgent', () => {
+    const onAddAgent = mock(() => {});
+    const { getByTestId } = renderTabBar({ onAddAgent });
+
+    fireEvent.click(getByTestId('tab-add'));
+
+    const agentItem = getByTestId('tab-add-agent');
+    fireEvent.click(agentItem);
+
+    expect(onAddAgent).toHaveBeenCalledTimes(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // 25. When onAddAgent is NOT provided, + button calls onAddTerminal directly
+  // -----------------------------------------------------------------------
+  test('+ button calls onAddTerminal directly when onAddAgent is not provided', () => {
+    const onAddTerminal = mock(() => {});
+    const { getByTestId } = renderTabBar({ onAddTerminal });
+
+    // Should NOT have the dropdown menu
+    fireEvent.click(getByTestId('tab-add'));
+
+    expect(onAddTerminal).toHaveBeenCalledTimes(1);
+    // No dropdown menu should exist
+    expect(() => getByTestId('tab-add-menu')).toThrow();
+  });
+
+  // -----------------------------------------------------------------------
+  // 26. When canAddTerminal is false, dropdown items are disabled
+  // -----------------------------------------------------------------------
+  test('dropdown items are disabled when canAddTerminal is false', () => {
+    const { getByTestId } = renderTabBar({
+      onAddAgent: () => {},
+      canAddTerminal: false,
+    });
+
+    const addBtn = getByTestId('tab-add') as HTMLButtonElement;
+    expect(addBtn.disabled).toBe(true);
+
+    fireEvent.click(addBtn);
+
+    // Menu items should be disabled (Radix renders disabled items with aria-disabled)
+    const terminalItem = getByTestId('tab-add-terminal');
+    const agentItem = getByTestId('tab-add-agent');
+    expect(terminalItem.getAttribute('aria-disabled')).toBe('true');
+    expect(agentItem.getAttribute('aria-disabled')).toBe('true');
   });
 });

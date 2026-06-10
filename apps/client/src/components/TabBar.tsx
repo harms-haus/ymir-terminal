@@ -4,11 +4,12 @@ import type { Tab } from '../hooks/useTabs';
 import {
   COLOR_BG_SECONDARY,
   COLOR_BORDER,
+  COLOR_DANGER,
   COLOR_TAB_ADD_TEXT,
   TITLE_BAR_HEIGHT,
 } from '../lib/theme';
 import { SortableTab } from './SortableTab';
-import { COLOR_DANGER } from '../lib/theme';
+import { AppDropdownMenu } from './AppDropdownMenu';
 import { useDroppable } from '@dnd-kit/react';
 
 interface TabBarProps {
@@ -29,6 +30,7 @@ interface TabBarProps {
   onClosePane?: () => void;
   canClosePane?: boolean;
   agentStatusMap?: Map<string, AgentStatus>;
+  onAddAgent?: () => void;
 }
 
 export function TabBar({
@@ -49,6 +51,7 @@ export function TabBar({
   onClosePane,
   canClosePane,
   agentStatusMap,
+  onAddAgent,
 }: TabBarProps) {
   // Inline rename state
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
@@ -193,6 +196,22 @@ export function TabBar({
     }
   }, []);
 
+  const addButtonStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    color: COLOR_TAB_ADD_TEXT,
+    cursor: canAddTerminal ? 'pointer' : 'not-allowed',
+    opacity: canAddTerminal ? undefined : 0.3,
+    fontSize: '18px',
+    lineHeight: `${TITLE_BAR_HEIGHT}px`,
+    padding: '0 10px',
+    height: `${TITLE_BAR_HEIGHT}px`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  };
+
   return (
     <div
       data-testid="tab-bar"
@@ -267,29 +286,46 @@ export function TabBar({
         ))}
       </div>
       {/* + button OUTSIDE the scroll container so it stays fixed at right edge */}
-      <button
-        data-testid="tab-add"
-        aria-label="Add tab"
-        disabled={!canAddTerminal}
-        onClick={onAddTerminal}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: COLOR_TAB_ADD_TEXT,
-          cursor: canAddTerminal ? 'pointer' : 'not-allowed',
-          opacity: canAddTerminal ? undefined : 0.3,
-          fontSize: '18px',
-          lineHeight: `${TITLE_BAR_HEIGHT}px`,
-          padding: '0 10px',
-          height: `${TITLE_BAR_HEIGHT}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        +
-      </button>
+      {onAddAgent ? (
+        <AppDropdownMenu
+          testId="tab-add-menu"
+          align="end"
+          side="bottom"
+          items={[
+            {
+              label: 'Terminal',
+              testId: 'tab-add-terminal',
+              action: onAddTerminal,
+              disabled: !canAddTerminal,
+            },
+            {
+              label: 'Agent',
+              testId: 'tab-add-agent',
+              action: onAddAgent,
+              disabled: !canAddTerminal,
+            },
+          ]}
+        >
+          <button
+            data-testid="tab-add"
+            aria-label="Add tab"
+            disabled={!canAddTerminal}
+            style={addButtonStyle}
+          >
+            +
+          </button>
+        </AppDropdownMenu>
+      ) : (
+        <button
+          data-testid="tab-add"
+          aria-label="Add tab"
+          disabled={!canAddTerminal}
+          onClick={onAddTerminal}
+          style={addButtonStyle}
+        >
+          +
+        </button>
+      )}
       {/* Manual context menu for empty-area right-click (no Radix, avoids nesting) */}
       {emptyMenuPos && (
         <div

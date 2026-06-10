@@ -2,7 +2,8 @@ import type { Tab } from '../hooks/useTabs';
 import { DiffViewer } from './DiffViewer';
 import { EditorPane } from './EditorPane';
 import { GitTreeTab } from './git-tree';
-import { COLOR_BG_PRIMARY, COLOR_TEXT_DIM } from '../lib/theme';
+import { YmirLogo } from './YmirLogo';
+import { COLOR_BG_PRIMARY } from '../lib/theme';
 
 export interface PaneContentProps {
   activeTab: Tab | undefined;
@@ -17,7 +18,6 @@ export interface PaneContentProps {
     filePath: string,
     repoPath: string,
   ) => void;
-  onOpenAgent?: () => void;
   emptyState?: React.ReactNode;
 }
 
@@ -26,14 +26,24 @@ const DEFAULT_EMPTY_STATE = (
     style={{
       position: 'absolute',
       inset: 0,
-      color: COLOR_TEXT_DIM,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       background: COLOR_BG_PRIMARY,
     }}
   >
-    No tabs open
+    <div
+      style={{
+        width: '33%',
+        maxWidth: '150px',
+        aspectRatio: '1',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <YmirLogo size={150} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+    </div>
   </div>
 );
 
@@ -45,7 +55,6 @@ export function PaneContent({
   onDirtyChange,
   onOpenEditor,
   onOpenCommitDiff,
-  onOpenAgent,
   emptyState,
 }: PaneContentProps) {
   return (
@@ -103,32 +112,7 @@ export function PaneContent({
           />
         </div>
       )}
-      {!activeTab && (
-        <>
-          {emptyState ?? DEFAULT_EMPTY_STATE}
-          {onOpenAgent && (
-            <button
-              onClick={onOpenAgent}
-              style={{
-                position: 'absolute',
-                bottom: 16,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'var(--accent)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 4,
-                padding: '6px 16px',
-                cursor: 'pointer',
-                fontSize: 13,
-                zIndex: 1,
-              }}
-            >
-              Open Agent
-            </button>
-          )}
-        </>
-      )}
+      {!activeTab && (emptyState ?? DEFAULT_EMPTY_STATE)}
     </div>
   );
 }
